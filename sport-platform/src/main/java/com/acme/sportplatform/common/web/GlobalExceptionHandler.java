@@ -35,6 +35,8 @@ public class GlobalExceptionHandler {
             BusinessException ex
     ) {
         HttpStatus status = switch (ex.getCode()) {
+            case "scheduling.published_units_exist", "scheduling.validation_failed", "scheduling.active_units_exist", "results.lane_conflict" -> HttpStatus.CONFLICT;
+            case "organizations.venue_not_found" -> HttpStatus.NOT_FOUND;
             case "events.session_in_use", "events.session_order_conflict", "competition.discipline_in_use", "competition.discipline_code_already_exists", "identity.profile_already_attached", "results.unit_in_progress" -> HttpStatus.CONFLICT;
             case "events.session_not_found", "results.unit_not_found", "identity.profile_not_found" -> HttpStatus.NOT_FOUND;
             case "identity.user_already_exists" ->

@@ -7,7 +7,7 @@ public record ApiErrorResponse(
         String code,
         String message,
         OffsetDateTime timestamp,
-        List<FieldViolation> violations
+        List<?> violations
 ) {
     public record FieldViolation(String field, String message) {}
 }

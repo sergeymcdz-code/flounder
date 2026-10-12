@@ -7,6 +7,8 @@ import java.util.UUID;
 
 public interface RegistrationLookup {
 
+    List<RegistrationLookupResult> findByDisciplineId(UUID eventDisciplineId);
+
     RegistrationLookupResult getById(UUID registrationId);
 
     Optional<RegistrationLookupResult> findById(UUID registrationId);

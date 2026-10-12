@@ -5,4 +5,6 @@ import java.util.UUID;
 public interface VenueLookup {
 
     boolean existsById(UUID venueId);
+
+    String getMetadata(UUID venueId);
 }

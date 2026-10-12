@@ -42,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class ResultsController {
 
+    private final com.acme.sportplatform.results.application.UpdateCompetitionUnitEntryUseCase updateEntry;
     private final CreateCompetitionUnitUseCase createCompetitionUnitUseCase;
     private final AssignRegistrationToUnitUseCase assignRegistrationToUnitUseCase;
     private final RecordResultUseCase recordResultUseCase;
@@ -61,6 +62,7 @@ public class ResultsController {
     private final jakarta.validation.Validator validator;
 
     public ResultsController(
+            com.acme.sportplatform.results.application.UpdateCompetitionUnitEntryUseCase updateEntry,
             CreateCompetitionUnitUseCase createCompetitionUnitUseCase,
             AssignRegistrationToUnitUseCase assignRegistrationToUnitUseCase,
             RecordResultUseCase recordResultUseCase,
@@ -77,6 +79,7 @@ public class ResultsController {
             com.acme.sportplatform.results.application.SwimResultsUseCase swim,
             com.fasterxml.jackson.databind.ObjectMapper json, jakarta.validation.Validator validator
     ) {
+        this.updateEntry = updateEntry;
         this.resultsAccessService = resultsAccessService;
         this.swim=swim;this.json=json;this.validator=validator;
         this.createCompetitionUnitUseCase = createCompetitionUnitUseCase;
@@ -357,6 +360,14 @@ public class ResultsController {
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         resultsAccessService.assertDisciplineAccess(id,principal);
         return swim.protocol(id,principal);
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/competition-unit-entries/{id}")
+    public ResponseEntity<Void> updateEntry(@PathVariable UUID id,
+            @Valid @RequestBody com.acme.sportplatform.results.api.UpdateCompetitionUnitEntryRequest request,
+            org.springframework.security.core.Authentication principal) {
+        updateEntry.execute(id, request.laneOrPosition(), principal);
+        return ResponseEntity.noContent().build();
     }
 
     private BusinessException publicResultsNotFound() {
