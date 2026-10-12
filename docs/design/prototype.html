@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flounder — прототип экранов демо</title>
+<meta name="description" content="Кликабельный HTML-прототип ключевых экранов демо Flounder: кабинет организатора, панель судьи, публичные страницы, печать.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ ТОКЕНЫ (основа — globals.css проекта) ============ */
+:root{
+  --color-page:#f4f7fb; --color-surface:#fff; --color-surface-muted:#f7fafc;
+  --color-text:#182337; --color-text-muted:#5c6980; --color-border:#dbe3ef; --color-border-strong:#b9c6d8;
+  --color-primary:#0b5b7b; --color-primary-hover:#084966; --color-primary-soft:#e5f4fa; --color-primary-ink:#083f56;
+  --color-danger:#b42318; --color-danger-soft:#fee4e2;
+  --color-success:#1b7f4b; --color-success-soft:#e3f5ea;
+  --color-warning:#8a5300; --color-warning-soft:#fff3d6;
+  --color-neutral:#5c6980; --color-neutral-soft:#eef1f6;
+  --color-lane-rope:#d9262f; /* красный маркер разделителя дорожек */
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px;
+  --shadow-card:0 12px 30px rgb(29 52 84 / .06);
+  --shadow-pop:0 20px 50px rgb(29 52 84 / .18);
+  --font:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --fs-12:12px;--fs-13:13px;--fs-14:14px;--fs-16:16px;--fs-18:18px;--fs-22:22px;--fs-28:28px;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
+  --focus:0 0 0 3px rgb(11 91 123 / .35);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{background:#dfe6ef}
+body{margin:0;font-family:var(--font);color:var(--color-text);background:#dfe6ef;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;font-synthesis:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--color-primary);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:3px solid rgb(11 91 123 / .35);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.muted{color:var(--color-text-muted)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ============ ПАНЕЛЬ ПРОТОТИПА ============ */
+.proto-bar{position:sticky;top:0;z-index:50;background:#182337;color:#fff;display:flex;align-items:center;gap:16px;padding:10px 20px;flex-wrap:wrap}
+.proto-bar .brand{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.proto-bar .brand span{opacity:.6;font-weight:400;font-size:13px}
+.proto-bar select{background:#243149;color:#fff;border:1px solid #3a4a68;border-radius:8px;padding:7px 10px;min-width:320px}
+.proto-bar .dev{display:flex;border:1px solid #3a4a68;border-radius:8px;overflow:hidden}
+.proto-bar .dev button{background:transparent;color:#cfd8e6;border:0;padding:7px 12px}
+.proto-bar .dev button[aria-pressed="true"]{background:#0b5b7b;color:#fff}
+.proto-bar .hint{font-size:12px;color:#9fb0c8;margin-left:auto}
+.proto-bar kbd{font-family:inherit;background:#243149;border-radius:4px;padding:1px 6px}
+.stage{padding:28px 24px 60px;display:flex;justify-content:center;align-items:flex-start}
+.frame{background:var(--color-page);box-shadow:0 30px 80px rgb(24 35 55 / .35);border-radius:14px;overflow:hidden;transform-origin:top center}
+.frame.laptop{width:1280px;min-height:820px;border:10px solid #2a3447;border-bottom-width:22px}
+.frame.phone{width:375px;min-height:760px;border:10px solid #2a3447;border-radius:36px;border-top-width:28px;border-bottom-width:28px;position:relative}
+.frame.phone::before{content:"";position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:110px;height:8px;border-radius:4px;background:#111826}
+.frame.print{width:794px;min-height:1123px;background:#fff;border-radius:0;box-shadow:0 10px 40px rgb(0 0 0 / .25)}
+.screen{display:none}
+.screen.active{display:block}
+.frame.phone .screen.active{display:flex;flex-direction:column;min-height:704px}
+
+/* ============ ОБЩИЕ КОМПОНЕНТЫ ============ */
+.topbar{display:flex;align-items:center;gap:20px;height:52px;padding:0 24px;background:var(--color-surface);border-bottom:1px solid var(--color-border)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--color-primary);letter-spacing:-.01em}
+.logo i{width:22px;height:22px;border-radius:6px;background:var(--color-primary);display:inline-block;position:relative}
+.logo i::after{content:"";position:absolute;left:4px;right:4px;top:9px;height:4px;border-radius:2px;background:#fff;opacity:.9}
+.topbar nav{display:flex;gap:4px}
+.topbar nav a{padding:6px 10px;border-radius:8px;color:var(--color-text-muted);font-weight:500}
+.topbar nav a.cur{background:var(--color-primary-soft);color:var(--color-primary-ink)}
+.topbar .user{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--color-text-muted)}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--color-primary-soft);color:var(--color-primary-ink);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.ev-head{padding:20px 24px 0;background:var(--color-surface);border-bottom:1px solid var(--color-border)}
+.crumbs{font-size:13px;color:var(--color-text-muted);margin-bottom:8px}
+.ev-head h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.015em;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ev-head .sub{color:var(--color-text-muted);margin:6px 0 14px;font-size:14px}
+.tabs{display:flex;gap:4px}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;font-weight:500;color:var(--color-text-muted);border-radius:6px 6px 0 0}
+.tabs button:hover{color:var(--color-text);background:var(--color-surface-muted)}
+.tabs button[aria-selected="true"]{color:var(--color-primary-ink);border-bottom-color:var(--color-primary);font-weight:600}
+.tabs .cnt{display:inline-block;margin-left:6px;background:var(--color-neutral-soft);color:var(--color-text-muted);border-radius:10px;padding:0 7px;font-size:12px;font-weight:600}
+.content{padding:20px 24px 40px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:16px 18px}
+.card h2,.card h3{margin:0 0 10px;font-size:15px;font-weight:600}
+.card-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.card-title h2{margin:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+
+/* кнопки */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--color-border-strong);background:var(--color-surface);font-weight:500;line-height:1.2;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--color-surface-muted);border-color:#9fb0c8}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+.btn.primary:hover{background:var(--color-primary-hover);border-color:var(--color-primary-hover)}
+.btn.success{background:var(--color-success);border-color:var(--color-success);color:#fff}
+.btn.danger{color:var(--color-danger);border-color:#f0b4ad}
+.btn.danger:hover{background:var(--color-danger-soft)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--color-primary-ink)}
+.btn.ghost:hover{background:var(--color-primary-soft)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.lg{padding:12px 20px;font-size:16px;font-weight:600}
+.btn.block{width:100%;justify-content:center}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn .ico{width:16px;height:16px;flex:none}
+.btn-group{display:inline-flex;gap:0}
+.btn-group .btn{border-radius:0}
+.btn-group .btn:first-child{border-radius:var(--radius-sm) 0 0 var(--radius-sm)}
+.btn-group .btn:last-child{border-radius:0 var(--radius-sm) var(--radius-sm) 0}
+.btn-group .btn+.btn{margin-left:-1px}
+
+/* статусы: цвет + текст + форма маркера */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 9px 2px 7px;border-radius:999px;font-size:12.5px;font-weight:600;line-height:1.5;white-space:nowrap}
+.badge::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.badge.draft{background:var(--color-neutral-soft);color:var(--color-neutral)}
+.badge.draft::before{border-radius:2px}
+.badge.info{background:var(--color-primary-soft);color:var(--color-primary-ink)}
+.badge.ok{background:var(--color-success-soft);color:var(--color-success)}
+.badge.warn{background:var(--color-warning-soft);color:var(--color-warning)}
+.badge.warn::before{border-radius:1px;transform:rotate(45deg);width:7px;height:7px}
+.badge.err{background:var(--color-danger-soft);color:var(--color-danger)}
+.badge.err::before{border-radius:1px}
+.badge.lg{font-size:14px;padding:4px 12px 4px 10px}
+
+/* формы */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:13px;font-weight:500;color:var(--color-text)}
+.field .help{font-size:12px;color:var(--color-text-muted)}
+.input,.select,textarea.input{width:100%;padding:8px 10px;border:1px solid var(--color-border-strong);border-radius:var(--radius-sm);background:#fff;min-height:38px}
+.input:hover,.select:hover{border-color:#8fa2bb}
+.input:focus,.select:focus{outline:none;border-color:var(--color-primary);box-shadow:var(--focus)}
+.input.invalid{border-color:var(--color-danger);background:#fffafa}
+.input.invalid:focus{box-shadow:0 0 0 3px rgb(180 35 24 / .25)}
+.err-text{color:var(--color-danger);font-size:12.5px;display:flex;gap:6px;align-items:flex-start}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%235c6980' stroke-width='1.8'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.check input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--color-primary);flex:none}
+.inline{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.search{position:relative}
+.search .input{padding-left:32px}
+.search::before{content:"";position:absolute;left:10px;top:11px;width:14px;height:14px;border:2px solid #8fa2bb;border-radius:50%;box-sizing:border-box}
+.search::after{content:"";position:absolute;left:21px;top:22px;width:6px;height:2px;background:#8fa2bb;transform:rotate(45deg)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--color-border-strong);background:#fff;border-radius:999px;padding:4px 11px;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--color-primary-soft);border-color:var(--color-primary);color:var(--color-primary-ink);font-weight:600}
+
+/* таблицы */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-weight:600;color:var(--color-text-muted);font-size:12.5px;padding:8px 10px;border-bottom:1px solid var(--color-border);background:var(--color-surface-muted);white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid #edf1f6;vertical-align:middle}
+.tbl tbody tr:nth-child(even) td{background:#f9fbfd}
+.tbl tbody tr:hover td{background:#eef5fa}
+.tbl .r{text-align:right}
+.tbl .c{text-align:center}
+.tbl .actions{white-space:nowrap}
+.tbl .actions .btn{margin-right:2px}
+.tbl tr.sel td{background:var(--color-primary-soft)}
+.tbl td.name{font-weight:500}
+.tbl .yr{color:var(--color-text-muted)}
+.card .tbl th:first-child,.card .tbl td:first-child{padding-left:0}
+.card .tbl th:last-child,.card .tbl td:last-child{padding-right:0}
+.pager{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--color-text-muted);padding-top:10px}
+
+/* дорожки — фирменный элемент: номер дорожки с меткой разделителя */
+.lane{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-variant-numeric:tabular-nums}
+.lane::before{content:"";width:18px;height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,var(--color-primary) 0 6px,#fff 6px 8px,var(--color-lane-rope) 8px 14px,#fff 14px 16px)}
+.lane.empty{color:var(--color-text-muted);font-weight:400}
+.lane.empty::before{opacity:.3}
+
+/* статистика на обзоре */
+.stat{display:flex;flex-direction:column;gap:2px;padding:14px 16px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md)}
+.stat b{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.stat span{font-size:13px;color:var(--color-text-muted)}
+.stat small{font-size:12px;color:var(--color-success);font-weight:500}
+
+/* модальное окно */
+.modal-bg{position:absolute;inset:0;background:rgb(24 35 55 / .45);display:none;align-items:flex-start;justify-content:center;padding-top:60px;z-index:20}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);width:640px;max-width:95%;box-shadow:var(--shadow-pop);padding:22px 24px}
+.modal h2{margin:0 0 4px;font-size:18px}
+.modal .steps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.drop{border:2px dashed var(--color-border-strong);border-radius:var(--radius-md);padding:18px;text-align:center;color:var(--color-text-muted);background:var(--color-surface-muted)}
+.drop b{display:block;color:var(--color-text);margin-bottom:2px}
+.report{display:flex;gap:18px;padding:12px 14px;background:var(--color-surface-muted);border-radius:var(--radius-sm);margin-bottom:10px}
+.report div{display:flex;flex-direction:column}
+.report b{font-size:20px}
+.report span{font-size:12px;color:var(--color-text-muted)}
+
+/* заплывы */
+.heat{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden}
+.heat header{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--color-border);background:var(--color-surface-muted)}
+.heat header b{font-size:15px}
+.heat header .time{font-weight:600;color:var(--color-primary-ink)}
+.heat header .badge{margin-left:auto}
+.heat .tbl th,.heat .tbl td{padding:6px 10px}
+.heat .tbl td:first-child{width:72px}
+.heat .tbl td.name,.heat .tbl td.r{white-space:nowrap}
+.heat .tbl select{padding:2px 22px 2px 6px;min-height:28px;font-size:13px;width:64px}
+.validator{position:sticky;top:12px}
+.validator ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.validator li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--radius-sm);font-size:13px;border:1px solid var(--color-border)}
+.validator li.w{background:var(--color-warning-soft);border-color:#f3dba6}
+.validator li.e{background:var(--color-danger-soft);border-color:#f0b4ad}
+.validator li .badge{flex:none}
+.validator .sum{display:flex;gap:10px;margin-bottom:12px}
+.disc-head{display:flex;align-items:baseline;gap:12px;margin:22px 0 10px}
+.disc-head h2{margin:0;font-size:17px}
+.disc-head .meta{color:var(--color-text-muted);font-size:13px}
+.heats-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* панель судьи */
+.judge-head{display:flex;align-items:center;gap:20px;padding:16px 24px;background:#fff;border-bottom:1px solid var(--color-border)}
+.judge-head .now{font-size:22px;font-weight:700;letter-spacing:-.015em}
+.judge-head .now small{display:block;font-size:14px;font-weight:400;color:var(--color-text-muted)}
+.judge-head .nav{margin-left:auto;display:flex;gap:8px}
+.entry{width:100%;border-collapse:collapse;font-size:16px}
+.entry th{text-align:left;font-weight:600;color:var(--color-text-muted);font-size:13px;padding:8px 12px;border-bottom:1px solid var(--color-border)}
+.entry td{padding:8px 12px;border-bottom:1px solid #edf1f6;vertical-align:middle}
+.entry tbody tr:nth-child(even) td{background:#f9fbfd}
+.entry .lane{font-size:18px}
+.entry .tin{width:140px;font-size:20px;font-weight:600;letter-spacing:.02em;padding:8px 12px;text-align:right;min-height:46px}
+.entry .tin::placeholder{color:#b9c6d8;font-weight:400;letter-spacing:.06em}
+.entry .tin:disabled{background:var(--color-neutral-soft);color:var(--color-text-muted)}
+.entry .st{display:inline-flex;gap:4px}
+.entry .st button{padding:6px 10px;border:1px solid var(--color-border-strong);background:#fff;border-radius:6px;font-weight:600;font-size:13px;min-width:48px;color:var(--color-text-muted)}
+.entry .st button:hover{border-color:#8fa2bb;color:var(--color-text)}
+.entry .st button[aria-pressed="true"]{background:var(--color-danger-soft);border-color:var(--color-danger);color:var(--color-danger)}
+.entry .place{font-size:20px;font-weight:700;width:56px;text-align:center}
+.entry .place.gold{color:#8a5300}
+.entry .err-text{margin-top:4px}
+.judge-foot{display:flex;gap:12px;align-items:center;padding:16px 24px;background:#fff;border-top:1px solid var(--color-border);position:sticky;bottom:0}
+.judge-foot .state{color:var(--color-text-muted);font-size:13px;margin-right:auto}
+kbd.key{font-family:inherit;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-size:12px;background:#fff}
+
+/* ПУБЛИЧНЫЕ (телефон) */
+.m-top{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--color-primary);color:#fff}
+.m-top .logo{color:#fff}
+.m-top .logo i{background:#fff}
+.m-top .logo i::after{background:var(--color-primary)}
+.m-top .t{font-weight:600;font-size:15px;line-height:1.2}
+.m-top .t small{display:block;font-weight:400;opacity:.8;font-size:12px}
+.m-top .back{width:32px;height:32px;border-radius:8px;border:0;background:rgb(255 255 255 / .15);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;flex:none}
+.m-body{flex:1;padding:16px;font-size:16px;overflow:auto}
+.m-nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--color-border);background:#fff;padding:6px 0 8px}
+.m-nav button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--color-text-muted);padding:4px 0;font-weight:500}
+.m-nav button i{width:22px;height:22px;border-radius:6px;border:2px solid currentColor;display:block;opacity:.7}
+.m-nav button i.dot::after{content:"";display:block;width:8px;height:8px;border-radius:50%;background:currentColor;margin:5px auto}
+.m-nav button[aria-current="page"]{color:var(--color-primary)}
+.m-nav button[aria-current="page"] i{opacity:1}
+.m-card{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:12px}
+.m-card h2{margin:0 0 8px;font-size:16px}
+.m-h1{font-size:22px;font-weight:700;letter-spacing:-.015em;margin:0 0 4px;line-height:1.2}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px}
+.kv dt{color:var(--color-text-muted)}
+.kv dd{margin:0;font-weight:500}
+.links{display:grid;gap:8px}
+.links a{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-weight:600;font-size:16px}
+.links a::after{content:"›";color:var(--color-text-muted);font-size:22px;line-height:1}
+.links a:hover{border-color:var(--color-primary);text-decoration:none}
+.links a .d{display:block;font-weight:400;font-size:13px;color:var(--color-text-muted)}
+.live-now{background:#fff;border:2px solid var(--color-primary);border-radius:var(--radius-lg);padding:18px 16px 16px;margin-bottom:14px;position:relative}
+.live-now .pulse{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:var(--color-danger);font-size:14px}
+.live-now .pulse::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--color-danger);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live-now .disc{font-size:19px;font-weight:600;margin:8px 0 2px;line-height:1.2}
+.live-now .heat-n{white-space:nowrap;font-size:48px;font-weight:800;letter-spacing:-.03em;line-height:1;margin:4px 0 6px}
+.live-now .heat-n small{font-size:22px;font-weight:600;color:var(--color-text-muted);letter-spacing:0}
+.live-now .grp{font-size:15px;color:var(--color-text-muted)}
+.live-lanes{margin-top:12px;border-top:1px solid var(--color-border);padding-top:8px;font-size:17px}
+.live-lanes div{display:flex;gap:12px;padding:6px 0;border-bottom:1px solid #edf1f6;align-items:center}
+.live-lanes .lane{width:52px}
+.live-lanes .nm{font-weight:600;flex:1}
+.live-lanes .cl{color:var(--color-text-muted);font-size:14px}
+.next{list-style:none;margin:0;padding:0}
+.next li{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #edf1f6;font-size:16px}
+.next li b{font-size:18px}
+.next li span{display:block;color:var(--color-text-muted);font-size:14px}
+.upd{font-size:13px;color:var(--color-text-muted);text-align:center;margin-top:8px}
+.found{margin-top:10px;background:var(--color-primary-soft);border-radius:var(--radius-md);padding:12px 14px}
+.found b{font-size:17px}
+.found table{width:100%;font-size:14px;border-collapse:collapse;margin-top:6px}
+.found td{padding:5px 0;border-top:1px solid rgb(11 91 123 / .15)}
+.sched li{display:grid;grid-template-columns:62px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #edf1f6;font-size:15px}
+.sched{list-style:none;margin:0;padding:0}
+.sched b{font-size:17px}
+.sched .d{color:var(--color-text-muted);font-size:13px}
+.sched li.done{opacity:.55}
+.sched li.cur{background:var(--color-primary-soft);margin:0 -16px;padding:10px 16px;border-radius:var(--radius-sm)}
+.sess-h{font-size:13px;font-weight:600;color:var(--color-text-muted);margin:16px 0 4px}
+.seg{display:flex;background:var(--color-neutral-soft);border-radius:10px;padding:3px;margin-bottom:14px}
+.seg button{flex:1;border:0;background:transparent;border-radius:8px;padding:8px;font-weight:600;color:var(--color-text-muted)}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--color-text);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
+.res{width:100%;border-collapse:collapse;font-size:15px}
+.res th{text-align:left;font-size:12.5px;color:var(--color-text-muted);padding:6px 4px;border-bottom:1px solid var(--color-border);font-weight:600}
+.res td{padding:8px 4px;border-bottom:1px solid #edf1f6}
+.res tbody tr:nth-child(even) td{background:#f9fbfd}
+.res .pl{font-weight:700;width:34px}
+.res .tm{text-align:right;font-weight:600}
+.res tr.me td{background:var(--color-primary-soft)}
+.m-form .field label{font-size:15px}
+.m-form .input,.m-form .select{min-height:46px;font-size:16px}
+.m-form .inline{grid-template-columns:1fr 1fr}
+.disc-pick{border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px}
+.disc-pick .opt{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;padding:12px 14px;border-top:1px solid var(--color-border);align-items:center}
+.disc-pick .opt:first-child{border-top:0}
+.disc-pick .opt input[type=checkbox]{width:20px;height:20px;accent-color:var(--color-primary)}
+.disc-pick .opt .t{font-weight:600}
+.disc-pick .opt .t small{display:block;font-weight:400;color:var(--color-text-muted);font-size:13px}
+.disc-pick .opt.on{background:var(--color-primary-soft)}
+.disc-pick .opt .seed{grid-column:2;display:flex;align-items:center;gap:8px}
+.disc-pick .opt .seed .input{width:130px;min-height:42px;text-align:right;font-weight:600}
+.disc-pick .opt.off{opacity:.5}
+.m-foot{padding:12px 16px;background:#fff;border-top:1px solid var(--color-border)}
+.login-note{background:var(--color-warning-soft);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;margin-bottom:14px}
+
+/* ПЕЧАТЬ */
+.sheet{padding:15mm;font-size:10.5pt;color:#000;background:#fff;font-family:var(--font)}
+.sheet .ph{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:4mm;margin-bottom:5mm}
+.sheet .ph h1{margin:0;font-size:14pt}
+.sheet .ph p{margin:2px 0 0;font-size:9.5pt}
+.sheet .ph .r{text-align:right;font-size:9.5pt}
+.sheet h2{font-size:12pt;margin:6mm 0 2mm;padding-bottom:1mm;border-bottom:1px solid #000}
+.sheet .hx{page-break-inside:avoid;break-inside:avoid;margin-bottom:4mm}
+.sheet .hx h3{font-size:10.5pt;margin:3mm 0 1mm;font-weight:700}
+.sheet table{width:100%;border-collapse:collapse}
+.sheet th,.sheet td{border:1px solid #000;padding:2px 5px;text-align:left;font-size:10pt}
+.sheet th{background:#eee;font-weight:600}
+.sheet tbody tr:nth-child(even) td{background:#f6f6f6}
+.sheet td.n{text-align:center;width:14mm;font-weight:700}
+.sheet td.t{text-align:right;width:26mm}
+.sheet .pf{margin-top:8mm;font-size:9pt;display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:2mm}
+
+/* раздел токенов */
+.tokens{max-width:960px;margin:40px auto 80px;background:#fff;border-radius:var(--radius-lg);padding:32px 40px;box-shadow:var(--shadow-card)}
+.tokens h2{margin:0 0 6px;font-size:24px;letter-spacing:-.015em}
+.tokens h3{font-size:16px;margin:28px 0 8px;padding-top:16px;border-top:1px solid var(--color-border)}
+.tokens p,.tokens li{font-size:14px;line-height:1.55}
+.sw{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0}
+.sw div{border:1px solid var(--color-border);border-radius:8px;overflow:hidden;font-size:12px}
+.sw i{display:block;height:36px}
+.sw span{display:block;padding:6px 8px}
+.sw code{color:var(--color-text-muted)}
+.tokens pre{background:var(--color-surface-muted);border:1px solid var(--color-border);border-radius:8px;padding:12px 14px;font-size:12.5px;overflow:auto;line-height:1.5}
+.tokens table{border-collapse:collapse;width:100%;font-size:13.5px}
+.tokens td,.tokens th{border-bottom:1px solid var(--color-border);padding:6px 8px;text-align:left;vertical-align:top}
+.tokens th{color:var(--color-text-muted);font-weight:600;font-size:12.5px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+@media print{
+  @page{size:A4 portrait;margin:15mm}
+  html,body{background:#fff}
+  .proto-bar,.tokens,.stage>.frame:not(.print){display:none!important}
+  .stage{padding:0;display:block}
+  .frame.print{width:auto;min-height:0;box-shadow:none;border:0;transform:none!important}
+  .sheet{padding:0}
+  .sheet .ph{position:running(hdr)}
+  .screen:not(#s12){display:none!important}
+  #s12{display:block!important}
+  .no-print{display:none!important}
+  .sheet .hx{page-break-inside:avoid}
+  .sheet thead{display:table-header-group}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ ПАНЕЛЬ ПРОТОТИПА ============ -->
+<div class="proto-bar">
+  <div class="brand">Flounder <span>прототип демо · v1 · 12.10.2026</span></div>
+  <label class="sr" for="screenSel">Экран</label>
+  <select id="screenSel">
+    <optgroup label="Организатор (ноутбук)">
+      <option value="s1">1. Событие — Обзор</option>
+      <option value="s2">2. Сессии и виды программы</option>
+      <option value="s3">3. Заявки + импорт Excel</option>
+      <option value="s4">4. Заплывы и валидатор</option>
+      <option value="s5">5. Результаты (список заплывов)</option>
+    </optgroup>
+    <optgroup label="Судья / секретарь (ноутбук)">
+      <option value="s6">6. Ввод результатов заплыва</option>
+    </optgroup>
+    <optgroup label="Публичные (телефон)">
+      <option value="s7">7. Карточка соревнования</option>
+      <option value="s8">8. Live-табло</option>
+      <option value="s9">9. Расписание</option>
+      <option value="s10">10. Результаты</option>
+      <option value="s11">11. Форма заявки</option>
+    </optgroup>
+    <optgroup label="Печать">
+      <option value="s12">12. Стартовый протокол A4</option>
+    </optgroup>
+  </select>
+  <div class="dev" role="group" aria-label="Устройство">
+    <button type="button" data-dev="laptop" aria-pressed="true">Ноутбук 1280</button>
+    <button type="button" data-dev="phone" aria-pressed="false">Телефон 375</button>
+    <button type="button" data-dev="print" aria-pressed="false">Лист A4</button>
+  </div>
+  <div class="hint">Листать экраны: <kbd>←</kbd> <kbd>→</kbd> · Печать экрана 12: <kbd>Ctrl/⌘+P</kbd></div>
+</div>
+
+<div class="stage"><div class="frame laptop" id="frame">
+
+<!-- ============ 1. ОБЗОР ============ -->
+<section class="screen" id="s1" data-dev="laptop">
+  <div class="org-head" data-tab="1"></div>
+  <div class="content">
+    <div class="row spread" style="margin-bottom:18px">
+      <div class="row">
+        <span class="badge info lg">Опубликовано</span>
+        <span class="badge ok lg">Регистрация открыта до 13.10, 23:59</span>
+      </div>
+      <div class="row">
+        <button class="btn">Закрыть регистрацию</button>
+        <button class="btn">Изменить событие</button>
+        <button class="btn primary">Опубликовать стартовый протокол</button>
+      </div>
+    </div>
+    <div class="grid3" style="grid-template-columns:repeat(5,1fr);margin-bottom:18px">
+      <div class="stat"><b>200</b><span>заявок</span><small>+12 за сегодня</small></div>
+      <div class="stat"><b>187</b><span>подтверждено</span><small>13 ждут проверки</small></div>
+      <div class="stat"><b>164</b><span>спортсменов · 8 клубов</span></div>
+      <div class="stat"><b>4</b><span>вида программы · 2 сессии</span></div>
+      <div class="stat"><b>31</b><span>заплыв сформирован</span><small>черновик, не опубликован</small></div>
+    </div>
+    <div class="cols">
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title"><h2>Что дальше</h2><span class="muted" style="font-size:13px">Чек-лист подготовки</span></div>
+          <table class="tbl">
+            <tbody>
+              <tr><td style="width:28px"><span class="badge ok" title="готово"></span></td><td>Площадка и сессии заданы</td><td class="muted">Бассейн «Орбита», 25 м, 8 дорожек · 2 сессии 15.10</td><td class="r"><a href="#" data-go="s2">Открыть</a></td></tr>
+              <tr><td><span class="badge ok"></span></td><td>Виды программы</td><td class="muted">4 вида, группы 2010–2015</td><td class="r"><a href="#" data-go="s2">Открыть</a></td></tr>
+              <tr><td><span class="badge warn"></span></td><td>Заявки</td><td class="muted">13 заявок ждут проверки, 5 без оплаты</td><td class="r"><a href="#" data-go="s3">Проверить</a></td></tr>
+              <tr><td><span class="badge draft"></span></td><td>Стартовый протокол</td><td class="muted">Сформирован 12.10 14:20, 0 ошибок, 2 предупреждения. Не опубликован</td><td class="r"><a href="#" data-go="s4">Открыть</a></td></tr>
+              <tr><td><span class="badge draft"></span></td><td>Результаты</td><td class="muted">Появятся после старта первого заплыва</td><td class="r"><a href="#" data-go="s5">Открыть</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title"><h2>Сессии</h2><button class="btn sm" data-go="s2">Изменить</button></div>
+          <table class="tbl">
+            <thead><tr><th>Сессия</th><th>Дата и старт</th><th>Виды</th><th class="r">Заплывов</th><th class="r">Окончание (расчёт)</th></tr></thead>
+            <tbody>
+              <tr><td class="name">Сессия 1 (утро)</td><td class="num">15.10.2026, 10:00</td><td>№1 50 м в/с юноши · №2 50 м в/с девушки</td><td class="r num">14</td><td class="r num">10:23</td></tr>
+              <tr><td class="name">Сессия 2 (день)</td><td class="num">15.10.2026, 15:00</td><td>№3 100 м в/с юноши · №4 100 м в/с девушки</td><td class="r num">17</td><td class="r num">15:46</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <h2>Публичная страница</h2>
+          <div class="field"><label for="pub">Ссылка для участников и зрителей</label>
+            <div class="row" style="gap:6px;flex-wrap:nowrap"><input id="pub" class="input num" readonly value="flounder.kz/e/samara-open-2026"><button class="btn">Копировать</button></div>
+          </div>
+          <div class="row" style="align-items:flex-start;gap:16px">
+            <div aria-label="QR-код (заглушка)" style="width:132px;height:132px;flex:none;border:1px solid var(--color-border);border-radius:8px;padding:8px;background:#fff">
+              <svg viewBox="0 0 21 21" width="114" height="114" shape-rendering="crispEdges" fill="#182337">
+                <path d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM14 0h7v7h-7zM15 1v5h5V1zM16 2h3v3h-3zM0 14h7v7H0zM1 15v5h5v-5zM2 16h3v3H2z"/>
+                <path d="M8 0h1v2H8zM10 0h2v1h-2zM9 2h2v1H9zM12 1h1v3h-1zM8 3h1v1H8zM10 4h3v1h-3zM8 5h2v1H8zM11 6h1v1h-1zM0 8h1v1H0zM2 8h3v1H2zM6 8h2v1H6zM9 8h1v2H9zM11 8h2v1h-2zM14 8h1v1h-1zM16 8h2v1h-2zM19 8h2v1h-2zM1 10h2v1H1zM4 10h1v1H4zM6 10h1v1H6zM10 10h3v1h-3zM15 10h1v2h-1zM18 10h2v1h-2zM0 12h2v1H0zM3 12h2v1H3zM7 12h3v1H7zM12 12h2v1h-2zM17 12h1v1h-1zM19 12h2v1h-2zM8 14h1v2H8zM10 14h2v1h-2zM13 14h2v1h-2zM16 14h1v2h-1zM18 14h3v1h-3zM9 16h2v1H9zM12 16h1v2h-1zM14 16h1v1h-1zM17 16h2v1h-2zM20 16h1v2h-1zM8 18h1v1H8zM10 18h2v1h-2zM13 18h2v1h-2zM16 18h3v1h-3zM9 20h3v1H9zM13 20h1v1h-1zM15 20h2v1h-2zM19 20h1v1h-1z"/>
+              </svg>
+            </div>
+            <div style="font-size:13px;color:var(--color-text-muted);line-height:1.5">QR ведёт на карточку соревнования. Распечатайте его для стенда у бассейна: с него открываются стартовый протокол, расписание и live-табло.<br><a href="#">Скачать QR (PNG)</a></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Площадка</h2>
+          <dl class="kv" style="font-size:14px">
+            <dt>Бассейн</dt><dd>«Орбита», Самара</dd>
+            <dt>Длина</dt><dd>25 м</dd>
+            <dt>Дорожек</dt><dd>8</dd>
+            <dt>Мин. в заплыве</dt><dd>3</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. СЕССИИ И ВИДЫ ============ -->
+<section class="screen" id="s2" data-dev="laptop">
+  <div class="org-head" data-tab="2"></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-title"><h2>Сессии</h2><button class="btn sm">Добавить сессию</button></div>
+      <table class="tbl">
+        <thead><tr><th style="width:40px">№</th><th>Название</th><th>Дата и время старта</th><th>Пауза между видами</th><th class="r">Видов</th><th class="r">Действия</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td class="name">Сессия 1 (утро)</td><td class="num">15.10.2026 10:00</td><td class="num">60 с</td><td class="r num">2</td><td class="r actions"><button class="btn sm ghost">Изменить</button><button class="btn sm ghost danger">Удалить</button></td></tr>
+          <tr><td class="num">2</td><td class="name">Сессия 2 (день)</td><td class="num">15.10.2026 15:00</td><td class="num">60 с</td><td class="r num">2</td><td class="r actions"><button class="btn sm ghost">Изменить</button><button class="btn sm ghost danger">Удалить</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="card">
+        <div class="card-title"><h2>Виды программы</h2><span class="muted" style="font-size:13px">Порядок = порядок в сессии. Перетаскивание не нужно: правится полем «Порядок»</span></div>
+        <table class="tbl">
+          <thead><tr><th style="width:40px">№</th><th>Код</th><th>Название</th><th>Группы</th><th>Посев</th><th>Сессия</th><th class="r">Заявок</th><th class="r">Действия</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td class="num">M-50-FREE</td><td class="name">50 м вольный стиль, юноши</td><td class="muted">2014–15 · 2012–13 · 2010–11</td><td>по группам</td><td>1 / 1</td><td class="r num">50</td><td class="r actions"><button class="btn sm ghost">Изменить</button><button class="btn sm ghost danger" disabled title="Есть заявки — удалить нельзя">Удалить</button></td></tr>
+            <tr class="sel"><td class="num">2</td><td class="num">F-50-FREE</td><td class="name">50 м вольный стиль, девушки</td><td class="muted">2014–15 · 2012–13 · 2010–11</td><td>по группам</td><td>1 / 2</td><td class="r num">50</td><td class="r actions"><button class="btn sm ghost">Изменить</button><button class="btn sm ghost danger" disabled>Удалить</button></td></tr>
+            <tr><td class="num">3</td><td class="num">M-100-FREE</td><td class="name">100 м вольный стиль, юноши</td><td class="muted">2014–15 · 2012–13 · 2010–11</td><td>по группам</td><td>2 / 1</td><td class="r num">53</td><td class="r actions"><button class="btn sm ghost">Изменить</button><button class="btn sm ghost danger" disabled>Удалить</button></td></tr>
+            <tr><td class="num">4</td><td class="num">F-100-FREE</td><td class="name">100 м вольный стиль, девушки</td><td class="muted">2014–15 · 2012–13 · 2010–11</td><td>по группам</td><td>2 / 2</td><td class="r num">47</td><td class="r actions"><button class="btn sm ghost">Изменить</button><button class="btn sm ghost danger" disabled>Удалить</button></td></tr>
+          </tbody>
+        </table>
+        <div class="pager"><button class="btn sm">Добавить вид</button><span>Коды формируются автоматически: пол-дистанция-стиль</span></div>
+      </div>
+      <div class="card" style="position:sticky;top:12px">
+        <div class="card-title"><h2>Вид №2 — изменение</h2><button class="btn sm ghost">Закрыть</button></div>
+        <div class="inline">
+          <div class="field"><label for="dist">Дистанция</label><select id="dist" class="select"><option>25 м</option><option selected>50 м</option><option>100 м</option><option>200 м</option><option>400 м</option></select></div>
+          <div class="field"><label for="stroke">Стиль</label><select id="stroke" class="select"><option selected>Вольный стиль</option><option>На спине</option><option>Брасс</option><option>Баттерфляй</option><option>Комплекс</option></select></div>
+        </div>
+        <div class="field"><label>Пол</label>
+          <div class="chips" role="radiogroup"><button class="chip" aria-pressed="false">Юноши</button><button class="chip" aria-pressed="true">Девушки</button><button class="chip" aria-pressed="false">Смешанный</button></div>
+        </div>
+        <div class="field"><label for="dname">Название</label><input id="dname" class="input" value="50 м вольный стиль, девушки"><span class="help">Собирается автоматически, можно переписать</span></div>
+        <div class="field"><label>Возрастные группы</label>
+          <div class="row" style="gap:6px;margin-bottom:8px"><select class="select" style="width:auto;min-height:34px;padding:5px 28px 5px 10px"><option>Пресет: детские по 2 года (2010–2015)</option><option>Пресет: 1 год (2008–2015)</option><option>Пресет: без ограничений</option></select><button class="btn sm">Применить</button><button class="btn sm ghost">+ вручную</button></div>
+          <table class="tbl" style="font-size:13px">
+            <thead><tr><th>Код</th><th>Название</th><th>С года</th><th>По год</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="num">F-2014-2015</td><td>Девушки 2014–2015</td><td class="num">2014</td><td class="num">2015</td><td class="r"><button class="btn sm ghost danger">×</button></td></tr>
+              <tr><td class="num">F-2012-2013</td><td>Девушки 2012–2013</td><td class="num">2012</td><td class="num">2013</td><td class="r"><button class="btn sm ghost danger">×</button></td></tr>
+              <tr><td class="num">F-2010-2011</td><td>Девушки 2010–2011</td><td class="num">2010</td><td class="num">2011</td><td class="r"><button class="btn sm ghost danger">×</button></td></tr>
+            </tbody>
+          </table>
+          <span class="help">Год «с» — старший (меньшее число), «по» — младший. Спортсмен 2016 г.р. в эти группы не попадёт и получит ошибку допуска.</span>
+        </div>
+        <div class="inline">
+          <div class="field"><label for="seedm">Режим посева</label><select id="seedm" class="select"><option selected>По возрастным группам</option><option>Все вместе по времени</option></select></div>
+          <div class="field"><label for="hd">Длительность заплыва</label><input id="hd" class="input num" placeholder="90 с (по таблице)"></div>
+        </div>
+        <div class="inline">
+          <div class="field"><label for="sess">Сессия</label><select id="sess" class="select"><option selected>Сессия 1 (утро)</option><option>Сессия 2 (день)</option></select></div>
+          <div class="field"><label for="ord">Порядок в сессии</label><input id="ord" class="input num" value="2"></div>
+        </div>
+        <div class="row" style="justify-content:flex-end;margin-top:6px"><button class="btn">Отмена</button><button class="btn primary">Сохранить вид</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. ЗАЯВКИ ============ -->
+<section class="screen" id="s3" data-dev="laptop" style="position:relative">
+  <div class="org-head" data-tab="3"></div>
+  <div class="content">
+    <div class="row spread" style="margin-bottom:14px">
+      <div class="row">
+        <div class="search" style="width:260px"><input class="input" placeholder="Фамилия, клуб…" aria-label="Поиск по заявкам"></div>
+        <select class="select" style="width:190px" aria-label="Статус"><option>Все статусы</option><option>Ждут проверки (13)</option><option>Подтверждено (187)</option><option>На исправлении (2)</option><option>Снято (3)</option></select>
+        <select class="select" style="width:220px" aria-label="Вид"><option>Все виды</option><option>№1 50 м в/с юноши</option><option>№2 50 м в/с девушки</option><option>№3 100 м в/с юноши</option><option>№4 100 м в/с девушки</option></select>
+        <select class="select" style="width:150px" aria-label="Оплата"><option>Оплата: все</option><option>Не оплачено (5)</option><option>Оплачено</option></select>
+      </div>
+      <div class="row">
+        <button class="btn">Скачать шаблон Excel</button>
+        <button class="btn primary" id="openImport">Импорт из Excel</button>
+        <button class="btn">Добавить заявку</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><h2>205 заявок <span class="muted" style="font-weight:400">· показаны 1–12</span></h2>
+        <div class="row" style="gap:6px"><span class="muted" style="font-size:13px">Выбрано 2:</span><button class="btn sm">Подтвердить</button><button class="btn sm">Отметить оплату</button><button class="btn sm danger">Снять</button></div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:28px"><input type="checkbox" aria-label="Выбрать все"></th><th>Спортсмен</th><th>Год</th><th>Клуб</th><th>Вид</th><th class="r">Заявочное время</th><th>Источник</th><th>Статус</th><th>Оплата</th><th class="r">Действия</th></tr></thead>
+        <tbody>
+          <tr class="sel"><td><input type="checkbox" checked aria-label="Выбрать"></td><td class="name">Ковалёва Ульяна</td><td class="yr num">2014</td><td>Волна</td><td>№2 50 м в/с Д</td><td class="r num">00:46.25</td><td class="muted">Импорт</td><td><span class="badge warn">Ждёт проверки</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm">Подтвердить</button><button class="btn sm ghost">На исправление</button><button class="btn sm ghost danger">Отклонить</button></td></tr>
+          <tr class="sel"><td><input type="checkbox" checked aria-label="Выбрать"></td><td class="name">Ковалёва Ульяна</td><td class="yr num">2014</td><td>Волна</td><td>№4 100 м в/с Д</td><td class="r num">01:44.10</td><td class="muted">Импорт</td><td><span class="badge warn">Ждёт проверки</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm">Подтвердить</button><button class="btn sm ghost">На исправление</button><button class="btn sm ghost danger">Отклонить</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Орлова Виктория</td><td class="yr num">2015</td><td>Волна</td><td>№2 50 м в/с Д</td><td class="r num">00:46.31</td><td class="muted">Импорт</td><td><span class="badge ok">Подтверждена</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm ghost">Снять</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Андреева Вероника</td><td class="yr num">2010</td><td>Нептун</td><td>№2 50 м в/с Д</td><td class="r num">00:32.04</td><td class="muted">Форма</td><td><span class="badge ok">Подтверждена</span></td><td><span class="badge err">Не оплачено</span></td><td class="r actions"><button class="btn sm">Отметить оплату</button><button class="btn sm ghost">Снять</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Смирнов Иван</td><td class="yr num">2014</td><td>Акватика</td><td>№1 50 м в/с Ю</td><td class="r num">00:42.31</td><td class="muted">Импорт</td><td><span class="badge ok">Подтверждена</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm ghost">Снять</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Кузнецова Кира</td><td class="yr num">2015</td><td>Дельфин</td><td>№2 50 м в/с Д</td><td class="r muted">NT</td><td class="muted">Форма</td><td><span class="badge draft">На исправлении</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm">Подтвердить</button><button class="btn sm ghost danger">Отклонить</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Егоров Александр</td><td class="yr num">2010</td><td>Старт</td><td>№1 50 м в/с Ю</td><td class="r num">00:33.32</td><td class="muted">Импорт</td><td><span class="badge ok">Подтверждена</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm ghost">Снять</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Кузьмин Григорий</td><td class="yr num">2010</td><td>СШОР №1</td><td>№3 100 м в/с Ю</td><td class="r num">01:11.61</td><td class="muted">Импорт</td><td><span class="badge ok">Подтверждена</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm ghost">Снять</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Осипова Ева</td><td class="yr num">2012</td><td>Чайка</td><td>№2 50 м в/с Д</td><td class="r num">00:39.60</td><td class="muted">Форма</td><td><span class="badge ok">Подтверждена</span></td><td><span class="badge ok">Оплачено</span></td><td class="r actions"><button class="btn sm ghost">Снять</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Лазарев Даниил</td><td class="yr num">2014</td><td>Дельфин</td><td>№1 50 м в/с Ю</td><td class="r num">00:46.43</td><td class="muted">Импорт</td><td><span class="badge draft">Снята</span></td><td class="muted">—</td><td class="r actions"><button class="btn sm ghost">Вернуть</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Герасимова Екатерина</td><td class="yr num">2015</td><td>Акватика</td><td>№2 50 м в/с Д</td><td class="r num">00:49.41</td><td class="muted">Импорт</td><td><span class="badge warn">Ждёт проверки</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm">Подтвердить</button><button class="btn sm ghost">На исправление</button><button class="btn sm ghost danger">Отклонить</button></td></tr>
+          <tr><td><input type="checkbox" aria-label="Выбрать"></td><td class="name">Комаров Алексей</td><td class="yr num">2010</td><td>Чайка</td><td>№3 100 м в/с Ю</td><td class="r num">01:12.68</td><td class="muted">Импорт</td><td><span class="badge ok">Подтверждена</span></td><td class="muted">не требуется</td><td class="r actions"><button class="btn sm ghost">Снять</button></td></tr>
+        </tbody>
+      </table>
+      <div class="pager"><button class="btn sm" disabled>Назад</button><button class="btn sm">Дальше</button><span>Страница 1 из 18 · по 12 строк</span></div>
+    </div>
+  </div>
+
+  <!-- модальное окно импорта -->
+  <div class="modal-bg" id="importModal" role="dialog" aria-modal="true" aria-labelledby="impT">
+    <div class="modal">
+      <div class="row spread"><h2 id="impT">Импорт заявок из Excel</h2><button class="btn sm ghost" id="closeImport" aria-label="Закрыть">✕</button></div>
+      <p class="muted" style="margin:0 0 4px;font-size:13px">Одна строка — одна заявка. Повторный импорт того же файла дубли не создаёт: спортсмен узнаётся по фамилии, имени, дате рождения и полу.</p>
+      <div class="steps">
+        <div class="card" style="padding:14px"><h3 style="margin-bottom:6px">1. Шаблон</h3><p class="muted" style="margin:0 0 10px;font-size:13px">8 колонок, заголовки менять нельзя. Коды видов: M-50-FREE, F-50-FREE, M-100-FREE, F-100-FREE.</p><button class="btn sm">Скачать шаблон.xlsx</button></div>
+        <div class="card" style="padding:14px"><h3 style="margin-bottom:6px">2. Файл</h3><div class="drop"><b>set-M-with-errors.xlsx</b>203 строки · 16 КБ<br><a href="#">Выбрать другой файл</a></div></div>
+      </div>
+      <h3 style="margin:0 0 8px;font-size:15px">3. Отчёт импорта <span class="badge ok" style="margin-left:6px">Завершён за 3,1 с</span></h3>
+      <div class="report">
+        <div><b class="num">203</b><span>строк в файле</span></div>
+        <div><b class="num" style="color:var(--color-success)">196</b><span>заявок создано</span></div>
+        <div><b class="num">4</b><span>обновлено</span></div>
+        <div><b class="num">180</b><span>новых спортсменов</span></div>
+        <div><b class="num" style="color:var(--color-danger)">3</b><span>строки с ошибками</span></div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:70px">Строка</th><th>Колонка</th><th>Ошибка</th></tr></thead>
+        <tbody>
+          <tr><td class="num">17</td><td>Дата рождения</td><td>Неверный формат «2013-04-08», ожидается ДД.ММ.ГГГГ</td></tr>
+          <tr><td class="num">88</td><td>Дисциплина (код)</td><td>Неизвестный код «F-50-FR». Доступны: M-50-FREE, F-50-FREE, M-100-FREE, F-100-FREE</td></tr>
+          <tr><td class="num">142</td><td>Фамилия</td><td>Пустое значение — строка пропущена</td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Исправьте строки в файле и загрузите его снова — импортируются только изменения.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn">Скачать отчёт</button><button class="btn primary" id="closeImport2">Готово</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. ЗАПЛЫВЫ ============ -->
+<section class="screen" id="s4" data-dev="laptop">
+  <div class="org-head" data-tab="4"></div>
+  <div class="content">
+    <div class="row spread" style="margin-bottom:6px">
+      <div class="row">
+        <button class="btn primary" id="genBtn">Сформировать заплывы</button>
+        <button class="btn">Пересчитать расписание</button>
+        <span class="muted" style="font-size:13px" id="genNote">Последний расчёт: 12.10 14:20 · 187 заявок · 31 заплыв · 41 мс</span>
+      </div>
+      <div class="row">
+        <button class="btn" data-go="s12">Печать</button>
+        <button class="btn success">Опубликовать стартовый протокол</button>
+      </div>
+    </div>
+    <div class="row" style="gap:6px;margin-bottom:6px">
+      <span class="muted" style="font-size:13px">Вид:</span>
+      <div class="chips"><button class="chip" aria-pressed="false">№1 50 м Ю · 7</button><button class="chip" aria-pressed="true">№2 50 м Д · 7</button><button class="chip" aria-pressed="false">№3 100 м Ю · 9</button><button class="chip" aria-pressed="false">№4 100 м Д · 8</button></div>
+    </div>
+    <div class="cols">
+      <div>
+        <div class="disc-head"><h2>Вид №2. 50 м вольный стиль, девушки</h2><span class="meta">Сессия 1 · 7 заплывов · 50 заявок, 1 не допущена · старт 10:10:30</span><span class="badge draft" style="margin-left:auto">Черновик</span></div>
+        <div class="disc-head" style="margin-top:4px"><h3 style="margin:0;font-size:14px;color:var(--color-text-muted);font-weight:600">Девушки 2014–2015 · 18 участниц · заплывы 1–3</h3></div>
+        <div class="heats-grid">
+          <div class="heat">
+            <header><b>Заплыв 3</b><span class="time num">10:13:30</span><span class="muted" style="font-size:13px">8 участниц</span><span class="badge draft">Черновик</span></header>
+            <table class="tbl">
+              <thead><tr><th>Дорожка</th><th>Фамилия Имя</th><th>Год</th><th>Клуб</th><th class="r">Заявочное</th></tr></thead>
+              <tbody>
+                <tr><td><select class="select" aria-label="Дорожка"><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></td><td class="name">Никитина Мария</td><td class="yr num">2014</td><td>Орбита</td><td class="r num">00:49.74</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></td><td class="name">Денисова Ксения</td><td class="yr num">2015</td><td>Чайка</td><td class="r num">00:48.22</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></td><td class="name">Белоусова Вера</td><td class="yr num">2014</td><td>Акватика</td><td class="r num">00:47.90</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></td><td class="name">Ковалёва Ульяна</td><td class="yr num">2014</td><td>Волна</td><td class="r num">00:46.25</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select></td><td class="name">Орлова Виктория</td><td class="yr num">2015</td><td>Волна</td><td class="r num">00:46.31</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option></select></td><td class="name">Островская Ксения</td><td class="yr num">2014</td><td>Чайка</td><td class="r num">00:48.00</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option></select></td><td class="name">Герасимова Екатерина</td><td class="yr num">2015</td><td>Акватика</td><td class="r num">00:49.41</td></tr>
+                <tr><td><select class="select" aria-label="Дорожка"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option selected>8</option></select></td><td class="name">Киселёва Виктория</td><td class="yr num">2014</td><td>Орбита</td><td class="r num">00:49.95</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="heat">
+            <header><b>Заплыв 2</b><span class="time num">10:12:00</span><span class="muted" style="font-size:13px">7 участниц</span><span class="badge draft">Черновик</span></header>
+            <table class="tbl">
+              <thead><tr><th>Дорожка</th><th>Фамилия Имя</th><th>Год</th><th>Клуб</th><th class="r">Заявочное</th></tr></thead>
+              <tbody>
+                <tr><td><span class="lane">1</span></td><td class="name">Виноградова Алина</td><td class="yr num">2015</td><td>Старт</td><td class="r num">00:51.69</td></tr>
+                <tr><td><span class="lane">2</span></td><td class="name">Морозова Александра</td><td class="yr num">2015</td><td>Чайка</td><td class="r num">00:51.39</td></tr>
+                <tr><td><span class="lane">3</span></td><td class="name">Куликова Юлия</td><td class="yr num">2014</td><td>Старт</td><td class="r num">00:50.25</td></tr>
+                <tr><td><span class="lane">4</span></td><td class="name">Михайлова Вероника</td><td class="yr num">2014</td><td>СШОР №1</td><td class="r num">00:49.98</td></tr>
+                <tr><td><span class="lane">5</span></td><td class="name">Александрова Вера</td><td class="yr num">2014</td><td>Дельфин</td><td class="r num">00:51.54</td></tr>
+                <tr><td><span class="lane">6</span></td><td class="name">Баранова Кира</td><td class="yr num">2014</td><td>Чайка</td><td class="r num">00:52.13</td></tr>
+                <tr><td><span class="lane">7</span></td><td class="name">Богданова Екатерина</td><td class="yr num">2015</td><td>Волна</td><td class="r num">00:52.26</td></tr>
+                <tr><td><span class="lane empty">8</span></td><td class="muted" colspan="4">свободна</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="heat">
+            <header><b>Заплыв 1</b><span class="time num">10:10:30</span><span class="muted" style="font-size:13px">3 участницы</span><span class="badge draft">Черновик</span></header>
+            <table class="tbl">
+              <thead><tr><th>Дорожка</th><th>Фамилия Имя</th><th>Год</th><th>Клуб</th><th class="r">Заявочное</th></tr></thead>
+              <tbody>
+                <tr><td><span class="lane empty">1</span></td><td class="muted" colspan="4">свободна</td></tr>
+                <tr><td><span class="lane empty">2</span></td><td class="muted" colspan="4">свободна</td></tr>
+                <tr><td><span class="lane">3</span></td><td class="name">Кузнецова Кира</td><td class="yr num">2015</td><td>Дельфин</td><td class="r muted">NT</td></tr>
+                <tr><td><span class="lane">4</span></td><td class="name">Ильина Марина</td><td class="yr num">2014</td><td>Дельфин</td><td class="r num">00:52.27</td></tr>
+                <tr><td><span class="lane">5</span></td><td class="name">Миронова Злата</td><td class="yr num">2015</td><td>Старт</td><td class="r num">00:56.00</td></tr>
+                <tr><td><span class="lane empty">6</span></td><td class="muted" colspan="4">свободна</td></tr>
+                <tr><td><span class="lane empty">7</span></td><td class="muted" colspan="4">свободна</td></tr>
+                <tr><td><span class="lane empty">8</span></td><td class="muted" colspan="4">свободна</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="heat" style="display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:13px;min-height:120px;border-style:dashed">Девушки 2012–2013 · заплывы 4–5 · и далее ↓</div>
+        </div>
+      </div>
+      <div class="card validator">
+        <div class="card-title"><h2>Проверка протокола</h2><button class="btn sm ghost">Проверить снова</button></div>
+        <div class="sum"><span class="badge ok">0 ошибок</span><span class="badge warn">2 предупреждения</span></div>
+        <ul>
+          <li class="w"><span class="badge warn">Внимание</span><div><b>Заплыв 1 неполный: 3 участницы</b><br><span class="muted">Группа 2014–2015, 18 участниц → 3 + 7 + 8. Допустимо по правилу SW 3.1.1.1, можно объединить вручную.</span></div></li>
+          <li class="w"><span class="badge warn">Внимание</span><div><b>Ковалёва Ульяна: 9 мин между стартами</b><br><span class="muted">Вид №2 заплыв 3 (10:13:30) и вид №3… — меньше 15 мин. Перенесите вид или заплыв.</span></div></li>
+        </ul>
+        <p class="muted" style="font-size:12.5px;margin:12px 0 0">Ошибки блокируют публикацию, предупреждения — нет. Не допущена 1 заявка: Сидорова Анна, 2016 г.р. — вне возрастных групп вида. <a href="#" data-go="s3">Открыть заявку</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. РЕЗУЛЬТАТЫ (список) ============ -->
+<section class="screen" id="s5" data-dev="laptop">
+  <div class="org-head" data-tab="5"></div>
+  <div class="content">
+    <div class="row spread" style="margin-bottom:14px">
+      <div class="row">
+        <span class="badge err lg">Идёт сессия 1 · сейчас заплыв 9 из 14</span>
+        <span class="muted" style="font-size:13px">Табло обновляется автоматически при «Следующий заплыв»</span>
+      </div>
+      <div class="row"><button class="btn">Печать итогового протокола</button><button class="btn success">Опубликовать результаты вида №1</button></div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title"><h2>Вид №1. 50 м вольный стиль, юноши</h2><div class="row" style="gap:8px"><span class="badge ok">7 из 7 заплывов введено</span><span class="badge draft">Результаты не опубликованы</span></div></div>
+      <table class="tbl">
+        <thead><tr><th style="width:90px">Заплыв</th><th>Группа</th><th>Старт</th><th>Участников</th><th>Статус заплыва</th><th>Результаты</th><th>Кто ввёл</th><th class="r">Действия</th></tr></thead>
+        <tbody>
+          <tr><td class="num name">1</td><td>Юноши 2014–2015</td><td class="num">10:00:00</td><td class="num">3</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Секретарь · 10:03</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">2</td><td>Юноши 2014–2015</td><td class="num">10:01:30</td><td class="num">6</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Секретарь · 10:04</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">3</td><td>Юноши 2014–2015</td><td class="num">10:03:00</td><td class="num">8</td><td><span class="badge ok">Завершён</span></td><td><span class="badge warn">Введены, 1 DSQ без причины</span></td><td class="muted">Судья · 10:06</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">4</td><td>Юноши 2012–2013</td><td class="num">10:04:30</td><td class="num">3</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Судья · 10:08</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">5</td><td>Юноши 2012–2013</td><td class="num">10:06:00</td><td class="num">7</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Судья · 10:09</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">6</td><td>Юноши 2012–2013</td><td class="num">10:07:30</td><td class="num">8</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Судья · 10:11</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">7</td><td>Юноши 2010–2011</td><td class="num">10:09:00</td><td class="num">8</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Судья · 10:12</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title"><h2>Вид №2. 50 м вольный стиль, девушки</h2><div class="row" style="gap:8px"><span class="badge info">1 из 7 заплывов введено</span></div></div>
+      <table class="tbl">
+        <thead><tr><th style="width:90px">Заплыв</th><th>Группа</th><th>Старт</th><th>Участников</th><th>Статус заплыва</th><th>Результаты</th><th>Кто ввёл</th><th class="r">Действия</th></tr></thead>
+        <tbody>
+          <tr><td class="num name">1</td><td>Девушки 2014–2015</td><td class="num">10:10:30</td><td class="num">3</td><td><span class="badge ok">Завершён</span></td><td><span class="badge ok">Введены, места посчитаны</span></td><td class="muted">Судья · 10:13</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr class="sel"><td class="num name">2</td><td>Девушки 2014–2015</td><td class="num">10:12:00</td><td class="num">7</td><td><span class="badge err">Идёт сейчас</span></td><td><span class="badge draft">Ввод…</span></td><td class="muted">Судья</td><td class="r actions"><button class="btn sm primary" data-go="s6">Ввести результаты</button></td></tr>
+          <tr><td class="num name">3</td><td>Девушки 2014–2015</td><td class="num">10:13:30</td><td class="num">8</td><td><span class="badge info">Опубликован</span></td><td class="muted">—</td><td class="muted">—</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">4</td><td>Девушки 2012–2013</td><td class="num">10:15:00</td><td class="num">7</td><td><span class="badge info">Опубликован</span></td><td class="muted">—</td><td class="muted">—</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+          <tr><td class="num name">5</td><td>Девушки 2012–2013</td><td class="num">10:16:30</td><td class="num">8</td><td><span class="badge info">Опубликован</span></td><td class="muted">—</td><td class="muted">—</td><td class="r actions"><button class="btn sm ghost" data-go="s6">Открыть</button></td></tr>
+        </tbody>
+      </table>
+      <div class="pager"><span>Заплывы 6–7 ниже · виды №3–4 — сессия 2 (15:00)</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. ПАНЕЛЬ СУДЬИ ============ -->
+<section class="screen" id="s6" data-dev="laptop">
+  <div class="topbar">
+    <div class="logo"><i></i>Flounder</div>
+    <nav><a href="#" data-go="s5">← К списку заплывов</a></nav>
+    <div class="user"><span class="badge err">Live: вид №2 · заплыв 2</span><span class="avatar">СД</span>Судья</div>
+  </div>
+  <div class="judge-head">
+    <div class="now">Вид №2. 50 м вольный стиль, девушки — заплыв 2<small>Девушки 2014–2015 · старт по расписанию 10:12:00 · 7 участниц · Открытое первенство Самары, сессия 1</small></div>
+    <div class="nav"><button class="btn">← Заплыв 1</button><button class="btn">Заплыв 3 →</button></div>
+  </div>
+  <div class="content" style="padding-top:12px">
+    <div class="card" style="padding:0 18px 6px">
+      <table class="entry" id="entryTbl">
+        <thead><tr><th style="width:90px">Дорожка</th><th>Спортсменка</th><th style="width:70px">Год</th><th>Клуб</th><th class="r" style="width:110px;text-align:right">Заявочное</th><th style="width:170px">Результат <span class="muted" style="font-weight:400">мм:сс.сс</span></th><th style="width:190px">Статус</th><th style="width:70px;text-align:center">Место</th><th style="width:80px;text-align:center">В группе</th></tr></thead>
+        <tbody>
+          <tr data-seed="51.69"><td><span class="lane">1</span></td><td class="name">Виноградова Алина</td><td class="muted num">2015</td><td>Старт</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:51.69</td><td><input class="input tin num" value="00:51.02" aria-label="Результат, дорожка 1"></td><td><div class="st"><button aria-pressed="false">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr data-seed="51.39"><td><span class="lane">2</span></td><td class="name">Морозова Александра</td><td class="muted num">2015</td><td>Чайка</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:51.39</td><td><input class="input tin num" value="00:50.87" aria-label="Результат, дорожка 2"></td><td><div class="st"><button aria-pressed="false">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr data-seed="50.25"><td><span class="lane">3</span></td><td class="name">Куликова Юлия</td><td class="muted num">2014</td><td>Старт</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:50.25</td><td><input class="input tin num" value="00:49.60" aria-label="Результат, дорожка 3"></td><td><div class="st"><button aria-pressed="false">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr data-seed="49.98"><td><span class="lane">4</span></td><td class="name">Михайлова Вероника</td><td class="muted num">2014</td><td>СШОР №1</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:49.98</td><td><input class="input tin num" value="00:49.60" aria-label="Результат, дорожка 4"></td><td><div class="st"><button aria-pressed="false">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr data-seed="51.54"><td><span class="lane">5</span></td><td class="name">Александрова Вера</td><td class="muted num">2014</td><td>Дельфин</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:51.54</td><td><input class="input tin num invalid" value="00:5l.9" aria-label="Результат, дорожка 5" aria-describedby="e5"><div class="err-text" id="e5">Непонятное время. Формат мм:сс.сс, например 00:51.90</div></td><td><div class="st"><button aria-pressed="false">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr data-seed="52.13"><td><span class="lane">6</span></td><td class="name">Баранова Кира</td><td class="muted num">2014</td><td>Чайка</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:52.13</td><td><input class="input tin num" value="" placeholder="мм:сс.сс" aria-label="Результат, дорожка 6"></td><td><div class="st"><button aria-pressed="false">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr data-seed="52.26"><td><span class="lane">7</span></td><td class="name">Богданова Екатерина</td><td class="muted num">2015</td><td>Волна</td><td class="num" style="text-align:right;color:var(--color-text-muted)">00:52.26</td><td><input class="input tin num" value="" placeholder="мм:сс.сс" aria-label="Результат, дорожка 7" disabled></td><td><div class="st"><button aria-pressed="true">DNS</button><button aria-pressed="false">DNF</button><button aria-pressed="false">DSQ</button></div></td><td class="place num"></td><td class="place num grp"></td></tr>
+          <tr><td><span class="lane empty">8</span></td><td class="muted" colspan="8">свободна</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:13px;margin:10px 0 0"><kbd class="key">Enter</kbd> — к следующей дорожке · <kbd class="key">Tab</kbd> — к статусу · допустимо вводить «49.60» и «1:05.20», система приведёт к мм:сс.сс · равные времена делят место (1, 1, 3)</p>
+  </div>
+  <div class="judge-foot">
+    <span class="state" id="judgeState">Не сохранено: 1 поле с ошибкой, 1 пустое</span>
+    <button class="btn" id="recalcBtn">Сохранить и пересчитать места</button>
+    <button class="btn success" id="pubBtn" disabled title="Сначала сохраните результаты">Опубликовать</button>
+    <button class="btn primary" id="nextBtn">Следующий заплыв →</button>
+  </div>
+</section>
+
+<!-- ============ 7. КАРТОЧКА СОРЕВНОВАНИЯ (телефон) ============ -->
+<section class="screen" id="s7" data-dev="phone">
+  <div class="m-top"><div class="logo"><i></i>Flounder</div></div>
+  <div class="m-body">
+    <span class="badge ok" style="margin-bottom:8px">Регистрация открыта до 13.10</span>
+    <h1 class="m-h1">Открытое первенство Самары по плаванию</h1>
+    <p class="muted" style="margin:0 0 14px;font-size:15px">15 октября 2026 · бассейн «Орбита», 25 м, 8 дорожек</p>
+    <button class="btn primary lg block" data-go="s11" style="margin-bottom:16px">Подать заявку</button>
+    <div class="links">
+      <a href="#" data-go="s8">Сейчас плывут<span class="d">Live-табло, обновляется само</span></a>
+      <a href="#" data-go="s9">Расписание заплывов<span class="d">31 заплыв · сессии в 10:00 и 15:00</span></a>
+      <a href="#" data-go="s12">Стартовый протокол<span class="d">Дорожки и заявочные времена</span></a>
+      <a href="#" data-go="s10">Результаты<span class="d">Появятся после первого заплыва</span></a>
+    </div>
+    <div class="m-card" style="margin-top:14px">
+      <h2>Сессии</h2>
+      <dl class="kv">
+        <dt>10:00</dt><dd>Сессия 1 — 50 м вольный стиль, юноши и девушки</dd>
+        <dt>15:00</dt><dd>Сессия 2 — 100 м вольный стиль, юноши и девушки</dd>
+      </dl>
+    </div>
+    <div class="m-card">
+      <h2>Возрастные группы</h2>
+      <p style="margin:0;font-size:15px">2014–2015, 2012–2013, 2010–2011. Места считаются в абсолюте и в группе.</p>
+    </div>
+    <p class="muted" style="font-size:13px;text-align:center;margin:14px 0 0">Организатор: СШОР №1, Самара · <a href="#">org@flounder.demo</a></p>
+  </div>
+  <div class="m-nav">
+    <button aria-current="page"><i></i>Событие</button><button data-go="s9"><i></i>Расписание</button><button data-go="s8"><i class="dot"></i>Live</button><button data-go="s10"><i></i>Результаты</button>
+  </div>
+</section>
+
+<!-- ============ 8. LIVE ============ -->
+<section class="screen" id="s8" data-dev="phone">
+  <div class="m-top"><button class="back" data-go="s7" aria-label="Назад">‹</button><div class="t">Live-табло<small>Первенство Самары · сессия 1</small></div></div>
+  <div class="m-body" style="padding-top:12px">
+    <div class="live-now">
+      <span class="pulse">Сейчас на воде</span>
+      <div class="disc">Вид №2 · 50 м вольный стиль, девушки</div>
+      <div class="heat-n">Заплыв 2 <small>из 7</small></div>
+      <div class="grp">Девушки 2014–2015 · старт 10:12</div>
+      <div class="live-lanes">
+        <div><span class="lane">1</span><span class="nm">Виноградова А.</span><span class="cl">Старт</span></div>
+        <div><span class="lane">2</span><span class="nm">Морозова А.</span><span class="cl">Чайка</span></div>
+        <div><span class="lane">3</span><span class="nm">Куликова Ю.</span><span class="cl">Старт</span></div>
+        <div><span class="lane">4</span><span class="nm">Михайлова В.</span><span class="cl">СШОР №1</span></div>
+        <div><span class="lane">5</span><span class="nm">Александрова В.</span><span class="cl">Дельфин</span></div>
+        <div><span class="lane">6</span><span class="nm">Баранова К.</span><span class="cl">Чайка</span></div>
+        <div><span class="lane">7</span><span class="nm">Богданова Е.</span><span class="cl">Волна</span></div>
+      </div>
+    </div>
+    <div class="m-card">
+      <h2>Следующие</h2>
+      <ol class="next">
+        <li><b class="num">10:13</b><div>Вид №2 · заплыв 3<span>Девушки 2014–2015 · 8 участниц</span></div></li>
+        <li><b class="num">10:15</b><div>Вид №2 · заплыв 4<span>Девушки 2012–2013 · 7 участниц</span></div></li>
+        <li><b class="num">10:16</b><div>Вид №2 · заплыв 5<span>Девушки 2012–2013 · 8 участниц</span></div></li>
+      </ol>
+    </div>
+    <div class="m-card">
+      <h2>Найти себя</h2>
+      <div class="search"><input class="input" id="findMe" placeholder="Фамилия спортсмена" value="Ковалёва" aria-label="Фамилия" style="min-height:46px;font-size:16px"></div>
+      <div class="found" id="foundBox">
+        <b>Ковалёва Ульяна</b> <span class="muted">2014 · Волна</span>
+        <table>
+          <tr><td><b class="num">10:13</b> · вид №2, заплыв 3, дорожка <span class="lane">4</span><br><span class="muted" style="font-size:13px">заявочное 46.25 · результата пока нет</span></td></tr>
+          <tr><td><b class="num">15:31</b> · вид №4, заплыв 6, дорожка <span class="lane">5</span><br><span class="muted" style="font-size:13px">заявочное 1:44.10</span></td></tr>
+        </table>
+      </div>
+    </div>
+    <p class="upd">Обновлено 10:12:41 · следующее через 15 с</p>
+  </div>
+  <div class="m-nav">
+    <button data-go="s7"><i></i>Событие</button><button data-go="s9"><i></i>Расписание</button><button aria-current="page"><i class="dot"></i>Live</button><button data-go="s10"><i></i>Результаты</button>
+  </div>
+</section>
+
+<!-- ============ 9. РАСПИСАНИЕ ============ -->
+<section class="screen" id="s9" data-dev="phone">
+  <div class="m-top"><button class="back" data-go="s7" aria-label="Назад">‹</button><div class="t">Расписание<small>31 заплыв · времена расчётные</small></div></div>
+  <div class="m-body" style="padding-top:8px">
+    <div class="sess-h">Сессия 1 · 15 октября, 10:00</div>
+    <ol class="sched">
+      <li class="done"><b class="num">10:00</b><div>Вид №1 · заплыв 1<span class="d">50 м в/с, юноши 2014–2015</span></div><span class="badge ok">Готово</span></li>
+      <li class="done"><b class="num">10:01</b><div>Вид №1 · заплыв 2<span class="d">50 м в/с, юноши 2014–2015</span></div><span class="badge ok">Готово</span></li>
+      <li class="done"><b class="num">10:03</b><div>Вид №1 · заплыв 3<span class="d">50 м в/с, юноши 2014–2015</span></div><span class="badge ok">Готово</span></li>
+      <li class="done"><b class="num">10:04</b><div>Вид №1 · заплывы 4–7<span class="d">50 м в/с, юноши 2012–2013, 2010–2011</span></div><span class="badge ok">Готово</span></li>
+      <li class="done"><b class="num">10:10</b><div>Вид №2 · заплыв 1<span class="d">50 м в/с, девушки 2014–2015</span></div><span class="badge ok">Готово</span></li>
+      <li class="cur"><b class="num">10:12</b><div>Вид №2 · заплыв 2<span class="d">50 м в/с, девушки 2014–2015</span></div><span class="badge err">Сейчас</span></li>
+      <li><b class="num">10:13</b><div>Вид №2 · заплыв 3<span class="d">50 м в/с, девушки 2014–2015</span></div><span class="badge info">Далее</span></li>
+      <li><b class="num">10:15</b><div>Вид №2 · заплыв 4<span class="d">50 м в/с, девушки 2012–2013</span></div></li>
+      <li><b class="num">10:16</b><div>Вид №2 · заплыв 5<span class="d">50 м в/с, девушки 2012–2013</span></div></li>
+      <li><b class="num">10:18</b><div>Вид №2 · заплыв 6<span class="d">50 м в/с, девушки 2010–2011</span></div></li>
+      <li><b class="num">10:19</b><div>Вид №2 · заплыв 7<span class="d">50 м в/с, девушки 2010–2011</span></div></li>
+    </ol>
+    <div class="sess-h">Сессия 2 · 15 октября, 15:00</div>
+    <ol class="sched">
+      <li><b class="num">15:00</b><div>Вид №3 · заплыв 1<span class="d">100 м в/с, юноши 2014–2015</span></div></li>
+      <li><b class="num">15:02</b><div>Вид №3 · заплыв 2<span class="d">100 м в/с, юноши 2014–2015</span></div></li>
+      <li><b class="num">15:05</b><div>Вид №3 · заплыв 3<span class="d">100 м в/с, юноши 2014–2015</span></div></li>
+    </ol>
+    <p class="upd">Время старта — расчётное; фактический ход смотрите на Live</p>
+  </div>
+  <div class="m-nav">
+    <button data-go="s7"><i></i>Событие</button><button aria-current="page"><i></i>Расписание</button><button data-go="s8"><i class="dot"></i>Live</button><button data-go="s10"><i></i>Результаты</button>
+  </div>
+</section>
+
+<!-- ============ 10. РЕЗУЛЬТАТЫ ============ -->
+<section class="screen" id="s10" data-dev="phone">
+  <div class="m-top"><button class="back" data-go="s7" aria-label="Назад">‹</button><div class="t">Результаты<small>Опубликовано: вид №1</small></div></div>
+  <div class="m-body" style="padding-top:12px">
+    <select class="select" style="margin-bottom:12px;min-height:46px;font-size:16px" aria-label="Вид программы"><option selected>Вид №1 · 50 м в/с, юноши</option><option>Вид №2 · 50 м в/с, девушки (идёт)</option><option disabled>Вид №3 · 100 м в/с, юноши (15:00)</option></select>
+    <div class="seg" role="group" aria-label="Режим"><button aria-pressed="true" data-seg="abs">Абсолют</button><button aria-pressed="false" data-seg="grp">По группам</button></div>
+    <div id="resAbs">
+      <table class="res">
+        <thead><tr><th>Место</th><th>Спортсмен</th><th>Год</th><th class="tm">Время</th></tr></thead>
+        <tbody>
+          <tr><td class="pl">1</td><td>Егоров Александр<br><span class="muted" style="font-size:13px">Старт</span></td><td class="num muted">2010</td><td class="tm num">33.08</td></tr>
+          <tr><td class="pl">2</td><td>Воробьёв Алексей<br><span class="muted" style="font-size:13px">Акватика</span></td><td class="num muted">2010</td><td class="tm num">33.41</td></tr>
+          <tr><td class="pl">3</td><td>Фомин Алексей<br><span class="muted" style="font-size:13px">Волна</span></td><td class="num muted">2010</td><td class="tm num">33.95</td></tr>
+          <tr><td class="pl">4</td><td>Комаров Алексей<br><span class="muted" style="font-size:13px">Чайка</span></td><td class="num muted">2010</td><td class="tm num">34.12</td></tr>
+          <tr><td class="pl">5</td><td>Островский Тимофей<br><span class="muted" style="font-size:13px">Волна</span></td><td class="num muted">2010</td><td class="tm num">34.70</td></tr>
+          <tr><td class="pl">5</td><td>Романов Алексей<br><span class="muted" style="font-size:13px">Акватика</span></td><td class="num muted">2010</td><td class="tm num">34.70</td></tr>
+          <tr><td class="pl">7</td><td>Жуков Дмитрий<br><span class="muted" style="font-size:13px">СШОР №1</span></td><td class="num muted">2011</td><td class="tm num">35.02</td></tr>
+          <tr><td class="pl">8</td><td>Тихонов Фёдор<br><span class="muted" style="font-size:13px">Нептун</span></td><td class="num muted">2010</td><td class="tm num">35.19</td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="font-size:13px;margin:8px 0">Места 5 и 5: равные времена делят место, следующий — 7. Ещё 40 результатов ниже.</p>
+      <div class="m-card" style="margin-top:12px"><h2>Без места</h2><table class="res"><tr><td>Лазарев Даниил <span class="muted" style="font-size:13px">Дельфин</span></td><td class="tm"><span class="badge draft">DNS — не стартовал</span></td></tr><tr><td>Зайцев Егор <span class="muted" style="font-size:13px">Дельфин</span></td><td class="tm"><span class="badge err">DSQ — дисквалификация</span></td></tr></table></div>
+    </div>
+    <div id="resGrp" hidden>
+      <div class="sess-h" style="margin-top:0">Юноши 2014–2015</div>
+      <table class="res">
+        <thead><tr><th>Место</th><th>Спортсмен</th><th class="tm">Время</th><th class="tm">Абс.</th></tr></thead>
+        <tbody>
+          <tr><td class="pl">1</td><td>Смирнов Иван<br><span class="muted" style="font-size:13px">Акватика</span></td><td class="tm num">42.05</td><td class="tm num muted">21</td></tr>
+          <tr><td class="pl">2</td><td>Колесников Никита<br><span class="muted" style="font-size:13px">Дельфин</span></td><td class="tm num">45.44</td><td class="tm num muted">30</td></tr>
+          <tr><td class="pl">3</td><td>Сергеев Степан<br><span class="muted" style="font-size:13px">СШОР №1</span></td><td class="tm num">47.90</td><td class="tm num muted">34</td></tr>
+        </tbody>
+      </table>
+      <div class="sess-h">Юноши 2012–2013</div>
+      <table class="res">
+        <thead><tr><th>Место</th><th>Спортсмен</th><th class="tm">Время</th><th class="tm">Абс.</th></tr></thead>
+        <tbody>
+          <tr><td class="pl">1</td><td>Лебединский Роман<br><span class="muted" style="font-size:13px">Акватика</span></td><td class="tm num">38.12</td><td class="tm num muted">12</td></tr>
+          <tr><td class="pl">2</td><td>Борисов Владимир<br><span class="muted" style="font-size:13px">Нептун</span></td><td class="tm num">38.60</td><td class="tm num muted">13</td></tr>
+          <tr><td class="pl">3</td><td>Никифоров Тимофей<br><span class="muted" style="font-size:13px">Старт</span></td><td class="tm num">39.01</td><td class="tm num muted">14</td></tr>
+        </tbody>
+      </table>
+      <div class="sess-h">Юноши 2010–2011</div>
+      <table class="res">
+        <thead><tr><th>Место</th><th>Спортсмен</th><th class="tm">Время</th><th class="tm">Абс.</th></tr></thead>
+        <tbody>
+          <tr><td class="pl">1</td><td>Егоров Александр<br><span class="muted" style="font-size:13px">Старт</span></td><td class="tm num">33.08</td><td class="tm num muted">1</td></tr>
+          <tr><td class="pl">2</td><td>Воробьёв Алексей<br><span class="muted" style="font-size:13px">Акватика</span></td><td class="tm num">33.41</td><td class="tm num muted">2</td></tr>
+          <tr><td class="pl">3</td><td>Фомин Алексей<br><span class="muted" style="font-size:13px">Волна</span></td><td class="tm num">33.95</td><td class="tm num muted">3</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <button class="btn block" style="margin-top:14px;min-height:46px">Скачать итоговый протокол (PDF)</button>
+  </div>
+  <div class="m-nav">
+    <button data-go="s7"><i></i>Событие</button><button data-go="s9"><i></i>Расписание</button><button data-go="s8"><i class="dot"></i>Live</button><button aria-current="page"><i></i>Результаты</button>
+  </div>
+</section>
+
+<!-- ============ 11. ФОРМА ЗАЯВКИ ============ -->
+<section class="screen" id="s11" data-dev="phone">
+  <div class="m-top"><button class="back" data-go="s7" aria-label="Назад">‹</button><div class="t">Заявка на участие<small>Первенство Самары · 15 октября</small></div></div>
+  <div class="m-body m-form" style="padding-top:12px">
+    <div class="login-note">Вы вошли как <b>parent@flounder.demo</b>. Заявки будут привязаны к этому аккаунту. <a href="#">Выйти</a></div>
+    <h2 style="font-size:17px;margin:0 0 10px">Спортсмен</h2>
+    <div class="field"><label for="ln">Фамилия</label><input id="ln" class="input" value="Ковалёва"></div>
+    <div class="inline">
+      <div class="field"><label for="fn">Имя</label><input id="fn" class="input" value="Ульяна"></div>
+      <div class="field"><label for="mn">Отчество</label><input id="mn" class="input" placeholder="необязательно"></div>
+    </div>
+    <div class="inline">
+      <div class="field"><label for="bd">Дата рождения</label><input id="bd" class="input num invalid" value="23.07.14" inputmode="numeric" aria-describedby="bdErr"><div class="err-text" id="bdErr">Год полностью: 23.07.2014</div></div>
+      <div class="field"><label>Пол</label><div class="chips"><button class="chip" aria-pressed="false" style="padding:9px 16px">Юноша</button><button class="chip" aria-pressed="true" style="padding:9px 16px">Девушка</button></div></div>
+    </div>
+    <div class="field"><label for="club">Клуб или город</label><input id="club" class="input" value="Волна"><span class="help">Так будет написано в протоколе</span></div>
+    <h2 style="font-size:17px;margin:16px 0 4px">Виды программы</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:14px">Показаны виды для девушек 2014 г.р. Укажите лучшее время за последний год; если нет — оставьте пустым (NT).</p>
+    <div class="disc-pick">
+      <label class="opt on"><input type="checkbox" checked><span class="t">50 м вольный стиль<small>Сессия 1, 10:00 · девушки 2014–2015</small></span><span class="seed"><span class="muted" style="font-size:14px">Заявочное время</span><input class="input num" value="00:46.25" inputmode="decimal" aria-label="Заявочное время, 50 м"></span></label>
+      <label class="opt on"><input type="checkbox" checked><span class="t">100 м вольный стиль<small>Сессия 2, 15:00 · девушки 2014–2015</small></span><span class="seed"><span class="muted" style="font-size:14px">Заявочное время</span><input class="input num" value="" placeholder="мм:сс.сс" inputmode="decimal" aria-label="Заявочное время, 100 м"></span></label>
+      <label class="opt off"><input type="checkbox" disabled><span class="t">50 м вольный стиль, юноши<small>Недоступно: вид для юношей</small></span></label>
+    </div>
+    <label class="check" style="margin:14px 0 6px"><input type="checkbox" checked><span>Даю согласие на обработку персональных данных спортсмена и подтверждаю, что у него есть допуск врача. <a href="#">Текст согласия</a> (заглушка для демо)</span></label>
+  </div>
+  <div class="m-foot"><button class="btn primary lg block">Отправить заявку · 2 вида</button></div>
+</section>
+
+<!-- ============ 12. СТАРТОВЫЙ ПРОТОКОЛ A4 ============ -->
+<section class="screen" id="s12" data-dev="print">
+  <div class="sheet">
+    <div class="ph">
+      <div><h1>Открытое первенство Самары по плаванию</h1><p>15 октября 2026 · бассейн «Орбита», Самара · 25 м, 8 дорожек</p></div>
+      <div class="r">Стартовый протокол<br>Сессия 1 (утро) · старт 10:00<br>Сформирован 12.10.2026 14:20</div>
+    </div>
+    <h2>Вид № 2. 50 м вольный стиль, девушки</h2>
+    <div class="hx">
+      <h3>Заплыв 1 — 10:10 · Девушки 2014–2015</h3>
+      <table>
+        <thead><tr><th style="width:14mm">Дорожка</th><th>Фамилия Имя</th><th style="width:14mm">Год</th><th style="width:34mm">Клуб</th><th style="width:26mm">Заявочное время</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="n">2</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="n">3</td><td>Кузнецова Кира</td><td>2015</td><td>Дельфин</td><td class="t">NT</td></tr>
+          <tr><td class="n">4</td><td>Ильина Марина</td><td>2014</td><td>Дельфин</td><td class="t">00:52.27</td></tr>
+          <tr><td class="n">5</td><td>Миронова Злата</td><td>2015</td><td>Старт</td><td class="t">00:56.00</td></tr>
+          <tr><td class="n">6</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="n">7</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="n">8</td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hx">
+      <h3>Заплыв 2 — 10:12 · Девушки 2014–2015</h3>
+      <table>
+        <thead><tr><th style="width:14mm">Дорожка</th><th>Фамилия Имя</th><th style="width:14mm">Год</th><th style="width:34mm">Клуб</th><th style="width:26mm">Заявочное время</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1</td><td>Виноградова Алина</td><td>2015</td><td>Старт</td><td class="t">00:51.69</td></tr>
+          <tr><td class="n">2</td><td>Морозова Александра</td><td>2015</td><td>Чайка</td><td class="t">00:51.39</td></tr>
+          <tr><td class="n">3</td><td>Куликова Юлия</td><td>2014</td><td>Старт</td><td class="t">00:50.25</td></tr>
+          <tr><td class="n">4</td><td>Михайлова Вероника</td><td>2014</td><td>СШОР №1</td><td class="t">00:49.98</td></tr>
+          <tr><td class="n">5</td><td>Александрова Вера</td><td>2014</td><td>Дельфин</td><td class="t">00:51.54</td></tr>
+          <tr><td class="n">6</td><td>Баранова Кира</td><td>2014</td><td>Чайка</td><td class="t">00:52.13</td></tr>
+          <tr><td class="n">7</td><td>Богданова Екатерина</td><td>2015</td><td>Волна</td><td class="t">00:52.26</td></tr>
+          <tr><td class="n">8</td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hx">
+      <h3>Заплыв 3 — 10:13 · Девушки 2014–2015</h3>
+      <table>
+        <thead><tr><th style="width:14mm">Дорожка</th><th>Фамилия Имя</th><th style="width:14mm">Год</th><th style="width:34mm">Клуб</th><th style="width:26mm">Заявочное время</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1</td><td>Никитина Мария</td><td>2014</td><td>Орбита</td><td class="t">00:49.74</td></tr>
+          <tr><td class="n">2</td><td>Денисова Ксения</td><td>2015</td><td>Чайка</td><td class="t">00:48.22</td></tr>
+          <tr><td class="n">3</td><td>Белоусова Вера</td><td>2014</td><td>Акватика</td><td class="t">00:47.90</td></tr>
+          <tr><td class="n">4</td><td>Ковалёва Ульяна</td><td>2014</td><td>Волна</td><td class="t">00:46.25</td></tr>
+          <tr><td class="n">5</td><td>Орлова Виктория</td><td>2015</td><td>Волна</td><td class="t">00:46.31</td></tr>
+          <tr><td class="n">6</td><td>Островская Ксения</td><td>2014</td><td>Чайка</td><td class="t">00:48.00</td></tr>
+          <tr><td class="n">7</td><td>Герасимова Екатерина</td><td>2015</td><td>Акватика</td><td class="t">00:49.41</td></tr>
+          <tr><td class="n">8</td><td>Киселёва Виктория</td><td>2014</td><td>Орбита</td><td class="t">00:49.95</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hx">
+      <h3>Заплыв 4 — 10:15 · Девушки 2012–2013</h3>
+      <table>
+        <thead><tr><th style="width:14mm">Дорожка</th><th>Фамилия Имя</th><th style="width:14mm">Год</th><th style="width:34mm">Клуб</th><th style="width:26mm">Заявочное время</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1</td><td>Матвеева Алиса</td><td>2013</td><td>Старт</td><td class="t">00:45.52</td></tr>
+          <tr><td class="n">2</td><td>Егорова Полина</td><td>2012</td><td>Акватика</td><td class="t">00:43.26</td></tr>
+          <tr><td class="n">3</td><td>Громова Валерия</td><td>2012</td><td>Нептун</td><td class="t">00:42.83</td></tr>
+          <tr><td class="n">4</td><td>Герасимова Полина</td><td>2012</td><td>Нептун</td><td class="t">00:42.72</td></tr>
+          <tr><td class="n">5</td><td>Боровая Наталья</td><td>2012</td><td>Нептун</td><td class="t">00:43.15</td></tr>
+          <tr><td class="n">6</td><td>Матвеева Арина</td><td>2013</td><td>Чайка</td><td class="t">00:44.51</td></tr>
+          <tr><td class="n">7</td><td>Цветкова Ирина</td><td>2013</td><td>Старт</td><td class="t">00:45.89</td></tr>
+          <tr><td class="n">8</td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pf"><span>Главный секретарь ______________________</span><span>Flounder · flounder.kz/e/samara-open-2026/start-list · стр. 3 из 9</span></div>
+  </div>
+</section>
+
+</div></div><!-- /frame /stage -->
+
+<!-- ============ ДИЗАЙН-ТОКЕНЫ И ПРАВИЛА ============ -->
+<section class="tokens" id="tokens">
+  <h2>Дизайн-токены и правила</h2>
+  <p class="muted">Для фронтенд-разработчиков. Основа — существующий <code>globals.css</code>; добавлены семантические цвета статусов и несколько компонентов. Новые UI-киты не подключать.</p>
+
+  <h3>Цвета</h3>
+  <div class="sw">
+    <div><i style="background:#0b5b7b"></i><span>primary<br><code>#0b5b7b</code></span></div>
+    <div><i style="background:#084966"></i><span>primary-hover<br><code>#084966</code></span></div>
+    <div><i style="background:#e5f4fa"></i><span>primary-soft<br><code>#e5f4fa</code></span></div>
+    <div><i style="background:#083f56"></i><span>primary-ink (текст на soft)<br><code>#083f56</code></span></div>
+    <div><i style="background:#182337"></i><span>text<br><code>#182337</code></span></div>
+    <div><i style="background:#5c6980"></i><span>text-muted<br><code>#5c6980</code></span></div>
+    <div><i style="background:#dbe3ef"></i><span>border<br><code>#dbe3ef</code></span></div>
+    <div><i style="background:#f4f7fb"></i><span>page / surface #fff<br><code>#f4f7fb</code></span></div>
+    <div><i style="background:#1b7f4b"></i><span>success<br><code>#1b7f4b</code> · soft <code>#e3f5ea</code></span></div>
+    <div><i style="background:#8a5300"></i><span>warning<br><code>#8a5300</code> · soft <code>#fff3d6</code></span></div>
+    <div><i style="background:#b42318"></i><span>danger<br><code>#b42318</code> · soft <code>#fee4e2</code></span></div>
+    <div><i style="background:#eef1f6"></i><span>neutral-soft (черновик)<br><code>#eef1f6</code> · текст <code>#5c6980</code></span></div>
+  </div>
+  <p>Все пары «текст на soft-фоне» дают контраст ≥ 4.5:1 (проверено для солнца у бассейна). Белый текст — только на primary, success и danger. Градиенты и полупрозрачные фоны в рабочих экранах не используются.</p>
+
+  <h3>Статусы: цвет + текст + форма маркера</h3>
+  <table>
+    <tr><th>Сущность</th><th>Статус (код)</th><th>Текст в UI</th><th>Бейдж</th></tr>
+    <tr><td>Событие</td><td>DRAFT / PUBLISHED / REGISTRATION_OPEN</td><td>Черновик / Опубликовано / Регистрация открыта</td><td>draft / info / ok</td></tr>
+    <tr><td>Заявка</td><td>SUBMITTED, UNDER_REVIEW / CONFIRMED, PAID, ADMITTED / NEEDS_CORRECTION / REJECTED / WITHDRAWN</td><td>Ждёт проверки / Подтверждена / На исправлении / Отклонена / Снята</td><td>warn / ok / draft / err / draft</td></tr>
+    <tr><td>Оплата</td><td>PENDING / PAID / NOT_REQUIRED</td><td>Не оплачено / Оплачено / не требуется (текст без бейджа)</td><td>err / ok / —</td></tr>
+    <tr><td>Заплыв</td><td>DRAFT / PUBLISHED / IN_PROGRESS / FINISHED</td><td>Черновик / Опубликован / Идёт сейчас / Завершён</td><td>draft / info / err / ok</td></tr>
+    <tr><td>Валидатор</td><td>ERROR / WARNING</td><td>Ошибка / Внимание</td><td>err (квадрат) / warn (ромб)</td></tr>
+    <tr><td>Результат</td><td>DNS / DNF / DSQ</td><td>DNS — не стартовал / DNF — не финишировал / DSQ — дисквалификация</td><td>draft / draft / err</td></tr>
+  </table>
+  <p>Маркер бейджа: круг — обычные состояния, квадрат — ошибка/черновик, ромб — предупреждение. Так статусы различимы при чёрно-белой печати и для дальтоников.</p>
+
+  <h3>Типографика</h3>
+  <table>
+    <tr><th>Роль</th><th>Размер / вес</th><th>Где</th></tr>
+    <tr><td>Заголовок страницы</td><td>24 px / 700, letter-spacing −0.015em</td><td>Название события в кабинете</td></tr>
+    <tr><td>Заголовок карточки / вида</td><td>15–17 px / 600</td><td>Карточки, «Вид №2…»</td></tr>
+    <tr><td>Текст кабинета</td><td>14 px / 400, таблицы 13.5 px, шапки таблиц 12.5 px / 600 muted</td><td>Десктоп ≥ 1280</td></tr>
+    <tr><td>Текст публичных страниц</td><td>16 px / 400, вторичный 13–14 px</td><td>Телефон 375</td></tr>
+    <tr><td>Live: номер заплыва</td><td>52 px / 800; дисциплина 19 px / 600; дорожки 17 px</td><td>/e/:slug/live</td></tr>
+    <tr><td>Ввод результата</td><td>20 px / 600, поле 46 px высотой, выравнивание вправо</td><td>Панель судьи</td></tr>
+    <tr><td>Печать</td><td>10–10.5 pt, заголовок вида 12 pt, шапка 14 pt</td><td>A4</td></tr>
+  </table>
+  <p>Шрифт — только Inter (Google Fonts, веса 400/500/600/700/800). Все времена, годы, номера дорожек и заплывов — с <code>font-variant-numeric: tabular-nums</code> (класс <code>.num</code>), чтобы колонки не «плясали». Время результата всегда показывается в формате мм:сс.сс (на публичных страницах для 50 м допустимо «33.08»).</p>
+
+  <h3>Отступы, радиусы, тени</h3>
+  <p>Шкала 4 px: 4 / 8 / 12 / 16 / 20 / 24 / 32. Внутренний отступ карточки 16–18 px, ячейки таблицы 8×10 px (в заплывах 6×10), поля формы 8×10 px, высота контролов 38 px (десктоп) и 46 px (телефон, минимум для пальца). Радиусы: 8 px контролы и бейджи-панели, 12 px карточки и модальные блоки, 18 px модальное окно и live-карточка. Тень одна — <code>--shadow-card</code> для «плавающих» элементов (модальное окно, sticky-панели); таблицы и карточки держатся на 1-px границе, а не на тени.</p>
+
+  <h3>Компоненты</h3>
+  <ul>
+    <li><b>Кнопки</b>: primary (одна на экран — главное действие), default (обводка), success (публикация), danger (обводка красным, фон только на hover), ghost (в строках таблиц). Размеры sm 13 px / md 14 px / lg 16 px. Disabled — opacity .5 и подсказка title «почему нельзя».</li>
+    <li><b>Таблицы</b>: чередование строк <code>#f9fbfd</code>, hover <code>#eef5fa</code>, выбранная строка — primary-soft. Числа — вправо. Действия — в последней колонке, ghost-кнопки, не иконки без подписи.</li>
+    <li><b>Дорожка</b> (<code>.lane</code>): номер жирным + короткая полоска-разделитель (сине-красный паттерн, как шнур в бассейне) слева. Пустая дорожка — серая, текст «свободна». Единственный «фирменный» элемент, повторяется в кабинете, live и панели судьи; на печати заменяется колонкой «Дорожка».</li>
+    <li><b>Карточка заплыва</b>: шапка (№ заплыва, время старта, число участников, статус) + таблица с фиксированным порядком дорожек 1→8 сверху вниз (как смотрит судья со стартовой тумбы), даже если дорожки пустые.</li>
+    <li><b>Панель валидатора</b>: sticky справа, сводка «N ошибок / M предупреждений», список с объяснением и что сделать. Ошибки блокируют кнопку публикации.</li>
+    <li><b>Поля времени</b>: маска мм:сс.сс, принимает «49.60», «1:05.20», «00:49.60»; ошибка — красная обводка и текст под полем, не всплывашка. Enter — к следующей дорожке. Статус DNS/DNF/DSQ отключает поле времени.</li>
+    <li><b>Формы</b>: подпись над полем, подсказка под ним серым, ошибка — красным под полем с конкретным примером правильного значения.</li>
+    <li><b>Модальное окно</b>: 640 px, затемнение 45 %, закрытие крестом, Esc и кнопкой «Готово»; в импорте — три шага сверху вниз, отчёт по строкам таблицей.</li>
+    <li><b>Публичные страницы</b>: синяя шапка primary с названием и подзаголовком, нижняя навигация из 4 пунктов (Событие · Расписание · Live · Результаты), контент 16 px.</li>
+    <li><b>Печать</b>: A4, поля 15 мм, шапка на каждой странице (<code>thead</code> повторяется, шапка документа через <code>position: running</code> где поддерживается), <code>break-inside: avoid</code> на заплыв, все кнопки и навигация скрыты, границы таблиц 1 px чёрные, чередование строк <code>#f6f6f6</code>.</li>
+  </ul>
+
+  <h3>Правила интерфейса</h3>
+  <ul>
+    <li>Русский язык, предложения с заглавной, без капса. Действие называется одинаково на кнопке, в тосте и в истории: «Опубликовать» → «Опубликовано».</li>
+    <li>Статус никогда не передаётся только цветом: всегда текст, а в бейдже — ещё и форма маркера.</li>
+    <li>Одна primary-кнопка на экран. Разрушительные действия (снять, отклонить, удалить) — danger-обводка и подтверждение.</li>
+    <li>Любое число в таблице — tabular-nums и выравнивание вправо.</li>
+    <li>Фокус видим всегда: 3 px кольцо rgb(11 91 123 / .35), на ошибочном поле — красное.</li>
+    <li>Минимальная высота тач-целей на телефоне 44 px; бокс live — читаем с 1,5 м на телефоне.</li>
+    <li>Анимация одна — пульс «Сейчас на воде»; отключается при prefers-reduced-motion.</li>
+  </ul>
+
+  <h3>Токены в CSS</h3>
+<pre>:root{
+  --color-page:#f4f7fb; --color-surface:#fff; --color-surface-muted:#f7fafc;
+  --color-text:#182337; --color-text-muted:#5c6980;
+  --color-border:#dbe3ef; --color-border-strong:#b9c6d8;
+  --color-primary:#0b5b7b; --color-primary-hover:#084966; --color-primary-soft:#e5f4fa; --color-primary-ink:#083f56;
+  --color-success:#1b7f4b; --color-success-soft:#e3f5ea;
+  --color-warning:#8a5300; --color-warning-soft:#fff3d6;
+  --color-danger:#b42318;  --color-danger-soft:#fee4e2;
+  --color-neutral:#5c6980; --color-neutral-soft:#eef1f6;
+  --color-lane-rope:#d9262f;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px;
+  --shadow-card:0 12px 30px rgb(29 52 84 / .06);
+  --focus:0 0 0 3px rgb(11 91 123 / .35);
+}</pre>
+</section>
+
+<script>
+(function(){
+  var screens=[].slice.call(document.querySelectorAll('.screen'));
+  var frame=document.getElementById('frame');
+  var sel=document.getElementById('screenSel');
+  var devBtns=[].slice.call(document.querySelectorAll('.proto-bar .dev button'));
+  var forcedDev=null;
+  var TABS=[['s1','Обзор',''],['s2','Сессии и виды программы',''],['s3','Заявки','205'],['s4','Заплывы','31'],['s5','Результаты','']];
+
+  // шапка кабинета организатора — одна на все экраны 1–5
+  document.querySelectorAll('.org-head').forEach(function(h){
+    var cur='s'+h.dataset.tab;
+    var tabs=TABS.map(function(t){return '<button role="tab" aria-selected="'+(t[0]===cur)+'" data-go="'+t[0]+'">'+t[1]+(t[2]?'<span class="cnt">'+t[2]+'</span>':'')+'</button>';}).join('');
+    h.innerHTML='<div class="topbar"><div class="logo"><i></i>Flounder</div><nav><a href="#" class="cur">События</a><a href="#">Организация</a><a href="#">Площадки</a></nav><div class="user"><span class="avatar">ОС</span>Организатор · СШОР №1</div></div>'+
+      '<div class="ev-head"><div class="crumbs">События › Открытое первенство Самары по плаванию</div><h1>Открытое первенство Самары по плаванию <span class="badge info">Опубликовано</span></h1><div class="sub">15 октября 2026 · бассейн «Орбита», Самара · 25 м, 8 дорожек · 2 сессии</div><div class="tabs" role="tablist">'+tabs+'</div></div>';
+  });
+
+  function fit(){
+    var w=frame.offsetWidth, avail=window.innerWidth-48;
+    var s=Math.min(1,avail/w); frame.style.transform='scale('+s+')';
+    frame.style.marginBottom=(-frame.offsetHeight*(1-s))+'px';
+  }
+  function setDev(d){
+    frame.className='frame '+d;
+    devBtns.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.dev===d));});
+    requestAnimationFrame(fit);
+  }
+  function show(id){
+    var sc=document.getElementById(id); if(!sc)return;
+    screens.forEach(function(s){s.classList.toggle('active',s===sc);});
+    sel.value=id;
+    setDev(forcedDev||sc.dataset.dev);
+    if(location.hash!=='#'+id) history.replaceState(null,'','#'+id);
+    frame.scrollIntoView({block:'start',behavior:'auto'});
+    window.scrollTo(0,0);
+  }
+  sel.addEventListener('change',function(){forcedDev=null;show(sel.value);});
+  devBtns.forEach(function(b){b.addEventListener('click',function(){forcedDev=b.dataset.dev;setDev(forcedDev);});});
+  document.addEventListener('click',function(e){
+    var go=e.target.closest('[data-go]'); if(go){e.preventDefault();forcedDev=null;show(go.dataset.go);}
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.target.matches('input,select,textarea'))return;
+    var i=screens.findIndex(function(s){return s.classList.contains('active');});
+    if(e.key==='ArrowRight'&&i<screens.length-1){forcedDev=null;show(screens[i+1].id);}
+    if(e.key==='ArrowLeft'&&i>0){forcedDev=null;show(screens[i-1].id);}
+    if(e.key==='Escape'){document.getElementById('importModal').classList.remove('open');}
+  });
+  window.addEventListener('resize',fit);
+  show(location.hash&&document.getElementById(location.hash.slice(1))?location.hash.slice(1):'s1');
+
+  // модальное окно импорта
+  var modal=document.getElementById('importModal');
+  document.getElementById('openImport').addEventListener('click',function(){modal.classList.add('open');});
+  ['closeImport','closeImport2'].forEach(function(id){document.getElementById(id).addEventListener('click',function(){modal.classList.remove('open');});});
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.classList.remove('open');});
+
+  // чипы и сегменты
+  document.querySelectorAll('.chips').forEach(function(g){
+    g.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c)return;g.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed','false');});c.setAttribute('aria-pressed','true');});
+  });
+  document.querySelectorAll('.seg button').forEach(function(b){
+    b.addEventListener('click',function(){
+      b.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed','false');});b.setAttribute('aria-pressed','true');
+      document.getElementById('resAbs').hidden=b.dataset.seg!=='abs';document.getElementById('resGrp').hidden=b.dataset.seg!=='grp';
+    });
+  });
+  document.querySelectorAll('.disc-pick .opt input[type=checkbox]').forEach(function(c){c.addEventListener('change',function(){c.closest('.opt').classList.toggle('on',c.checked);});});
+
+  // кнопка «Сформировать заплывы»
+  document.getElementById('genBtn').addEventListener('click',function(){
+    var b=this,n=document.getElementById('genNote');b.disabled=true;b.textContent='Формируем…';
+    setTimeout(function(){b.disabled=false;b.textContent='Сформировать заплывы';n.textContent='Последний расчёт: только что · 187 заявок · 31 заплыв · 38 мс · результат совпал с предыдущим';},900);
+  });
+
+  // панель судьи: маска, статусы, пересчёт мест
+  function parseT(v){
+    v=v.trim().replace(',','.'); if(!v)return null;
+    var m=v.match(/^(?:(\d{1,2}):)?(?:(\d{1,2}):)?(\d{1,2})(?:\.(\d{1,2}))?$/); if(!m)return NaN;
+    var h=0,mi=0; if(m[1]&&m[2]){h=+m[1];mi=+m[2];}else if(m[1]){mi=+m[1];}
+    return ((h*60+mi)*60+(+m[3]))*1000+(+(m[4]||'0').padEnd(2,'0'))*10;
+  }
+  function fmt(ms){var mi=Math.floor(ms/60000),s=Math.floor(ms%60000/1000),c=Math.round(ms%1000/10);return (mi<10?'0':'')+mi+':'+(s<10?'0':'')+s+'.'+(c<10?'0':'')+c;}
+  var tbl=document.getElementById('entryTbl'),rows=[].slice.call(tbl.querySelectorAll('tbody tr[data-seed]'));
+  var state=document.getElementById('judgeState'),pub=document.getElementById('pubBtn');
+  rows.forEach(function(r,i){
+    var inp=r.querySelector('.tin'),err=r.querySelector('.err-text');
+    inp.addEventListener('blur',function(){var ms=parseT(inp.value);if(ms!==null&&!isNaN(ms)){inp.value=fmt(ms);}validate();});
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var nx=rows[i+1]&&rows[i+1].querySelector('.tin');if(nx&&!nx.disabled)nx.focus();else document.getElementById('recalcBtn').focus();}});
+    r.querySelectorAll('.st button').forEach(function(b){
+      b.addEventListener('click',function(){
+        var on=b.getAttribute('aria-pressed')==='true';
+        r.querySelectorAll('.st button').forEach(function(x){x.setAttribute('aria-pressed','false');});
+        if(!on){b.setAttribute('aria-pressed','true');inp.disabled=true;inp.value='';}else{inp.disabled=false;}
+        inp.classList.remove('invalid');if(err)err.remove();err=null;validate();
+      });
+    });
+  });
+  function validate(){
+    var bad=0,empty=0;
+    rows.forEach(function(r){var inp=r.querySelector('.tin');if(inp.disabled)return;var ms=parseT(inp.value);var e=r.querySelector('.err-text');
+      if(ms===null){empty++;inp.classList.remove('invalid');if(e)e.remove();}
+      else if(isNaN(ms)){bad++;inp.classList.add('invalid');if(!e){e=document.createElement('div');e.className='err-text';e.textContent='Непонятное время. Формат мм:сс.сс, например 00:51.90';inp.after(e);}}
+      else{inp.classList.remove('invalid');if(e)e.remove();}});
+    state.textContent=bad||empty?'Не сохранено: '+(bad?bad+' с ошибкой':'')+(bad&&empty?', ':'')+(empty?empty+' пустых':''):'Не сохранено: все времена введены';
+    return !bad&&!empty;
+  }
+  function rank(){
+    var list=rows.map(function(r){var inp=r.querySelector('.tin');var ms=inp.disabled?null:parseT(inp.value);return {r:r,ms:(ms===null||isNaN(ms))?null:ms};});
+    var ranked=list.filter(function(x){return x.ms!==null;}).sort(function(a,b){return a.ms-b.ms;});
+    var place=0;ranked.forEach(function(x,i){if(i===0||x.ms!==ranked[i-1].ms)place=i+1;x.place=place;});
+    list.forEach(function(x){var p=x.r.querySelector('.place'),g=x.r.querySelector('.grp');p.textContent=x.place||'—';g.textContent=x.place||'—';p.classList.toggle('gold',x.place===1);});
+  }
+  rank(); // предварительные места по уже введённым временам (демо: 49.60 = 49.60 → места 1, 1, 3)
+  document.getElementById('recalcBtn').addEventListener('click',function(){
+    if(!validate()){state.textContent+=' — исправьте и сохраните снова';return;}
+    rank();
+    state.textContent='Сохранено 10:14:05 · места в заплыве пересчитаны (абсолют по виду — после всех заплывов)';pub.disabled=false;pub.title='';
+  });
+  pub.addEventListener('click',function(){this.textContent='Опубликовано';this.disabled=true;state.textContent='Опубликовано 10:14:20 · результаты видны на публичной странице';});
+  document.getElementById('nextBtn').addEventListener('click',function(){alert('Прототип: переход к заплыву 3, live-табло переключится автоматически (PUT /live).');});
+
+  // «Найти себя»
+  var fm=document.getElementById('findMe'),fb=document.getElementById('foundBox');
+  fm.addEventListener('input',function(){var q=fm.value.trim().toLowerCase();fb.style.display=q&&'ковалёва'.indexOf(q)===0?'':'none';});
+})();
+</script>
+</body>
+</html>
