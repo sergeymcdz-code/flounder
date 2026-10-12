@@ -20,6 +20,12 @@ public record EventDisciplineResponse(
         String status,
         String settingsJson,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt,
+        Integer distanceM,
+        String stroke,
+        String gender,
+        java.util.List<com.acme.sportplatform.competition.AgeGroup> ageGroups,
+        String seedingMode,
+        UUID sessionId,
+        Integer orderInSession,
+        Integer heatDurationSec) {}

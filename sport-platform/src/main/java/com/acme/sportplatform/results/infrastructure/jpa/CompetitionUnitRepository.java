@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CompetitionUnitRepository
         extends JpaRepository<CompetitionUnitEntity, UUID> {
+    boolean existsByEventDisciplineId(UUID id);
 
     List<CompetitionUnitEntity>
     findByEventDisciplineIdOrderBySequenceNumberAsc(

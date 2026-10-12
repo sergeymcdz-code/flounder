@@ -7,4 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProfileRepository extends JpaRepository<ProfileEntity, UUID> {
     Optional<ProfileEntity> findByUserId(UUID userId);
+
+    @org.springframework.data.jpa.repository.Lock(
+            jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    Optional<ProfileEntity> findByExternalKey(String externalKey);
 }

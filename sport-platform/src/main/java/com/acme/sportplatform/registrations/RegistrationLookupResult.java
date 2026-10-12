@@ -7,6 +7,9 @@ public record RegistrationLookupResult(
         UUID participantUserId,
         UUID eventDisciplineId,
         String status,
-        String participantSnapshot
-) {
-}
+        String participantSnapshot,
+        UUID eventId,
+        UUID participantProfileId,
+        Long seedTimeMs,
+        String source,
+        String paymentStatus) {}

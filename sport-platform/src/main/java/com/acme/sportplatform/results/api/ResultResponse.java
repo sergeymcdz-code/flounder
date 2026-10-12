@@ -8,5 +8,7 @@ public record ResultResponse(
         String rawValue,
         String resultType,
         String status,
-        Integer finalPlace
-) {}
+        Integer finalPlace,
+        Long timeMs,
+        String display,
+        Integer placeInAgeGroup) {}

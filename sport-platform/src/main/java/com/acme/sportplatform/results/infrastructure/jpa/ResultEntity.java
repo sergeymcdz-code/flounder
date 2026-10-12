@@ -46,6 +46,26 @@ public class ResultEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column private Long timeMs;
+
+    @Column private Integer placeInAgeGroup;
+
+    public Long getTimeMs() {
+        return timeMs;
+    }
+
+    public void setTimeMs(Long value) {
+        this.timeMs = value;
+    }
+
+    public Integer getPlaceInAgeGroup() {
+        return placeInAgeGroup;
+    }
+
+    public void setPlaceInAgeGroup(Integer value) {
+        this.placeInAgeGroup = value;
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

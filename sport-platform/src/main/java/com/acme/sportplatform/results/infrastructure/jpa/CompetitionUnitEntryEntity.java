@@ -27,6 +27,27 @@ public class CompetitionUnitEntryEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column private Long seedTimeMs;
+
+    @Column(nullable = false, length = 16)
+    private String entryStatus = "ASSIGNED";
+
+    public Long getSeedTimeMs() {
+        return seedTimeMs;
+    }
+
+    public void setSeedTimeMs(Long value) {
+        this.seedTimeMs = value;
+    }
+
+    public String getEntryStatus() {
+        return entryStatus;
+    }
+
+    public void setEntryStatus(String value) {
+        this.entryStatus = value;
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

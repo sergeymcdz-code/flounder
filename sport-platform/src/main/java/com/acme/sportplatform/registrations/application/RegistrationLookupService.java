@@ -18,11 +18,46 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepos
 public class RegistrationLookupService implements RegistrationLookup {
 
     private final RegistrationRepository registrationRepository;
+    private final com.acme.sportplatform.identity.ProfileLookup profiles;
 
     public RegistrationLookupService(
-            RegistrationRepository registrationRepository
-    ) {
+            RegistrationRepository registrationRepository,
+            com.acme.sportplatform.identity.ProfileLookup profiles) {
+        this.profiles = profiles;
         this.registrationRepository = registrationRepository;
+    }
+
+    @Override
+    @Transactional
+    public void markPaid(UUID registrationId) {
+        var registration = requireLocked(registrationId);
+        if (!"CONFIRMED".equals(registration.getStatus())
+                && !"PAID".equals(registration.getStatus()))
+            throw new com.acme.sportplatform.common.exception.BusinessException(
+                    "registrations.invalid_transition",
+                    "Отметить оплату можно только у подтверждённой заявки");
+        applyPaid(registration);
+    }
+
+    @Override
+    @Transactional
+    public void applySuccessfulPayment(UUID registrationId) {
+        applyPaid(requireLocked(registrationId));
+    }
+
+    private RegistrationEntity requireLocked(UUID id) {
+        return registrationRepository
+                .lockById(id)
+                .orElseThrow(
+                        () ->
+                                new com.acme.sportplatform.common.exception.BusinessException(
+                                        "registrations.not_found", "Заявка не найдена"));
+    }
+
+    private void applyPaid(RegistrationEntity registration) {
+        registration.setPaymentStatus("PAID");
+        if ("CONFIRMED".equals(registration.getStatus())) registration.setStatus("PAID");
+        registration.setUpdatedAt(java.time.OffsetDateTime.now());
     }
 
     @Override
@@ -62,10 +97,16 @@ public class RegistrationLookupService implements RegistrationLookup {
     ) {
         return new RegistrationLookupResult(
                 registration.getId(),
-                registration.getParticipantUserId(),
+                registration.getParticipantUserId() != null
+                        ? registration.getParticipantUserId()
+                        : profiles.getById(registration.getParticipantProfileId()).userId(),
                 registration.getEventDisciplineId(),
                 registration.getStatus(),
-                registration.getParticipantSnapshot()
-        );
+                registration.getParticipantSnapshot(),
+                registration.getEventId(),
+                registration.getParticipantProfileId(),
+                registration.getSeedTimeMs(),
+                registration.getSource(),
+                registration.getPaymentStatus());
     }
 }

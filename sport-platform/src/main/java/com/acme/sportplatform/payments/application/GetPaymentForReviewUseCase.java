@@ -15,18 +15,24 @@ import com.acme.sportplatform.payments.infrastructure.jpa.PaymentRepository;
 public class GetPaymentForReviewUseCase {
 
     private final PaymentRepository paymentRepository;
+    private final com.acme.sportplatform.registrations.RegistrationLookup registrations;
+    private final com.acme.sportplatform.events.EventManagementAccess access;
     private final PaymentMapper paymentMapper;
 
     public GetPaymentForReviewUseCase(
             PaymentRepository paymentRepository,
-            PaymentMapper paymentMapper
-    ) {
+            PaymentMapper paymentMapper,
+            com.acme.sportplatform.registrations.RegistrationLookup registrations,
+            com.acme.sportplatform.events.EventManagementAccess access) {
+        this.registrations = registrations;
+        this.access = access;
         this.paymentRepository = paymentRepository;
         this.paymentMapper = paymentMapper;
     }
 
     @Transactional(readOnly = true)
     public PaymentResponse execute(UUID registrationId) {
+        access.assertCanManage(registrations.getById(registrationId).eventId());
         PaymentEntity payment = paymentRepository
                 .findByRegistrationId(registrationId)
                 .orElseThrow(() -> new ResponseStatusException(

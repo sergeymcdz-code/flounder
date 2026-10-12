@@ -50,13 +50,32 @@ public class CreateUserUseCase {
 
         UserEntity savedUser = userRepository.save(user);
 
-        ProfileEntity profile = new ProfileEntity();
+        String genderKey =
+                switch (request.gender()) {
+                    case null -> "X";
+                    case "MALE" -> "M";
+                    case "FEMALE" -> "F";
+                    default -> request.gender();
+                };
+        String externalKey =
+                (request.lastName().trim()
+                                + "|"
+                                + request.firstName().trim()
+                                + "|"
+                                + request.birthDate()
+                                + "|"
+                                + genderKey)
+                        .toLowerCase(java.util.Locale.ROOT);
+        ProfileEntity imported = profileRepository.findByExternalKey(externalKey).orElse(null);
+        ProfileEntity profile =
+                imported != null && imported.getUserId() == null ? imported : new ProfileEntity();
+        if (imported == null || imported.getUserId() == null) profile.setExternalKey(externalKey);
         profile.setUserId(savedUser.getId());
         profile.setFirstName(request.firstName());
         profile.setLastName(request.lastName());
         profile.setMiddleName(request.middleName());
         profile.setBirthDate(request.birthDate());
-        profile.setGender(request.gender());
+        profile.setGender(request.gender() == null ? "X" : request.gender());
         profile.setCity(request.city());
         profile.setCountryCode(request.countryCode());
         profile.setClubName(request.clubName());

@@ -66,6 +66,96 @@ public class EventDisciplineEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "distance_m")
+    private Integer distanceM;
+
+    @Column(length = 16)
+    private String stroke;
+
+    @Column(length = 1)
+    private String gender;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "age_groups_json", nullable = false, columnDefinition = "jsonb")
+    private java.util.List<com.acme.sportplatform.competition.AgeGroup> ageGroups =
+            java.util.List.of();
+
+    @Column(nullable = false, length = 16)
+    private String seedingMode = "BY_AGE_GROUP";
+
+    @Column(name = "session_id")
+    private UUID sessionId;
+
+    @Column(name = "order_in_session")
+    private Integer orderInSession;
+
+    @Column(name = "heat_duration_sec")
+    private Integer heatDurationSec;
+
+    public Integer getDistanceM() {
+        return distanceM;
+    }
+
+    public void setDistanceM(Integer value) {
+        this.distanceM = value;
+    }
+
+    public String getStroke() {
+        return stroke;
+    }
+
+    public void setStroke(String value) {
+        this.stroke = value;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String value) {
+        this.gender = value;
+    }
+
+    public java.util.List<com.acme.sportplatform.competition.AgeGroup> getAgeGroups() {
+        return ageGroups;
+    }
+
+    public void setAgeGroups(java.util.List<com.acme.sportplatform.competition.AgeGroup> value) {
+        this.ageGroups = value;
+    }
+
+    public String getSeedingMode() {
+        return seedingMode;
+    }
+
+    public void setSeedingMode(String value) {
+        this.seedingMode = value;
+    }
+
+    public UUID getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(UUID value) {
+        this.sessionId = value;
+    }
+
+    public Integer getOrderInSession() {
+        return orderInSession;
+    }
+
+    public void setOrderInSession(Integer value) {
+        this.orderInSession = value;
+    }
+
+    public Integer getHeatDurationSec() {
+        return heatDurationSec;
+    }
+
+    public void setHeatDurationSec(Integer value) {
+        this.heatDurationSec = value;
+    }
+
     public UUID getId() {
         return id;
     }

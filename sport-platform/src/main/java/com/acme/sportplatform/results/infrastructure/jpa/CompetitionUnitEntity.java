@@ -41,6 +41,37 @@ public class CompetitionUnitEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(length = 64)
+    private String ageGroupCode;
+
+    @Column private Integer heatDurationSec;
+
+    @Column private UUID generationRunId;
+
+    public String getAgeGroupCode() {
+        return ageGroupCode;
+    }
+
+    public void setAgeGroupCode(String value) {
+        this.ageGroupCode = value;
+    }
+
+    public Integer getHeatDurationSec() {
+        return heatDurationSec;
+    }
+
+    public void setHeatDurationSec(Integer value) {
+        this.heatDurationSec = value;
+    }
+
+    public UUID getGenerationRunId() {
+        return generationRunId;
+    }
+
+    public void setGenerationRunId(UUID value) {
+        this.generationRunId = value;
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

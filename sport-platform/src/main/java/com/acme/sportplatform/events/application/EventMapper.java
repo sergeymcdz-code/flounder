@@ -9,6 +9,11 @@ import com.acme.sportplatform.events.infrastructure.persistence.entity.EventEnti
 
 @Component
 public class EventMapper {
+    private final EventSessionService sessions;
+
+    public EventMapper(EventSessionService sessions) {
+        this.sessions = sessions;
+    }
 
     public EventResponse toResponse(EventEntity entity) {
         return new EventResponse(
@@ -28,7 +33,7 @@ public class EventMapper {
                 entity.getSettingsJson(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                List.of()
-        );
+                List.of(),
+                sessions.views(entity.getId()));
     }
 }

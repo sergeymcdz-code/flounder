@@ -68,22 +68,17 @@ public class CreateRegistrationUseCase {
             profile = profileLookup.getByUserId(participantUserId);
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
-                    "registrations.profile_not_found",
-                    "Participant profile not found"
-            );
+                    "registrations.profile_not_found", "Профиль участника не найден");
         }
 
         EventDisciplineLookupResult discipline;
 
         try {
-            discipline = eventDisciplineLookup.getPublishedById(
-                    request.eventDisciplineId()
-            );
+            discipline = eventDisciplineLookup.lockPublishedById(request.eventDisciplineId());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
                     "registrations.discipline_not_available",
-                    "Event discipline not found or not published"
-            );
+                    "Дисциплина не найдена или не опубликована");
         }
 
         EventLookupResult event;
@@ -91,28 +86,39 @@ public class CreateRegistrationUseCase {
         try {
             event = eventLookup.getById(discipline.eventId());
         } catch (IllegalArgumentException exception) {
-            throw new BusinessException(
-                    "registrations.event_not_found",
-                    "Event not found"
-            );
+            throw new BusinessException("registrations.event_not_found", "Событие не найдено");
         }
 
-        if (!"REGISTRATION_OPEN".equals(event.status())) {
+        OffsetDateTime current = OffsetDateTime.now();
+        if (!"REGISTRATION_OPEN".equals(event.status())
+                || event.registrationOpenAt() != null
+                        && current.isBefore(event.registrationOpenAt())
+                || event.registrationCloseAt() != null
+                        && !current.isBefore(event.registrationCloseAt())) {
             throw new BusinessException(
-                    "registrations.registration_not_open",
-                    "Registration is not open for this event"
-            );
+                    "registrations.registration_not_open", "Регистрация на событие закрыта");
         }
 
-        if (registrationRepository
-                .existsByEventDisciplineIdAndParticipantUserId(
-                        discipline.id(),
-                        participantUserId
-                )) {
+        String gender =
+                switch (profile.gender()) {
+                    case "MALE" -> "M";
+                    case "FEMALE" -> "F";
+                    default -> profile.gender();
+                };
+        if (discipline.gender() != null
+                        && !"X".equals(discipline.gender())
+                        && !discipline.gender().equals(gender)
+                || !discipline.ageGroups().isEmpty()
+                        && discipline.ageGroups().stream()
+                                .noneMatch(g -> g.includes(gender, profile.birthDate().getYear())))
             throw new BusinessException(
-                    "registrations.already_exists",
-                    "Participant is already registered for this discipline"
-            );
+                    "registrations.athlete_not_eligible",
+                    discipline.name()
+                            + ": пол или год рождения не подходит ни под одну возрастную группу");
+        if (registrationRepository.existsByEventDisciplineIdAndParticipantProfileId(
+                discipline.id(), profile.id())) {
+            throw new BusinessException(
+                    "registrations.already_exists", "Участник уже зарегистрирован в дисциплине");
         }
 
         if (discipline.participantLimit() != null) {
@@ -124,9 +130,7 @@ public class CreateRegistrationUseCase {
 
             if (occupiedPlaces >= discipline.participantLimit()) {
                 throw new BusinessException(
-                        "registrations.discipline_limit_reached",
-                        "Participant limit has been reached"
-                );
+                        "registrations.discipline_limit_reached", "Достигнут лимит участников");
             }
         }
 
@@ -139,6 +143,24 @@ public class CreateRegistrationUseCase {
         entity.setParticipantUserId(participantUserId);
         entity.setParticipantProfileId(profile.id());
         entity.setStatus(RegistrationStatus.SUBMITTED.name());
+        Long seed = request.seedTimeMs();
+        if (request.seedTime() != null) {
+            long parsed = com.acme.sportplatform.common.TimeParser.parse(request.seedTime());
+            if (seed != null && seed != parsed)
+                throw new BusinessException(
+                        "registrations.seed_time_mismatch",
+                        "Заявочное время в строке и миллисекундах не совпадает");
+            seed = parsed;
+        }
+        if (seed != null && seed <= 0)
+            throw new BusinessException(
+                    "registrations.invalid_seed_time", "Заявочное время должно быть положительным");
+        entity.setSeedTimeMs(seed);
+        entity.setSource("FORM");
+        entity.setPaymentStatus(
+                discipline.entryFeeAmount() == null || discipline.entryFeeAmount().signum() == 0
+                        ? "NOT_REQUIRED"
+                        : "PENDING");
         entity.setParticipantSnapshot(createParticipantSnapshot(profile));
         entity.setRegistrationMeta(
                 request.registrationMeta() == null

@@ -41,12 +41,14 @@ public class RecalculatePlacesUseCase {
     ) {
         boolean descending = parseRankingStrategy(rankingStrategy);
 
-        CompetitionUnitEntity unit = competitionUnitRepository
-                .findById(competitionUnitId)
-                .orElseThrow(() -> new BusinessException(
-                        "results.unit_not_found",
-                        "Competition unit not found: " + competitionUnitId
-                ));
+        CompetitionUnitEntity unit =
+                competitionUnitRepository
+                        .findById(competitionUnitId)
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                "results.unit_not_found",
+                                                "Заплыв не найден: " + competitionUnitId));
 
         if ("PUBLISHED".equals(unit.getStatus())) {
             throw new BusinessException(
@@ -66,11 +68,10 @@ public class RecalculatePlacesUseCase {
                 ? List.of()
                 : resultRepository.findByCompetitionUnitEntryIdIn(entryIds);
 
-        boolean hasInvalidPendingResult = allResults.stream()
-                .filter(result ->
-                        ResultStatus.PENDING.name().equals(result.getStatus()))
-                .anyMatch(result ->
-                        parseNumeric(result.getRawValue()) == null);
+        boolean hasInvalidPendingResult =
+                allResults.stream()
+                        .filter(result -> ResultStatus.PENDING.name().equals(result.getStatus()))
+                        .anyMatch(result -> numericValue(result) == null);
 
         if (hasInvalidPendingResult) {
             throw new BusinessException(
@@ -82,27 +83,32 @@ public class RecalculatePlacesUseCase {
         OffsetDateTime now = OffsetDateTime.now();
 
         for (ResultEntity result : allResults) {
-            if (canBeRanked(result)) {
+            {
                 result.setFinalPlace(null);
+                result.setPlaceInAgeGroup(null);
                 result.setUpdatedAt(now);
             }
         }
 
-        List<RankedResult> rankedResults = allResults.stream()
-                .filter(this::canBeRanked)
-                .map(result -> new RankedResult(
-                        result,
-                        parseNumeric(result.getRawValue())
-                ))
-                .sorted(rankedComparator(descending))
-                .toList();
+        List<RankedResult> rankedResults =
+                allResults.stream()
+                        .filter(this::canBeRanked)
+                        .map(result -> new RankedResult(result, numericValue(result)))
+                        .sorted(rankedComparator(descending))
+                        .toList();
 
-        int place = 1;
+        // TODO T02: delegate to ResultRanker when available. Competition ranking preserves ties.
+        int index = 0;
+        int place = 0;
+        Double previous = null;
 
         for (RankedResult ranked : rankedResults) {
             ResultEntity result = ranked.result();
 
-            result.setFinalPlace(place++);
+            index++;
+            if (previous == null || Double.compare(previous, ranked.value()) != 0) place = index;
+            previous = ranked.value();
+            result.setFinalPlace(place);
             result.setStatus(ResultStatus.VALID.name());
             result.setUpdatedAt(now);
         }
@@ -121,8 +127,7 @@ public class RecalculatePlacesUseCase {
 
         throw new BusinessException(
                 "results.invalid_ranking_strategy",
-                "rankingStrategy must be ASC or DESC"
-        );
+                "Порядок ранжирования должен быть ASC или DESC");
     }
 
     private boolean canBeRanked(ResultEntity result) {
@@ -137,6 +142,10 @@ public class RecalculatePlacesUseCase {
         return descending ? comparator.reversed() : comparator;
     }
 
+    private Double numericValue(ResultEntity r) {
+        return r.getTimeMs() == null ? parseNumeric(r.getRawValue()) : r.getTimeMs() / 1000.0;
+    }
+
     private Double parseNumeric(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
             return null;
@@ -144,7 +153,8 @@ public class RecalculatePlacesUseCase {
 
         try {
             if (!rawValue.contains(":")) {
-                return Double.parseDouble(rawValue);
+                double value = Double.parseDouble(rawValue);
+                return Double.isFinite(value) ? value : null;
             }
 
             String[] parts = rawValue.split(":");

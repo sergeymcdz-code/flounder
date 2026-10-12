@@ -19,5 +19,8 @@ public record RegistrationResponse(
         OffsetDateTime reviewedAt,
         OffsetDateTime submittedAt,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {}
+        OffsetDateTime updatedAt,
+        Long seedTimeMs,
+        String seedTime,
+        String source,
+        String paymentStatus) {}

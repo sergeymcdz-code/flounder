@@ -15,6 +15,5 @@ public record PublicEventDetailsResponse(
         OffsetDateTime eventEndAt,
         String status,
         String publicSlug,
-        List<PublicEventDisciplineResponse> disciplines
-) {
-}
+        List<PublicEventDisciplineResponse> disciplines,
+        List<com.acme.sportplatform.events.EventSessionView> sessions) {}

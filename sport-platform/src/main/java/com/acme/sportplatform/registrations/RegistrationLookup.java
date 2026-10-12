@@ -9,6 +9,10 @@ public interface RegistrationLookup {
 
     RegistrationLookupResult getById(UUID registrationId);
 
+    void markPaid(UUID registrationId);
+
+    void applySuccessfulPayment(UUID registrationId);
+
     Optional<RegistrationLookupResult> findById(UUID registrationId);
 
     List<RegistrationLookupResult> findByIdIn(

@@ -22,8 +22,8 @@ public record EventResponse(
         String settingsJson,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        List<DisciplineResponse> disciplines
-) {
+        List<DisciplineResponse> disciplines,
+        List<com.acme.sportplatform.events.EventSessionView> sessions) {
     public record DisciplineResponse(
             UUID id,
             String code,

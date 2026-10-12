@@ -12,25 +12,27 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 
 public record CreateEventDisciplineRequest(
-
-        @NotNull
-        UUID disciplineTemplateId,
-
-        @NotBlank
-        String code,
-
-        @NotBlank
-        String name,
-
-        @Positive
-        Integer participantLimit,
-
-        @DecimalMin(value = "0.00")
-        BigDecimal entryFeeAmount,
-
-        @Pattern(regexp = "^[A-Z]{3}$")
-        String entryFeeCurrency,
-
-        JsonNode settingsJson
-) {
+        @NotNull(groups = Create.class, message = "Укажите шаблон дисциплины")
+                UUID disciplineTemplateId,
+        @jakarta.validation.constraints.Size(max = 64, message = "Код не длиннее 64 символов")
+                String code,
+        @jakarta.validation.constraints.Size(
+                        max = 255,
+                        message = "Название не длиннее 255 символов")
+                String name,
+        @Positive(message = "Лимит участников должен быть положительным") Integer participantLimit,
+        @DecimalMin(value = "0.00", message = "Взнос не может быть отрицательным")
+                BigDecimal entryFeeAmount,
+        @Pattern(regexp = "^[A-Z]{3}$", message = "Валюта должна состоять из трёх заглавных букв")
+                String entryFeeCurrency,
+        JsonNode settingsJson,
+        Integer distanceM,
+        com.acme.sportplatform.competition.Stroke stroke,
+        String gender,
+        java.util.List<com.acme.sportplatform.competition.AgeGroup> ageGroups,
+        com.acme.sportplatform.competition.SeedingMode seedingMode,
+        UUID sessionId,
+        Integer orderInSession,
+        Integer heatDurationSec) {
+    public interface Create {}
 }

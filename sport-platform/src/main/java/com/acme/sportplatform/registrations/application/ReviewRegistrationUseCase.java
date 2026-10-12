@@ -31,11 +31,17 @@ public class ReviewRegistrationUseCase {
 
         @Transactional
         public RegistrationResponse execute(UUID registrationId, UUID reviewerUserId, ReviewRegistrationRequest request) {
-        RegistrationEntity registration = registrationRepository.findById(registrationId)
-                .orElseThrow(() -> new BusinessException("registrations.notfound", "Registration not found"));
+        RegistrationEntity registration =
+                registrationRepository
+                        .lockById(registrationId)
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                "registrations.notfound", "Заявка не найдена"));
 
-        if (!RegistrationStatus.SUBMITTED.name().equals(registration.getStatus())) {
-                throw new BusinessException("registrations.notreviewable", "Only submitted registrations can be reviewed");
+        if (!java.util.Set.of("SUBMITTED", "UNDER_REVIEW").contains(registration.getStatus())) {
+            throw new BusinessException(
+                    "registrations.notreviewable", "Рассмотреть можно только поданную заявку");
         }
 
         RegistrationStatus newStatus = switch (request.decision()) {
@@ -44,6 +50,9 @@ public class ReviewRegistrationUseCase {
                 case NEEDS_CORRECTION -> RegistrationStatus.NEEDS_CORRECTION;
         };
 
+        if (!RegistrationStatus.valueOf(registration.getStatus()).canTransition(newStatus))
+            throw new BusinessException(
+                    "registrations.invalid_transition", "Недопустимый переход статуса заявки");
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         registration.setStatus(newStatus.name());
         registration.setReviewNote(request.reviewNote());

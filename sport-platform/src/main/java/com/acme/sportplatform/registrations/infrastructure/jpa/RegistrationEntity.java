@@ -24,7 +24,7 @@ public class RegistrationEntity {
     @Column(name = "event_discipline_id", nullable = false)
     private UUID eventDisciplineId;
 
-    @Column(name = "participant_user_id", nullable = false)
+    @Column(name = "participant_user_id")
     private UUID participantUserId;
 
     @Column(name = "participant_profile_id", nullable = false)
@@ -58,6 +58,39 @@ public class RegistrationEntity {
 
     @Column(name = "reviewed_at")
     private OffsetDateTime reviewedAt;
+
+    @Column(name = "seed_time_ms")
+    private Long seedTimeMs;
+
+    @Column(nullable = false, length = 16)
+    private String source = "FORM";
+
+    @Column(nullable = false, length = 16)
+    private String paymentStatus = "NOT_REQUIRED";
+
+    public Long getSeedTimeMs() {
+        return seedTimeMs;
+    }
+
+    public void setSeedTimeMs(Long value) {
+        this.seedTimeMs = value;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String value) {
+        this.source = value;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String value) {
+        this.paymentStatus = value;
+    }
 
     public UUID getId() {
         return id;

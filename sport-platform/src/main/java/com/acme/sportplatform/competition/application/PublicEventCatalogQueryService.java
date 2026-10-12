@@ -64,8 +64,8 @@ public class PublicEventCatalogQueryService {
                 event.eventEndAt(),
                 event.status(),
                 event.publicSlug(),
-                disciplines
-        );
+                disciplines,
+                event.sessions());
     }
 
     private PublicEventListItemResponse toListItem(
@@ -99,7 +99,14 @@ public class PublicEventCatalogQueryService {
                 discipline.getParticipantLimit(),
                 discipline.getEntryFeeAmount(),
                 discipline.getEntryFeeCurrency(),
-                discipline.getSettingsJson()
-        );
+                discipline.getSettingsJson(),
+                discipline.getDistanceM(),
+                discipline.getStroke(),
+                discipline.getGender(),
+                discipline.getAgeGroups(),
+                discipline.getSeedingMode(),
+                discipline.getSessionId(),
+                discipline.getOrderInSession(),
+                discipline.getHeatDurationSec());
     }
 }

@@ -27,6 +27,19 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
     }
 
     @Override
+    @Transactional
+    public EventDisciplineLookupResult lockPublishedById(UUID id) {
+        eventDisciplineRepository
+                .lockById(id)
+                .orElseThrow(
+                        () ->
+                                new com.acme.sportplatform.common.exception.BusinessException(
+                                        "competition.discipline_not_found",
+                                        "Дисциплина не найдена"));
+        return getPublishedById(id);
+    }
+
+    @Override
     public EventDisciplineLookupResult getPublishedById(
             UUID eventDisciplineId
     ) {
@@ -52,8 +65,15 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 entity.getParticipantLimit(),
                 entity.getEntryFeeAmount(),
                 entity.getEntryFeeCurrency(),
-                entity.getSettingsJson()
-        );
+                entity.getSettingsJson(),
+                entity.getDistanceM(),
+                entity.getStroke(),
+                entity.getGender(),
+                entity.getAgeGroups(),
+                entity.getSeedingMode(),
+                entity.getSessionId(),
+                entity.getOrderInSession(),
+                entity.getHeatDurationSec());
     }
 
     @Override
@@ -99,7 +119,14 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 entity.getParticipantLimit(),
                 entity.getEntryFeeAmount(),
                 entity.getEntryFeeCurrency(),
-                entity.getSettingsJson()
-        );
+                entity.getSettingsJson(),
+                entity.getDistanceM(),
+                entity.getStroke(),
+                entity.getGender(),
+                entity.getAgeGroups(),
+                entity.getSeedingMode(),
+                entity.getSessionId(),
+                entity.getOrderInSession(),
+                entity.getHeatDurationSec());
     }
 }
