@@ -108,6 +108,7 @@ public class ProcessYooKassaWebhookUseCase {
         payment.setStatus(PaymentStatus.SUCCEEDED.name());
         payment.setPaidAt(now);
         payment.setUpdatedAt(now);
+        paymentRepository.save(payment);
 
         markProcessed(event, now);
     }
@@ -139,6 +140,7 @@ public class ProcessYooKassaWebhookUseCase {
         payment.setStatus(PaymentStatus.CANCELED.name());
         payment.setCanceledAt(now);
         payment.setUpdatedAt(now);
+        paymentRepository.save(payment);
 
         markProcessed(event, now);
     }
@@ -152,6 +154,7 @@ public class ProcessYooKassaWebhookUseCase {
         );
         event.setProcessedAt(now);
         event.setProcessingError(null);
+        webhookEventRepository.save(event);
     }
 
     private void reject(

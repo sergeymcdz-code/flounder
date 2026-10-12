@@ -16,22 +16,31 @@ public class ListRegistrationsForReviewUseCase {
 
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
+    private final com.acme.sportplatform.events.EventLookup events;
 
     public ListRegistrationsForReviewUseCase(
             RegistrationRepository registrationRepository,
-            RegistrationMapper registrationMapper
+            RegistrationMapper registrationMapper,
+            com.acme.sportplatform.events.EventLookup events
     ) {
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
+        this.events = events;
     }
 
-    public List<RegistrationResponse> execute(UUID eventId, RegistrationStatus status) {
+    public List<RegistrationResponse> execute(UUID eventId, RegistrationStatus status,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         List<com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntity> entities;
 
         if (eventId != null && status != null) {
             entities = registrationRepository.findByEventIdAndStatus(eventId, status.name());
         } else if (eventId != null) {
             entities = registrationRepository.findByEventId(eventId);
+        } else if (!principal.isPlatformAdmin()) {
+            var eventIds = events.accessibleEventIds(principal.getUserId());
+            if (eventIds.isEmpty()) return List.of();
+            entities = status == null ? registrationRepository.findByEventIdIn(eventIds)
+                    : registrationRepository.findByEventIdInAndStatus(eventIds, status.name());
         } else if (status != null) {
             entities = registrationRepository.findByStatus(status.name());
         } else {

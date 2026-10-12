@@ -46,6 +46,20 @@ class EventIntegrationTest
                     "11111111-1111-1111-1111-111111111111"
             );
 
+    @org.junit.jupiter.api.BeforeEach
+    void useAdminPrincipalWithAuthorities() {
+        var context = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        var authentication = context.getAuthentication();
+        if (authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(role -> "ROLE_PLATFORM_ADMIN".equals(role.getAuthority()))) {
+            var principal = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
+                    UUID.fromString("11111111-1111-1111-1111-111111111111"), "admin@flounder.demo", "", "active",
+                    authentication.getAuthorities());
+            context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    principal, null, principal.getAuthorities()));
+        }
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -298,7 +312,7 @@ class EventIntegrationTest
                 .andExpect(status().isForbidden());
         jdbc.update("update registrations set status='REJECTED' where id=?", registrationId);
         mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(operator)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REJECTED"));
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("registrations.payment_not_applicable"));
 
     }
 
@@ -323,6 +337,35 @@ class EventIntegrationTest
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
         org.junit.jupiter.api.Assertions.assertEquals(organizationId, jdbc.queryForObject(
                 "select organization_id from organization_members where user_id=?", UUID.class, applicant));
+    }
+
+    @Test
+    @WithMockUser(roles = "PLATFORM_ADMIN")
+    void judgeMemberCanReadEventAndDisciplinesButCannotPublish() throws Exception {
+        UUID organizationId = createOrganization();
+        UUID venueId = createVenue();
+        UUID regulationId = createRegulationVersion();
+        String eventId = createEvent(organizationId, venueId, regulationId, "Судейский просмотр", "Проверка доступа судьи");
+        UUID judgeId = UUID.randomUUID();
+        jdbc.update("insert into users(id,email,password_hash,status) values (?,?,'test','active')", judgeId, judgeId + "@example.com");
+        mockMvc.perform(post("/api/v1/organizations/{id}/members", organizationId)
+                .with(authentication(platformAdminAuthentication())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"userId\":\"" + judgeId + "\",\"memberRole\":\"judge\"}"))
+                .andExpect(status().isCreated());
+        var principal = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
+                judgeId, "judge@example.com", "", "active", List.of(new SimpleGrantedAuthority("ROLE_JUDGE")));
+        var judge = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        mockMvc.perform(get("/api/v1/events/{id}", eventId).with(authentication(judge)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(eventId));
+        mockMvc.perform(get("/api/v1/organizer/events").with(authentication(judge)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(eventId));
+        mockMvc.perform(get("/api/v1/events/{id}/disciplines", eventId).with(authentication(judge)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/events/{id}/publish", eventId).with(authentication(judge)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/events/{id}/disciplines", eventId).with(authentication(judge))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"disciplineTemplateId\":\"" + UUID.randomUUID() + "\",\"code\":\"50\",\"name\":\"50 м\"}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -626,7 +669,9 @@ class EventIntegrationTest
 
     private Authentication platformAdminAuthentication() {
         AuthenticatedUserPrincipal principal =
-                () -> TEST_ADMIN_USER_ID;
+                new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
+                        TEST_ADMIN_USER_ID, "admin@flounder.demo", "", "active",
+                        List.of(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN")));
 
         return new UsernamePasswordAuthenticationToken(
                 principal,

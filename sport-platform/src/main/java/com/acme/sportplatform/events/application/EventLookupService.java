@@ -15,9 +15,19 @@ import com.acme.sportplatform.events.infrastructure.persistence.repository.Event
 public class EventLookupService implements EventLookup {
 
     private final EventRepository eventRepository;
+    private final com.acme.sportplatform.organizations.OrganizationManagementAccess organizations;
 
-    public EventLookupService(EventRepository eventRepository) {
+    public EventLookupService(EventRepository eventRepository,
+            com.acme.sportplatform.organizations.OrganizationManagementAccess organizations) {
         this.eventRepository = eventRepository;
+        this.organizations = organizations;
+    }
+
+    @Override
+    public java.util.Set<UUID> accessibleEventIds(UUID userId) {
+        return eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
+                        organizations.organizationIdsOf(userId), userId).stream()
+                .map(EventEntity::getId).collect(java.util.stream.Collectors.toSet());
     }
 
     @Override

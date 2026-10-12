@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.events.EventAccessService;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.registrations.RegistrationPaymentLookup;
@@ -96,18 +95,7 @@ public class RegistrationController {
         if (eventId != null) {
             eventAccessService.assertCanManage(eventId, principal);
         }
-        var registrations = listRegistrationsForReviewUseCase.execute(eventId, status);
-        if (eventId != null || EventAccessService.isPlatformAdmin()) return ResponseEntity.ok(registrations);
-        var accessibleEvents = new java.util.HashSet<UUID>();
-        for (UUID id : registrations.stream().map(RegistrationResponse::eventId).distinct().toList()) {
-            try {
-                eventAccessService.assertCanManage(id, principal);
-                accessibleEvents.add(id);
-            } catch (BusinessException error) {
-                if (!"events.access_denied".equals(error.getCode())) throw error;
-            }
-        }
-        return ResponseEntity.ok(registrations.stream().filter(r -> accessibleEvents.contains(r.eventId())).toList());
+        return ResponseEntity.ok(listRegistrationsForReviewUseCase.execute(eventId, status, principal));
     }
 
     @GetMapping("/{registrationId}")

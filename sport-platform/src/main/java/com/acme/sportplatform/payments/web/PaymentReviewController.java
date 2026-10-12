@@ -1,13 +1,10 @@
 package com.acme.sportplatform.payments.web;
 
-import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.events.EventAccessService;
+import com.acme.sportplatform.payments.application.PaymentReviewAccess;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.payments.api.PaymentResponse;
 import com.acme.sportplatform.payments.application.ConfirmPaymentUseCase;
 import com.acme.sportplatform.payments.application.GetPaymentForReviewUseCase;
-import com.acme.sportplatform.payments.infrastructure.jpa.PaymentRepository;
-import com.acme.sportplatform.registrations.RegistrationPaymentLookup;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,20 +22,14 @@ public class PaymentReviewController {
     private final ConfirmPaymentUseCase confirmPaymentUseCase;
     private final GetPaymentForReviewUseCase getPaymentForReviewUseCase;
 
-    private final EventAccessService eventAccessService;
-    private final RegistrationPaymentLookup registrationPaymentLookup;
-    private final PaymentRepository paymentRepository;
+    private final PaymentReviewAccess paymentReviewAccess;
 
     public PaymentReviewController(
             ConfirmPaymentUseCase confirmPaymentUseCase,
             GetPaymentForReviewUseCase getPaymentForReviewUseCase,
-            EventAccessService eventAccessService,
-            RegistrationPaymentLookup registrationPaymentLookup,
-            PaymentRepository paymentRepository
+            PaymentReviewAccess paymentReviewAccess
     ) {
-        this.eventAccessService = eventAccessService;
-        this.registrationPaymentLookup = registrationPaymentLookup;
-        this.paymentRepository = paymentRepository;
+        this.paymentReviewAccess = paymentReviewAccess;
         this.confirmPaymentUseCase = confirmPaymentUseCase;
         this.getPaymentForReviewUseCase = getPaymentForReviewUseCase;
     }
@@ -53,7 +44,7 @@ public class PaymentReviewController {
             @PathVariable UUID registrationId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        eventAccessService.assertCanManage(registrationPaymentLookup.eventId(registrationId), principal);
+        paymentReviewAccess.assertRegistrationAccess(registrationId, principal);
 
         return ResponseEntity.ok(
                 getPaymentForReviewUseCase.execute(registrationId)
@@ -68,8 +59,7 @@ public class PaymentReviewController {
             @PathVariable UUID paymentId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        var payment = paymentRepository.findById(paymentId).orElseThrow(() -> new BusinessException("payments.not_found", "Платёж не найден"));
-        eventAccessService.assertCanManage(registrationPaymentLookup.eventId(payment.getRegistrationId()), principal);
+        paymentReviewAccess.assertPaymentAccess(paymentId, principal);
 
         return ResponseEntity.ok(confirmPaymentUseCase.execute(paymentId));
     }

@@ -94,11 +94,10 @@ public class EventController {
     }
 
     @GetMapping("/events/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
     public ResponseEntity<EventResponse> get(
             @PathVariable UUID id,
-            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
-            Authentication authentication
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         EventEntity entity = getManagedEvent(
                 id,
@@ -119,19 +118,17 @@ public class EventController {
     }
 
     @GetMapping("/organizer/events")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
     public ResponseEntity<List<EventResponse>> listMyEvents(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         UUID currentUserId = requireUserId(principal);
 
-        List<EventResponse> events = eventRepository.findAll().stream()
-                .filter(event -> EventAccessService.isPlatformAdmin()
-                        || currentUserId.equals(event.getCreatedByUserId())
-                        || organizationManagementAccess.isMember(event.getOrganizationId(), currentUserId))
-                .sorted(java.util.Comparator.comparing(EventEntity::getEventStartAt).reversed())
-                .map(eventMapper::toResponse)
-                .toList();
+        var managedEvents = principal.isPlatformAdmin()
+                ? eventRepository.findAllByOrderByEventStartAtDesc()
+                : eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
+                        organizationManagementAccess.organizationIdsOf(currentUserId), currentUserId);
+        List<EventResponse> events = managedEvents.stream().map(eventMapper::toResponse).toList();
 
         return ResponseEntity.ok(events);
     }

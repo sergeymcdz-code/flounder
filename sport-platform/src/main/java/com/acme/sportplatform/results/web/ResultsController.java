@@ -3,7 +3,7 @@ package com.acme.sportplatform.results.web;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.competition.EventDisciplineSummary;
-import com.acme.sportplatform.events.EventAccessService;
+import com.acme.sportplatform.results.application.ResultsAccessService;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.results.api.AssignRegistrationRequest;
 import com.acme.sportplatform.results.api.CompetitionUnitDetailsResponse;
@@ -22,7 +22,6 @@ import com.acme.sportplatform.results.application.GetPublicDisciplineResultsUseC
 import com.acme.sportplatform.results.application.PublishCompetitionUnitUseCase;
 import com.acme.sportplatform.results.application.RecalculatePlacesUseCase;
 import com.acme.sportplatform.results.application.RecordResultUseCase;
-import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitEntryRepository;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitRepository;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -56,8 +55,7 @@ public class ResultsController {
             getPublicDisciplineResultsUseCase;
     private final EventDisciplineLookup eventDisciplineLookup;
 
-    private final EventAccessService eventAccessService;
-    private final CompetitionUnitEntryRepository entryRepository;
+    private final ResultsAccessService resultsAccessService;
 
     public ResultsController(
             CreateCompetitionUnitUseCase createCompetitionUnitUseCase,
@@ -72,11 +70,9 @@ public class ResultsController {
             GetPublicDisciplineResultsUseCase
                     getPublicDisciplineResultsUseCase,
             EventDisciplineLookup eventDisciplineLookup,
-            EventAccessService eventAccessService,
-            CompetitionUnitEntryRepository entryRepository
+            ResultsAccessService resultsAccessService
     ) {
-        this.eventAccessService = eventAccessService;
-        this.entryRepository = entryRepository;
+        this.resultsAccessService = resultsAccessService;
         this.createCompetitionUnitUseCase = createCompetitionUnitUseCase;
         this.assignRegistrationToUnitUseCase = assignRegistrationToUnitUseCase;
         this.recordResultUseCase = recordResultUseCase;
@@ -105,7 +101,7 @@ public class ResultsController {
             @PathVariable UUID eventDisciplineId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertDisciplineAccess(eventDisciplineId, principal);
+        resultsAccessService.assertDisciplineAccess(eventDisciplineId, principal);
 
         return competitionUnitRepository
                 .findByEventDisciplineIdOrderBySequenceNumberAsc(
@@ -136,7 +132,7 @@ public class ResultsController {
             @PathVariable UUID unitId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitAccess(unitId, principal);
 
         return getCompetitionUnitDetailsUseCase.execute(unitId);
     }
@@ -190,7 +186,7 @@ public class ResultsController {
             @Valid @RequestBody CreateCompetitionUnitRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertDisciplineAccess(request.eventDisciplineId(), principal);
+        resultsAccessService.assertDisciplineAccess(request.eventDisciplineId(), principal);
 
         CompetitionUnitResponse response =
                 createCompetitionUnitUseCase.execute(request);
@@ -212,7 +208,7 @@ public class ResultsController {
             @Valid @RequestBody AssignRegistrationRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitAccess(unitId, principal);
 
         UUID entryId = assignRegistrationToUnitUseCase.execute(
                 unitId,
@@ -239,7 +235,7 @@ public class ResultsController {
             @RequestParam String resultType,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertEntryAccess(request.competitionUnitEntryId(), principal);
+        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(), principal);
 
         return recordResultUseCase.execute(
                 request,
@@ -264,8 +260,8 @@ public class ResultsController {
             @RequestParam(defaultValue = "ASC") String rankingStrategy,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertUnitAccess(unitId, principal);
-        assertEntryAccess(request.competitionUnitEntryId(), principal);
+        resultsAccessService.assertUnitAccess(unitId, principal);
+        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(), principal);
 
         recordResultUseCase.execute(
                 request,
@@ -294,7 +290,7 @@ public class ResultsController {
             @RequestParam String rankingStrategy,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitAccess(unitId, principal);
 
         recalculatePlacesUseCase.execute(
                 unitId,
@@ -316,7 +312,7 @@ public class ResultsController {
             @RequestBody PublishCompetitionUnitRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitAccess(unitId, principal);
 
         publishCompetitionUnitUseCase.execute(
                 unitId,
@@ -324,24 +320,6 @@ public class ResultsController {
         );
 
         return ResponseEntity.noContent().build();
-    }
-
-    private void assertDisciplineAccess(UUID id, AuthenticatedUserPrincipal principal) {
-        var discipline = eventDisciplineLookup.findById(id).orElseThrow(() ->
-                new BusinessException("competition.discipline_not_found", "Дисциплина не найдена"));
-        eventAccessService.assertCanManage(discipline.eventId(), principal);
-    }
-
-    private void assertUnitAccess(UUID id, AuthenticatedUserPrincipal principal) {
-        var unit = competitionUnitRepository.findById(id).orElseThrow(() ->
-                new BusinessException("results.competition_unit_not_found", "Заплыв не найден"));
-        assertDisciplineAccess(unit.getEventDisciplineId(), principal);
-    }
-
-    private void assertEntryAccess(UUID id, AuthenticatedUserPrincipal principal) {
-        var entry = entryRepository.findById(id).orElseThrow(() ->
-                new BusinessException("results.entry_not_found", "Участник заплыва не найден"));
-        assertUnitAccess(entry.getCompetitionUnitId(), principal);
     }
 
     private BusinessException publicResultsNotFound() {

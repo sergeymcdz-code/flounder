@@ -3,11 +3,9 @@ package com.acme.sportplatform.events;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.events.infrastructure.persistence.entity.EventEntity;
 import com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository;
@@ -22,9 +20,6 @@ class EventAccessServiceTest {
     private final UUID eventId = UUID.randomUUID();
     private final UUID organizationId = UUID.randomUUID();
     private final UUID creator = UUID.randomUUID();
-
-    @AfterEach
-    void clearSecurityContext() { SecurityContextHolder.clearContext(); }
 
     private void existingEvent() {
         var event = new EventEntity();
@@ -59,9 +54,9 @@ class EventAccessServiceTest {
     @Test
     void permitsPlatformAdmin() {
         existingEvent();
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                "admin", null, List.of(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN"))));
-        access.assertCanManage(eventId, null);
+        var principal = new PlatformUserPrincipal(UUID.randomUUID(), "admin@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN")));
+        access.assertCanManage(eventId, principal);
         verifyNoInteractions(organizations);
     }
 }

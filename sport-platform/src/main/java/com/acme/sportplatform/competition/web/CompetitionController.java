@@ -22,7 +22,6 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/events/{eventId}/disciplines")
-@PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
 public class CompetitionController {
     private final CreateEventDisciplineUseCase createEventDisciplineUseCase;
     private final ListEventDisciplinesUseCase listEventDisciplinesUseCase;
@@ -40,6 +39,7 @@ public class CompetitionController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventDisciplineResponse> create(@PathVariable UUID eventId,
             @RequestBody @Valid CreateEventDisciplineRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
@@ -48,6 +48,7 @@ public class CompetitionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
     public ResponseEntity<List<EventDisciplineResponse>> list(@PathVariable UUID eventId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         eventAccessService.assertCanManage(eventId, principal);
@@ -55,6 +56,7 @@ public class CompetitionController {
     }
 
     @PostMapping("/{disciplineId}/publish")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventDisciplineResponse> publish(@PathVariable UUID eventId,
             @PathVariable UUID disciplineId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         eventAccessService.assertCanManage(eventId, principal);

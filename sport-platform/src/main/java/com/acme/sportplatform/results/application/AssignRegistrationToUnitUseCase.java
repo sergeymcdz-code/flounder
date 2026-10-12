@@ -53,7 +53,7 @@ public class AssignRegistrationToUnitUseCase {
                         "Заявка не найдена"
                 ));
 
-        if (!java.util.Set.of(CONFIRMED, "PAID", "ADMITTED").contains(registration.status())) {
+        if (!java.util.Set.of(CONFIRMED, "PAID").contains(registration.status())) {
             throw new BusinessException(
                     "results.registration_not_confirmed",
                     "В соревнование можно назначить только подтверждённую заявку"

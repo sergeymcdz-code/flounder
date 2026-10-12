@@ -1,6 +1,7 @@
 package com.acme.sportplatform.registrations.application;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +28,10 @@ public class RegistrationPaymentService implements RegistrationPaymentLookup {
     @Override
     @Transactional
     public void markPaid(UUID id) {
-        if (!registrations.existsById(id)) throw new BusinessException("registrations.not_found", "Заявка не найдена");
-        // T03 will add payment_status; until then keep other workflow states unchanged.
-        registrations.markConfirmedPaid(id, OffsetDateTime.now());
+        int updated = registrations.markConfirmedPaid(id, OffsetDateTime.now(ZoneOffset.UTC));
+        if (updated == 0 && !"PAID".equals(get(id).getStatus())) {
+            throw new BusinessException("registrations.payment_not_applicable",
+                    "Отметить оплату можно только у подтверждённой заявки");
+        }
     }
 }

@@ -209,10 +209,11 @@ Flyway использует те же настройки подключения,
 5. Альтернативно администратор назначает существующему пользователю роль
    `organizer` через `POST /api/v1/users/{id}/roles` (`{"roleCode":"organizer"}`),
    а администратор или owner добавляет его через
-   `POST /api/v1/organizations/{id}/members` (`{"userId":"uuid","memberRole":"member"}`).
+   `POST /api/v1/organizations/{id}/members` (`{"userId":"uuid","memberRole":"organizer"}`).
    `GET .../members` возвращает участников только администратору или owner.
 
 Допустимые роли членства: `owner`, `admin`, `member`, `organizer`, `operator`, `judge`.
+Создавать события могут участники с memberRole `owner`, `admin` или `organizer`.
 Членство само по себе не выдаёт глобальную роль JWT. Управление событием доступно
 при наличии требуемой глобальной роли и членства в организации события либо авторства.
 Чужое событие возвращает 403 `events.access_denied`. Список заявок без `eventId`
@@ -224,7 +225,8 @@ Flyway использует те же настройки подключения,
 - `POST /api/v1/payments/{id}/confirm` подтверждает ручную оплату.
 - Webhook `payment.succeeded` также отмечает подтверждённую заявку как `PAID`.
 - `POST /api/v1/registrations/{id}/mark-paid` делает это без платёжной записи;
-  повторный вызов безопасен. Другие статусы заявки сохраняются.
+  повторный вызов для `PAID` безопасен. Для остальных неподтверждённых статусов
+  возвращается 409 `registrations.payment_not_applicable`.
 - До слияния T03 отдельного `payment_status` нет; после V024 потребуется
   дополнить `RegistrationPaymentService` записью `payment_status = PAID`.
 - Канонический просмотр оплаты: `GET /api/v1/payments/review/registrations/{id}`.
@@ -245,7 +247,8 @@ docker build -t flounder-frontend frontend
 ```
 
 Backend слушает 8080, использует профиль `prod` и переменные окружения.
-Frontend-образ содержит статику в `/dist` для Caddy (T09).
+Frontend-образ запускает Caddy на порту 80, раздаёт статику из `/srv`
+и возвращает `index.html` для маршрутов SPA.
 В среде с собственным CA сборка поддерживает `--secret id=proxy_ca,src=/path/to/ca.pem`.
 Для Maven можно передать proxy-настройки через `--secret id=maven_settings,src=/path/to/settings.xml`; они не попадают в образ.
 CI запускает backend-тесты с Testcontainers и frontend lint/build на PR и push в main.

@@ -2,7 +2,6 @@ package com.acme.sportplatform.events.application;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +47,7 @@ public class CreateEventUseCase {
     }
 
     @Transactional
-    public EventResponse execute(CreateEventRequest request, UUID createdByUserId) {
+    public EventResponse execute(CreateEventRequest request, java.util.UUID createdByUserId) {
         if (!organizationLookup.existsById(request.organizationId())) {
             throw new BusinessException(
                     "events.organization_not_found",
@@ -80,7 +79,7 @@ public class CreateEventUseCase {
         }
 
         EventEntity entity = new EventEntity();
-        entity.setId(UUID.randomUUID());
+        entity.setId(java.util.UUID.randomUUID());
         entity.setCreatedByUserId(createdByUserId);
         entity.setOrganizationId(request.organizationId());
         entity.setVenueId(request.venueId());
