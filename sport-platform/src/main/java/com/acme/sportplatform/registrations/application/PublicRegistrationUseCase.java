@@ -61,6 +61,9 @@ public class PublicRegistrationUseCase {
             throw new BusinessException(
                     "registrations.registration_not_open", "Регистрация на событие закрыта");
         var profile = profiles.upsertForUser(userId, r.profile());
+        var published =
+                disciplines.findPublishedByEventId(event.id()).stream()
+                        .collect(java.util.stream.Collectors.toMap(d -> d.id(), d -> d));
         Set<UUID> ids = new HashSet<>();
         List<String> errors = new ArrayList<>();
         // Validate every discipline before persisting any registrations; the surrounding
@@ -70,11 +73,9 @@ public class PublicRegistrationUseCase {
                 errors.add(item.eventDisciplineId() + ": дисциплина указана дважды");
                 continue;
             }
-            var d = disciplines.findById(item.eventDisciplineId()).orElse(null);
+            var d = published.get(item.eventDisciplineId());
             if (d == null
-                    || !d.eventId().equals(event.id())
-                    || disciplines.findPublishedByEventId(event.id()).stream()
-                            .noneMatch(p -> p.id().equals(item.eventDisciplineId()))) {
+                    || !d.eventId().equals(event.id())) {
                 errors.add(
                         item.eventDisciplineId() + ": дисциплина не опубликована в этом событии");
                 continue;

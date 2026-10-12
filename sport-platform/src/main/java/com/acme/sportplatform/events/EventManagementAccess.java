@@ -7,4 +7,6 @@ public interface EventManagementAccess {
     void assertCanManage(UUID eventId);
 
     boolean canManage(UUID eventId);
+
+    java.util.List<UUID> managedEventIds();
 }

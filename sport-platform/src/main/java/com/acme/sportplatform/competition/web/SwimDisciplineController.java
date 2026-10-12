@@ -41,16 +41,12 @@ public class SwimDisciplineController {
                                                                             .class))))
     public EventDisciplineResponse patch(
             @PathVariable UUID id, @RequestBody com.fasterxml.jackson.databind.JsonNode body) {
-        CreateEventDisciplineRequest request;
-        try {
-            request = json.convertValue(body, CreateEventDisciplineRequest.class);
-        } catch (IllegalArgumentException ex) {
-            throw new com.acme.sportplatform.common.exception.BusinessException(
-                    "competition.invalid_request", "Некорректный формат параметров дисциплины");
-        }
-        if (request == null || !validator.validate(request).isEmpty())
-            throw new com.acme.sportplatform.common.exception.BusinessException(
-                    "competition.invalid_request", "Некорректные параметры дисциплины");
+        var errors =
+                new ArrayList< com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
+        var request = com.acme.sportplatform.common.RequestValidation.read(
+                        json, body, CreateEventDisciplineRequest.class, validator, "", errors);
+        com.acme.sportplatform.common.RequestValidation.requireValid(
+                "competition.invalid_request", errors);
         Set<String> cleared = new HashSet<>();
         for (String field :
                 List.of("sessionId", "orderInSession", "heatDurationSec", "participantLimit"))

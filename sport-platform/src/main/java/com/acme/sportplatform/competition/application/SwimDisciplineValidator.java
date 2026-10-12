@@ -1,6 +1,4 @@
 package com.acme.sportplatform.competition.application;
-
-import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.AgeGroup;
 import com.acme.sportplatform.competition.api.CreateEventDisciplineRequest;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineEntity;
@@ -24,7 +22,7 @@ public class SwimDisciplineValidator {
         if (r.gender() != null) d.setGender(r.gender());
         if (r.ageGroups() != null) {
             if (r.ageGroups().stream().anyMatch(Objects::isNull))
-                invalid("Возрастная группа не может быть пустой");
+                invalid("ageGroups","Возрастная группа не может быть пустой");
             d.setAgeGroups(List.copyOf(r.ageGroups()));
         }
         if (r.seedingMode() != null) d.setSeedingMode(r.seedingMode().name());
@@ -33,22 +31,25 @@ public class SwimDisciplineValidator {
         if (r.heatDurationSec() != null) d.setHeatDurationSec(r.heatDurationSec());
         if (d.getDistanceM() != null
                 && !Set.of(25, 50, 100, 200, 400, 800, 1500).contains(d.getDistanceM()))
-            invalid("Недопустимая дистанция");
+            invalid("distanceM","Недопустимая дистанция");
         if (d.getStroke() != null
                 && java.util.Arrays.stream(com.acme.sportplatform.competition.Stroke.values())
                         .noneMatch(stroke -> stroke.name().equals(d.getStroke())))
-            invalid("Недопустимый стиль плавания");
+            invalid("stroke","Недопустимый стиль плавания");
         if (d.getGender() != null && !Set.of("M", "F", "X").contains(d.getGender()))
-            invalid("Пол должен быть M, F или X");
+            invalid("gender","Пол должен быть M, F или X");
         if (!Set.of("BY_TIME_ALL", "BY_AGE_GROUP").contains(d.getSeedingMode()))
-            invalid("Недопустимый режим посева");
-        if (d.getOrderInSession() != null && d.getOrderInSession() <= 0
-                || d.getHeatDurationSec() != null && d.getHeatDurationSec() <= 0)
-            invalid("Порядок и длительность должны быть положительными");
+            invalid("seedingMode","Недопустимый режим посева");
+        if (d.getOrderInSession() != null && d.getOrderInSession() <= 0)
+            invalid("orderInSession", "Порядок должен быть положительным");
+        if ( d.getHeatDurationSec() != null && d.getHeatDurationSec() <= 0)
+            invalid("heatDurationSec", "Длительность должна быть положительной");
         if (d.getSessionId() != null)
             sessions.assertBelongsToEvent(d.getSessionId(), d.getEventId());
         Set<String> codes = new HashSet<>();
-        for (AgeGroup g : d.getAgeGroups()) {
+        for (int index = 0; index < d.getAgeGroups().size(); index++) {
+            AgeGroup g = d.getAgeGroups().get(index);
+            String prefix = "ageGroups[" + index + "].";
             if (g == null
                     || g.code() == null
                     || g.code().isBlank()
@@ -56,16 +57,17 @@ public class SwimDisciplineValidator {
                     || g.name().isBlank()
                     || g.gender() == null
                     || !Set.of("M", "F", "X").contains(g.gender()))
-                invalid("У группы должны быть код, название и пол M, F или X");
-            if (!codes.add(g.code())) invalid("Коды возрастных групп должны быть уникальны");
+                invalid("ageGroups","У группы должны быть код, название и пол M, F или X");
+            if (!codes.add(g.code())) invalid(prefix + "code","Коды возрастных групп должны быть уникальны");
             if (g.birthYearFrom() != null
                     && g.birthYearTo() != null
                     && g.birthYearFrom() > g.birthYearTo())
-                invalid("Начальный год рождения не может быть больше конечного");
+                invalid(
+                        prefix + "birthYearFrom","Начальный год рождения не может быть больше конечного");
             if (d.getGender() != null
                     && !"X".equals(d.getGender())
                     && !d.getGender().equals(g.gender()))
-                invalid("Пол возрастной группы не совпадает с полом дисциплины");
+                invalid(prefix + "gender","Пол возрастной группы не совпадает с полом дисциплины");
         }
         var groups = d.getAgeGroups();
         for (int i = 0; i < groups.size(); i++)
@@ -76,7 +78,8 @@ public class SwimDisciplineValidator {
                                 || "X".equals(a.gender())
                                 || "X".equals(b.gender()))
                         && Math.max(from(a), from(b)) <= Math.min(to(a), to(b)))
-                    invalid("Возрастные группы пересекаются по годам рождения");
+                    invalid(
+                            "ageGroups[" + j + "].birthYearFrom","Возрастные группы пересекаются по годам рождения");
             }
     }
 
@@ -88,13 +91,14 @@ public class SwimDisciplineValidator {
         return g.birthYearTo() == null ? Integer.MAX_VALUE : g.birthYearTo();
     }
 
-    private void invalid(String message) {
-        throw new BusinessException("competition.invalid_swim_fields", message);
+    private void invalid(String field, String message) {
+        throw com.acme.sportplatform.common.RequestValidation.field(
+                "competition.invalid_swim_fields", field, message);
     }
 
     public String generatedName(EventDisciplineEntity d) {
         if (d.getDistanceM() == null || d.getStroke() == null || d.getGender() == null) {
-            invalid("Для автоматического названия укажите дистанцию, стиль и пол");
+            invalid("name","Для автоматического названия укажите дистанцию, стиль и пол");
         }
         String stroke =
                 switch (d.getStroke()) {

@@ -457,6 +457,18 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
                 results.findByCompetitionUnitEntryId(entryIds.get(2))
                         .orElseThrow()
                         .getFinalPlace());
+        assertEquals(
+                "CORRECTED",
+                results.findByCompetitionUnitEntryId(entryIds.get(0)).orElseThrow().getStatus());
+        assertEquals(
+                "DID_NOT_FINISH",
+                results.findByCompetitionUnitEntryId(entryIds.get(0)).orElseThrow().getRawValue());
+        call(
+                post("/api/v1/competition-units/{id}/results", unit.getId()),
+                owner("OPERATOR", a),
+                changed,
+                200);
+        assertEquals(1, ruleLogs.findByEventDisciplineId(d.getId()).size());
     }
 
     @Test
@@ -515,6 +527,253 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(
                         jsonPath("$.components.schemas.SwimResultRequest.properties.timeMs")
                                 .exists());
+    }
+
+    @Autowired RuleExecutionLogRepository ruleLogs;
+
+    @Test
+    void sessionsIncludeHeatCountAndEstimatedEndAndAllowJudge() throws Exception {
+        var a = athlete("F");
+        var e = event(a.getUserId(), "PUBLISHED");
+        var start = OffsetDateTime.parse("2026-10-15T09:00:00+03:00");
+        var session =
+                call(
+                        post("/api/v1/events/{id}/sessions", e.getId()),
+                        owner("ORGANIZER", a),
+                        Map.of("name", "Утро", "orderNo", 1, "startsAt", start.toString()),
+                        201);
+        call(
+                post("/api/v1/events/{id}/sessions", e.getId()),
+                owner("ORGANIZER", a),
+                Map.of("name", "Вечер", "orderNo", 2, "startsAt", start.plusHours(1).toString()),
+                201);
+        var d = discipline(e, "F", BigDecimal.ZERO);
+        d.setSessionId(UUID.fromString(session.path("id").asText()));
+        d.setHeatDurationSec(70);
+        disciplines.saveAndFlush(d);
+        var one = unit(d, 1);
+        one.setScheduledAt(start);
+        one.setHeatDurationSec(40);
+        units.saveAndFlush(one);
+        var two = unit(d, 2);
+        two.setScheduledAt(start.plusMinutes(1));
+        two.setHeatDurationSec(null);
+        units.saveAndFlush(two);
+        var list =
+                call(get("/api/v1/events/{id}/sessions", e.getId()), owner("JUDGE", a), null, 200);
+        assertEquals(2, list.get(0).path("heatsCount").asInt());
+        assertEquals(
+                start.plusSeconds(130).toInstant(),
+                OffsetDateTime.parse(list.get(0).path("estimatedEndsAt").asText()).toInstant());
+        assertEquals(0, list.get(1).path("heatsCount").asInt());
+        assertTrue(list.get(1).path("estimatedEndsAt").isNull());
+    }
+
+    @Test
+    void recordsPublishedHeatThenCorrectsAndAuditsRanking() throws Exception {
+        var a = athlete("F");
+        var e = event(a.getUserId(), "REGISTRATION_OPEN");
+        var d = discipline(e, "F", BigDecimal.ZERO);
+        var u = unit(d, 1);
+        u.setStatus("PUBLISHED");
+        units.saveAndFlush(u);
+        List<UUID> ids = new ArrayList<>();
+        for (int lane = 1; lane <= 2; lane++) {
+            var athlete = athlete("F");
+            var profile = profiles.findByUserId(athlete.getUserId()).orElseThrow();
+            var r =
+                    registrations.saveAndFlush(
+                            registration(d, profile.getId(), athlete.getUserId()));
+            var entry = new CompetitionUnitEntryEntity();
+            entry.setId(UUID.randomUUID());
+            entry.setCompetitionUnitId(u.getId());
+            entry.setRegistrationId(r.getId());
+            entry.setLaneOrPosition(lane);
+            entry.setCreatedAt(OffsetDateTime.now());
+            ids.add(entries.saveAndFlush(entry).getId());
+        }
+        call(
+                post("/api/v1/competition-units/{id}/results", u.getId()),
+                owner("JUDGE", a),
+                List.of(
+                        Map.of(
+                                "competitionUnitEntryId",
+                                ids.get(0),
+                                "timeMs",
+                                32150,
+                                "status",
+                                "VALID"),
+                        Map.of(
+                                "competitionUnitEntryId",
+                                ids.get(1),
+                                "timeMs",
+                                33000,
+                                "status",
+                                "VALID")),
+                200);
+        var correction =
+                List.of(
+                        Map.of(
+                                "competitionUnitEntryId",
+                                ids.get(1),
+                                "timeMs",
+                                31000,
+                                "status",
+                                "VALID"));
+        call(
+                post("/api/v1/competition-units/{id}/results", u.getId()),
+                owner("JUDGE", a),
+                correction,
+                403);
+        u = units.findById(u.getId()).orElseThrow();
+        u.setStatus("FINISHED");
+        units.saveAndFlush(u);
+        call(
+                post("/api/v1/competition-units/{id}/results", u.getId()),
+                owner("JUDGE", a),
+                correction,
+                403);
+        call(
+                post("/api/v1/competition-units/{id}/results", u.getId()),
+                owner("OPERATOR", a),
+                correction,
+                200);
+        var result = results.findByCompetitionUnitEntryId(ids.get(1)).orElseThrow();
+        assertEquals("CORRECTED", result.getStatus());
+        assertEquals(1, result.getFinalPlace());
+        assertEquals(1, result.getPlaceInAgeGroup());
+        assertEquals(
+                2, results.findByCompetitionUnitEntryId(ids.get(0)).orElseThrow().getFinalPlace());
+        var logs = ruleLogs.findByEventDisciplineId(d.getId());
+        assertEquals(1, logs.size());
+        assertEquals("RANKING", logs.get(0).getKind());
+        assertTrue(logs.get(0).getInputJson().toString().contains("33000"));
+        assertTrue(logs.get(0).getOutputJson().toString().contains("CORRECTED"));
+        var grouped =
+                call(
+                        get("/api/v1/event-disciplines/{id}/results", d.getId()),
+                        owner("ORGANIZER", a),
+                        null,
+                        200);
+        assertEquals("F-2014-2015", grouped.path("groups").get(0).path("ageGroupCode").asText());
+        assertEquals(
+                ids.get(1).toString(),
+                grouped.path("groups").get(0).path("entries").get(0).path("entryId").asText());
+        call(
+                post("/api/v1/competition-units/{id}/results", u.getId()),
+                owner("OPERATOR", a),
+                correction,
+                200);
+        assertEquals(1, ruleLogs.findByEventDisciplineId(d.getId()).size());
+    }
+
+    @Test
+    void listsRegistrationsWithoutEventForAdminAndManagedEventsOnlyForOrganizer() throws Exception {
+        var a = athlete("F");
+        var b = athlete("F");
+        var e = event(a.getUserId(), "REGISTRATION_OPEN");
+        var foreign = event(b.getUserId(), "REGISTRATION_OPEN");
+        var own =
+                submit(a, e, List.of(discipline(e, "F", BigDecimal.ZERO)))
+                        .get(0)
+                        .path("id")
+                        .asText();
+        var other =
+                submit(b, foreign, List.of(discipline(foreign, "F", BigDecimal.ZERO)))
+                        .get(0)
+                        .path("id")
+                        .asText();
+        var list = call(get("/api/v1/registrations"), owner("ORGANIZER", a), null, 200);
+        assertEquals(1, list.size());
+        assertEquals(own, list.get(0).path("id").asText());
+        var all = call(get("/api/v1/registrations"), owner("PLATFORM_ADMIN", a), null, 200);
+        assertTrue(all.toString().contains(own));
+        assertTrue(all.toString().contains(other));
+        call(
+                get("/api/v1/registrations").param("eventId", foreign.getId().toString()),
+                owner("ORGANIZER", a),
+                null,
+                403);
+    }
+
+    @Test
+    void patchChecksEventStatusAndReturnsFieldViolations() throws Exception {
+        var a = athlete("F");
+        var e = event(a.getUserId(), "REGISTRATION_OPEN");
+        var d = discipline(e, "F", BigDecimal.ZERO);
+        assertEquals(
+                "competition.event_not_editable",
+                call(
+                                patch("/api/v1/event-disciplines/{id}", d.getId()),
+                                owner("ORGANIZER", a),
+                                Map.of("name", "Новое"),
+                                400)
+                        .path("code")
+                        .asText());
+        e.setStatus("PUBLISHED");
+        events.saveAndFlush(e);
+        var error =
+                call(
+                        patch("/api/v1/event-disciplines/{id}", d.getId()),
+                        owner("ORGANIZER", a),
+                        Map.of("participantLimit", -1, "entryFeeAmount", -10),
+                        400);
+        assertTrue(error.path("violations").toString().contains("participantLimit"));
+        assertTrue(error.path("violations").toString().contains("entryFeeAmount"));
+        error =
+                call(
+                        patch("/api/v1/event-disciplines/{id}", d.getId()),
+                        owner("ORGANIZER", a),
+                        Map.of("stroke", "WRONG"),
+                        400);
+        assertEquals("stroke", error.path("violations").get(0).path("field").asText());
+        var u = unit(d, 1);
+        error =
+                call(
+                        post("/api/v1/competition-units/{id}/results", u.getId()),
+                        owner("OPERATOR", a),
+                        List.of(Map.of("status", "INVALID", "timeMs", -1)),
+                        400);
+        assertTrue(error.path("violations").toString().contains("[0].competitionUnitEntryId"));
+        assertTrue(error.path("violations").toString().contains("[0].status"));
+    }
+
+    @Test
+    void registrationMissingDisciplineKeepsUnavailableCode() throws Exception {
+        var a = athlete("F");
+        assertEquals(
+                "registrations.discipline_not_available",
+                call(
+                                post("/api/v1/registrations"),
+                                a,
+                                Map.of("eventDisciplineId", UUID.randomUUID()),
+                                400)
+                        .path("code")
+                        .asText());
+    }
+
+    @Test
+    void upsertPreservesOptionalProfileValuesAndFillsNormalizedKey() {
+        var a = athlete("F");
+        var p = profiles.findByUserId(a.getUserId()).orElseThrow();
+        p.setMiddleName("Ивановна");
+        p.setFirstName("Анна  Мария");
+        p.setLastName(" Ёлкина ");
+        profiles.saveAndFlush(p);
+        var result =
+                profileLookup.upsertForUser(
+                        a.getUserId(),
+                        new ProfileData(
+                                " Ёлкина ",
+                                "Анна  Мария",
+                                null,
+                                LocalDate.of(2015, 6, 1),
+                                "FEMALE",
+                                null));
+        p = profiles.findById(result.id()).orElseThrow();
+        assertEquals("елкина|анна мария|2015-06-01|f", p.getExternalKey());
+        assertEquals("Ивановна", p.getMiddleName());
+        assertEquals("Исходный клуб", p.getClubName());
     }
 
     private JsonNode call(

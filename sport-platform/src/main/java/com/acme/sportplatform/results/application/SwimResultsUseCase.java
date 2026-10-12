@@ -6,7 +6,6 @@ import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.events.EventManagementAccess;
 import com.acme.sportplatform.registrations.RegistrationLookup;
 import com.acme.sportplatform.results.api.*;
-import com.acme.sportplatform.results.domain.ResultStatus;
 import com.acme.sportplatform.results.infrastructure.jpa.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -24,7 +23,7 @@ public class SwimResultsUseCase {
     private final EventDisciplineLookup disciplines;
     private final RegistrationLookup registrations;
     private final EventManagementAccess access;
-    private final RecordResultUseCase record;
+    private final RuleExecutionLogRepository logs;
     private final GetCompetitionUnitDetailsUseCase details;
     private final ObjectMapper json;
 
@@ -35,7 +34,7 @@ public class SwimResultsUseCase {
             EventDisciplineLookup disciplines,
             RegistrationLookup registrations,
             EventManagementAccess access,
-            RecordResultUseCase record,
+            RuleExecutionLogRepository logs,
             GetCompetitionUnitDetailsUseCase details,
             ObjectMapper json) {
         this.units = units;
@@ -44,7 +43,7 @@ public class SwimResultsUseCase {
         this.disciplines = disciplines;
         this.registrations = registrations;
         this.access = access;
-        this.record = record;
+        this.logs = logs;
         this.details = details;
         this.json = json;
     }
@@ -60,8 +59,9 @@ public class SwimResultsUseCase {
 
     public CompetitionUnitDetailsResponse save(
             UUID unitId, UUID userId, List<SwimResultRequest> requests) {
+        long started = System.nanoTime();
         var unit =
-                units.findById(unitId)
+                units.lockById(unitId)
                         .orElseThrow(
                                 () ->
                                         new BusinessException(
@@ -75,53 +75,147 @@ public class SwimResultsUseCase {
                                                 "competition.discipline_not_found",
                                                 "Дисциплина не найдена"));
         access.assertCanManage(discipline.eventId());
+        if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED", "IN_PROGRESS", "FINISHED")
+                .contains(unit.getStatus()))
+            throw new BusinessException(
+                    "results.invalid_unit_status",
+                    "Ввод результатов недоступен в текущем статусе заплыва");
+        var unitEntries = entries.findByCompetitionUnitId(unitId);
+        var entryIds = unitEntries.stream().map(e -> e.getId()).toList();
+        var existing =
+                results.findByCompetitionUnitEntryIdIn(entryIds).stream()
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        r -> r.getCompetitionUnitEntryId(), r -> r));
+        boolean correcting = !existing.isEmpty();
+        if (correcting && Set.of("PUBLISHED", "FINISHED").contains(unit.getStatus())) {
+            var auth =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext()
+                            .getAuthentication();
+            if (auth == null
+                    || auth.getAuthorities().stream()
+                            .noneMatch(
+                                    a ->
+                                            Set.of(
+                                                            "ROLE_ORGANIZER",
+                                                            "ROLE_OPERATOR",
+                                                            "ROLE_PLATFORM_ADMIN")
+                                                    .contains(a.getAuthority())))
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Исправление опубликованных результатов недоступно судье");
+        }
+        var previous = json.valueToTree(details.execute(unitId));
         Set<UUID> seen = new HashSet<>();
-        for (var r : requests) {
+        List<PreparedResult> prepared = new ArrayList<>();
+        var errors =
+                new ArrayList<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
+        for (int i = 0; i < requests.size(); i++) {
+            var r = requests.get(i);
+            String prefix = "[" + i + "].";
+            if (!entryIds.contains(r.competitionUnitEntryId()))
+                errors.add(
+                        new com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation(
+                                prefix + "competitionUnitEntryId",
+                                "Участник не принадлежит заплыву"));
             if (!seen.add(r.competitionUnitEntryId()))
-                throw new BusinessException("results.duplicate_entry", "Участник указан дважды");
+                errors.add(
+                        new com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation(
+                                prefix + "competitionUnitEntryId", "Участник указан дважды"));
+            Long time = r.timeMs();
+            if (r.time() != null)
+                try {
+                    long parsed = TimeParser.parse(r.time());
+                    if (time != null && time != parsed)
+                        errors.add(
+                                new com.acme.sportplatform.common.api.ApiErrorResponse
+                                        .FieldViolation(
+                                        prefix + "timeMs",
+                                        "Время в строке и миллисекундах не совпадает"));
+                    time = parsed;
+                } catch (BusinessException ex) {
+                    errors.add(
+                            new com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation(
+                                    prefix + "time", ex.getMessage()));
+                }
+            if ("VALID".equals(r.status()) && (time == null || time <= 0))
+                errors.add(
+                        new com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation(
+                                prefix + "timeMs",
+                                "Укажите положительное время для результата VALID"));
             String status =
                     switch (r.status()) {
-                        case "VALID" -> "PENDING";
+                        case "VALID" -> "VALID";
                         case "DNS" -> "DID_NOT_START";
                         case "DNF" -> "DID_NOT_FINISH";
                         case "DSQ" -> "DISQUALIFIED";
                         default ->
-                                throw new BusinessException(
-                                        "results.invalid_status", "Недопустимый статус результата");
+                                throw com.acme.sportplatform.common.RequestValidation.field(
+                                        "results.invalid_status",
+                                        prefix + "status",
+                                        "Недопустимый статус результата");
                     };
-            Long time = r.timeMs();
-            if (r.time() != null) {
-                long parsed = TimeParser.parse(r.time());
-                if (time != null && time != parsed)
-                    throw new BusinessException(
-                            "results.time_mismatch", "Время в строке и миллисекундах не совпадает");
-                time = parsed;
-            }
-            if ("VALID".equals(r.status()) && (time == null || time <= 0))
-                throw new BusinessException(
-                        "results.time_required",
-                        "Укажите положительное время для результата VALID");
-            record.execute(
-                    new RecordResultRequest(
+            prepared.add(
+                    new PreparedResult(
                             r.competitionUnitEntryId(),
-                            time == null ? null : TimeParser.format(time),
-                            status),
-                    "TIME",
-                    userId,
-                    unitId);
-            if ("VALID".equals(r.status())) {
-                var result =
-                        results.findByCompetitionUnitEntryId(r.competitionUnitEntryId())
-                                .orElseThrow();
-                result.setTimeMs(time);
-                result.setStatus(ResultStatus.VALID.name());
+                            "VALID".equals(r.status()) ? time : null,
+                            status));
+        }
+        com.acme.sportplatform.common.RequestValidation.requireValid(
+                "results.invalid_request", errors);
+        boolean changed = false;
+        for (var p : prepared) {
+            var result = existing.get(p.entryId());
+            boolean rankedOld =
+                    result != null && Set.of("VALID", "CORRECTED").contains(result.getStatus());
+            boolean same =
+                    result != null
+                            && Objects.equals(result.getTimeMs(), p.timeMs())
+                            && (result.getStatus().equals(p.status())
+                                    || rankedOld
+                                            && result.getTimeMs() != null
+                                            && p.status().equals("VALID")
+                                    || "CORRECTED".equals(result.getStatus())
+                                            && result.getTimeMs() == null
+                                            && Objects.equals(result.getRawValue(), p.status()));
+            if (same) continue;
+            changed = true;
+            boolean correction = result != null;
+            if (result == null) {
+                result = new ResultEntity();
+                result.setId(UUID.randomUUID());
+                result.setCompetitionUnitEntryId(p.entryId());
+                result.setCreatedAt(java.time.OffsetDateTime.now());
             }
+            result.setTimeMs(p.timeMs());
+            // Preserve the terminal outcome when CORRECTED replaces DNS/DNF/DSQ.
+            result.setRawValue(
+                    correction && p.timeMs() == null ? p.status() : TimeParser.format(p.timeMs()));
+            result.setResultType("TIME");
+            result.setRecordedByUserId(userId);
+            result.setUpdatedAt(java.time.OffsetDateTime.now());
+            result.setStatus(correction ? "CORRECTED" : p.status());
+            results.save(result);
         }
         rankDiscipline(unit.getEventDisciplineId());
-        return details.execute(unitId);
+        var table = details.execute(unitId);
+        if (correcting && changed)
+            logs.save(
+                    new RuleExecutionLogEntity(
+                            discipline.eventId(),
+                            discipline.id(),
+                            userId,
+                            previous,
+                            json.valueToTree(table),
+                            (int)
+                                    Math.min(
+                                            Integer.MAX_VALUE,
+                                            (System.nanoTime() - started) / 1_000_000)));
+        return table;
     }
 
-    public List<CompetitionUnitDetailsResponse> protocol(UUID disciplineId) {
+    private record PreparedResult(UUID entryId, Long timeMs, String status) {}
+
+    public DisciplineResultsResponse protocol(UUID disciplineId) {
         var discipline =
                 disciplines
                         .findById(disciplineId)
@@ -131,9 +225,55 @@ public class SwimResultsUseCase {
                                                 "competition.discipline_not_found",
                                                 "Дисциплина не найдена"));
         access.assertCanManage(discipline.eventId());
-        return units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId).stream()
-                .map(u -> details.execute(u.getId()))
-                .toList();
+        Map<String, List<CompetitionUnitDetailsResponse.EntryView>> groups = new TreeMap<>();
+        for (var unit : units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId))
+            for (var entry : details.execute(unit.getId()).entries()) {
+                String group = unit.getAgeGroupCode();
+                if (group == null || !"BY_AGE_GROUP".equals(discipline.seedingMode())) {
+                    try {
+                        var snapshot =
+                                json.readTree(
+                                        registrations
+                                                .getById(entry.registrationId())
+                                                .participantSnapshot());
+                        int year =
+                                java.time.LocalDate.parse(snapshot.path("birthDate").asText())
+                                        .getYear();
+                        String gender =
+                                com.acme.sportplatform.identity.ProfileExternalKey.gender(
+                                                snapshot.path("gender").asText())
+                                        .toUpperCase(java.util.Locale.ROOT);
+                        group =
+                                discipline.ageGroups().stream()
+                                        .filter(g -> g.includes(gender, year))
+                                        .map(g -> g.code())
+                                        .findFirst()
+                                        .orElse(null);
+                    } catch (Exception ex) {
+                        throw new BusinessException(
+                                "results.invalid_athlete_snapshot",
+                                "Некорректные данные спортсмена в заявке");
+                    }
+                }
+                groups.computeIfAbsent(group == null ? "UNGROUPED" : group, k -> new ArrayList<>())
+                        .add(entry);
+            }
+        var comparator =
+                Comparator.comparing(
+                                CompetitionUnitDetailsResponse.EntryView::placeInAgeGroup,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(
+                                CompetitionUnitDetailsResponse.EntryView::timeMs,
+                                Comparator.nullsLast(Comparator.naturalOrder()));
+        return new DisciplineResultsResponse(
+                disciplineId,
+                groups.entrySet().stream()
+                        .map(
+                                g ->
+                                        new DisciplineResultsResponse.AgeGroupResults(
+                                                g.getKey(),
+                                                g.getValue().stream().sorted(comparator).toList()))
+                        .toList());
     }
 
     private void rankDiscipline(UUID disciplineId) {
@@ -182,7 +322,10 @@ public class SwimResultsUseCase {
         }
         var valid =
                 all.stream()
-                        .filter(r -> "VALID".equals(r.getStatus()) && r.getTimeMs() != null)
+                        .filter(
+                                r ->
+                                        Set.of("VALID", "CORRECTED").contains(r.getStatus())
+                                                && r.getTimeMs() != null)
                         .sorted(Comparator.comparing(ResultEntity::getTimeMs))
                         .toList();
         rank(valid, false);

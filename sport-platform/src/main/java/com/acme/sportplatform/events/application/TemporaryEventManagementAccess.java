@@ -24,6 +24,15 @@ public class TemporaryEventManagementAccess implements EventManagementAccess {
             throw new AccessDeniedException("Нет доступа к управлению событием");
     }
 
+    public java.util.List<UUID> managedEventIds() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof AuthenticatedUserPrincipal p))
+            return java.util.List.of();
+        return events.findByCreatedByUserIdOrderByEventStartAtDesc(p.getUserId()).stream()
+                .map(e -> e.getId())
+                .toList();
+    }
+
     public boolean canManage(UUID eventId) {
         var event =
                 events.findById(eventId)

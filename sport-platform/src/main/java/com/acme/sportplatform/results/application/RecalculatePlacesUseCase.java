@@ -1,13 +1,5 @@
 package com.acme.sportplatform.results.application;
 
-import java.time.OffsetDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.results.domain.ResultStatus;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitEntity;
@@ -16,6 +8,14 @@ import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitEntryRep
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitRepository;
 import com.acme.sportplatform.results.infrastructure.jpa.ResultEntity;
 import com.acme.sportplatform.results.infrastructure.jpa.ResultRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.OffsetDateTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class RecalculatePlacesUseCase {
@@ -53,7 +53,8 @@ public class RecalculatePlacesUseCase {
         if ("PUBLISHED".equals(unit.getStatus())) {
             throw new BusinessException(
                     "results.unit_published",
-                    "Нельзя пересчитать места: заплыв опубликован. Сначала снимите его с публикации."
+                    "Нельзя пересчитать места: заплыв опубликован. Сначала снимите его с"
+                        + " публикации."
             );
         }
 
@@ -76,7 +77,8 @@ public class RecalculatePlacesUseCase {
         if (hasInvalidPendingResult) {
             throw new BusinessException(
                     "results.invalid_raw_value",
-                    "Нельзя пересчитать места: один или несколько результатов имеют неверный формат."
+                    "Нельзя пересчитать места: один или несколько результатов имеют неверный"
+                        + " формат."
             );
         }
 
@@ -109,6 +111,7 @@ public class RecalculatePlacesUseCase {
             if (previous == null || Double.compare(previous, ranked.value()) != 0) place = index;
             previous = ranked.value();
             result.setFinalPlace(place);
+            if (!ResultStatus.CORRECTED.name().equals(result.getStatus()))
             result.setStatus(ResultStatus.VALID.name());
             result.setUpdatedAt(now);
         }
@@ -131,7 +134,9 @@ public class RecalculatePlacesUseCase {
     }
 
     private boolean canBeRanked(ResultEntity result) {
-        return ResultStatus.PENDING.name().equals(result.getStatus())
+        return ResultStatus.CORRECTED.name().equals(result.getStatus())
+                        && result.getTimeMs() != null
+                || ResultStatus.PENDING.name().equals(result.getStatus())
                 || ResultStatus.VALID.name().equals(result.getStatus());
     }
 

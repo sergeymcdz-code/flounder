@@ -1,23 +1,23 @@
 package com.acme.sportplatform.results.application;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.results.domain.ResultStatus;
 import com.acme.sportplatform.results.domain.CompetitionUnitStatus;
+import com.acme.sportplatform.results.domain.ResultStatus;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitEntity;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitEntryEntity;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitEntryRepository;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitRepository;
 import com.acme.sportplatform.results.infrastructure.jpa.ResultEntity;
 import com.acme.sportplatform.results.infrastructure.jpa.ResultRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class PublishCompetitionUnitUseCase {
@@ -110,11 +110,13 @@ public class PublishCompetitionUnitUseCase {
             );
         }
 
-        if (ResultStatus.VALID.name().equals(status)) {
+        if (ResultStatus.VALID.name().equals(status)
+                || ResultStatus.CORRECTED.name().equals(status)) {
             if (result.getFinalPlace() == null) {
                 throw new BusinessException(
                         "results.unit_has_unranked_results",
-                        "Нельзя опубликовать: у одного или нескольких участников не рассчитано место."
+                        "Нельзя опубликовать: у одного или нескольких участников не рассчитано"
+                            + " место."
                 );
             }
 

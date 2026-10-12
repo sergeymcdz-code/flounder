@@ -8,6 +8,8 @@ public interface ProfileLookup {
 
     ProfileLookupResult getById(UUID profileId);
 
+    java.util.List<ProfileLookupResult> findByIdIn(java.util.Collection<UUID> ids);
+
     ProfileLookupResult findOrCreateByExternalKey(String externalKey, ProfileData data);
 
     ProfileLookupResult attachProfileToUser(String externalKey, UUID userId);

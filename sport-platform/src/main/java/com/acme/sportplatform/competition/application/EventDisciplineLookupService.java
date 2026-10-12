@@ -1,18 +1,18 @@
 package com.acme.sportplatform.competition.application;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.competition.EventDisciplineLookupResult;
 import com.acme.sportplatform.competition.EventDisciplineSummary;
 import com.acme.sportplatform.competition.domain.EventDisciplineStatus;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineEntity;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -33,9 +33,7 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 .lockById(id)
                 .orElseThrow(
                         () ->
-                                new com.acme.sportplatform.common.exception.BusinessException(
-                                        "competition.discipline_not_found",
-                                        "Дисциплина не найдена"));
+                                new IllegalArgumentException("Discipline not found"));
         return getPublishedById(id);
     }
 

@@ -72,31 +72,13 @@ public class EventLiveUseCase {
                     "results.invalid_transition", "Завершить можно только начатый заплыв");
         unit.setStatus(CompetitionUnitStatus.FINISHED.name());
         unit.setUpdatedAt(OffsetDateTime.now());
-        Comparator<CompetitionUnitEntity> order =
-                Comparator.comparing(
-                                CompetitionUnitEntity::getScheduledAt,
-                                Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparing(CompetitionUnitEntity::getSequenceNumber)
-                        .thenComparing(CompetitionUnitEntity::getId);
-        List<CompetitionUnitEntity> all =
-                disciplines.findByEventId(eventId).stream()
-                        .flatMap(
-                                d ->
-                                        units
-                                                .findByEventDisciplineIdOrderBySequenceNumberAsc(
-                                                        d.id())
-                                                .stream())
-                        .sorted(order)
-                        .toList();
         UUID next =
-                all.stream()
-                        .filter(u -> order.compare(u, unit) > 0)
-                        .filter(
-                                u ->
-                                        Set.of("DRAFT", "SCHEDULED", "PUBLISHED")
-                                                .contains(u.getStatus()))
+                units.nextScheduled(
+                                eventId,
+                                unit.getScheduledAt(),
+                                unit.getSequenceNumber(),
+                                unit.getId())
                         .map(CompetitionUnitEntity::getId)
-                        .findFirst()
                         .orElse(null);
         return set(eventId, next);
     }

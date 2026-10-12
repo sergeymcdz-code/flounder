@@ -18,6 +18,7 @@ public class UpdateEventDisciplineUseCase {
     private final EventDisciplineMapper mapper;
     private final SwimDisciplineValidator swim;
     private final EventManagementAccess access;
+    private final com.acme.sportplatform.events.EventLookup events;
     private final com.acme.sportplatform.competition.RegistrationUsageLookup registrations;
     private final com.acme.sportplatform.competition.CompetitionUnitUsageLookup units;
 
@@ -27,19 +28,26 @@ public class UpdateEventDisciplineUseCase {
             SwimDisciplineValidator swim,
             EventManagementAccess access,
             com.acme.sportplatform.competition.RegistrationUsageLookup registrations,
-            com.acme.sportplatform.competition.CompetitionUnitUsageLookup units) {
+            com.acme.sportplatform.competition.CompetitionUnitUsageLookup units,
+            com.acme.sportplatform.events.EventLookup events) {
         this.disciplines = disciplines;
         this.mapper = mapper;
         this.swim = swim;
         this.access = access;
         this.registrations = registrations;
         this.units = units;
+        this.events = events;
     }
 
     public EventDisciplineResponse patch(
             UUID id, CreateEventDisciplineRequest r, java.util.Set<String> clearFields) {
         var d = require(id);
         access.assertCanManage(d.getEventId());
+        if (!java.util.Set.of("DRAFT", "PUBLISHED")
+                .contains(events.getById(d.getEventId()).status()))
+            throw new BusinessException(
+                    "competition.event_not_editable",
+                    "Дисциплины можно изменять только в черновике или опубликованном событии");
         if (clearFields.contains("sessionId")) d.setSessionId(null);
         if (clearFields.contains("orderInSession")) d.setOrderInSession(null);
         if (clearFields.contains("heatDurationSec")) d.setHeatDurationSec(null);
@@ -47,7 +55,8 @@ public class UpdateEventDisciplineUseCase {
         swim.apply(d, r);
         if (r.code() != null) {
             if (r.code().isBlank())
-                throw new BusinessException("competition.invalid_code", "Код не может быть пустым");
+                throw com.acme.sportplatform.common.RequestValidation.field(
+                        "competition.invalid_code", "code", "Код не может быть пустым");
             if (disciplines
                     .findByEventIdAndCode(d.getEventId(), r.code())
                     .filter(other -> !other.getId().equals(id))

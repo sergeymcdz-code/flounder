@@ -1,15 +1,15 @@
 package com.acme.sportplatform.identity.application;
 
-import java.util.Map;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.identity.ProfileLookup;
 import com.acme.sportplatform.identity.ProfileLookupResult;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.ProfileEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.ProfileRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -19,6 +19,11 @@ public class ProfileLookupService implements ProfileLookup {
 
     public ProfileLookupService(ProfileRepository profileRepository) {
         this.profileRepository = profileRepository;
+    }
+
+    @Override
+    public java.util.List<ProfileLookupResult> findByIdIn(java.util.Collection<UUID> ids) {
+        return profileRepository.findAllById(ids).stream().map(this::toResult).toList();
     }
 
     @Override
@@ -87,14 +92,8 @@ public class ProfileLookupService implements ProfileLookup {
             UUID userId, com.acme.sportplatform.identity.ProfileData data) {
         var profile = profileRepository.findByUserId(userId).orElse(null);
         String key =
-                normalizeKey(
-                        data.lastName()
-                                + "|"
-                                + data.firstName()
-                                + "|"
-                                + data.birthDate()
-                                + "|"
-                                + normalizeGender(data.gender()));
+                com.acme.sportplatform.identity.ProfileExternalKey.build(
+                        data.lastName(), data.firstName(), data.birthDate(),data.gender());
         var imported = profileRepository.findByExternalKey(key).orElse(null);
         if (profile == null) {
             if (imported != null)
@@ -108,26 +107,19 @@ public class ProfileLookupService implements ProfileLookup {
                 profile.setExternalKey(key);
             }
         }
+        if (profile.getExternalKey() == null || profile.getExternalKey().isBlank())
+            profile.setExternalKey(key);
         apply(profile, data);
         return toResult(profileRepository.save(profile));
     }
 
     private String normalizeKey(String key) {
-        if (key == null || key.isBlank() || key.length() > 255)
-            throw new com.acme.sportplatform.common.exception.BusinessException(
-                    "identity.invalid_external_key", "Некорректный внешний ключ профиля");
-        return key.trim().toLowerCase(java.util.Locale.ROOT);
+        return com.acme.sportplatform.identity.ProfileExternalKey.normalize(key);
     }
 
     private String normalizeGender(String gender) {
-        return switch (gender) {
-            case "M", "MALE" -> "M";
-            case "F", "FEMALE" -> "F";
-            case "X", "OTHER" -> "X";
-            default ->
-                    throw new com.acme.sportplatform.common.exception.BusinessException(
-                            "identity.invalid_gender", "Пол должен быть M, F или X");
-        };
+        return com.acme.sportplatform.identity.ProfileExternalKey.gender(gender)
+                .toUpperCase(java.util.Locale.ROOT);
     }
 
     private void apply(ProfileEntity p, com.acme.sportplatform.identity.ProfileData d) {
@@ -143,9 +135,11 @@ public class ProfileLookupService implements ProfileLookup {
                     "identity.invalid_profile", "Укажите фамилию, имя, дату рождения и пол");
         p.setFirstName(d.firstName().trim());
         p.setLastName(d.lastName().trim());
+        if (d.middleName() != null)
         p.setMiddleName(d.middleName());
         p.setBirthDate(d.birthDate());
         p.setGender(normalizeGender(d.gender()));
+        if (d.club() != null)
         p.setClubName(d.club());
     }
 

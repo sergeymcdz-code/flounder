@@ -18,19 +18,36 @@ public class EventSessionService implements SessionLookup {
     private final EventSessionRepository sessions;
     private final EventManagementAccess access;
     private final SessionUsageLookup usage;
+    private final SessionHeatsLookup heats;
 
     public EventSessionService(
             EventSessionRepository sessions,
             EventManagementAccess access,
-            SessionUsageLookup usage) {
+            SessionUsageLookup usage,
+            SessionHeatsLookup heats) {
         this.sessions = sessions;
         this.access = access;
         this.usage = usage;
+        this.heats = heats;
     }
 
-    public List<EventSessionView> list(UUID eventId) {
+    public List<com.acme.sportplatform.events.api.EventSessionResponse> list(UUID eventId) {
         access.assertCanManage(eventId);
-        return views(eventId);
+        return views(eventId).stream()
+                .map(
+                        s -> {
+                            var summary = heats.summary(s.id());
+                            return new com.acme.sportplatform.events.api.EventSessionResponse(
+                                    s.id(),
+                                    s.eventId(),
+                                    s.name(),
+                                    s.orderNo(),
+                                    s.startsAt(),
+                                    s.breakBetweenEventsSec(),
+                                    summary.heatsCount(),
+                                    summary.estimatedEndsAt());
+                        })
+                .toList();
     }
 
     public List<EventSessionView> views(UUID eventId) {

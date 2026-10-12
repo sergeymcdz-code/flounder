@@ -50,22 +50,10 @@ public class CreateUserUseCase {
 
         UserEntity savedUser = userRepository.save(user);
 
-        String genderKey =
-                switch (request.gender()) {
-                    case null -> "X";
-                    case "MALE" -> "M";
-                    case "FEMALE" -> "F";
-                    default -> request.gender();
-                };
         String externalKey =
-                (request.lastName().trim()
-                                + "|"
-                                + request.firstName().trim()
-                                + "|"
-                                + request.birthDate()
-                                + "|"
-                                + genderKey)
-                        .toLowerCase(java.util.Locale.ROOT);
+                com.acme.sportplatform.identity.ProfileExternalKey.build
+                (request.lastName(), request.firstName(), request.birthDate(),
+                        request.gender() == null ? "X" : request.gender());
         ProfileEntity imported = profileRepository.findByExternalKey(externalKey).orElse(null);
         ProfileEntity profile =
                 imported != null && imported.getUserId() == null ? imported : new ProfileEntity();

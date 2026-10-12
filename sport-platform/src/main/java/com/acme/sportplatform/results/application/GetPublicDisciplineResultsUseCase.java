@@ -1,15 +1,5 @@
 package com.acme.sportplatform.results.application;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.registrations.RegistrationLookup;
 import com.acme.sportplatform.registrations.RegistrationLookupResult;
 import com.acme.sportplatform.results.api.PublicDisciplineResultsResponse;
@@ -22,10 +12,20 @@ import com.acme.sportplatform.results.infrastructure.jpa.ResultRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Service
 public class GetPublicDisciplineResultsUseCase {
 
-    private static final String PUBLISHED = "PUBLISHED";
+    private static final String PUBLISHED = "FINISHED";
 
     private final CompetitionUnitRepository competitionUnitRepository;
     private final CompetitionUnitEntryRepository entryRepository;

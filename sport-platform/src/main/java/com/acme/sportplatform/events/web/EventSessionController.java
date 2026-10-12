@@ -23,7 +23,8 @@ public class EventSessionController {
     }
 
     @GetMapping("/events/{eventId}/sessions")
-    public List<EventSessionView> list(@PathVariable UUID eventId) {
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR','JUDGE')")
+    public List<com.acme.sportplatform.events.api.EventSessionResponse> list(@PathVariable UUID eventId) {
         return sessions.list(eventId);
     }
 
