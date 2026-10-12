@@ -30,3 +30,24 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## T07: public pages, print and PWA
+
+See [the implementation and verification report](docs/T07.md) for routes,
+manual checks, API integration notes and captured mobile/PDF evidence.
+
+```bash
+npm ci
+npm run dev:demo -- --host 0.0.0.0
+# Open http://localhost:5173/e/demo (MSW, no backend required)
+npm run test
+npm run build
+npm run lint
+npx playwright install chromium
+npm run test:e2e
+```
+
+The production build excludes MSW unless `VITE_PUBLIC_API_MOCKS=true` is set
+explicitly. Public API requests default to the current origin; configure
+`VITE_API_BASE_URL` for a separate backend. `--mode demo` uses MSW instead of
+the PWA worker because they share the root service-worker scope.

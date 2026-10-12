@@ -1,0 +1,22 @@
+{
+  "start-list": {
+    "pages": 2,
+    "heatsPerPage": [
+      3,
+      3
+    ],
+    "a4": true,
+    "repeatedHeader": true,
+    "textWithinMargins": true
+  },
+  "results": {
+    "pages": 2,
+    "heatsPerPage": [
+      0,
+      0
+    ],
+    "a4": true,
+    "repeatedHeader": true,
+    "textWithinMargins": true
+  }
+}
