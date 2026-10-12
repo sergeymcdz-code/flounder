@@ -33,7 +33,7 @@ export function OrganizerLayout() {
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          <p className={styles.eyebrow}>Organizer panel</p>
+          <p className={styles.eyebrow}>Панель организатора</p>
           <h2 className={styles.sidebarTitle}>Кабинет организатора</h2>
         </div>
 

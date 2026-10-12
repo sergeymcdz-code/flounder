@@ -166,9 +166,9 @@ export function OrganizerEventsPage() {
                       <div className={styles.actions}>
                         <NavLink
                           className={styles.secondaryLink}
-                          to={`/organizer/events/${encodeURIComponent(event.id)}/registrations`}
+                          to={`/organizer/events/${encodeURIComponent(event.id)}`}
                         >
-                          Заявки
+                          Управлять событием
                         </NavLink>
 
                         {event.publicSlug ? (
