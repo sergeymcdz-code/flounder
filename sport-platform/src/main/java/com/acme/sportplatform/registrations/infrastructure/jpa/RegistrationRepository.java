@@ -20,6 +20,9 @@ public interface RegistrationRepository
 
         List<RegistrationEntity> findByEventIdInAndStatus(java.util.Collection<UUID> eventIds, String status);
 
+        Optional<RegistrationEntity> findByEventDisciplineIdAndParticipantProfileIdAndStatusNot(
+                UUID eventDisciplineId, UUID participantProfileId, String status);
+
         List<RegistrationEntity> findByEventDisciplineId(UUID eventDisciplineId);
 
         List<RegistrationEntity> findByParticipantUserId(UUID participantUserId);

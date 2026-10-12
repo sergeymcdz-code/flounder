@@ -32,6 +32,12 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
+    public boolean isCreatedBy(UUID eventId, UUID userId) {
+        return eventRepository.findById(eventId)
+                .map(event -> userId.equals(event.getCreatedByUserId())).orElse(false);
+    }
+
+    @Override
     public EventLookupResult getById(UUID eventId) {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException(

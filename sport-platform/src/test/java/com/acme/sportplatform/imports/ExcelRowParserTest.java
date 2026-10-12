@@ -1,0 +1,116 @@
+package com.acme.sportplatform.imports;
+
+import com.acme.sportplatform.common.TimeParser;
+import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.identity.ImportedProfileRequest;
+import com.acme.sportplatform.imports.domain.ExcelRowParser;
+import com.acme.sportplatform.imports.domain.ImportRowException;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import static org.assertj.core.api.Assertions.*;
+
+class ExcelRowParserTest {
+    private final ExcelRowParser parser = new ExcelRowParser();
+
+    @Test
+    void acceptsStrictRussianIsoAndExcelDates() throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            var row = workbook.createSheet().createRow(0);
+            var cell = row.createCell(0);
+            cell.setCellValue("10.05.2014");
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(2014, 5, 10));
+            cell.setCellValue("2014-05-10");
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(2014, 5, 10));
+            cell.setCellValue(LocalDate.of(2014, 5, 10));
+            var style = workbook.createCellStyle();
+            style.setDataFormat(workbook.createDataFormat().getFormat("dd.mm.yyyy"));
+            cell.setCellStyle(style);
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(2014, 5, 10));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"31.02.2013", "29.02.2013", "2013-02-31", "2014/05/10", "1.5.2014", "", "01.01.14"})
+    void rejectsInvalidDatesWithColumn(String value) throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            var cell = workbook.createSheet().createRow(0).createCell(0);
+            cell.setCellValue(value);
+            assertThatThrownBy(() -> parser.birthDate(cell)).isInstanceOfSatisfying(ImportRowException.class,
+                    ex -> assertThat(ex.column()).isEqualTo(ExcelRowParser.HEADERS.get(3)))
+                    .hasMessageContaining("ДД.ММ.ГГГГ");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"М,M", "M,M", "m,M", "Ж,F", "F,F", "f,F"})
+    void parsesGender(String input, String expected) { assertThat(parser.gender(input)).isEqualTo(expected); }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "X", "MALE", "мужской"})
+    void rejectsOtherGender(String input) { assertThatThrownBy(() -> parser.gender(input)).isInstanceOf(ImportRowException.class); }
+
+    @ParameterizedTest
+    @CsvSource({"32.15,32150", "0:32.15,32150", "00:32.15,32150", "1:02:30.50,3750500", "02:08.00,128000"})
+    void parsesSwimmingTime(String input, long expected) { assertThat(TimeParser.parse(input)).isEqualTo(expected); }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "-1.00", "00:60.00", "1:60:00.00", "00:00.00", "NT", "0:32", "32,15", "999999999999999999999:01:01.00"})
+    void rejectsInvalidTime(String input) { assertThatThrownBy(() -> TimeParser.parse(input)).isInstanceOf(IllegalArgumentException.class); }
+
+    @Test
+    void normalizesHeadersAndIgnoresUnknownOptionalColumns() throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            Row headers = workbook.createSheet().createRow(0);
+            for (int i : List.of(0, 1, 3, 4, 6)) {
+                headers.createCell(i).setCellValue("  " + ExcelRowParser.HEADERS.get(i).toUpperCase() + "  ");
+            }
+            headers.createCell(8).setCellValue("Комментарий");
+            Map<Integer, Integer> columns = parser.headers(headers);
+            Row row = headers.getSheet().createRow(1);
+            row.createCell(0).setCellValue("  Киселёв  ");
+            row.createCell(1).setCellValue("Иван");
+            row.createCell(3).setCellValue("10.05.2014");
+            row.createCell(4).setCellValue("М");
+            row.createCell(6).setCellValue("M-50-FREE");
+            var parsed = parser.parse(row, columns);
+            assertThat(parsed.profile().externalKey()).isEqualTo("киселев|иван|2014-05-10|m");
+            assertThat(parsed.profile().middleName()).isNull();
+            assertThat(parsed.profile().club()).isNull();
+            assertThat(parsed.seedTimeMs()).isNull();
+            assertThat(parser.isEmpty(headers.getSheet().createRow(2), columns)).isTrue();
+            row.getCell(0).setCellValue("  ");
+            assertThatThrownBy(() -> parser.parse(row, columns)).hasMessageContaining("фамилия");
+        }
+    }
+
+    @Test
+    void reportsAllMissingHeadersAndRejectsFormula() throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            Row headers = workbook.createSheet().createRow(0);
+            headers.createCell(0).setCellValue("Фамилия");
+            assertThatThrownBy(() -> parser.headers(headers)).isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("Имя", "Дата рождения", "Пол", "Дисциплина");
+            for (int i = 0; i < ExcelRowParser.HEADERS.size(); i++) headers.createCell(i).setCellValue(ExcelRowParser.HEADERS.get(i));
+            Row row = headers.getSheet().createRow(1);
+            row.createCell(0).setCellFormula("1+1");
+            assertThatThrownBy(() -> parser.parse(row, parser.headers(headers))).hasMessageContaining("формулы");
+        }
+    }
+
+    @Test
+    void normalizesWhitespaceCaseAndYoInIdentityAndFormatsTime() {
+        var profile = new ImportedProfileRequest("  КИСЕЛЁВ\u00a0 Петров  ", " Иван   Семён ", null,
+                LocalDate.of(2014, 5, 10), "M", null);
+        assertThat(profile.externalKey()).isEqualTo("киселев петров|иван семен|2014-05-10|m");
+        assertThat(TimeParser.format(32150L)).isEqualTo("00:32.15");
+        assertThat(TimeParser.format(3750500L)).isEqualTo("62:30.50");
+        assertThat(TimeParser.format(null)).isEmpty();
+    }
+}

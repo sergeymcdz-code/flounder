@@ -30,6 +30,18 @@ public class GlobalExceptionHandler {
     private static final Logger log =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiErrorResponse(
+                "imports.file_too_large", "Размер файла превышает 5 МБ", OffsetDateTime.now(), List.of()));
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingPart(Exception ex) {
+        return ResponseEntity.badRequest().body(new ApiErrorResponse(
+                "imports.missing_file", "Не передан файл в поле file", OffsetDateTime.now(), List.of()));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiErrorResponse> handleBusiness(
             BusinessException ex
