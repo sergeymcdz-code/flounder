@@ -138,6 +138,9 @@ export default function App() {
             element={<OperatorPaymentsPage />}
           />
 
+        </Route>
+
+        <Route element={<RequireRole roles={['platformadmin', 'platform_admin', 'operator', 'judge', 'organizer']} />}>
           <Route
             path="operator/results"
             element={<CompetitionUnitsPage />}

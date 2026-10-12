@@ -44,6 +44,9 @@ export type ResultResponse = {
   resultType: string
   status: string
   finalPlace: number | null
+  placeInAgeGroup?: number | null
+  display?: string | null
+  entryTime?: string | null
 }
 
 export type CompetitionUnitEntryView = {
@@ -55,12 +58,16 @@ export type CompetitionUnitEntryView = {
   resultType: string | null
   resultStatus: string | null
   finalPlace: number | null
+  placeInAgeGroup?: number | null
+  display?: string | null
+  entryTime?: string | null
 }
 
 export type CompetitionUnitDetailsResponse = {
   id: CompetitionUnitId
   eventDisciplineId: string
   label: string
+  eventId?: string
   status: string
   entries: CompetitionUnitEntryView[]
 }
@@ -72,6 +79,9 @@ export type PublicCompetitionUnitResultEntry = {
   resultType: string | null
   resultStatus: string | null
   finalPlace: number | null
+  placeInAgeGroup?: number | null
+  display?: string | null
+  entryTime?: string | null
 }
 
 export type PublicCompetitionUnitResultsResponse = {
@@ -275,4 +285,27 @@ export function getPublicDisciplineResults(
       eventDisciplineId,
     )}/results`,
   )
+}
+
+export type HeatResultRequest = {
+  competitionUnitEntryId: string
+  time: string | null
+  status: 'VALID' | 'DNS' | 'DNF' | 'DSQ'
+}
+
+export function saveHeatResults(unitId: string, results: HeatResultRequest[], accessToken: string) {
+  return apiFetch<CompetitionUnitDetailsResponse>(
+    `/api/v1/competition-units/${encodeURIComponent(unitId)}/results`,
+    { method: 'POST', accessToken, body: JSON.stringify(results) },
+  )
+}
+
+export function changeHeatState(unitId: string, action: 'start' | 'finish', accessToken: string) {
+  return apiFetch<void>(`/api/v1/competition-units/${encodeURIComponent(unitId)}/${action}`,
+    { method: 'POST', accessToken })
+}
+
+export function setLiveHeat(eventId: string, currentUnitId: string, accessToken: string) {
+  return apiFetch<void>(`/api/v1/events/${encodeURIComponent(eventId)}/live`,
+    { method: 'PUT', accessToken, body: JSON.stringify({ currentUnitId }) })
 }
