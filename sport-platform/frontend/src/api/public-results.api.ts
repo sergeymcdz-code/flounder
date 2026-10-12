@@ -26,6 +26,6 @@ export function getPublicDisciplineResults(
   disciplineId: string,
 ): Promise<PublicDisciplineResultsResponse> {
   return apiFetch<PublicDisciplineResultsResponse>(
-    `/api/v1/events/${encodeURIComponent(eventId)}/disciplines/${encodeURIComponent(disciplineId)}/results`,
+    `/api/v1/public/events/${encodeURIComponent(eventId)}/disciplines/${encodeURIComponent(disciplineId)}/results`,
   )
 }

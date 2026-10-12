@@ -1,36 +1,38 @@
 package com.acme.sportplatform.organizations.application;
 
+import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.identity.UserRoleLookup;
+import com.acme.sportplatform.organizations.OrganizationLookup;
+import com.acme.sportplatform.organizations.OrganizationManagementAccess;
+import com.acme.sportplatform.organizations.api.AddOrganizationMemberRequest;
+import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
+import com.acme.sportplatform.organizations.api.OrganizationMemberResponse;
+import com.acme.sportplatform.organizations.api.OrganizationResponse;
+import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationEntity;
+import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationMemberEntity;
+import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationMemberRepository;
+import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.organizations.OrganizationLookup;
-import com.acme.sportplatform.organizations.OrganizationManagementAccess;
-import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
-import com.acme.sportplatform.organizations.api.OrganizationResponse;
-import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationEntity;
-import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationMemberRepository;
-import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationRepository;
 
 @Service
 public class OrganizationService implements OrganizationLookup, OrganizationManagementAccess {
 
-    private static final String OWNER = "OWNER";
-    private static final String ADMIN = "ADMIN";
-
+    private final UserRoleLookup userRoleLookup;
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
 
     public OrganizationService(
             OrganizationRepository organizationRepository,
-            OrganizationMemberRepository organizationMemberRepository
+            OrganizationMemberRepository organizationMemberRepository,
+            UserRoleLookup userRoleLookup
     ) {
         this.organizationRepository = organizationRepository;
+        this.userRoleLookup = userRoleLookup;
         this.organizationMemberRepository = organizationMemberRepository;
     }
 
@@ -102,19 +104,66 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     @Override
     @Transactional(readOnly = true)
     public boolean canManageOrganization(UUID organizationId, UUID userId) {
-        return organizationMemberRepository
-                .findByOrganizationIdAndUserId(organizationId, userId)
-                .map(member ->
-                        OWNER.equals(member.getMemberRole())
-                                || ADMIN.equals(member.getMemberRole())
-                )
-                .orElse(false);
+        return isMember(organizationId, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isMember(UUID organizationId, UUID userId) {
+        return organizationMemberRepository.existsByOrganizationIdAndUserId(organizationId, userId);
+    }
+
+    private void assertOwner(UUID organizationId, UUID userId, boolean admin) {
+        if (!organizationRepository.existsById(organizationId)) throw organizationNotFound();
+        if (!admin && !organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, userId)
+                .map(m -> "owner".equalsIgnoreCase(m.getMemberRole())).orElse(false)) {
+            throw new BusinessException("organizations.access_denied", "Только владелец организации может управлять участниками");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizationMemberResponse> members(
+            UUID organizationId, UUID userId, boolean admin) {
+        assertOwner(organizationId, userId, admin);
+        return organizationMemberRepository.findAllByOrganizationId(organizationId).stream()
+                .map(this::memberResponse).toList();
+    }
+
+    @Transactional
+    public OrganizationMemberResponse addMember(
+            UUID organizationId, AddOrganizationMemberRequest request,
+            UUID userId, boolean admin) {
+        assertOwner(organizationId, userId, admin);
+        return memberResponse(putMember(organizationId, request.userId(), request.memberRole()));
+    }
+
+    @Transactional
+    public OrganizationMemberEntity putMember(
+            UUID organizationId, UUID userId, String role) {
+        userRoleLookup.requireUser(userId);
+        String normalized = role.toLowerCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("owner", "admin", "member", "organizer", "operator", "judge").contains(normalized)) {
+            throw new BusinessException("organizations.invalid_member_role", "Неизвестная роль участника организации");
+        }
+        var member = organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, userId)
+                .orElseGet(OrganizationMemberEntity::new);
+        member.setOrganizationId(organizationId);
+        member.setUserId(userId);
+        member.setMemberRole(normalized);
+        if (member.getCreatedAt() == null) member.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        return organizationMemberRepository.save(member);
+    }
+
+    private OrganizationMemberResponse memberResponse(
+            OrganizationMemberEntity m) {
+        return new OrganizationMemberResponse(
+                m.getId(), m.getOrganizationId(), m.getUserId(), m.getMemberRole(), m.getCreatedAt());
     }
 
     private BusinessException organizationNotFound() {
         return new BusinessException(
                 "organizations.organization_not_found",
-                "Organization not found"
+                "Организация не найдена"
         );
     }
 

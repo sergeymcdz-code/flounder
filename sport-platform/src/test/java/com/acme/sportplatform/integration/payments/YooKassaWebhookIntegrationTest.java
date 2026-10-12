@@ -81,6 +81,9 @@ class YooKassaWebhookIntegrationTest
         private PaymentRepository paymentRepository;
 
         @Autowired
+        private com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository registrationRepository;
+
+        @Autowired
         private PaymentWebhookEventRepository webhookEventRepository;
 
         @Test
@@ -111,6 +114,7 @@ class YooKassaWebhookIntegrationTest
                         updatedPayment.getStatus()
                 );
                 assertNotNull(updatedPayment.getPaidAt());
+                assertEquals("PAID", registrationRepository.findById(payment.getRegistrationId()).orElseThrow().getStatus());
                 assertNull(updatedPayment.getCanceledAt());
 
                 PaymentWebhookEventEntity event = webhookEventRepository
@@ -316,7 +320,7 @@ class YooKassaWebhookIntegrationTest
 
                 PlatformUserPrincipal organizerPrincipal =
                         new PlatformUserPrincipal(
-                                UUID.randomUUID(),
+                                TEST_EVENT_CREATOR_ID,
                                 "organizer-webhook@example.com",
                                 "",
                                 "active",

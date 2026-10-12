@@ -1,20 +1,29 @@
 package com.acme.sportplatform.identity.application;
 
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.identity.UserRoleLookup;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.RoleEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.UserEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.UserRoleAssignmentEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.RoleRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class AssignRoleToUserUseCase {
+public class AssignRoleToUserUseCase implements UserRoleLookup {
+
+    @Override
+    @Transactional(readOnly = true)
+    public void requireUser(UUID userId) {
+        if (!userRepository.existsById(userId)) throw new BusinessException("identity.user_not_found", "Пользователь не найден");
+    }
+
+    @Override
+    @Transactional
+    public void ensureOrganizer(UUID userId) { execute(userId, "organizer"); }
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -31,10 +40,10 @@ public class AssignRoleToUserUseCase {
     @Transactional
     public boolean execute(UUID userId, String roleCode) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("identity.user_not_found", "User not found"));
+                .orElseThrow(() -> new BusinessException("identity.user_not_found", "Пользователь не найден"));
 
         RoleEntity role = roleRepository.findByCode(roleCode)
-                .orElseThrow(() -> new BusinessException("identity.role_not_found", "Role not found"));
+                .orElseThrow(() -> new BusinessException("identity.role_not_found", "Роль не найдена"));
 
         boolean exists = userRoleAssignmentRepository
                 .existsByUserIdAndRoleIdAndEventIdIsNullAndOrganizationIdIsNull(user.getId(), role.getId());

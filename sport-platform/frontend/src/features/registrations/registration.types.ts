@@ -25,6 +25,7 @@ export type CreateRegistrationRequest = {
 export type RegistrationStatus =
   | 'SUBMITTED'
   | 'CONFIRMED'
+  | 'PAID'
   | 'REJECTED'
   | 'NEEDS_CORRECTION'
   | 'CANCELLED'

@@ -51,28 +51,28 @@ public class CreateLocalPaymentForRegistrationUseCase {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
                     "payments.registration_not_found",
-                    "Registration not found"
+                    "Заявка не найдена"
             );
         }
 
         if (!registration.participantUserId().equals(participantUserId)) {
             throw new BusinessException(
                     "payments.registration_access_denied",
-                    "You cannot create a payment for another participant registration"
-            );
-        }
-
-        if (!"CONFIRMED".equals(registration.status())) {
-            throw new BusinessException(
-                    "payments.registration_not_confirmed",
-                    "Payment can only be created for a confirmed registration"
+                    "Нельзя создать платёж для чужой заявки"
             );
         }
 
         if (paymentRepository.findByRegistrationId(registrationId).isPresent()) {
             throw new BusinessException(
                     "payments.already_exists",
-                    "Payment already exists for this registration"
+                    "Платёж для этой заявки уже существует"
+            );
+        }
+
+        if (!"CONFIRMED".equals(registration.status())) {
+            throw new BusinessException(
+                    "payments.registration_not_confirmed",
+                    "Платёж можно создать только для подтверждённой заявки"
             );
         }
 
@@ -85,7 +85,7 @@ public class CreateLocalPaymentForRegistrationUseCase {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
                     "payments.event_discipline_not_found",
-                    "Published event discipline not found"
+                    "Опубликованная дисциплина не найдена"
             );
         }
 
@@ -94,7 +94,7 @@ public class CreateLocalPaymentForRegistrationUseCase {
         if (amount == null || amount.signum() <= 0) {
             throw new BusinessException(
                     "payments.not_required",
-                    "Payment is not required for this registration"
+                    "Оплата для этой заявки не требуется"
             );
         }
 

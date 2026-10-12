@@ -1,22 +1,5 @@
 package com.acme.sportplatform.integration.events;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.UUID;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-
 import com.acme.sportplatform.events.api.CreateEventRequest;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
@@ -24,7 +7,22 @@ import com.acme.sportplatform.organizations.api.CreateVenueRequest;
 import com.acme.sportplatform.support.AbstractPostgresIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,7 +30,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -46,7 +43,7 @@ class EventIntegrationTest
 
     private static final UUID TEST_ADMIN_USER_ID =
             UUID.fromString(
-                    "20000000-0000-0000-0000-000000000001"
+                    "11111111-1111-1111-1111-111111111111"
             );
 
     @Autowired
@@ -195,6 +192,148 @@ class EventIntegrationTest
                         jsonPath("$.status")
                                 .value("COMPLETED")
                 );
+    }
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Test
+    @WithMockUser(roles = "PLATFORM_ADMIN")
+    void shouldApproveApplicantAndAllowOrganizerToManageOnlyOwnEvent() throws Exception {
+        UUID applicant = UUID.randomUUID();
+        jdbc.update("insert into users(id,email,password_hash,status) values (?,?,'test','active')", applicant, applicant + "@example.com");
+        AuthenticatedUserPrincipal applicantPrincipal = () -> applicant;
+        var participant = new UsernamePasswordAuthenticationToken(applicantPrincipal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_PARTICIPANT")));
+        String submitted = mockMvc.perform(post("/api/v1/organization-registration-requests")
+                .with(authentication(participant)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"organizationType\":\"organizer\",\"organizationName\":\"Клуб Самары\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String requestId = JsonPath.read(submitted, "$.id");
+        mockMvc.perform(post("/api/v1/organization-registration-requests/{id}/approve", requestId)
+                .with(authentication(platformAdminAuthentication())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
+        UUID organizationId = jdbc.queryForObject("select organization_id from organization_members where user_id = ?", UUID.class, applicant);
+        org.junit.jupiter.api.Assertions.assertEquals("owner", jdbc.queryForObject(
+                "select member_role from organization_members where user_id = ?", String.class, applicant));
+        org.junit.jupiter.api.Assertions.assertEquals(1, jdbc.queryForObject(
+                "select count(*) from user_role_assignments a join roles r on r.id=a.role_id where a.user_id=? and r.code='organizer'", Integer.class, applicant));
+        mockMvc.perform(post("/api/v1/organization-registration-requests/{id}/approve", requestId)
+                .with(authentication(platformAdminAuthentication()))).andExpect(status().isConflict());
+        UUID venueId = createVenue();
+        UUID regulationId = createRegulationVersion();
+        var organizer = new UsernamePasswordAuthenticationToken(applicantPrincipal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")));
+        var now = OffsetDateTime.now(ZoneOffset.UTC);
+        var request = new CreateEventRequest(organizationId, venueId, SPORT_ID, regulationId,
+                "Кубок Самары 2026", null, now, now.plusDays(1), now.plusDays(2), now.plusDays(3));
+        String response = mockMvc.perform(post("/api/v1/events").with(authentication(organizer))
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.publicSlug").value("kubok-samary-2026"))
+                .andReturn().getResponse().getContentAsString();
+        String eventId = JsonPath.read(response, "$.id");
+        mockMvc.perform(get("/api/v1/registrations").param("eventId", eventId).with(authentication(organizer)))
+                .andExpect(status().isOk());
+        UUID templateId = UUID.randomUUID();
+        jdbc.update("insert into discipline_templates(id,sport_id,code,name,competition_format,unit_type,result_type,ranking_strategy) values (?,? ,?,'50 м','INDIVIDUAL','HEAT','TIME','ASC')", templateId, SPORT_ID, templateId.toString());
+        String disciplineBody = "{\"disciplineTemplateId\":\"" + templateId + "\",\"code\":\"50\",\"name\":\"50 м\"}";
+        String disciplineResponse = mockMvc.perform(post("/api/v1/events/{id}/disciplines", eventId).with(authentication(organizer))
+                .contentType(MediaType.APPLICATION_JSON).content(disciplineBody))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String disciplineId = JsonPath.read(disciplineResponse, "$.id");
+        mockMvc.perform(post("/api/v1/events/{eventId}/disciplines/{disciplineId}/publish", eventId, disciplineId)
+                .with(authentication(organizer))).andExpect(status().isOk());
+        UUID profileId = UUID.randomUUID();
+        jdbc.update("insert into profiles(id,user_id,first_name,last_name,birth_date) values (?,?,'Иван','Иванов','2014-01-01')", profileId, applicant);
+        UUID registrationId = UUID.randomUUID();
+        jdbc.update("insert into registrations(id,event_id,event_discipline_id,participant_user_id,participant_profile_id,status,participant_snapshot,created_at,updated_at) values (?,?,?,?,?,'CONFIRMED','{}',now(),now())",
+                registrationId, UUID.fromString(eventId), UUID.fromString(disciplineId), applicant, profileId);
+        String unitResponse = mockMvc.perform(post("/api/v1/competition-units").with(authentication(organizer))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"eventDisciplineId\":\"" + disciplineId + "\",\"label\":\"Заплыв 1\",\"sequenceNumber\":1}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String unitId = JsonPath.read(unitResponse, "$.id");
+
+        mockMvc.perform(get("/api/v1/organizations/{id}/members", organizationId).with(authentication(organizer)))
+                .andExpect(status().isOk());
+        UUID member = UUID.randomUUID();
+        jdbc.update("insert into users(id,email,password_hash,status) values (?,?,'test','active')", member, member + "@example.com");
+        mockMvc.perform(post("/api/v1/organizations/{id}/members", organizationId).with(authentication(organizer))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"userId\":\"" + member + "\",\"memberRole\":\"operator\"}"))
+                .andExpect(status().isCreated());
+        AuthenticatedUserPrincipal memberPrincipal = () -> member;
+        var operator = new UsernamePasswordAuthenticationToken(memberPrincipal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")));
+        mockMvc.perform(get("/api/v1/registrations").param("eventId", eventId).with(authentication(operator)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(operator)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID"));
+        mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(operator)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID"));
+        mockMvc.perform(post("/api/v1/competition-units/{id}/entries", unitId).with(authentication(organizer))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"registrationId\":\"" + registrationId + "\",\"laneOrPosition\":1}"))
+                .andExpect(status().isCreated());
+
+        AuthenticatedUserPrincipal outsiderPrincipal = UUID::randomUUID;
+        var outsider = new UsernamePasswordAuthenticationToken(outsiderPrincipal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")));
+        mockMvc.perform(post("/api/v1/events/{id}/disciplines", eventId).with(authentication(outsider))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"disciplineTemplateId\":\"" + UUID.randomUUID() + "\",\"code\":\"50\",\"name\":\"50 м\"}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("events.access_denied"));
+        mockMvc.perform(get("/api/v1/registrations").param("eventId", eventId).with(authentication(outsider)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/registrations").with(authentication(outsider)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/v1/registrations").with(authentication(operator)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(registrationId.toString()));
+        mockMvc.perform(get("/api/v1/organizer/events").with(authentication(operator)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(eventId));
+        mockMvc.perform(get("/api/v1/organizations/{id}/members", organizationId).with(authentication(operator)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(outsider)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/competition-units/{id}", unitId).with(authentication(outsider)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/competition-units/{id}/publication", unitId).with(authentication(outsider))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"published\":true}"))
+                .andExpect(status().isForbidden());
+        jdbc.update("update registrations set status='REJECTED' where id=?", registrationId);
+        mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(operator)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REJECTED"));
+
+    }
+
+    @Test
+    @WithMockUser(roles = "PLATFORM_ADMIN")
+    void shouldRejectRequestAndApproveUsingExistingOrganization() throws Exception {
+        UUID applicant = UUID.randomUUID();
+        jdbc.update("insert into users(id,email,password_hash,status) values (?,?,'test','active')", applicant, applicant + "@example.com");
+        UUID requestId = UUID.randomUUID();
+        jdbc.update("insert into organization_registration_requests(id,applicant_user_id,organization_type,organization_name,status,created_at,updated_at) values (?,?,'organizer','Клуб','PENDING',now(),now())", requestId, applicant);
+        mockMvc.perform(post("/api/v1/organization-registration-requests/{id}/reject", requestId)
+                .with(authentication(platformAdminAuthentication())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"comment\":\"Уточните реквизиты\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REJECTED"))
+                .andExpect(jsonPath("$.rejectionReason").value("Уточните реквизиты"));
+        UUID secondRequestId = UUID.randomUUID();
+        jdbc.update("insert into organization_registration_requests(id,applicant_user_id,organization_type,organization_name,status,created_at,updated_at) values (?,?,'organizer','Клуб','PENDING',now(),now())", secondRequestId, applicant);
+        UUID organizationId = createOrganization();
+        mockMvc.perform(post("/api/v1/organization-registration-requests/{id}/approve", secondRequestId)
+                .with(authentication(platformAdminAuthentication())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"organizationId\":\"" + organizationId + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
+        org.junit.jupiter.api.Assertions.assertEquals(organizationId, jdbc.queryForObject(
+                "select organization_id from organization_members where user_id=?", UUID.class, applicant));
+    }
+
+    @Test
+    void shouldExposeOpenApiAndAuthenticateSeedAdmin() throws Exception {
+        mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"));
+        mockMvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@flounder.demo\",\"password\":\"Demo2026!\"}"))
+                .andExpect(status().isOk());
     }
 
     private UUID createOrganization() throws Exception {

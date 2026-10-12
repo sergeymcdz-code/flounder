@@ -22,8 +22,6 @@ MVP-платформа для управления спортивными мер
 - Spring Security и JWT
 - Spring Modulith
 - PostgreSQL
-- Redis
-- Kafka — инфраструктурный задел для будущего event-driven слоя
 - React + TypeScript + Vite
 - Docker Compose
 - Testcontainers
@@ -34,9 +32,9 @@ MVP-платформа для управления спортивными мер
 
 - JDK 21
 - Maven 3.9+
-- Node.js 20+
+- Node.js 22+
 - Docker Desktop / Docker Compose
-- PostgreSQL, Redis и Kafka через Docker Compose
+- PostgreSQL через Docker Compose
 
 ## Настройка окружения
 
@@ -64,7 +62,7 @@ $env:JWT_SECRET = "local-development-secret-must-be-at-least-32-characters-long"
 
 ## Запуск инфраструктуры
 
-Запустите PostgreSQL, Redis и Kafka:
+Запустите PostgreSQL:
 
 ```powershell
 docker compose up -d
@@ -170,3 +168,84 @@ GET /api/v1/public/events/{eventId}/disciplines/{eventDisciplineId}/results
 - Actuator health доступен публично без инфраструктурных details
 - Другие Actuator endpoints доступны только роли `PLATFORM_ADMIN`
 - Некорректные JWT без roles claim отклоняются как невалидные
+## Переменные окружения
+
+| Переменная | Назначение / локальный вариант |
+|---|---|
+| `JWT_SECRET` | Обязательный секрет JWT, не менее 32 символов |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/sport_platform` |
+| `SPRING_DATASOURCE_USERNAME` | `sport_user` |
+| `SPRING_DATASOURCE_PASSWORD` | `sport_pass` (только локально) |
+| `APP_PAYMENTS_PROVIDER` | `MANUAL` или `YOOKASSA`, по умолчанию `MANUAL` |
+| `APP_CORS_ALLOWED_ORIGINS` | Разрешённые origins через запятую; локально `http://localhost:5173` |
+| `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY` | Необязательные реквизиты YooKassa |
+| `YOOKASSA_RETURN_URL` | Страница возврата, локально `http://localhost:5173/payment-return` |
+
+Локальный запуск из корня репозитория:
+
+```bash
+cd sport-platform
+cp .env.example .env
+docker compose up -d postgres
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+# В другом терминале:
+cd sport-platform/frontend && npm ci && npm run dev
+```
+
+Flyway использует те же настройки подключения, что и datasource. В production
+задайте все настройки БД и `JWT_SECRET` через окружение. Redis и Kafka пока не нужны.
+
+## Как сделать пользователя организатором
+
+1. Пользователь создаёт аккаунт и входит через `/api/v1/auth/register` и `/api/v1/auth/login`.
+2. Пользователь подаёт `POST /api/v1/organization-registration-requests` с
+   `organizationType`, `organizationName` и контактами.
+3. Администратор вызывает `POST /api/v1/organization-registration-requests/{id}/approve`
+   с bearer-токеном. Без тела создаётся организация из заявки; тело
+   `{"organizationId":"uuid"}` выбирает существующую организацию.
+   Заявитель получает членство `owner` и глобальную роль `organizer`.
+   Отказ: `POST .../{id}/reject` с `{"comment":"Причина отказа"}`.
+4. Пользователь повторно входит, чтобы получить JWT с новой ролью.
+5. Альтернативно администратор назначает существующему пользователю роль
+   `organizer` через `POST /api/v1/users/{id}/roles` (`{"roleCode":"organizer"}`),
+   а администратор или owner добавляет его через
+   `POST /api/v1/organizations/{id}/members` (`{"userId":"uuid","memberRole":"member"}`).
+   `GET .../members` возвращает участников только администратору или owner.
+
+Допустимые роли членства: `owner`, `admin`, `member`, `organizer`, `operator`, `judge`.
+Членство само по себе не выдаёт глобальную роль JWT. Управление событием доступно
+при наличии требуемой глобальной роли и членства в организации события либо авторства.
+Чужое событие возвращает 403 `events.access_denied`. Список заявок без `eventId`
+содержит только доступные сотруднику события; администратор видит все заявки.
+`/api/v1/organizer/events` также показывает события организации и созданные пользователем.
+
+## Оплата и API
+
+- `POST /api/v1/payments/{id}/confirm` подтверждает ручную оплату.
+- Webhook `payment.succeeded` также отмечает подтверждённую заявку как `PAID`.
+- `POST /api/v1/registrations/{id}/mark-paid` делает это без платёжной записи;
+  повторный вызов безопасен. Другие статусы заявки сохраняются.
+- До слияния T03 отдельного `payment_status` нет; после V024 потребуется
+  дополнить `RegistrationPaymentService` записью `payment_status = PAID`.
+- Канонический просмотр оплаты: `GET /api/v1/payments/review/registrations/{id}`.
+- Канонические публичные результаты:
+  `GET /api/v1/public/events/{eventId}/disciplines/{id}/results`.
+- OpenAPI: `/v3/api-docs`, Swagger UI: `/swagger-ui.html`, без токена;
+  кнопка Authorize принимает JWT bearer.
+
+Миграция V020 скопирована из `docs/migrations/V020__seed_fixes.sql` дословно:
+роль `judge` и демо-администратор `admin@flounder.demo` / `Demo2026!`.
+Эти реквизиты предназначены для демо, не для production.
+
+## Docker и CI
+
+```bash
+docker build -t flounder-backend .
+docker build -t flounder-frontend frontend
+```
+
+Backend слушает 8080, использует профиль `prod` и переменные окружения.
+Frontend-образ содержит статику в `/dist` для Caddy (T09).
+В среде с собственным CA сборка поддерживает `--secret id=proxy_ca,src=/path/to/ca.pem`.
+Для Maven можно передать proxy-настройки через `--secret id=maven_settings,src=/path/to/settings.xml`; они не попадают в образ.
+CI запускает backend-тесты с Testcontainers и frontend lint/build на PR и push в main.

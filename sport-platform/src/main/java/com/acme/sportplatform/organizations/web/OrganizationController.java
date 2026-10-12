@@ -1,8 +1,15 @@
 package com.acme.sportplatform.organizations.web;
 
+import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
+import com.acme.sportplatform.organizations.api.AddOrganizationMemberRequest;
+import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
+import com.acme.sportplatform.organizations.api.OrganizationMemberResponse;
+import com.acme.sportplatform.organizations.api.OrganizationResponse;
+import com.acme.sportplatform.organizations.application.OrganizationService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,14 +21,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.acme.sportplatform.common.exception.BusinessException;
-
-import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
-import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
-import com.acme.sportplatform.organizations.api.OrganizationResponse;
-import com.acme.sportplatform.organizations.application.OrganizationService;
-
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/organizations")
@@ -36,6 +35,25 @@ public class OrganizationController {
             OrganizationService organizationService
     ) {
         this.organizationService = organizationService;
+    }
+
+    @PostMapping("/{id}/members")
+    @PreAuthorize("isAuthenticated()")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Добавить участника организации")
+    public ResponseEntity<OrganizationMemberResponse> addMember(
+            @PathVariable UUID id, @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            Authentication authentication,
+            @Valid @RequestBody AddOrganizationMemberRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.addMember(
+                id, request, getCurrentUserId(principal, isPlatformAdmin(authentication)), isPlatformAdmin(authentication)));
+    }
+
+    @GetMapping("/{id}/members")
+    @PreAuthorize("isAuthenticated()")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Получить участников организации")
+    public List<OrganizationMemberResponse> members(
+            @PathVariable UUID id, @AuthenticationPrincipal AuthenticatedUserPrincipal principal, Authentication authentication) {
+        return organizationService.members(id, getCurrentUserId(principal, isPlatformAdmin(authentication)), isPlatformAdmin(authentication));
     }
 
     @PostMapping
@@ -111,7 +129,7 @@ public class OrganizationController {
         if (principal == null) {
             throw new BusinessException(
                     "identity.invalid_principal",
-                    "Authenticated user principal is unavailable"
+                    "Данные авторизованного пользователя недоступны"
             );
         }
 
