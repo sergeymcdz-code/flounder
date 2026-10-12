@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { getEvent, getMyEvents, type Event, type EventDiscipline } from '../../api/events.api'
 import { getCompetitionUnitsByDiscipline, type CompetitionUnitResponse } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
+import { heatStatusLabel, resultErrorMessage } from './results-ui'
 import styles from './CompetitionUnitsPage.module.css'
 
 export function CompetitionUnitsPage() {
@@ -22,7 +23,7 @@ export function CompetitionUnitsPage() {
     if (!token) return
     let active = true
     Promise.resolve().then(() => { if (active) setLoading(true); return getMyEvents(token) }).then(data => { if (active) setEvents(data) })
-      .catch(() => { if (active) setError('Не удалось загрузить события. Проверьте права доступа.') })
+      .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить события. Повторите попытку.')) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [token])
@@ -31,7 +32,7 @@ export function CompetitionUnitsPage() {
     if (!token || !eventId) return
     let active = true
     Promise.resolve().then(() => { if (active) { setLoading(true); setError('') }; return getEvent(eventId, token) }).then(data => { if (active) setDisciplines(data.disciplines ?? []) })
-      .catch(() => { if (active) setError('Не удалось загрузить виды программы.') })
+      .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить виды программы. Повторите попытку.')) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [token, eventId])
@@ -41,7 +42,7 @@ export function CompetitionUnitsPage() {
     let active = true
     Promise.resolve().then(() => { if (active) { setLoading(true); setError('') }; return getCompetitionUnitsByDiscipline(disciplineId, token) }).then(data => {
       if (active) setUnits([...data].sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0)))
-    }).catch(() => { if (active) setError('Не удалось загрузить заплывы.') })
+    }).catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить заплывы. Повторите попытку.')) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [token, disciplineId])
@@ -59,7 +60,7 @@ export function CompetitionUnitsPage() {
         setDisciplineId(e.target.value); setUnitId(''); setUnits([])
       }}><option value="">Выберите вид</option>{disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
       <label className={styles.field}>Заплыв<select value={unitId} disabled={!disciplineId || loading} onChange={e => setUnitId(e.target.value)}>
-        <option value="">Выберите заплыв</option>{units.map(unit => <option key={unit.id} value={unit.id}>{unit.label} — {unit.status}</option>)}
+        <option value="">Выберите заплыв</option>{units.map(unit => <option key={unit.id} value={unit.id}>{unit.label} — {heatStatusLabel(unit.status)}</option>)}
       </select></label>
       <button className={styles.submitButton} disabled={!unitId || loading}>Открыть</button>
     </form>

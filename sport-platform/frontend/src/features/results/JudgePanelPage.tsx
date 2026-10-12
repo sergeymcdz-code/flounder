@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { getEvent } from '../../api/events.api'
 import {
   changeCompetitionUnitPublication, changeHeatState, getCompetitionUnitDetails,
@@ -8,6 +8,7 @@ import {
 } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { maskTime, normalizeTime } from './time-input'
+import { heatStatusLabel, resultErrorMessage } from './results-ui'
 import styles from './JudgePanelPage.module.css'
 
 type Draft = { time: string; status: HeatResultRequest['status'] }
@@ -20,7 +21,8 @@ export function JudgePanelPage() {
   const { unitId } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const location = useLocation()
+  const { session, hasAnyRole } = useAuth()
   const token = session?.accessToken
   const [unit, setUnit] = useState<CompetitionUnitDetailsResponse | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
@@ -37,6 +39,11 @@ export function JudgePanelPage() {
   const saveButton = useRef<HTMLButtonElement | null>(null)
   const eventId = unit?.eventId ?? params.get('eventId')
   const published = unit?.status === 'PUBLISHED'
+  const canEdit = !published || hasAnyRole(['operator', 'organizer'])
+  const loadedUnitId = unit?.id
+  const disciplineId = unit?.eventDisciplineId
+  const navigationWarning = (location.state as { liveWarning?: string } | null)?.liveWarning
+  const statusButtons = useRef<Record<string, HTMLButtonElement | null>>({})
   const entries = [...(unit?.entries ?? [])].sort((a, b) =>
     (a.laneOrPosition ?? Infinity) - (b.laneOrPosition ?? Infinity))
 
@@ -56,34 +63,34 @@ export function JudgePanelPage() {
       if (active) { setLoading(true); setError(''); setNotice(''); setSavedAt(''); setUnit(null) }
       return getCompetitionUnitDetails(unitId, token)
     }).then(data => { if (active) applyUnit(data) })
-      .catch(() => { if (active) setError('Не удалось загрузить заплыв. Проверьте права доступа.') })
+      .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить заплыв. Повторите попытку.')) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [token, unitId])
 
   useEffect(() => {
-    if (!token || !unit) return
+    if (!token || !disciplineId || loadedUnitId !== unitId) return
+    const resolvedDisciplineId = disciplineId
     let active = true
-    const current = unit
     async function findNext() {
       await Promise.resolve()
       if (!active) return
       setNextId(null); setNextError('')
-      const local = await getCompetitionUnitsByDiscipline(current.eventDisciplineId, token!)
-      const currentSummary = local.find(u => u.id === current.id)
+      const local = await getCompetitionUnitsByDiscipline(resolvedDisciplineId, token!)
+      const currentSummary = local.find(u => u.id === loadedUnitId)
       let next = local.filter(u => (u.sequenceNumber ?? 0) > (currentSummary?.sequenceNumber ?? Infinity))
         .sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0))[0]
       if (eventId && currentSummary?.scheduledAt) {
         const event = await getEvent(eventId, token)
-        const lists = await Promise.all((event.disciplines ?? []).map(d => getCompetitionUnitsByDiscipline(d.id, token!)))
+        const lists = await Promise.all((event.disciplines ?? []).map(d => d.id === resolvedDisciplineId ? Promise.resolve(local) : getCompetitionUnitsByDiscipline(d.id, token!)))
         next = lists.flat().filter(u => u.scheduledAt && Date.parse(u.scheduledAt) > Date.parse(currentSummary.scheduledAt!))
           .sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!))[0]
       }
       if (active) setNextId(next?.id ?? null)
     }
-    void findNext().catch(() => { if (active) setNextError('Не удалось определить следующий заплыв.') })
+    void findNext().catch(error => { if (active) setNextError(resultErrorMessage(error, 'Не удалось определить следующий заплыв.')) })
     return () => { active = false }
-  }, [token, unit, eventId])
+  }, [token, loadedUnitId, disciplineId, unitId, eventId])
 
   function update(id: string, change: Partial<Draft>) {
     setDrafts(current => ({ ...current, [id]: { ...current[id], ...change } }))
@@ -93,7 +100,10 @@ export function JudgePanelPage() {
 
   function validate(id: string) {
     const draft = drafts[id]
-    if (draft?.status !== 'VALID') return true
+    if (draft?.status !== 'VALID' || !draft.time.trim()) {
+      setErrors(current => ({ ...current, [id]: '' }))
+      return true
+    }
     const normalized = normalizeTime(draft.time)
     setErrors(current => ({ ...current, [id]: normalized ? '' : 'Введите время мм:сс.сс (секунды 00–59).' }))
     if (normalized) setDrafts(current => ({ ...current, [id]: { ...current[id], time: normalized } }))
@@ -104,12 +114,12 @@ export function JudgePanelPage() {
     if (busy) return
     setBusy(true); setError(''); setNotice('')
     try { await action() } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось выполнить действие. Повторите попытку.')
+      setError(resultErrorMessage(e, 'Не удалось выполнить действие. Повторите попытку.'))
     } finally { setBusy(false) }
   }
 
   function save() {
-    if (!unit || !token || published) return
+    if (!unit || !token || !canEdit) return
     const invalid = entries.filter(e => !validate(e.entryId))
     if (invalid.length) { inputs.current[invalid[0].entryId]?.focus(); return }
     void run(async () => {
@@ -119,7 +129,7 @@ export function JudgePanelPage() {
         time: drafts[e.entryId].status === 'VALID' ? normalizeTime(drafts[e.entryId].time) : null,
       })), token)
       applyUnit(data)
-      setSavedAt(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(new Date()))
+      setSavedAt(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
     })
   }
 
@@ -127,14 +137,15 @@ export function JudgePanelPage() {
     <Link className={styles.backLink} to="/operator/results">← К списку заплывов</Link>
     <div className={styles.titleRow}><div><p className={styles.eyebrow}>Судейская панель</p>
       <h1 className={styles.title}>{unit?.label ?? 'Результаты'}</h1></div>
-      {unit && <span className={styles.unitStatus}>{published ? 'Опубликовано' : unit.status}</span>}
+      {unit && <span className={styles.unitStatus}>{heatStatusLabel(unit.status)}</span>}
     </div>
-    <p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс.</p>
+    <p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p>
     {loading && <p role="status">Загрузка…</p>}
     {error && <p className={styles.errorMessage} role="alert">{error}</p>}
+    {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
     {unit && !loading && <>
       <div className={styles.toolbarControls}>
-        <button className={styles.saveButton} ref={saveButton} disabled={busy || published || !entries.length} onClick={save}>Сохранить и пересчитать</button>
+        <button className={styles.saveButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{published ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
         <button className={styles.publishButton} disabled={busy || (!published && (dirty || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? ''])))} onClick={() => void run(async () => {
           applyUnit(await changeCompetitionUnitPublication(unit.id, !published, token!))
           setNotice(published ? 'Публикация снята.' : 'Результаты опубликованы.')
@@ -145,8 +156,13 @@ export function JudgePanelPage() {
           applyUnit(data); setNotice(action === 'start' ? 'Заплыв начат.' : 'Заплыв завершён.')
         })}>{action === 'start' ? 'Старт' : 'Финиш'}</button>)}
         <button className={styles.unpublishButton} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
-          if (eventId) await setLiveHeat(eventId, nextId!, token!)
-          navigate(`/operator/competition-units/${nextId}${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`)
+          let liveWarning: string | undefined
+          if (eventId) {
+            try { await setLiveHeat(eventId, nextId!, token!) } catch (error) {
+              liveWarning = `Следующий заплыв открыт, но табло не обновлено. ${resultErrorMessage(error, 'Не удалось обновить live. Повторите обновление табло.')}`
+            }
+          }
+          navigate(`/operator/competition-units/${nextId}${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`, { state: { liveWarning } })
         })}>Следующий заплыв</button>
       </div>
       <p role="status">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
@@ -162,8 +178,17 @@ export function JudgePanelPage() {
             <td><input className={styles.resultInput} aria-label={`Время, дорожка ${entry.laneOrPosition}`} aria-invalid={Boolean(errors[entry.entryId])}
               aria-describedby={errors[entry.entryId] ? `error-${entry.entryId}` : undefined}
               ref={node => { inputs.current[entry.entryId] = node }} value={draft.time} inputMode="decimal" placeholder="00:32.15"
-              disabled={busy || published || draft.status !== 'VALID'} onChange={e => update(entry.entryId, { time: maskTime(e.target.value) })}
-              onBlur={() => validate(entry.entryId)} onKeyDown={e => {
+              disabled={busy || !canEdit || draft.status !== 'VALID'} onChange={e => update(entry.entryId, { time: maskTime(e.target.value) })}
+              onBlur={e => {
+                if ((e.relatedTarget as HTMLElement | null)?.dataset.entryId !== entry.entryId) validate(entry.entryId)
+              }} onKeyDown={e => {
+                const shortcut = e.altKey ? ({ d: 'DNS', n: 'DNF', q: 'DSQ' } as const)[e.key.toLowerCase() as 'd' | 'n' | 'q'] : undefined
+                if (shortcut) {
+                  e.preventDefault()
+                  update(entry.entryId, { status: shortcut })
+                  statusButtons.current[`${entry.entryId}-${shortcut}`]?.focus()
+                  return
+                }
                 if (e.key === 'Escape') { e.preventDefault(); update(entry.entryId, { time: '' }); return }
                 if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
                   e.preventDefault(); validate(entry.entryId)
@@ -173,8 +198,9 @@ export function JudgePanelPage() {
               }} />
               {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
             </td>
-            <td><div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} type="button" aria-pressed={draft.status === status} disabled={busy || published}
-              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div></td>
+            <td><div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
+              ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
+              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
             <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>
           </tr>
         })}</tbody>

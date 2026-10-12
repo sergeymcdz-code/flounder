@@ -8,11 +8,11 @@ export function maskTime(value: string): string {
 
 export function normalizeTime(value: string): string | null {
   const text = value.trim()
-  const match = /^(?:(?:(\d+):)?(\d+):)?(\d{1,2})[.,](\d{2})$/.exec(text)
+  const match = /^(?:(?:(\d+):)?(\d+):)?(\d{1,2})[.,](\d{1,2})$/.exec(text)
   if (!match) return null
   const hours = Number(match[1] ?? 0)
   const minutes = Number(match[2] ?? 0)
   const seconds = Number(match[3])
   if (seconds > 59 || (match[1] !== undefined && minutes > 59)) return null
-  return `${String(hours * 60 + minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${match[4]}`
+  return `${String(hours * 60 + minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${match[4].padEnd(2, '0')}`
 }
