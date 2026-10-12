@@ -1,0 +1,99 @@
+# Production/demo stack for Flounder (T09).
+# Run from the repository root:
+#   docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod up -d --build
+# Variables (${...}) are read from infra/.env.prod, see infra/.env.prod.example.
+
+name: flounder
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: flounder-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sport_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-sport_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in infra/.env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sport_user} -d ${POSTGRES_DB:-sport_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *default-logging
+    # No published ports: the database is reachable only from the compose network.
+
+  api:
+    build:
+      context: ../sport-platform
+      dockerfile: Dockerfile
+    image: flounder-api:latest
+    container_name: flounder-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sport_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-sport_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in infra/.env.prod}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://${DOMAIN}}
+      APP_PAYMENTS_PROVIDER: ${APP_PAYMENTS_PROVIDER:-MANUAL}
+      DEMO_SEED: ${DEMO_SEED:-false}
+      TZ: ${TZ:-Europe/Samara}
+      # 4 GB server: cap the JVM heap so that postgres + caddy + OS fit as well.
+      JAVA_TOOL_OPTIONS: "-Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    logging: *default-logging
+
+  web:
+    build:
+      context: ../sport-platform/frontend
+      dockerfile: Dockerfile
+      args:
+        # Vite inlines this at build time; API is served from the same origin via Caddy.
+        VITE_API_BASE_URL: https://${DOMAIN:?DOMAIN is required in infra/.env.prod}
+    image: flounder-web:latest
+    container_name: flounder-web
+    restart: unless-stopped
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2
+    container_name: flounder-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required in infra/.env.prod}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

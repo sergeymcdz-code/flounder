@@ -1,22 +1,34 @@
-# syntax=docker/dockerfile:1
-FROM maven:3.9.11-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 --mount=type=secret,id=proxy_ca --mount=type=secret,id=maven_settings \
-    if [ -f /run/secrets/proxy_ca ]; then \
-      cp "$JAVA_HOME/lib/security/cacerts" /tmp/build-cacerts; \
-      keytool -importcert -noprompt -alias session-proxy -file /run/secrets/proxy_ca \
-        -keystore /tmp/build-cacerts -storepass changeit; \
-      export MAVEN_OPTS="${MAVEN_OPTS:-} -Djavax.net.ssl.trustStore=/tmp/build-cacerts -Djavax.net.ssl.trustStorePassword=changeit"; \
-    fi; \
-    if [ -f /run/secrets/maven_settings ]; then set -- -s /run/secrets/maven_settings; else set --; fi; \
-    mvn "$@" -B -DskipTests package && rm -f /tmp/build-cacerts
+# Backend image: Spring Boot 3.5 / Java 21.
+# Stage 1 builds the jar with Maven (dependencies cached in a separate layer),
+# stage 2 is a slim JRE runtime that runs as a non-root user.
 
+# ---------- build ----------
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+
+# Resolve dependencies first so that source changes do not invalidate this layer.
+COPY pom.xml ./
+RUN mvn -q -B -DskipTests dependency:go-offline || true
+
+COPY src ./src
+RUN mvn -q -B -DskipTests package \
+    && cp target/*.jar app.jar
+
+# ---------- runtime ----------
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/target/sport-platform-0.0.1-SNAPSHOT.jar app.jar
-ENV SPRING_PROFILES_ACTIVE=prod
+
+# curl is used by the container healthcheck (/actuator/health).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
+    && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app
+
+COPY --from=build --chown=app:app /build/app.jar /app/app.jar
+
+USER app
 EXPOSE 8080
-USER 10001:10001
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Memory limits are passed from compose via JAVA_TOOL_OPTIONS (e.g. -Xmx1024m).
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

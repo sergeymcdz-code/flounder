@@ -1,0 +1,64 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  # Redis and Kafka are not used on the demo stand (and not deployed by infra/compose.prod.yaml).
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+
+  flyway:
+    url: ${SPRING_DATASOURCE_URL}
+    user: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  docker:
+    compose:
+      enabled: false
+
+server:
+  forward-headers-strategy: native  # behind Caddy: trust X-Forwarded-* for correct https links
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: ecs   # JSON lines to stdout (collected by docker logs)
+  level:
+    root: INFO
+    com.acme.sportplatform: INFO
+    org.hibernate.SQL: WARN
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  payments:
+    provider: ${APP_PAYMENTS_PROVIDER:MANUAL}
