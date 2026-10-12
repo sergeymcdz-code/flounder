@@ -1,0 +1,485 @@
+.page {
+  max-width: 1180px;
+}
+
+.backLink {
+  display: inline-flex;
+  margin-bottom: 24px;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.description {
+  max-width: 760px;
+  margin: 18px 0 0;
+  color: var(--color-text-muted);
+  font-size: 1.03rem;
+  line-height: 1.65;
+}
+
+.description code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #edf0f3;
+  color: #405169;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+}
+
+.unitStatus,
+.resultStatus,
+.entriesCount {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.unitStatusDraft {
+  background: #fff4d7;
+  color: #8c5a05;
+}
+
+.unitStatusPublished {
+  background: #e5f7ec;
+  color: #17613c;
+}
+
+.unitStatusNeutral {
+  background: #edf0f3;
+  color: #607083;
+}
+
+.summaryCard,
+.toolbarCard,
+.stateCard,
+.tableWrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.summaryCard {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr minmax(260px, 1.8fr);
+  gap: 1px;
+  margin-top: 28px;
+  overflow: hidden;
+  background: var(--color-border);
+}
+
+.summaryCard > div {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 92px;
+  padding: 18px 20px;
+  background: var(--color-surface);
+}
+
+.summaryLabel {
+  color: #71809a;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summaryCard strong {
+  color: var(--color-text);
+  font-size: 1.22rem;
+}
+
+.disciplineSummary code {
+  color: #465770;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.publishedNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 16px;
+  padding: 18px 20px;
+  border: 1px solid #a7dfc0;
+  border-left: 4px solid #17613c;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: #edf9f1;
+}
+
+.publishedNotice strong {
+  color: #17613c;
+  font-size: 0.98rem;
+}
+
+.publishedNotice p {
+  margin: 5px 0 0;
+  color: #365b46;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.toolbarCard {
+  margin-top: 16px;
+  padding: 22px;
+}
+
+.toolbarCard h2,
+.sectionHeader h2,
+.stateCard h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.23rem;
+  line-height: 1.25;
+}
+
+.toolbarCard p,
+.sectionHeader p,
+.stateCard p {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.toolbarControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.field {
+  display: grid;
+  flex: 1 1 280px;
+  gap: 8px;
+}
+
+.field > span {
+  color: #33435c;
+  font-size: 0.87rem;
+  font-weight: 750;
+}
+
+.field select,
+.resultInput,
+.statusSelect {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #bfcddd;
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.field select:focus,
+.resultInput:focus,
+.statusSelect:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(11 91 123 / 0.14);
+}
+
+.field select:disabled,
+.resultInput:disabled,
+.statusSelect:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.recalculateButton,
+.publishButton,
+.unpublishButton,
+.saveButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 750;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.recalculateButton,
+.publishButton,
+.saveButton {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.recalculateButton:hover:not(:disabled),
+.publishButton:hover:not(:disabled),
+.saveButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.unpublishButton {
+  flex: 0 0 auto;
+  border: 1px solid #d6a62c;
+  background: #fff9e9;
+  color: #805100;
+}
+
+.unpublishButton:hover:not(:disabled) {
+  background: #fff0bf;
+}
+
+.recalculateButton:disabled,
+.publishButton:disabled,
+.unpublishButton:disabled,
+.saveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.recalculateHint {
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  border-left: 3px solid #d6a62c;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: #fff9e9;
+  color: #765420 !important;
+  font-size: 0.9rem;
+}
+
+.entriesSection {
+  margin-top: 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.entriesCount {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.resultsTable {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+}
+
+.resultsTable th,
+.resultsTable td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.resultsTable th {
+  color: #65748c;
+  background: #f7fafc;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.resultsTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.resultsTable tbody tr:hover {
+  background: #fbfdfe;
+}
+
+.placeCell {
+  color: var(--color-primary);
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: center !important;
+}
+
+.laneCell {
+  color: #465770;
+  font-weight: 750;
+  text-align: center !important;
+}
+
+.participantName,
+.registrationId {
+  display: block;
+}
+
+.participantName {
+  color: var(--color-text);
+  font-size: 0.94rem;
+}
+
+.registrationId {
+  margin-top: 4px;
+  color: #71809a;
+  font-size: 0.76rem;
+}
+
+.resultInput {
+  min-width: 118px;
+}
+
+.statusSelect {
+  min-width: 190px;
+  font-size: 0.85rem;
+}
+
+.resultStatusPending {
+  background: #edf0f3;
+  color: #607083;
+}
+
+.resultStatusValid {
+  background: #e5f7ec;
+  color: #17613c;
+}
+
+.resultStatusWarning {
+  background: #fff4d7;
+  color: #8c5a05;
+}
+
+.resultStatusDanger {
+  background: #fee9e7;
+  color: #a12747;
+}
+
+.resultStatusCorrected {
+  background: #e8f0ff;
+  color: #2d5c9a;
+}
+
+.resultStatusNeutral {
+  background: #f0ecff;
+  color: #65489e;
+}
+
+.stateCard {
+  margin-top: 28px;
+  padding: 24px;
+}
+
+.errorMessage,
+.successMessage {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.errorMessage {
+  border: 1px solid #fecaca;
+  background: #fff7f7;
+  color: var(--color-danger);
+}
+
+.successMessage {
+  border: 1px solid #a7dfc0;
+  background: #edf9f1;
+  color: #17613c;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 860px) {
+  .summaryCard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .disciplineSummary {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .titleRow,
+  .publishedNotice,
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summaryCard {
+    grid-template-columns: 1fr;
+  }
+
+  .disciplineSummary {
+    grid-column: auto;
+  }
+
+  .toolbarControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .field {
+    flex-basis: auto;
+  }
+
+  .recalculateButton,
+  .publishButton,
+  .unpublishButton {
+    width: 100%;
+  }
+}

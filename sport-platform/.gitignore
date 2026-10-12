@@ -1,0 +1,31 @@
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Java / Maven
+target/
+*.class
+*.log
+
+# Spring Boot
+spring.log
+spring.log.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Local runtime artifacts
+*.pid
+*.h2.db
+*.mv.db

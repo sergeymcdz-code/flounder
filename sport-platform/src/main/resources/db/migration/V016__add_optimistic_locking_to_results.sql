@@ -1,0 +1,5 @@
+ALTER TABLE results
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE competition_units
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

@@ -1,0 +1,244 @@
+.page {
+  max-width: 1080px;
+}
+
+.backLink {
+  display: inline-flex;
+  margin-bottom: 24px;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.description {
+  max-width: 760px;
+  margin: 18px 0 0;
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.filtersCard,
+.stateCard,
+.registrationCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.filtersCard {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+  margin-top: 28px;
+  padding: 20px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field > span {
+  color: #33435c;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #bfcddd;
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.field select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(11 91 123 / 0.14);
+}
+
+.resultsCount {
+  min-height: 42px;
+  padding: 11px 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.resultsCount strong {
+  color: var(--color-text);
+}
+
+.errorMessage {
+  margin: 22px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fff7f7;
+  color: var(--color-danger);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.stateCard {
+  margin-top: 24px;
+  padding: 24px;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.stateCard h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.18rem;
+}
+
+.stateCard p {
+  margin: 8px 0 0;
+}
+
+.registrationsList {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.registrationCard {
+  padding: 20px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.cardLabel {
+  margin: 0;
+  color: #71809a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.participantName {
+  margin: 7px 0 0;
+  color: var(--color-text);
+  font-size: 1.14rem;
+  line-height: 1.3;
+}
+
+.secondaryInfo {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.statusSubmitted {
+  background: #fff4d7;
+  color: #8c5a05;
+}
+
+.statusConfirmed {
+  background: #e5f7ec;
+  color: #17613c;
+}
+
+.statusCorrection {
+  background: #e8f0ff;
+  color: #2d5c9a;
+}
+
+.statusRejected,
+.statusCancelled {
+  background: #fee9e7;
+  color: #a12747;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.reviewLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.reviewLink:hover {
+  background: #ccebf8;
+}
+
+@media (max-width: 760px) {
+  .filtersCard {
+    grid-template-columns: 1fr;
+  }
+
+  .resultsCount {
+    min-height: auto;
+    padding: 0;
+  }
+
+  .cardHeader,
+  .cardFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

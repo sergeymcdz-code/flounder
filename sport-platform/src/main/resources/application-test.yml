@@ -1,0 +1,18 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  flyway:
+    clean-disabled: false
+
+  docker:
+    compose:
+      enabled: false
+
+app:
+  security:
+    jwt:
+      secret: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+      issuer: "sport-platform-test"
+      access-token-ttl: PT2H

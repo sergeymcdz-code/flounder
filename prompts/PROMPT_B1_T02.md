@@ -1,0 +1,41 @@
+Ты — разработчик в проекте Flounder (платформа организации соревнований по плаванию). Репозиторий уже открыт. Сначала прочитай `AGENTS.md` в корне, затем `docs/02_ТЗ_демо.md` (разделы, указанные в задании) — это обязательные источники требований. Работай строго по заданию ниже, в ветке, указанной в нём; один Pull Request на задание; перед PR — `cd sport-platform && mvn -q test` и `cd sport-platform/frontend && npm run build && npm run lint`. Тексты интерфейса и сообщений — на русском, код и коммиты — на английском. В описании PR: что сделано, как проверить вручную по шагам, какие миграции/эндпоинты изменились, что не сделано и почему, и раздел «Вопросы» для техдиректора. Не трогай файлы вне области задания без необходимости. Если в репозитории нет папки `docs/` или `tasks/` — остановись и напиши об этом в ответе, не придумывай требования.
+
+Поток B (backend-seeding). Начни с чистого ядра и тестов (пункты 1–2) — они не зависят от БД; прикладной слой (пункты 3–6) делай после того, как в main появятся миграции V021–V026 (задача T03); если их ещё нет — сделай ядро, открой PR с пометкой «часть 1», затем продолжи. Эталонный алгоритм: `docs/reference/seeding.ts`, `lanes.ts`, `schedule.ts`, тесты `seeding.test.ts` — переноси 1:1.
+=====================  ЗАДАНИЕ  =====================
+
+# T02 · Поток B · Модуль `scheduling`: посев заплывов, расписание, валидатор (backend)
+
+Прочитай `AGENTS.md`, `docs/02_ТЗ_демо.md` §4 (алгоритм, обязательно целиком) и §5.5 (контракты), эталонную реализацию `docs/reference/seeding.ts`, `lanes.ts`, `schedule.ts`. Ветка `feat/T02-scheduling`. Срок: 12–14.10 (ядро с тестами — к вечеру 13.10).
+
+## Цель
+Кнопка «Сформировать заплывы» формирует корректный стартовый протокол по правилам World Aquatics SW 3 (сильнейший — центральная дорожка, слабейшие заплывы первыми), расставляет время стартов и проверяет результат независимым валидатором. Детерминировано, ≤ 5 с на 200 заявок × 4 вида.
+
+## Зависимости
+Поля `event_disciplines.distance_m/stroke/gender/age_groups_json/seeding_mode/session_id/order_in_session/heat_duration_sec`, `event_sessions`, `registrations.seed_time_ms`, `competition_units.age_group_code/heat_duration_sec/generation_run_id`, `competition_unit_entries.seed_time_ms/entry_status`, `rule_execution_logs` появляются в T03 (миграции V021–V026). Работай на ветке от `main` после слияния T03; если T03 ещё не слит — начни с чистого ядра (п. 1–2, без Spring), оно не зависит от БД.
+
+## Что сделать
+1. **Чистое ядро** `com.acme.sportplatform.scheduling.domain` (без Spring, без JPA):
+   - `LaneOrder.forLanes(int) → int[]` (8 → 4,5,3,6,2,7,1,8; 6 → 3,4,2,5,1,6; 10 → 5,6,4,7,3,8,2,9,1,10).
+   - `HeatSizer.sizes(int n, int lanes, int minSwimmers=3) → int[]` по §4.4.
+   - Записи: `AgeGroupSpec(code,name,gender,birthYearFrom,birthYearTo)`, `SeedEntry(registrationId, athleteId, lastName, firstName, birthYear, gender, club, seedTimeMs nullable)`, `DisciplineSpec(id, number, distanceM, stroke, gender, ageGroups, seedingMode)`, `PoolSpec(lanes, minSwimmersInHeat)`, `SeededHeat(number, ageGroupCode nullable, List<SeededLane(lane, registrationId, athleteId, seedTimeMs)>)`, `Violation(code, severity ERROR|WARNING, message, disciplineId, heatNumber, athleteId, registrationId)`.
+   - `HeatSeeder.seed(DisciplineSpec, List<SeedEntry>, PoolSpec, SeedingOptions) → SeedingResult(heats, violations, excludedRegistrationIds)` — допуск §4.2, сортировка §4.3, распределение §4.4, режимы BY_AGE_GROUP/BY_TIME_ALL, опция `circleSeedTopHeats`.
+   - `ScheduleBuilder.build(List<SessionSpec>, List<DisciplineSpec with sessionId/orderInSession/heatDurationSec>, List<SeededHeat by discipline>, SchedulingRules) → List<ScheduledHeat(disciplineId, number, scheduledAt, sequenceInSession)>` по §4.7.
+   - `SeedingValidator.validate(DisciplineSpec, PoolSpec, List<SeedEntry>, List<SeededHeat>, List<ScheduledHeat> all event, rules) → List<Violation>` по §4.5. Валидатор не использует код генератора (отдельные проверки).
+   - `ResultRanker.rank(...)` по §4.8: вход — список `(registrationId, athleteId, birthYear, gender, timeMs nullable, status)`, выход — `finalPlace`, `placeInAgeGroup` (ничьи делят место).
+2. **Тесты ядра** (JUnit 5, без контекста): все 10 пунктов §4.6 + тест ранжирования с ничьими (1,1,3) и DNS без места. Параметризованные тесты для `HeatSizer` и `LaneOrder`.
+3. **Прикладной слой** `scheduling.application`:
+   - `GenerateCompetitionUnitsUseCase(eventDisciplineId, force, circleSeedTopHeats, principal)`: `EventAccessService.assertCanManage`; собрать `DisciplineSpec` из `event_disciplines` (через `EventDisciplineLookup` — расширить результат нужными полями), `PoolSpec` из `venues.venue_meta` (`lanes`, по умолчанию 8; `minSwimmersInHeat` по умолчанию 3), `SeedEntry` из заявок статусов CONFIRMED/PAID/ADMITTED (через `RegistrationLookup` — расширить: `participant_snapshot` даёт фамилию/имя/дату рождения/пол/клуб; `seed_time_ms`); если есть заплывы PUBLISHED и `!force` → `BusinessException("scheduling.published_units_exist")` (409); удалить DRAFT-заплывы дисциплины вместе с entries (результатов у DRAFT нет); создать новые `competition_units` (status DRAFT, label «Заплыв N», sequence_number N, age_group_code, heat_duration_sec) и `competition_unit_entries` (lane_or_position, seed_time_ms); записать `rule_execution_logs` (kind SEEDING, input/output/violations/duration); затем вызвать пересчёт расписания события; вернуть DTO по §5.5.
+   - `GenerateForEventUseCase` — по всем дисциплинам события в порядке (session order, order_in_session).
+   - `RecalculateScheduleUseCase(eventId)` — `ScheduleBuilder` по сессиям события, запись `scheduled_at` в `competition_units`, ответ по §5.5. Заплывы без сессии у дисциплины — `scheduled_at = null`, WARNING `NO_SESSION`.
+   - `ValidateUnitsUseCase(eventDisciplineId)` — построить `SeededHeat` из БД и прогнать валидатор; лог kind VALIDATION.
+   - `PublishUnitsUseCase(eventDisciplineId | eventId)` — DRAFT → PUBLISHED для всех заплывов; требует 0 ERROR валидатора, иначе 409 `scheduling.validation_failed` с нарушениями в `violations`.
+   - Снятие участника после публикации (`registrations.status → WITHDRAWN`, событие из модуля registrations или прямой вызов из T03's `PATCH /registrations/{id}`): `competition_unit_entries.entry_status = WITHDRAWN` у PUBLISHED-заплывов, у DRAFT — удалить entry. Реализовать как `@ApplicationModuleListener` на событие `RegistrationWithdrawn(registrationId, eventDisciplineId)` (публиковать событие в модуле registrations — согласовать с T03: если событие ещё не публикуется, добавь его в registrations сам, минимально).
+4. **Web** `scheduling.web.SchedulingController`: эндпоинты §5.5 (`generate-competition-units` для дисциплины и события, `schedule/recalculate`, `competition-units/validate`, `competition-units/publish` для дисциплины и события). `PATCH /api/v1/competition-unit-entries/{id}` в модуле results: добавить проверку конфликта дорожки → 409 `results.lane_conflict` и `assertCanManage`.
+5. **Интеграционный тест** (Testcontainers): событие с площадкой 8 дорожек, 2 сессии, 2 дисциплины, 17 + 20 подтверждённых заявок с временами → generate → 3 + 3 заплыва, валидатор без ERROR, `scheduled_at` заполнены и возрастают, лог записан; повторный generate даёт те же дорожки; publish → статусы PUBLISHED; withdraw одной заявки → entry WITHDRAWN, остальные на месте.
+6. `ModulithArchitectureTest` зелёный: новый модуль `scheduling` с `package-info.java` (`@ApplicationModule(allowedDependencies = {"events", "competition", "registrations", "results", "organizations", "common"})` — подстрой под реальные интерфейсы; доступ к данным чужих модулей только через `*Lookup`/публичные сервисы; если нужного Lookup нет — добавь его в соответствующем модуле).
+
+## Критерии приёмки
+- Все тесты §4.6 зелёные; интеграционный сценарий зелёный; архитектурный тест зелёный.
+- Производительность: тест на 200 заявок × 4 вида — лог `duration_ms` < 5000 (ожидаемо < 200).
+- Swagger показывает новые эндпоинты с примерами.
+- В PR — краткое описание алгоритма своими словами и таблица примеров `heatSizes`.

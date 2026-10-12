@@ -1,0 +1,322 @@
+.page {
+  max-width: 900px;
+}
+
+.backLink {
+  display: inline-flex;
+  margin-bottom: 24px;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.content {
+  display: grid;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.card,
+.stateCard,
+.readOnlyNotice {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.card,
+.stateCard {
+  padding: 24px;
+}
+
+.stateCard {
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.3rem;
+  line-height: 1.25;
+}
+
+.detailList {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0 0;
+}
+
+.detailList > div {
+  display: grid;
+  gap: 5px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.detailList dt {
+  color: #71809a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detailList dd {
+  margin: 0;
+  color: #33435c;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.detailList .reviewNote {
+  border-left: 4px solid var(--color-primary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: #eef8fc;
+}
+
+.technicalValue {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem !important;
+}
+
+.amount {
+  color: var(--color-primary) !important;
+  font-size: 1.25rem !important;
+  font-weight: 800;
+}
+
+.emptyText {
+  margin: 20px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.statusSubmitted,
+.paymentPending {
+  background: #fff4d7;
+  color: #8c5a05;
+}
+
+.statusConfirmed,
+.paymentSucceeded {
+  background: #e5f7ec;
+  color: #17613c;
+}
+
+.statusCorrection,
+.paymentWaiting {
+  background: #e8f0ff;
+  color: #2d5c9a;
+}
+
+.statusRejected,
+.statusCancelled,
+.paymentCancelled,
+.paymentFailed {
+  background: #fee9e7;
+  color: #a12747;
+}
+
+.statusNeutral {
+  background: #edf0f3;
+  color: #607083;
+}
+
+.noteField {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.noteField > span {
+  color: #33435c;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.noteField textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid #bfcddd;
+  border-radius: var(--radius-sm);
+  outline: none;
+  resize: vertical;
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: 1.45;
+}
+
+.noteField textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(11 91 123 / 0.14);
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.primaryButton,
+.secondaryButton,
+.dangerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-weight: 750;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.primaryButton {
+  margin-top: 22px;
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.actionRow .primaryButton {
+  margin-top: 0;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: #ccebf8;
+}
+
+.dangerButton {
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: #8d1d13;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled,
+.noteField textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.readOnlyNotice {
+  padding: 18px;
+  border-left: 4px solid var(--color-primary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: #eef8fc;
+  color: #41516a;
+  line-height: 1.55;
+}
+
+.errorMessage {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fff7f7;
+  color: var(--color-danger);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.successMessage {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #a7dfc0;
+  border-radius: var(--radius-sm);
+  background: #edf9f1;
+  color: #17613c;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .card,
+  .stateCard {
+    padding: 20px;
+  }
+
+  .titleRow,
+  .cardHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .actionRow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .actionRow button,
+  .primaryButton {
+    width: 100%;
+  }
+}
+

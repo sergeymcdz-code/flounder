@@ -1,0 +1,35 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+  docker:
+    compose:
+      enabled: false
+
+  flyway:
+    enabled: true
+    clean-disabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        physical_naming_strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+
+logging:
+  level:
+    root: INFO
+
+app:
+  security:
+    jwt:
+      secret: "change-me-change-me-change-me-change-me-change-me-please"
+      issuer: "sport-platform-test"
+      access-token-ttl: PT2H

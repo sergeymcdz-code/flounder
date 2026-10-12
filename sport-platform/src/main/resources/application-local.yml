@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start-and-stop
+
+logging:
+  level:
+    com.acme.sportplatform: DEBUG
