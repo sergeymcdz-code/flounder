@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @Configuration
 @EnableScheduling
 public class EventLifecycleConfig {
-    @org.springframework.context.annotation.Primary
-    @Bean("eventClock")
+    @Bean(name = "eventClock", defaultCandidate = false)
     public Clock eventClock() { return Clock.systemUTC(); }
 }

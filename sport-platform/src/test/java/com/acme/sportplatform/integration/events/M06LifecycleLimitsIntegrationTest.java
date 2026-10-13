@@ -292,4 +292,82 @@ class M06LifecycleLimitsIntegrationTest extends AbstractPostgresIntegrationTest 
                 String.class, c.discipline(), importedUser));
     }
 
+
+    @Autowired com.acme.sportplatform.events.EventLockService eventLocks;
+    @Autowired javax.sql.DataSource dataSource;
+
+    @Test
+    void writableEventMutexAllowsAuditForeignKeyInsert() throws Exception {
+        var c = competition(null, null, null);
+        var locked = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var holder = pool.submit(() -> new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            eventLocks.lockWritableForUpdate(c.event());
+            locked.countDown();
+            try { assertTrue(release.await(10, java.util.concurrent.TimeUnit.SECONDS)); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+        }));
+        try {
+            assertTrue(locked.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            try (var connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try (var timeout = connection.createStatement()) { timeout.execute("set local lock_timeout = '1s'"); }
+                try (var insert = connection.prepareStatement("insert into rule_execution_logs(id,event_id,kind,input_json,output_json,duration_ms) values(?,?,'VALIDATION','{}','{}',0)")) {
+                    insert.setObject(1, UUID.randomUUID()); insert.setObject(2, c.event());
+                    assertEquals(1, insert.executeUpdate());
+                }
+                connection.commit();
+            }
+        } finally { release.countDown(); holder.get(5, java.util.concurrent.TimeUnit.SECONDS); pool.shutdownNow(); }
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"event", "discipline", "legacy", "group", "closed"})
+    void increasingLimitsPromotesOnlyFirstWaitingEntry(String kind) throws Exception {
+        boolean event = kind.equals("event");
+        boolean group = kind.equals("group");
+        var c = competition(event ? 1 : null, event || group ? null : 1, group ? Map.of("young", 1) : null);
+        submit(c, participant(), c.discipline(), 2014);
+        var first = submit(c, participant(), c.discipline(), 2014);
+        var second = submit(c, participant(), c.discipline(), 2014);
+        assertEquals("WAITLISTED", persistedStatus(first));
+        if (kind.equals("closed")) call(post("/api/v1/events/{id}/close-registration", c.event()), c.owner().user(), "ORGANIZER", null, 200);
+        if (kind.equals("legacy")) {
+            call(patch("/api/v1/event-disciplines/{id}", c.discipline()), c.owner().user(), "ORGANIZER", Map.of("participantLimit", 1), 200);
+            call(patch("/api/v1/event-disciplines/{id}", c.discipline()), c.owner().user(), "ORGANIZER", json.readTree("{\"maxParticipants\":null,\"participantLimit\":2}"), 200);
+        } else {
+            var body = group ? Map.of("limitsByAgeGroup", Map.of("young", 2)) : Map.of("maxParticipants", 2);
+            call(patch(event ? "/api/v1/events/{id}" : "/api/v1/event-disciplines/{id}", event ? c.event() : c.discipline()), c.owner().user(), "ORGANIZER", body, 200);
+        }
+        assertEquals("SUBMITTED", persistedStatus(first));
+        assertEquals("WAITLISTED", persistedStatus(second));
+        assertEquals(1, domainEvents.stream(com.acme.sportplatform.registrations.RegistrationSubmittedEvent.class)
+                .filter(e -> e.registrationId().toString().equals(first.path("id").asText())).count());
+        call(patch("/api/v1/event-disciplines/{id}", c.discipline()), c.owner().user(), "ORGANIZER", Map.of("name", "Изменение"), 400);
+        call(patch("/api/v1/event-disciplines/{id}", c.discipline()), c.owner().user(), "ORGANIZER", json.readTree("{\"name\":null,\"maxParticipants\":3}"), 400);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void malformedSnapshotDoesNotBreakPublicGroupCounts(boolean groupLimits) throws Exception {
+        var c = competition(null, null, groupLimits ? Map.of("young", 2) : null);
+        var entry = submit(c, participant(), c.discipline(), 2014);
+        jdbc.update("update registrations set participant_snapshot='{}'::jsonb where id=?", UUID.fromString(entry.path("id").asText()));
+        mvc.perform(get("/api/v1/public/events/{slug}/registration-form", c.slug())).andExpect(status().isOk());
+    }
+
+    @Test
+    void lifecycleQueryOnlySelectsReachedDeadlines() throws Exception {
+        var c = competition(null, null, null);
+        var now = java.time.OffsetDateTime.parse("2030-06-01T10:00:00Z");
+        var repository = lifecycleRepository;
+        jdbc.update("update events set status='PUBLISHED', registration_open_at=?, registration_close_at=? where id=?", now.plusMinutes(1), now.plusMinutes(2), c.event());
+        assertTrue(repository.findDueLifecycleEvents(now).stream().noneMatch(e -> e.getId().equals(c.event())));
+        assertTrue(repository.findDueLifecycleEvents(now.plusMinutes(1)).stream().anyMatch(e -> e.getId().equals(c.event())));
+        jdbc.update("update events set status='REGISTRATION_OPEN' where id=?", c.event());
+        assertTrue(repository.findDueLifecycleEvents(now.plusMinutes(1)).stream().noneMatch(e -> e.getId().equals(c.event())));
+        assertTrue(repository.findDueLifecycleEvents(now.plusMinutes(2)).stream().anyMatch(e -> e.getId().equals(c.event())));
+        jdbc.update("update events set status='REGISTRATION_CLOSED' where id=?", c.event());
+        assertTrue(repository.findDueLifecycleEvents(now.plusMinutes(3)).stream().noneMatch(e -> e.getId().equals(c.event())));
+    }
+    @Autowired com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository lifecycleRepository;
 }

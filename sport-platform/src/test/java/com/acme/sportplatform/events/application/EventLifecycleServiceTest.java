@@ -70,4 +70,38 @@ class EventLifecycleServiceTest {
         verify(publisher, times(1)).publishEvent(any(EventRegistrationOpenedEvent.class));
         verify(publisher, times(1)).publishEvent(any(EventRegistrationClosedEvent.class));
     }
+
+    @Test
+    void reopeningRequiresFutureCloseDeadlineOrNoDeadline() {
+        var now = OffsetDateTime.parse("2030-06-01T10:00:00Z");
+        var repository = mock(EventRepository.class);
+        var entity = new EventEntity(); entity.setId(UUID.randomUUID()); entity.setStatus("REGISTRATION_CLOSED");
+        entity.setRegistrationCloseAt(now.minusSeconds(1));
+        when(repository.lockById(entity.getId())).thenReturn(Optional.of(entity));
+        var publisher = mock(ApplicationEventPublisher.class);
+        var service = new EventLifecycleService(repository, mock(EventMapper.class), publisher,
+                Clock.fixed(now.toInstant(), ZoneOffset.UTC), mock(jakarta.persistence.EntityManager.class));
+        var error = assertThrows(BusinessException.class, () -> service.transition(entity.getId(), EventStatus.REGISTRATION_OPEN));
+        assertEquals("events.invalid_dates", error.getCode());
+        assertEquals("Сначала укажите новую дату закрытия регистрации", error.getMessage());
+        verifyNoInteractions(publisher);
+        entity.setRegistrationCloseAt(now.plusMinutes(1));
+        service.transition(entity.getId(), EventStatus.REGISTRATION_OPEN);
+        assertEquals("REGISTRATION_OPEN", entity.getStatus());
+        entity.setStatus("REGISTRATION_CLOSED"); entity.setRegistrationCloseAt(null);
+        service.transition(entity.getId(), EventStatus.REGISTRATION_OPEN);
+        assertEquals("REGISTRATION_OPEN", entity.getStatus());
+    }
+
+    @Test
+    void schedulerSelectsDueEventsUsingEventClock() {
+        var repository = mock(EventRepository.class); var lifecycle = mock(EventLifecycleService.class);
+        var now = OffsetDateTime.parse("2030-06-01T10:00:00Z");
+        var entity = new EventEntity(); entity.setId(UUID.randomUUID());
+        when(repository.findDueLifecycleEvents(now)).thenReturn(List.of(entity));
+        new EventLifecycleScheduler(repository, lifecycle, Clock.fixed(now.toInstant(), ZoneOffset.UTC)).advanceDueEvents();
+        verify(repository).findDueLifecycleEvents(now);
+        verify(lifecycle).advanceDue(entity.getId());
+        verifyNoMoreInteractions(repository, lifecycle);
+    }
 }

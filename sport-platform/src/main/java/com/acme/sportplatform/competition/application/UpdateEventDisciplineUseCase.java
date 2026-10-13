@@ -6,6 +6,7 @@ import com.acme.sportplatform.competition.infrastructure.jpa.*;
 import com.acme.sportplatform.events.EventAccessService;
 
 import org.springframework.stereotype.Service;
+import com.acme.sportplatform.competition.RegistrationCapacityPromotionLookup;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @Service
 @Transactional
 public class UpdateEventDisciplineUseCase {
+    private final RegistrationCapacityPromotionLookup capacity;
     private final EventDisciplineRepository disciplines;
     private final com.acme.sportplatform.events.EventLockService locks;
     private final EventDisciplineMapper mapper;
@@ -30,7 +32,9 @@ public class UpdateEventDisciplineUseCase {
             EventAccessService access,
             com.acme.sportplatform.competition.RegistrationUsageLookup registrations,
             com.acme.sportplatform.competition.CompetitionUnitUsageLookup units,
-            com.acme.sportplatform.events.EventLookup events, com.acme.sportplatform.events.EventLockService locks) {
+            com.acme.sportplatform.events.EventLookup events, com.acme.sportplatform.events.EventLockService locks,
+            RegistrationCapacityPromotionLookup capacity) {
+        this.capacity = capacity;
         this.disciplines = disciplines;
         this.mapper = mapper;
         this.swim = swim;
@@ -45,14 +49,19 @@ public class UpdateEventDisciplineUseCase {
             UUID id,
             CreateEventDisciplineRequest r,
             java.util.Set<String> clearFields,
+            java.util.Set<String> fields,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var d = require(id);
         access.assertCanModify(d.getEventId(), principal);
-        if (!java.util.Set.of("DRAFT", "PUBLISHED")
-                .contains(events.getById(d.getEventId()).status()))
+        String status = events.getById(d.getEventId()).status();
+        boolean limitsOnly = java.util.Set.of("maxParticipants", "limitsByAgeGroup", "participantLimit").containsAll(fields);
+        if (!java.util.Set.of("DRAFT", "PUBLISHED").contains(status)
+                && !(limitsOnly && java.util.Set.of("REGISTRATION_OPEN", "REGISTRATION_CLOSED").contains(status)))
             throw new BusinessException(
                     "competition.event_not_editable",
                     "Дисциплины можно изменять только в черновике или опубликованном событии");
+        Integer oldMax = d.getMaxParticipants(), oldLegacy = d.getParticipantLimit();
+        var oldGroups = d.getLimitsByAgeGroup() == null ? java.util.Map.<String, Integer>of() : java.util.Map.copyOf(d.getLimitsByAgeGroup());
         if (clearFields.contains("sessionId")) d.setSessionId(null);
         if (clearFields.contains("orderInSession")) d.setOrderInSession(null);
         if (clearFields.contains("heatDurationSec")) d.setHeatDurationSec(null);
@@ -82,7 +91,12 @@ public class UpdateEventDisciplineUseCase {
         if (r.entryFeeCurrency() != null) d.setEntryFeeCurrency(r.entryFeeCurrency());
         if (r.settingsJson() != null) d.setSettingsJson(r.settingsJson().toString());
         d.setUpdatedAt(OffsetDateTime.now());
-        return mapper.toResponse(disciplines.save(d));
+        disciplines.saveAndFlush(d);
+        var groups = d.getLimitsByAgeGroup() == null ? java.util.Map.<String, Integer>of() : d.getLimitsByAgeGroup();
+        if (increased(oldMax, d.getMaxParticipants()) || increased(oldLegacy, d.getParticipantLimit())
+                || oldGroups.entrySet().stream().anyMatch(e -> increased(e.getValue(), groups.get(e.getKey()))))
+            capacity.promote(d.getEventId());
+        return mapper.toResponse(d);
     }
 
     public void delete(
@@ -98,6 +112,10 @@ public class UpdateEventDisciplineUseCase {
                     "competition.discipline_in_use",
                     "Дисциплина содержит заплывы и не может быть удалена");
         disciplines.delete(d);
+    }
+
+    private static boolean increased(Integer before, Integer after) {
+        return before != null && (after == null || after > before);
     }
 
     private EventDisciplineEntity require(UUID id) {

@@ -9,15 +9,18 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import com.acme.sportplatform.events.RegistrationCapacityPromotionLookup;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UpdateEventUseCase {
+    private final RegistrationCapacityPromotionLookup capacity;
     private final EventRepository events;
     private final EventMapper mapper;
     private final Clock clock;
     private final jakarta.persistence.EntityManager entityManager;
-    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager) {
+    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity) {
+        this.capacity = capacity;
         this.events = events; this.mapper = mapper; this.clock = clock; this.entityManager = entityManager;
     }
 
@@ -27,6 +30,7 @@ public class UpdateEventUseCase {
         entityManager.refresh(event);
         if ("ARCHIVED".equals(event.getStatus()))
             throw new com.acme.sportplatform.common.exception.BusinessException("events.archived", "Архивное событие доступно только для чтения");
+        Integer previousLimit = event.getMaxParticipants();
         if (fields.contains("maxParticipants")) event.setMaxParticipants(request.maxParticipants());
         if (fields.contains("registrationOpenAt")) event.setRegistrationOpenAt(request.registrationOpenAt());
         if (fields.contains("registrationCloseAt")) event.setRegistrationCloseAt(request.registrationCloseAt());
@@ -34,6 +38,9 @@ public class UpdateEventUseCase {
                 && event.getRegistrationCloseAt().isBefore(event.getRegistrationOpenAt()))
             throw RequestValidation.field("events.invalid_dates", "registrationCloseAt", "Закрытие регистрации не может быть раньше открытия");
         event.setUpdatedAt(OffsetDateTime.now(clock));
-        return mapper.toResponse(events.save(event));
+        events.saveAndFlush(event);
+        if (previousLimit != null && (event.getMaxParticipants() == null || event.getMaxParticipants() > previousLimit))
+            capacity.promote(id);
+        return mapper.toResponse(event);
     }
 }

@@ -12,13 +12,16 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Every capacity decision runs after taking the event lock, before any discipline/registration lock. */
 @Service
 @Transactional(propagation = Propagation.MANDATORY)
-public class RegistrationCapacityService {
+public class RegistrationCapacityService implements RegistrationCapacityLookup {
+    private static final Logger log = LoggerFactory.getLogger(RegistrationCapacityService.class);
     private static final Set<String> OCCUPYING = Set.of("SUBMITTED", "UNDER_REVIEW", "CONFIRMED", "PAID", "ADMITTED");
     private final RegistrationRepository registrations;
     private final EventLookup events;
@@ -65,6 +68,7 @@ public class RegistrationCapacityService {
             registration.setSubmittedAt(OffsetDateTime.now());
             registration.setUpdatedAt(registration.getSubmittedAt());
             registrations.saveAndFlush(registration);
+            publisher.publishEvent(new RegistrationSubmittedEvent(registration.getId()));
             publisher.publishEvent(new RegistrationWaitlistPromotedEvent(registration.getId(), eventId,
                     registration.getEventDisciplineId(), registration.getParticipantProfileId(), position));
         }
@@ -93,6 +97,7 @@ public class RegistrationCapacityService {
     }
 
     public Map<String, Long> groupCounts(List<RegistrationEntity> active, EventDisciplineLookupResult discipline) {
+        if (discipline.limitsByAgeGroup() == null || discipline.limitsByAgeGroup().isEmpty()) return Map.of();
         Map<String, Long> counts = new HashMap<>();
         for (var registration : active) {
             if (!registration.getEventDisciplineId().equals(discipline.id())) continue;
@@ -113,7 +118,8 @@ public class RegistrationCapacityService {
             return discipline.ageGroups().stream().filter(g -> g.includes(athleteGender, birthYear))
                     .map(g -> g.code()).findFirst().orElse(null);
         } catch (Exception exception) {
-            throw new IllegalStateException("Invalid participant snapshot for capacity calculation", exception);
+            log.warn("Invalid participant snapshot for discipline {} capacity calculation", discipline.id(), exception);
+            return null;
         }
     }
 }

@@ -228,7 +228,7 @@ export function OrganizerEntriesPage() {
                         {r.status === 'WAITLISTED' ? 'Подтвердить вне лимита' : 'Подтвердить'}
                       </button>
                     )}
-                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(
+                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED', 'PAID', 'ADMITTED'].includes(
                       r.status,
                     ) && (
                       <>

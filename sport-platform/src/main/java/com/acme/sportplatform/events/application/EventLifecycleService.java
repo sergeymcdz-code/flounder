@@ -38,7 +38,15 @@ public class EventLifecycleService {
     public EventResponse transition(UUID id, EventStatus target) {
         var event = require(id);
         if (!EventStatus.valueOf(event.getStatus()).canTransition(target))
-            throw new BusinessException("events.invalid_transition", "Недопустимый переход статуса события");
+            throw new BusinessException("events.invalid_transition", switch (target) {
+                case REGISTRATION_OPEN -> "Открыть регистрацию можно только для события в статусе PUBLISHED или REGISTRATION_CLOSED";
+                case REGISTRATION_CLOSED -> "Закрыть регистрацию можно только для события в статусе REGISTRATION_OPEN";
+                case ARCHIVED -> "Архивировать можно только событие в статусе COMPLETED";
+                default -> "Недопустимый переход статуса события";
+            });
+        if (target == EventStatus.REGISTRATION_OPEN && "REGISTRATION_CLOSED".equals(event.getStatus())
+                && event.getRegistrationCloseAt() != null && !event.getRegistrationCloseAt().isAfter(OffsetDateTime.now(clock)))
+            throw new BusinessException("events.invalid_dates", "Сначала укажите новую дату закрытия регистрации");
         change(event, target);
         return mapper.toResponse(event);
     }
