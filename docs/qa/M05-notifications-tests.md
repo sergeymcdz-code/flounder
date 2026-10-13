@@ -1,4 +1,30 @@
-# Проверка M05 — уведомления и outbox, ревью 1
+# Проверка M05 — уведомления и outbox, ревью 1 и 2
+
+## Ревью 2 — актуальный перепрогон 14.10.2026
+
+Ребейз на main fe3b45f: #37, #30, #44, #42, M03 #33.
+В pom.xml оставлен только spring-boot-starter-thymeleaf из M03, а отдельный
+org.thymeleaf:thymeleaf удалён. Почтовый рендерер использует SpringTemplateEngine
+со SpringEL: starter не включает OGNL, который нужен обычному TemplateEngine.
+Первый прогон выявил эту несовместимость; после адаптации выполнен полный
+перепрогон. Старые тесты не изменялись и не ослаблялись.
+
+- `mvn -q test`: **1388 тестов / 62 наборов, 0 failures/errors/skipped, код 0**.
+  Включены 21 сценарий NotificationIntegrationTest, 3 MailRenderingTest,
+  архитектура, AuthHardening и 820 проверок QA04 с PDF endpoints M03.
+- `npm ci && npm test`: **112 Vitest + 3 Node**, успешно.
+- `npm run build`, `npm run lint`: код 0; существующие предупреждения сохранены.
+- `git diff --check`: успешно. Все строки main в qa04-endpoints.tsv сохранены;
+  к ним добавляются три строки M05. В pom.xml один Thymeleaf starter.
+
+Append-конфликт .env.prod.example разрешён с сохранением bootstrap-настроек и
+MAIL_*; MAIL_PORT/MAIL_ENABLED остались пустыми по указанию пользователя.
+Изменение этих примеров на 587/false отложено.
+
+Миграция V032 и все принятые правки ревью 1 сохранены. **Слияние M05 — только
+после #38 (M04, V031).** Слияние и деплой не выполнялись.
+
+## Ревью 1 — предыдущий перепрогон
 
 Повторная проверка 13.10.2026 в cloud-окружении с Docker и PostgreSQL 16.15.
 Ветка feat/M05-email-notifications перебазирована на origin/main 028dc5e,

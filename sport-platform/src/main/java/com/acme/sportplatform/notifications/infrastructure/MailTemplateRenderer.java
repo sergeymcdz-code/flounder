@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
 import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
@@ -24,6 +25,6 @@ public class MailTemplateRenderer {
         var resolver = new ClassLoaderTemplateResolver();
         resolver.setPrefix("templates/mail/"); resolver.setSuffix(suffix);
         resolver.setCharacterEncoding("UTF-8"); resolver.setTemplateMode(mode);
-        var engine = new TemplateEngine(); engine.setTemplateResolver(resolver); return engine;
+        var engine = new SpringTemplateEngine(); engine.setTemplateResolver(resolver); return engine;
     }
 }
