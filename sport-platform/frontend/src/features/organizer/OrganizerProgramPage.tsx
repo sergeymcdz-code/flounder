@@ -483,6 +483,13 @@ function DisciplineEditor({
             <option value="" disabled>
               {templatesLoading ? 'Загрузка шаблонов…' : 'Выберите шаблон'}
             </option>
+            {discipline &&
+              templatesState === 'failed' &&
+              form.disciplineTemplateId && (
+                <option value={form.disciplineTemplateId}>
+                  Текущий шаблон вида
+                </option>
+              )}
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -751,7 +758,8 @@ function DisciplineEditor({
           disabled={
             busy ||
             templatesLoading ||
-            !templates.length ||
+            (!templates.length &&
+              !(discipline && templatesState === 'failed')) ||
             !form.disciplineTemplateId
           }
         >

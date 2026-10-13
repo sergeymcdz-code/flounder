@@ -214,7 +214,12 @@ export const handlers = [
     HttpResponse.json([
       {
         id: state.event.venueId,
-        ...state.event.venue,
+        name: state.event.venue?.name,
+        city: state.event.venue?.city,
+        venueMeta: {
+          lanes: state.event.venue?.lanes,
+          courseLength: state.event.venue?.courseLength,
+        },
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         countryCode: 'RU',
         address: 'Демо-площадка',

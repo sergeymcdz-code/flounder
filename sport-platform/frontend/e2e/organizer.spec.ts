@@ -700,13 +700,13 @@ test('missing pool dimensions retain lane editing and refresh only the changed h
       sessionStorage.getItem('flounder.auth-session')!,
     ) as { accessToken: string }
     const headers = { Authorization: `Bearer ${accessToken}` }
-    const event = (await (
-      await fetch('/api/v1/events/11111111-1111-4111-8111-111111111111', {
-        headers,
-      })
-    ).json()) as { venue: { lanes: number | null } }
-    event.venue.lanes = null
-    worker.use(http.get('*/api/v1/events/:id', () => HttpResponse.json(event)))
+    const venues = (await (
+      await fetch('/api/v1/venues', { headers })
+    ).json()) as { venueMeta: Record<string, unknown> }[]
+    // Numeric-looking strings are not pool dimensions in the real venue contract.
+    venues[0].venueMeta.lanes = '8'
+    venues[0].venueMeta.courseLength = '25'
+    worker.use(http.get('*/api/v1/venues', () => HttpResponse.json(venues)))
   })
   await page.getByRole('link', { name: '← Мои события', exact: true }).click()
   await page
@@ -901,3 +901,39 @@ for (const mode of ['failure', 'forbidden', 'unauthorized'] as const) {
     }
   })
 }
+
+test('editing an existing discipline remains possible when template loading fails', async ({
+  page,
+}) => {
+  await login(page)
+  await mockTemplates(page, 'failure')
+  await page
+    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .click()
+  await page
+    .getByRole('row')
+    .filter({ hasText: 'F-50-FREE' })
+    .getByRole('button', { name: 'Изменить', exact: true })
+    .click()
+  const dialog = page.getByRole('dialog')
+  await expect(
+    dialog.getByText('Шаблоны временно недоступны.', { exact: true }),
+  ).toBeVisible()
+  await expect(dialog.getByLabel('Шаблон', { exact: true })).toHaveValue(
+    '00000012-1111-4111-8111-000000000001',
+  )
+  await expect(
+    dialog.getByRole('button', { name: 'Сохранить вид', exact: true }),
+  ).toBeEnabled()
+  await dialog
+    .getByRole('textbox', { name: 'Название (необязательно)', exact: true })
+    .fill('Обновлённый вид')
+  await dialog
+    .getByRole('button', { name: 'Сохранить вид', exact: true })
+    .click()
+  await expect(dialog).not.toBeVisible()
+  await expect(
+    page.getByRole('cell', { name: /Обновлённый вид/ }),
+  ).toBeVisible()
+})

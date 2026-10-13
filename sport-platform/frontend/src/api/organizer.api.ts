@@ -26,16 +26,20 @@ export async function getOrganizerEvent(
   return {
     ...event,
     disciplines,
-    venue:
-      event.venue ??
-      (venue
-        ? {
-            name: venue.name,
-            city: venue.city,
-            lanes: venue.lanes ?? null,
-            courseLength: venue.courseLength ?? null,
-          }
-        : undefined),
+    venue: venue
+      ? {
+          name: venue.name,
+          city: venue.city,
+          lanes:
+            typeof venue.venueMeta.lanes === 'number'
+              ? venue.venueMeta.lanes
+              : null,
+          courseLength:
+            typeof venue.venueMeta.courseLength === 'number'
+              ? venue.venueMeta.courseLength
+              : null,
+        }
+      : undefined,
   }
 }
 export const getOrganizerRegistrations = (
