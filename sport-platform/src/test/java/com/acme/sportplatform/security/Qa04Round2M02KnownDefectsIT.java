@@ -15,7 +15,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** M02 candidate defects. Explicit opt-in only; each assertion describes the desired fix. */
+/** Known defects on main. Explicit opt-in only; each assertion describes the desired fix. */
 @Tag("known-defect")
 @EnabledIf("com.acme.sportplatform.security.Qa04M02Conditions#available")
 class Qa04Round2M02KnownDefectsIT extends Qa04M02Fixture {
@@ -30,6 +30,18 @@ class Qa04Round2M02KnownDefectsIT extends Qa04M02Fixture {
         remoteIp="2001:0db8:0042:0000:0000:0000:0000:0001";
         call("/login",Map.of("email","ipv6-sixth@qa04.example","password","wrong"),null)
                 .andExpect(status().isTooManyRequests());
+    }
+
+    /** Owner: MVP authentication follow-up — CAPTCHA, IP+email limiting or progressive delay. */
+    @Test void emailAttacksMustNotLockOutTheLegitimateUser() throws Exception {
+        for(int i=0;i<5;i++) {
+            remoteIp="203.0.113."+(i+10);
+            call("/login",Map.of("email",ids.get("participantEmail"),"password","wrong"),null)
+                    .andExpect(status().isUnauthorized());
+        }
+        remoteIp="203.0.113.99";
+        call("/login",Map.of("email",ids.get("participantEmail"),"password",PASSWORD),null)
+                .andExpect(status().isOk());
     }
 
     /** Owner: M02 — never log reset credentials with the production mail implementation. */

@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * No disabled assertions: these tests must turn green when the report's defects are repaired. */
 @Tag("known-defect")
 class Qa04KnownDefectsIT extends Qa04SecurityFixture {
-    /** Owner: M09 — bootstrap admin from environment; migrations V028+ only.
+    /** Owner: M09 — disable legacy V020 demo credentials; future migrations V035+ only.
      * DEMO_SEED is not set here: the application does not read this variable. */
     @Test
     void qa04_06_seedDisabledMustNotAllowPublicDemoAdminCredentials() throws Exception {

@@ -64,7 +64,7 @@ public class CreateUserUseCase {
         ProfileEntity imported = profileRepository.findByExternalKey(externalKey).orElse(null);
         if (imported != null && imported.getUserId() == null)
             throw new BusinessException("identity.profile_already_attached",
-                    "Импортированный профиль требует подтверждения владения");
+                    "Спортсмен с такими ФИО, датой рождения и полом уже есть в списке заявок. Для привязки аккаунта обратитесь к организатору");
 
         UserEntity user = new UserEntity();
         user.setEmail(request.email());
@@ -74,9 +74,7 @@ public class CreateUserUseCase {
 
         UserEntity savedUser = userRepository.save(user);
 
-        ProfileEntity profile =
-                imported != null && imported.getUserId() == null ? imported : new ProfileEntity();
-        if (imported == null || imported.getUserId() == null) profile.setExternalKey(externalKey);
+        ProfileEntity profile = new ProfileEntity();
         profile.setUserId(savedUser.getId());
         profile.setFirstName(request.firstName());
         profile.setLastName(request.lastName());

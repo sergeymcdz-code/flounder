@@ -14,7 +14,9 @@ type RegisterLocationState = {
 function getRegisterErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.status === 409) {
-      return 'Пользователь с таким email уже зарегистрирован.'
+      return error.code === 'identity.profile_already_attached'
+        ? 'Спортсмен с такими ФИО, датой рождения и полом уже есть в списке заявок организатора. Для привязки аккаунта обратитесь к организатору.'
+        : 'Пользователь с таким email уже зарегистрирован.'
     }
 
     if (error.status === 400) {
