@@ -349,12 +349,10 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         jdbc.update("update competition_units set status='DRAFT' where id=?",heats.getFirst());
         assertThat(read("/results").path("disciplines")).isEmpty();
         assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(2);
-        mvc.perform(post("/api/v1/competition-units/{id}/publication",heats.getFirst())
-                .with(authentication(auth(ownerId,"PLATFORM_ADMIN"))).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"published\":true}")).andExpect(status().isNoContent());
+        // Start-list publication belongs to scheduling, not results publication.
+        jdbc.update("update competition_units set status='PUBLISHED' where id=?",heats.getFirst());
         clearPublicCaches();
-        // Clear TTL caches after the legacy publication operation, which has no invalidation.
-        caches.getCacheNames().forEach(n -> caches.getCache(n).clear());
+        assertThat(read("/results").path("disciplines")).isEmpty();
         assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
         startHeat(heats.getFirst());
         assertThat(read("/results").path("disciplines")).isEmpty();
@@ -363,6 +361,148 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         clearPublicCaches();
         assertThat(read("/results").at("/disciplines/0/overall")).hasSize(2);
         assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
+    }
+
+    @Test
+    void judgePublicationCorrectionAndIdempotentFinishKeepPublicResultsAndLiveConsistent() throws Exception {
+        UUID unit = heats.getFirst();
+        var ids = jdbc.queryForList("select id from competition_unit_entries where competition_unit_id=? order by lane_or_position", UUID.class, unit);
+        jdbc.update("update competition_unit_entries set entry_status='ASSIGNED' where competition_unit_id=?", unit);
+        UUID third = UUID.randomUUID(), fourth = UUID.randomUUID();
+        profile(third, "Сидоров", "Сергей"); profile(fourth, "Петров", "Пётр");
+        ids.add(entry(unit, disciplineId, third, 6, false));
+        ids.add(entry(unit, disciplineId, fourth, 7, false));
+        // Isolate ranking from pre-existing results in other heats of this discipline.
+        jdbc.update("delete from results where competition_unit_entry_id in (select ce.id from competition_unit_entries ce join competition_units u on u.id=ce.competition_unit_id where u.event_discipline_id=?)", disciplineId);
+        assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
+        assertHiddenResults();
+
+        // Re-saving while only the start list is published is ordinary judge input.
+        saveTimes(unit, ids, "46.20", "JUDGE", 200);
+        saveTimes(unit, ids, "46.21", "JUDGE", 200);
+        assertThat(jdbc.queryForObject("select status from results where competition_unit_entry_id=?", String.class, ids.getFirst())).isEqualTo("VALID");
+        assertHiddenResults();
+        mvc.perform(post("/api/v1/competition-units/{id}/start", unit)
+                .with(authentication(auth(ownerId, "JUDGE")))).andExpect(status().isOk());
+        clearPublicCaches();
+        assertThat(read("/live").at("/currentUnit/status").asText()).isEqualTo("IN_PROGRESS");
+        assertHiddenResults();
+        saveTimes(unit, ids, "46.20", "JUDGE", 200);
+        assertHiddenResults();
+        publication(unit, true, "JUDGE", 204, null);
+        assertThat(unitStatus(unit)).isEqualTo("FINISHED");
+        assertThat(read("/live").at("/currentUnit/id").asText()).isEqualTo(unit.toString());
+        assertThat(read("/live").at("/currentUnit/status").asText()).isEqualTo("FINISHED");
+        assertPublishedPlaces("00:48.00");
+        assertThat(read("/athletes?q=Иванов").at("/0/swims/0/result/place").asInt()).isEqualTo(1);
+        publication(unit, true, "JUDGE", 409, "results.unit_already_published");
+
+        String correctedBody = timesBody(ids, "46.20").replace("48.00", "48.10");
+        mvc.perform(post("/api/v1/competition-units/{id}/results", unit)
+                .with(authentication(auth(ownerId, "OPERATOR"))).contentType(MediaType.APPLICATION_JSON)
+                .content(correctedBody)).andExpect(status().isOk());
+        clearPublicCaches();
+        assertThat(jdbc.queryForObject("select status from results where competition_unit_entry_id=?", String.class, ids.get(2))).isEqualTo("CORRECTED");
+        assertThat(jdbc.queryForObject("select count(*) from rule_execution_logs where event_id=? and kind='RANKING'", Integer.class, eventId)).isEqualTo(1);
+        assertPublishedPlaces("00:48.10");
+        mvc.perform(post("/api/v1/competition-units/{id}/results", unit)
+                .with(authentication(auth(ownerId, "JUDGE"))).contentType(MediaType.APPLICATION_JSON)
+                .content(correctedBody)).andExpect(status().isForbidden());
+        clearPublicCaches();
+        assertPublishedPlaces("00:48.10");
+        var publishedAt = jdbc.queryForObject("select updated_at from competition_units where id=?", OffsetDateTime.class, unit);
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(post("/api/v1/competition-units/{id}/finish", unit)
+                    .with(authentication(auth(ownerId, "JUDGE")))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.currentUnitId").value(heats.get(1).toString()));
+            clearPublicCaches();
+            assertThat(unitStatus(unit)).isEqualTo("FINISHED");
+            assertThat(jdbc.queryForObject("select updated_at from competition_units where id=?", OffsetDateTime.class, unit)).isEqualTo(publishedAt);
+            assertThat(read("/live").at("/currentUnit/id").asText()).isEqualTo(heats.get(1).toString());
+            assertPublishedPlaces("00:48.10");
+        }
+    }
+
+    @Test
+    void publicationRejectsInvalidStatesAndMissingResultsWithoutChangingStatus() throws Exception {
+        publication(draftId, true, "OPERATOR", 409, "results.start_list_not_published");
+        for (var state : List.of("SCHEDULED", "FINISHED", "COMPLETED", "CANCELLED")) {
+            jdbc.update("update competition_units set status=? where id=?", state, draftId);
+            publication(draftId, true, "OPERATOR", state.equals("CANCELLED") ? 400 : 409,
+                    state.equals("SCHEDULED") ? "results.start_list_not_published" : state.equals("CANCELLED") ? "results.invalid_transition" : "results.unit_already_published");
+            assertThat(unitStatus(draftId)).isEqualTo(state);
+        }
+        startHeat(heats.getFirst());
+        UUID missing = UUID.randomUUID(); profile(missing, "Пропущен", "Результат");
+        entry(heats.getFirst(), disciplineId, missing, 6, false);
+        publication(heats.getFirst(), true, "JUDGE", 409, "results.unit_has_missing_results");
+        assertThat(unitStatus(heats.getFirst())).isEqualTo("IN_PROGRESS");
+        assertHiddenResults();
+        publication(heats.getFirst(), false, "OPERATOR", 409, "results.unit_not_published");
+        assertThat(unitStatus(heats.getFirst())).isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    void onlyManagersCanUnpublishFinishedResultsAndStartListRemainsPublic() throws Exception {
+        UUID unit = heats.getFirst();
+        publication(unit, true, "JUDGE", 204, null);
+        publication(unit, false, "JUDGE", 403, null);
+        assertThat(unitStatus(unit)).isEqualTo("FINISHED");
+        publication(unit, false, "OPERATOR", 204, null);
+        assertThat(unitStatus(unit)).isEqualTo("PUBLISHED");
+        assertHiddenResults();
+        assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
+        for (var state : List.of("DRAFT", "SCHEDULED", "PUBLISHED", "CANCELLED", "COMPLETED")) {
+            jdbc.update("update competition_units set status=? where id=?", state, draftId);
+            publication(draftId, false, "OPERATOR", state.equals("COMPLETED") ? 400 : 409,
+                    state.equals("COMPLETED") ? "results.invalid_transition" : "results.unit_not_published");
+            assertThat(unitStatus(draftId)).isEqualTo(state);
+        }
+        startHeat(unit);
+        assertThat(unitStatus(unit)).isEqualTo("IN_PROGRESS");
+    }
+
+    private String unitStatus(UUID unit) {
+        return jdbc.queryForObject("select status from competition_units where id=?", String.class, unit);
+    }
+
+    private void publication(UUID unit, boolean published, String role, int expected, String code) throws Exception {
+        var response = mvc.perform(post("/api/v1/competition-units/{id}/publication", unit)
+                .with(authentication(auth(ownerId, role))).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"published\":" + published + "}")).andExpect(status().is(expected));
+        if (code != null) response.andExpect(jsonPath("$.code").value(code));
+        clearPublicCaches();
+    }
+
+    private String timesBody(List<UUID> ids, String firstTime) throws Exception {
+        return mapper.writeValueAsString(List.of(
+                Map.of("competitionUnitEntryId", ids.get(0), "status", "VALID", "time", firstTime),
+                Map.of("competitionUnitEntryId", ids.get(1), "status", "VALID", "time", "46.20"),
+                Map.of("competitionUnitEntryId", ids.get(2), "status", "VALID", "time", "48.00"),
+                Map.of("competitionUnitEntryId", ids.get(3), "status", "DNS")));
+    }
+
+    private void saveTimes(UUID unit, List<UUID> ids, String firstTime, String role, int expected) throws Exception {
+        mvc.perform(post("/api/v1/competition-units/{id}/results", unit)
+                .with(authentication(auth(ownerId, role))).contentType(MediaType.APPLICATION_JSON)
+                .content(timesBody(ids, firstTime))).andExpect(status().is(expected));
+        clearPublicCaches();
+    }
+
+    private void assertHiddenResults() throws Exception {
+        assertThat(read("/results").path("disciplines")).isEmpty();
+        assertThat(read("/athletes?q=Иванов").at("/0/swims/0/result").isNull()).isTrue();
+    }
+
+    private void assertPublishedPlaces(String correctedTime) throws Exception {
+        var rows = read("/results").at("/disciplines/0/overall");
+        assertThat(rows).hasSize(4);
+        assertThat(rows.at("/0/place").asInt()).isEqualTo(1);
+        assertThat(rows.at("/1/place").asInt()).isEqualTo(1);
+        assertThat(rows.at("/2/place").asInt()).isEqualTo(3);
+        assertThat(rows.at("/2/display").asText()).isEqualTo(correctedTime);
+        assertThat(rows.at("/3/status").asText()).isEqualTo("DNS");
+        assertThat(rows.at("/3/place").isNull()).isTrue();
     }
 
     @Test

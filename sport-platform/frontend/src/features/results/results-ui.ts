@@ -13,8 +13,8 @@ export function resultErrorMessage(error: unknown, fallback: string): string {
 export function heatStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     SCHEDULED: 'Запланирован', CANCELLED: 'Отменён',
-    DRAFT: 'Черновик', PUBLISHED: 'Опубликовано', STARTED: 'Идёт заплыв',
-    IN_PROGRESS: 'Идёт заплыв', FINISHED: 'Завершён', COMPLETED: 'Завершён',
+    DRAFT: 'Черновик', PUBLISHED: 'Стартовый протокол опубликован', STARTED: 'Идёт заплыв',
+    IN_PROGRESS: 'Идёт заплыв', FINISHED: 'Завершён, результаты опубликованы', COMPLETED: 'Завершён',
   }
   return labels[status] ?? status
 }

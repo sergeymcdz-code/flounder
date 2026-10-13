@@ -13,6 +13,7 @@ import com.acme.sportplatform.results.infrastructure.jpa.ResultRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,7 +41,7 @@ public class PublishCompetitionUnitUseCase {
     public void execute(UUID unitId, boolean published) {
         CompetitionUnitEntity unit =
                 competitionUnitRepository
-                        .findById(unitId)
+                        .lockById(unitId)
                         .orElseThrow(
                                 () ->
                                         new BusinessException(
@@ -48,17 +49,28 @@ public class PublishCompetitionUnitUseCase {
                                                 "Заплыв не найден: " + unitId));
 
         if (!published) {
-            if (CompetitionUnitStatus.DRAFT.name().equals(unit.getStatus())) {
+            if (CompetitionUnitStatus.COMPLETED.name().equals(unit.getStatus())) {
                 throw new BusinessException(
-                        "results.unit_already_draft", "Заплыв уже является черновиком");
+                        "results.invalid_transition", "Нельзя снять результаты завершённого соревнования с публикации");
+            }
+            if (!CompetitionUnitStatus.FINISHED.name().equals(unit.getStatus())) {
+                throw new BusinessException(
+                        "results.unit_not_published", "Результаты заплыва не опубликованы");
             }
 
-            unit.setStatus(CompetitionUnitStatus.DRAFT.name());
+            unit.setStatus(CompetitionUnitStatus.PUBLISHED.name());
+            unit.setUpdatedAt(OffsetDateTime.now());
             return;
         }
 
-        if (CompetitionUnitStatus.PUBLISHED.name().equals(unit.getStatus())) {
-            throw new BusinessException("results.unit_already_published", "Заплыв уже опубликован");
+        switch (CompetitionUnitStatus.valueOf(unit.getStatus())) {
+            case FINISHED, COMPLETED -> throw new BusinessException(
+                    "results.unit_already_published", "Результаты заплыва уже опубликованы");
+            case DRAFT, SCHEDULED -> throw new BusinessException(
+                    "results.start_list_not_published", "Сначала опубликуйте стартовый протокол");
+            case PUBLISHED, IN_PROGRESS -> { }
+            default -> throw new BusinessException(
+                    "results.invalid_transition", "Нельзя опубликовать результаты из текущего статуса заплыва");
         }
 
         List<CompetitionUnitEntryEntity> entries =
@@ -90,7 +102,9 @@ public class PublishCompetitionUnitUseCase {
             validateResultForPublication(result);
         }
 
-        unit.setStatus(CompetitionUnitStatus.PUBLISHED.name());
+        unit.setStatus(CompetitionUnitStatus.FINISHED.name());
+        unit.setUpdatedAt(OffsetDateTime.now());
+        // M07: set actual_finished_at here on the first transition to FINISHED.
     }
 
     private void validateResultForPublication(ResultEntity result) {

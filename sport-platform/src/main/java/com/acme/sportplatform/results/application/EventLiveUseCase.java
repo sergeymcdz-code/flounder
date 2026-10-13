@@ -72,11 +72,14 @@ public class EventLiveUseCase {
         UUID eventId = eventId(unit);
         access.assertCanManage(eventId, principal);
         lockState(eventId);
-        if (!CompetitionUnitStatus.IN_PROGRESS.name().equals(unit.getStatus()))
+        if (!Set.of("IN_PROGRESS", "FINISHED").contains(unit.getStatus()))
             throw new BusinessException(
-                    "results.invalid_transition", "Завершить можно только начатый заплыв");
-        unit.setStatus(CompetitionUnitStatus.FINISHED.name());
-        unit.setUpdatedAt(OffsetDateTime.now());
+                    "results.invalid_transition", "Завершить можно только начатый или опубликованный заплыв");
+        if (CompetitionUnitStatus.IN_PROGRESS.name().equals(unit.getStatus())) {
+            unit.setStatus(CompetitionUnitStatus.FINISHED.name());
+            unit.setUpdatedAt(OffsetDateTime.now());
+            // M07: set actual_finished_at only on this first transition to FINISHED.
+        }
         UUID next =
                 units.nextScheduled(
                                 eventId,

@@ -257,6 +257,10 @@ test('backend field errors stay beside inputs; event and result publication refr
     .getByRole('button', { name: 'Сохранить вид', exact: true })
     .click()
   await expect(dialog).not.toBeVisible()
+  // Results publication requires an already published start list.
+  await page.getByRole('link', { name: 'Заплывы', exact: true }).last().click()
+  await page.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
+  await page.getByRole('status').filter({ hasText: 'Выполняем действие' }).waitFor({ state: 'hidden' })
   await page
     .getByRole('link', { name: 'Результаты', exact: true })
     .last()

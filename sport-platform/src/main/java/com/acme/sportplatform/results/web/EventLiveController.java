@@ -35,6 +35,7 @@ public class EventLiveController {
         return live.start(id, principal);
     }
 
+    /** IN_PROGRESS → FINISHED; FINISHED is idempotent. Both advance live to the next heat. */
     @PostMapping("/competition-units/{id}/finish")
     public LiveStateResponse finish(
             @PathVariable UUID id,

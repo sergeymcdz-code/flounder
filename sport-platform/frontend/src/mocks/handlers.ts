@@ -596,7 +596,20 @@ export const handlers = [
       const h = state.heats.find((h) => h.id === params.id)
       if (!h) return notFound()
       const body = (await request.json()) as { published: boolean }
-      h.status = body.published ? 'PUBLISHED' : 'DRAFT'
+      if (body.published) {
+        if (['FINISHED', 'COMPLETED'].includes(h.status))
+          return error(409, 'results.unit_already_published', 'Результаты заплыва уже опубликованы')
+        if (['DRAFT', 'SCHEDULED'].includes(h.status))
+          return error(409, 'results.start_list_not_published', 'Сначала опубликуйте стартовый протокол')
+        if (!['PUBLISHED', 'IN_PROGRESS'].includes(h.status))
+          return error(400, 'results.invalid_transition', 'Нельзя опубликовать результаты из текущего статуса заплыва')
+      } else {
+        if (h.status === 'COMPLETED')
+          return error(400, 'results.invalid_transition', 'Нельзя снять результаты завершённого соревнования с публикации')
+        if (h.status !== 'FINISHED')
+          return error(409, 'results.unit_not_published', 'Результаты заплыва не опубликованы')
+      }
+      h.status = body.published ? 'FINISHED' : 'PUBLISHED'
       return new HttpResponse(null, { status: 204 })
     },
   ),

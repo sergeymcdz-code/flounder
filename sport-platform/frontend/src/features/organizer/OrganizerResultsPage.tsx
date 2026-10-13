@@ -40,9 +40,9 @@ export function OrganizerResultsPage() {
               <button
                 disabled={
                   busy ||
-                  !units.length ||
-                  !units.every(
+                  !units.some(
                     (h) =>
+                      ['PUBLISHED', 'IN_PROGRESS'].includes(h.status) &&
                       h.entries.length > 0 &&
                       h.entries.every(
                         (e) =>
@@ -81,11 +81,9 @@ export function OrganizerResultsPage() {
                         </span>
                       </td>
                       <td>
-                        {!hasResults(h.id)
-                          ? 'Нет'
-                          : h.status === 'PUBLISHED'
-                            ? 'Опубликованы'
-                            : 'Внесены'}
+                        {['FINISHED', 'COMPLETED'].includes(h.status)
+                          ? 'Опубликованы'
+                          : hasResults(h.id) ? 'Внесены' : 'Нет'}
                       </td>
                       <td>
                         <Link

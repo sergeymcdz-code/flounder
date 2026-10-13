@@ -162,7 +162,7 @@ it('renders disciplines without a session and nullable program fields', () => {
 
 it.each([
   ['schedule', 30_000, <SchedulePage key="schedule" />, demoSchedule],
-  ['results', 60_000, <ResultsPage key="results" />, demoResults],
+  ['results', 5_000, <ResultsPage key="results" />, demoResults],
 ] as const)(
   'polls %s at its own interval',
   async (endpoint, interval, page, payload) => {
