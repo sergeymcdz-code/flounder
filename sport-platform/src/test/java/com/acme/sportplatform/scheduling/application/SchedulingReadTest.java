@@ -65,7 +65,7 @@ class SchedulingReadTest {
                 .thenReturn(
                         new EventLookupResult(
                                 eventId, null, "DRAFT", null, null, List.of(), venueId, null,
-                                "{}"));
+                                "{}", "scheduling-read-test"));
         when(venues.getMetadata(venueId)).thenReturn("{\"lanes\":8}");
         var result = new ValidateUnitsUseCase(data, logs).execute(disciplineId, null);
         assertTrue(result.violations().isEmpty());
