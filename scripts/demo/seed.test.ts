@@ -13,6 +13,7 @@ class FakeApi implements Api {
   missingImport = false;
   missingSessions = false;
   supportsVenueMeta = false;
+  lowercaseRegulations = false;
   private serial = 0;
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     this.calls.push({ method, path, body, token });
@@ -55,11 +56,16 @@ class FakeApi implements Api {
     if (/\/(publish|open-registration)$/.test(path)) {
       const id = path.split('/').at(-2);
       const row = [...this.lists.values()].flat().find(row => row.id === id)!;
+      if (this.lowercaseRegulations && path.startsWith('/regulation-versions/')) {
+        if (row.status !== 'draft') throw new ApiError(400, 'regulations.invalid_status_transition', method, path);
+        row.status = 'published';
+        return row as T;
+      }
       row.status = path.endsWith('open-registration') ? 'REGISTRATION_OPEN' : 'PUBLISHED';
       return row as T;
     }
     if (path.startsWith('/regulation-templates/') && path.endsWith('/versions') && method === 'POST') {
-      const row = { ...data, id: `id-${++this.serial}`, regulationTemplateId: path.split('/')[2], status: 'DRAFT' };
+      const row = { ...data, id: `id-${++this.serial}`, regulationTemplateId: path.split('/')[2], status: this.lowercaseRegulations ? 'draft' : 'DRAFT' };
       this.lists.set('/regulation-versions', [...(this.lists.get('/regulation-versions') ?? []), row]);
       return row as T;
     }
@@ -95,6 +101,15 @@ describe('seed and reset orchestration without network', () => {
     const before = api.calls.length;
     await seed(api, { ...options, skipImport: true }, quiet);
     expect(api.calls.slice(before).filter(call => call.method === 'POST' && call.path.startsWith('/regulation-versions/') && call.path.endsWith('/publish'))).toEqual([]);
+  });
+  it('QA03-05 reuses published regulations returned in lowercase by the backend', async () => {
+    const api = new FakeApi();
+    api.lowercaseRegulations = true;
+    await seed(api, options, quiet);
+    const sizes = [...api.lists].map(([path, list]) => [path, list.length]);
+    await seed(api, options, quiet);
+    expect([...api.lists].map(([path, list]) => [path, list.length])).toEqual(sizes);
+    expect(api.calls.filter(call => call.method === 'POST' && call.path.startsWith('/regulation-versions/') && call.path.endsWith('/publish'))).toHaveLength(1);
   });
   it('reruns without duplicate entities or generation, and imports through multipart', async () => {
     const api = new FakeApi();

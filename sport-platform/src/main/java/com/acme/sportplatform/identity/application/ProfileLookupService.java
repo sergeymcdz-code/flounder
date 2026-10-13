@@ -117,8 +117,7 @@ public class ProfileLookupService implements ProfileLookup {
                 profile.setExternalKey(key);
             }
         }
-        if (profile.getExternalKey() == null || profile.getExternalKey().isBlank())
-            profile.setExternalKey(key);
+        profile.setExternalKey(key);
         apply(profile, data);
         return toResult(profileRepository.save(profile));
     }
