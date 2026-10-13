@@ -430,7 +430,8 @@ class EventIntegrationTest
                         "RU",
                         "Санкт-Петербург",
                         "проспект Спортивный, 10",
-                        "Europe/Moscow"
+                        "Europe/Moscow",
+                        java.util.Map.of()
                 );
 
         String response = mockMvc.perform(
@@ -446,7 +447,7 @@ class EventIntegrationTest
                                 )
                 )
                 .andDo(print())
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(
                         jsonPath("$.name")

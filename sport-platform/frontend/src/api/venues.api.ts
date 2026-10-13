@@ -1,12 +1,24 @@
 import { apiFetch } from './http'
 
-export type VenueResponse = {
+export type Venue = {
   id: string
   name: string
   countryCode: string
   city: string
   address: string
   timezone: string
+  venueMeta: Record<string, unknown>
+}
+
+export type VenueResponse = Venue
+
+export type CreateVenueRequest = {
+  name: string
+  countryCode?: string
+  city?: string
+  address?: string
+  timezone: string
+  venueMeta?: Record<string, unknown>
 }
 
 export async function getVenues(

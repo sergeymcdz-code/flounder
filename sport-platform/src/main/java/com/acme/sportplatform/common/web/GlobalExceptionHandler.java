@@ -62,9 +62,6 @@ public class GlobalExceptionHandler {
             case "events.public_not_found" ->
                     HttpStatus.NOT_FOUND;
 
-            case "registrations.not_found" ->
-                    HttpStatus.NOT_FOUND;
-
             case "payments.not_found" ->
                     HttpStatus.NOT_FOUND;
 
@@ -96,7 +93,7 @@ public class GlobalExceptionHandler {
                     HttpStatus.NOT_FOUND;
 
             case "events.access_denied", "organizations.access_denied" -> HttpStatus.FORBIDDEN;
-            case "events.event_not_found", "organizations.organization_not_found", "organizations.registration_not_found",
+            case "events.event_not_found", "registrations.not_found", "organizations.organization_not_found", "organizations.registration_not_found",
                     "competition.discipline_not_found", "results.competition_unit_not_found", "results.entry_not_found" -> HttpStatus.NOT_FOUND;
             case "organizations.registration_already_reviewed", "registrations.payment_not_applicable" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;

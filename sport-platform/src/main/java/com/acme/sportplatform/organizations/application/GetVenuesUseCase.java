@@ -12,23 +12,18 @@ import com.acme.sportplatform.organizations.infrastructure.jpa.VenueRepository;
 public class GetVenuesUseCase {
 
     private final VenueRepository venueRepository;
+    private final VenueMapper venueMapper;
 
-    public GetVenuesUseCase(VenueRepository venueRepository) {
+    public GetVenuesUseCase(VenueRepository venueRepository, VenueMapper venueMapper) {
         this.venueRepository = venueRepository;
+        this.venueMapper = venueMapper;
     }
 
     @Transactional(readOnly = true)
     public List<VenueResponse> execute() {
         return venueRepository.findAll()
                 .stream()
-                .map(entity -> new VenueResponse(
-                        entity.getId(),
-                        entity.getName(),
-                        entity.getCountryCode(),
-                        entity.getCity(),
-                        entity.getAddress(),
-                        entity.getTimezone()
-                ))
+                .map(venueMapper::toResponse)
                 .toList();
     }
 }

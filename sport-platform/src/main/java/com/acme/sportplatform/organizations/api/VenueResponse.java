@@ -1,5 +1,6 @@
 package com.acme.sportplatform.organizations.api;
 
+import java.util.Map;
 import java.util.UUID;
 
 public record VenueResponse(
@@ -8,6 +9,7 @@ public record VenueResponse(
         String countryCode,
         String city,
         String address,
-        String timezone
+        String timezone,
+        Map<String, Object> venueMeta
 ) {
 }
