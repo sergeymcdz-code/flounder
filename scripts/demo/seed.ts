@@ -3,16 +3,17 @@ import { pathToFileURL } from 'node:url';
 import { ApiError, ensure, HttpApi, login, unique, type Api, type Row } from './api.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
 import {
-  accounts, disciplineBody, disciplineSpecs, EVENT_TITLE, eventBody, importBody, memberBody,
+  accounts, disciplineBody, disciplineSpecs, demoEventTitle, samaraDate, eventBody, importBody, memberBody,
   nextSaturday, ORGANIZATION_NAME, organizationBody, REGULATION_CODE, regulationTemplateBody,
   regulationVersionBody, roleBody, sessionBodies, templateBody, userBody, validateDemoDate, VENUE_NAME, venueBody,
 } from './bodies.ts';
 
 export type SeedOptions = {
   adminEmail: string; adminPassword: string; passwords: Record<string, string>;
-  demoDate?: string; skipImport: boolean; now?: Date; workbook?: Uint8Array;
+  requireVenueMeta?: boolean; eventTitleSuffix?: string; demoDate?: string; skipImport: boolean; now?: Date; workbook?: Uint8Array;
 };
 export async function seed(api: Api, options: SeedOptions, log = console.log) {
+  const title = demoEventTitle(options.eventTitleSuffix);
   const now = options.now ?? new Date();
   const requestedDate = validateDemoDate(options.demoDate ?? nextSaturday(now));
   const workbook = options.skipImport ? undefined : options.workbook ??
@@ -50,12 +51,18 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     if (account.key === 'ORG') organizerToken = await login(api, account.email, password);
     log(`Пользователь готов: ${account.email} (${account.role}).`);
   }
-  const venue = await ensure(api, adminToken, '/venues', row => row.name === VENUE_NAME, venueBody(), VENUE_NAME);
+  const venue = await ensure(api, adminToken, '/venues', row => row.name === VENUE_NAME, venueBody(options.requireVenueMeta), VENUE_NAME);
   const venueDetails = await api.request<Row>('GET', `/venues/${venue.id}`, undefined, adminToken);
-  const meta = typeof venueDetails.venueMeta === 'string' ? JSON.parse(venueDetails.venueMeta) : venueDetails.venueMeta;
+  let meta: unknown = venueDetails.venueMeta;
+  if (typeof meta === 'string') {
+    try { meta = JSON.parse(meta); } catch { meta = undefined; }
+  }
   const pool = meta as { lanes?: number; courseLength?: number } | undefined;
   if (pool?.lanes !== 8 || pool.courseLength !== 25) {
-    throw new Error('API площадки не сохранил/не возвращает venueMeta {lanes:8, courseLength:25}. Текущий DTO main не поддерживает это поле; требуется дополнение backend по ТЗ §7. Сид не меняет БД.');
+    if (options.requireVenueMeta) {
+      throw new Error('REQUIRE_VENUE_META=true: API площадки не вернул venueMeta {lanes:8, courseLength:25}. Требуется доработка T01.');
+    }
+    log('WARNING: площадка сохранена без подтверждённых venueMeta {lanes:8, courseLength:25}; без метаданных бэкенд использует 8 дорожек по умолчанию, длина бассейна на публичной карточке не отобразится. Поле появится после доработки T01.');
   }
   const sport = unique(await api.request<Row[]>('GET', '/sports', undefined, adminToken), row => row.code === 'swim', 'swim');
   if (!sport) throw new Error('Не найден спорт swim. Примените штатные миграции backend.');
@@ -66,14 +73,14 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   if (!version) version = await api.request<Row>('POST', `/regulation-templates/${regulationTemplate.id}/versions`, regulationVersionBody(), adminToken);
   if (version.status !== 'PUBLISHED') await api.request('POST', `/regulation-versions/${version.id}/publish`, undefined, adminToken);
   let event = unique(await api.request<Row[]>('GET', '/events', undefined, adminToken),
-    row => row.title === EVENT_TITLE, EVENT_TITLE);
+    row => row.title === title, title);
   if (!event) event = await api.request<Row>('POST', '/events', eventBody({
     organizationId: organization.id, venueId: venue.id, sportId: sport.id, regulationVersionId: version.id,
-  }, requestedDate, now), organizerToken);
+  }, requestedDate, now, options.eventTitleSuffix), organizerToken);
   if (event.organizationId !== organization.id || event.venueId !== venue.id) {
     throw new Error('Демо-событие с таким названием относится к другой организации/площадке.');
   }
-  const date = String(event.eventStartAt).slice(0, 10);
+  const date = samaraDate(String(event.eventStartAt));
   validateDemoDate(date);
   if (options.demoDate && date !== options.demoDate) throw new Error('DEMO_DATE отличается от существующего события. Выполните reset, затем seed.');
   if (!['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN'].includes(String(event.status))) {
@@ -92,8 +99,14 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     const template = await ensure(api, adminToken, '/discipline-templates',
       row => row.code === `T10-${spec.code}` && row.sportId === sport.id, templateBody(sport.id, spec), `T10-${spec.code}`);
     const body = disciplineBody(spec, template.id, sessions[spec.sessionIndex].id);
-    const discipline = await ensure(api, organizerToken, `/events/${event.id}/disciplines`,
-      row => row.code === spec.code, body, spec.code);
+    const path = `/events/${event.id}/disciplines`;
+    let discipline = unique(await api.request<Row[]>('GET', path, undefined, organizerToken), row => row.code === spec.code, spec.code);
+    if (!discipline) {
+      if (event.status === 'REGISTRATION_OPEN') {
+        throw new Error(`Дисциплина ${spec.code} отсутствует, но регистрация уже открыта: выполните reset, затем seed. Добавление видов разрешено только в DRAFT/PUBLISHED.`);
+      }
+      discipline = await api.request<Row>('POST', path, body, organizerToken);
+    }
     if (discipline.distanceM !== spec.distanceM || discipline.gender !== spec.gender ||
         discipline.stroke !== 'FREE' || discipline.seedingMode !== 'BY_AGE_GROUP' ||
         discipline.sessionId !== body.sessionId || discipline.orderInSession !== body.orderInSession ||
@@ -130,7 +143,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
 async function main() {
   loadLocalEnv();
   const args = flags(process.argv.slice(2), ['--skip-import', '--help']);
-  if (args.has('--help')) { console.log('npx tsx seed.ts [--skip-import]\nНастройки: scripts/demo/.env.example'); return; }
+  if (args.has('--help')) { console.log('npx tsx seed.ts [--skip-import]\nНастройки: scripts/demo/.env.example\nEVENT_TITLE_SUFFIX — резервное событие; REQUIRE_VENUE_META=true — строгая проверка площадки'); return; }
   const settings = config(process.env);
   await seed(new HttpApi(settings.apiUrl), { ...settings, skipImport: args.has('--skip-import') });
 }

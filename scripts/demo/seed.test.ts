@@ -12,10 +12,25 @@ class FakeApi implements Api {
   imports = 0;
   missingImport = false;
   missingSessions = false;
+  supportsVenueMeta = false;
+  venueMeta: unknown = undefined;
   private serial = 0;
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     this.calls.push({ method, path, body, token });
     const data = body as Record<string, unknown>;
+    if (method === 'POST' && path === '/venues') {
+      const allowed = ['name', 'countryCode', 'city', 'address', 'timezone', ...(this.supportsVenueMeta ? ['venueMeta'] : [])];
+      if (Object.keys(data).some(key => !allowed.includes(key))) throw new ApiError(400, 'request.unknown_field', method, path);
+    }
+    if (method === 'POST' && /^\/organizations\/[^/]+\/members$/.test(path)) {
+      if (!['owner', 'admin', 'member', 'organizer', 'operator', 'judge'].includes(String(data.memberRole))) {
+        throw new ApiError(400, 'organizations.invalid_member_role', method, path);
+      }
+    }
+    if (method === 'POST' && /^\/events\/[^/]+\/disciplines$/.test(path)) {
+      const event = this.lists.get('/events')?.find(row => row.id === path.split('/')[2]);
+      if (!event || !['DRAFT', 'PUBLISHED'].includes(String(event.status))) throw new ApiError(400, 'competition.event_not_editable', method, path);
+    }
     if (path === '/auth/login') {
       if (!this.users.has(String(data.email))) throw new ApiError(400, 'identity.invalid_credentials', method, path);
       return { accessToken: data.email } as T;
@@ -49,7 +64,12 @@ class FakeApi implements Api {
       return row as T;
     }
     if (method === 'GET' && /^\/(venues|organizations)\/[^/]+$/.test(path)) {
-      return this.lists.get(`/${path.split('/')[1]}`)!.find(row => row.id === path.split('/')[2]) as T;
+      const row = this.lists.get(`/${path.split('/')[1]}`)!.find(row => row.id === path.split('/')[2])!;
+      if (path.startsWith('/venues/')) {
+        const { venueMeta: _storedMeta, ...response } = row;
+        return { ...response, ...(this.venueMeta === undefined ? {} : { venueMeta: this.venueMeta }) } as T;
+      }
+      return row as T;
     }
     const listPath = path === '/organizer/events' ? '/events' : path;
     const list = this.lists.get(listPath) ?? [];
@@ -105,6 +125,81 @@ describe('seed and reset orchestration without network', () => {
     await seed(api, { ...options, now: new Date('2026-10-19T12:00:00Z') }, quiet);
     expect(api.lists.get('/events')![0].eventStartAt).toBe('2026-10-17T10:00:00+04:00');
     await expect(seed(api, { ...options, demoDate: '2026-10-24' }, quiet)).rejects.toThrow('DEMO_DATE отличается');
+  });
+  it('continues to import without venueMeta, with valid T01 membership roles', async () => {
+    const api = new FakeApi();
+    const messages: string[] = [];
+    await seed(api, options, message => messages.push(message));
+    expect(api.imports).toBe(1);
+    expect(messages.join()).toContain('WARNING');
+    expect(messages.join()).toContain('8 дорожек по умолчанию');
+    expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body).not.toHaveProperty('venueMeta');
+    expect(api.calls.filter(call => call.method === 'POST' && call.path.endsWith('/members')).map(call => (call.body as Row).memberRole))
+      .toEqual(['owner', 'operator', 'judge']);
+  });
+  it('checks venue metadata strictly only when requested', async () => {
+    const api = new FakeApi();
+    await seed(api, options, quiet);
+    await expect(seed(api, { ...options, requireVenueMeta: true }, quiet)).rejects.toThrow('REQUIRE_VENUE_META=true');
+    expect(api.imports).toBe(1);
+    api.venueMeta = { lanes: 8, courseLength: 25 };
+    await seed(api, { ...options, requireVenueMeta: true }, quiet);
+    expect(api.imports).toBe(2);
+  });
+  it('sends metadata in strict mode to the updated T01 venue DTO', async () => {
+    const api = new FakeApi();
+    api.supportsVenueMeta = true;
+    api.venueMeta = { lanes: 8, courseLength: 25 };
+    await seed(api, { ...options, requireVenueMeta: true }, quiet);
+    expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body)
+      .toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
+  });
+  it('rejects unknown venue fields, unsupported member roles and closed discipline creation', async () => {
+    const api = new FakeApi();
+    await expect(api.request('POST', '/venues', { name: 'test', lanes: 8 })).rejects.toMatchObject({ code: 'request.unknown_field' });
+    await expect(api.request('POST', '/organizations/org/members', { userId: 'user', memberRole: 'staff' }))
+      .rejects.toMatchObject({ code: 'organizations.invalid_member_role' });
+    for (const status of ['REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'COMPLETED']) {
+      api.lists.set('/events', [{ id: 'event', status }]);
+      await expect(api.request('POST', '/events/event/disciplines', { code: 'M-50-FREE' }))
+        .rejects.toMatchObject({ code: 'competition.event_not_editable' });
+    }
+  });
+  it('explains a missing discipline while registration is open before POST', async () => {
+    const api = new FakeApi();
+    await seed(api, options, quiet);
+    const id = api.lists.get('/events')![0].id;
+    api.lists.get(`/events/${id}/disciplines`)!.pop();
+    const before = api.calls.length;
+    await expect(seed(api, options, quiet)).rejects.toThrow('выполните reset');
+    expect(api.calls.slice(before).some(call => call.method === 'POST' && call.path.endsWith('/disciplines'))).toBe(false);
+  });
+  it('converts a UTC start across midnight to the Samara date', async () => {
+    const api = new FakeApi();
+    await seed(api, options, quiet);
+    api.lists.get('/events')![0].eventStartAt = '2026-10-16T22:00:00Z';
+    await seed(api, options, quiet);
+    expect(api.imports).toBe(2);
+  });
+  it('creates and reuses a separate backup event selected by the title suffix', async () => {
+    const api = new FakeApi();
+    await seed(api, options, quiet);
+    await seed(api, { ...options, eventTitleSuffix: ' · резерв' }, quiet);
+    await seed(api, { ...options, eventTitleSuffix: ' · резерв' }, quiet);
+    const events = api.lists.get('/events')!;
+    expect(events).toHaveLength(2);
+    expect(events[1].title).toBe(`${events[0].title} · резерв`);
+    events[1].id = '11111111-2222-3333-4444-555555555555';
+    const messages: string[] = [];
+    await resetPlan(api, options.adminEmail, options.adminPassword, message => messages.push(message), { eventTitleSuffix: ' · резерв' });
+    expect(messages.join()).toContain('demo_event_title=');
+    expect(messages.join()).toContain(' · резерв');
+    expect(messages.join()).toContain('demo_event_id=11111111-2222-3333-4444-555555555555');
+  });
+  it('requires the database URL before --apply can start', async () => {
+    const api = new FakeApi();
+    await expect(resetPlan(api, options.adminEmail, options.adminPassword, quiet, { apply: true })).rejects.toThrow('DEMO_DATABASE_URL');
+    expect(api.calls).toHaveLength(0);
   });
   it('prepares a scoped SQL reset without guessing a DELETE route', async () => {
     const api = new FakeApi();

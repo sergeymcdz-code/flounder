@@ -2,7 +2,7 @@ import { loginBody } from './bodies.ts';
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, method: string, path: string) {
-    super(status === 404 || status === 405
+    super((status === 404 || status === 405) && !code
       ? `Эндпоинт не найден: ${method} ${path} (HTTP ${status}). Проверьте слияние T01/T03/T05; для недоступного импорта используйте --skip-import.`
       : `Ошибка API: ${method} ${path} (HTTP ${status}, код ${code || 'не указан'}). Проверьте права, параметры и журнал сервера.`);
   }

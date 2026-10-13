@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { accounts } from './bodies.ts';
+import { accounts, demoEventTitle } from './bodies.ts';
 
 export function loadLocalEnv() {
   const path = new URL('./.env', import.meta.url);
@@ -17,7 +17,9 @@ export function config(env: NodeJS.ProcessEnv, needsUsers = true) {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || !['', '/'].includes(url.pathname)) {
     throw new Error('API_URL должен быть HTTP(S) origin без пути /api/v1, пароля и query-параметров.');
   }
+  demoEventTitle(env.EVENT_TITLE_SUFFIX);
   return {
+    requireVenueMeta: env.REQUIRE_VENUE_META === 'true', eventTitleSuffix: env.EVENT_TITLE_SUFFIX ?? '',
     apiUrl: url.origin, adminEmail: required('ADMIN_EMAIL'), adminPassword: required('ADMIN_PASSWORD'),
     passwords: Object.fromEntries(needsUsers ? accounts.map(account => [account.key, required(env[`${account.key}_PASSWORD`] ? `${account.key}_PASSWORD` : 'DEMO_PASSWORD')]) : []),
     demoDate: env.DEMO_DATE,

@@ -4,8 +4,8 @@ export const EVENT_TITLE = 'Открытый кубок Самары по пла
 export const REGULATION_CODE = 'T10-DEMO-SWIM';
 export const accounts = [
   { key: 'ORG', email: 'org@flounder.demo', role: 'organizer', memberRole: 'owner', firstName: 'Организатор' },
-  { key: 'SEC', email: 'sec@flounder.demo', role: 'operator', memberRole: 'staff', firstName: 'Секретарь' },
-  { key: 'JUDGE', email: 'judge@flounder.demo', role: 'judge', memberRole: 'staff', firstName: 'Судья' },
+  { key: 'SEC', email: 'sec@flounder.demo', role: 'operator', memberRole: 'operator', firstName: 'Секретарь' },
+  { key: 'JUDGE', email: 'judge@flounder.demo', role: 'judge', memberRole: 'judge', firstName: 'Судья' },
   { key: 'PARENT', email: 'parent@flounder.demo', role: 'participant', memberRole: null, firstName: 'Родитель' },
 ] as const;
 export type Account = typeof accounts[number];
@@ -18,10 +18,21 @@ export const userBody = (account: Account, password: string) => ({
 export const roleBody = (roleCode: string) => ({ roleCode });
 export const memberBody = (userId: string, memberRole: string) => ({ userId, memberRole });
 export const organizationBody = () => ({ type: 'federation', name: ORGANIZATION_NAME, contactEmail: 'org@flounder.demo' });
-export const venueBody = () => ({
+export const venueBody = (requireVenueMeta = false) => ({
   name: VENUE_NAME, countryCode: 'RU', city: 'Самара', timezone: 'Europe/Samara',
-  venueMeta: { lanes: 8, courseLength: 25 },
+  ...(requireVenueMeta ? { venueMeta: { lanes: 8, courseLength: 25 } } : {}),
 });
+
+export function demoEventTitle(suffix = ''): string {
+  const title = EVENT_TITLE + suffix;
+  if (title.length > 255 || /[\r\n\0]/.test(suffix)) throw new Error('EVENT_TITLE_SUFFIX содержит перенос строки или превышает длину названия 255 символов.');
+  return title;
+}
+export function samaraDate(value: string | Date): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error('eventStartAt должен содержать корректную дату ISO-8601 с зоной.');
+  return new Date(date.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+}
 
 // Calendar arithmetic uses Samara's fixed UTC+04:00, independently of the host timezone.
 export function nextSaturday(now = new Date()): string {
@@ -39,10 +50,10 @@ export function validateDemoDate(date: string): string {
   }
   return date;
 }
-export function eventBody(ids: { organizationId: string; venueId: string; sportId: string; regulationVersionId: string }, date: string, now: Date) {
+export function eventBody(ids: { organizationId: string; venueId: string; sportId: string; regulationVersionId: string }, date: string, now: Date, titleSuffix = '') {
   validateDemoDate(date);
   return {
-    ...ids, title: EVENT_TITLE, description: 'Вымышленные данные для демонстрации Flounder. Набор M, 200 заявок.',
+    ...ids, title: demoEventTitle(titleSuffix), description: 'Вымышленные данные для демонстрации Flounder. Набор M, 200 заявок.',
     registrationOpenAt: now.toISOString(), registrationCloseAt: `${date}T09:30:00+04:00`,
     eventStartAt: `${date}T10:00:00+04:00`, eventEndAt: `${date}T18:00:00+04:00`,
   };

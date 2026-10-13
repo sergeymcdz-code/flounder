@@ -25,6 +25,12 @@ describe('HTTP adapter without network', () => {
     await expect(new HttpApi('http://example.invalid').request('POST', '/events/id/registrations/import'))
       .rejects.toThrow('Эндпоинт не найден');
   });
+  it('distinguishes a coded business 404 from a missing endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"code":"events.event_not_found"}', { status: 404 })));
+    await expect(new HttpApi('http://example.invalid').request('GET', '/events/missing')).rejects.toThrow('Ошибка API');
+    expect(new ApiError(404, 'identity.role_not_found', 'POST', '/users/id/roles').message).toContain('код identity.role_not_found');
+    expect(new ApiError(404, 'identity.role_not_found', 'POST', '/users/id/roles').message).not.toContain('Эндпоинт не найден');
+  });
   it('keeps credential values and server bodies out of errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"code":"identity.invalid_credentials","message":"unit-test-password"}', { status: 400 })));
     await expect(new HttpApi('http://example.invalid').request('POST', '/auth/login')).rejects.toMatchObject({ code: 'identity.invalid_credentials' });

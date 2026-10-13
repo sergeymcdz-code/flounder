@@ -1,6 +1,6 @@
 -- Operator fallback: DELETE /api/v1/events/{id} is absent from specification §5.
 -- Run only against a backed-up, stopped demo database with V020-V026 applied.
--- psql "$DEMO_DATABASE_URL" -v ON_ERROR_STOP=1 -v demo_event_id=<uuid> -f reset.sql
+-- psql "$DEMO_DATABASE_URL" -v ON_ERROR_STOP=1 -v demo_event_id=<uuid> -v demo_event_title="<exact-title>" -f reset.sql
 -- Deliberately preserve demo accounts, organization, venue and reusable templates.
 -- No TRUNCATE, name-only deletion, migration changes or application SQL seeding.
 \set ON_ERROR_STOP on
@@ -11,7 +11,7 @@ select e.id from events e
 join organizations o on o.id = e.organization_id
 join venues v on v.id = e.venue_id
 where e.id = :'demo_event_id'::uuid
-  and e.title = 'Открытый кубок Самары по плаванию (демо)'
+  and e.title = :'demo_event_title'
   and o.name = 'Федерация плавания Самарской области (демо)'
   and v.name = 'Дворец спорта, 25 м, 8 дорожек'
 for update of e;
