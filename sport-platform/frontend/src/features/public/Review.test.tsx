@@ -4,9 +4,12 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, expect, it, vi } from 'vitest'
 import { PublicLayout } from './PublicLayout'
 import { PublicEventPage } from './EventPage'
-import { LiveBoard, LivePage } from './LivePage'
+import { LiveBoard, LivePage, AthleteSearch } from './LivePage'
 import { SchedulePage } from './SchedulePage'
 import { ResultsPage } from './ResultsPage'
+import { HeatPage } from './HeatPage'
+import { StartListPage } from './StartListPage'
+import { PrintHeader } from './Protocol'
 import {
   demoEvent,
   demoSchedule,
@@ -183,3 +186,107 @@ it.each([
     await vi.waitFor(() => expect(calls).toBe(2))
   },
 )
+
+it('renders an event without a venue in both the layout and event card', async () => {
+  server.use(
+    http.get('*/api/v1/public/events/demo', () =>
+      HttpResponse.json({ ...demoEvent, venue: null }),
+    ),
+  )
+  render(
+    <MemoryRouter initialEntries={['/e/demo']}>
+      <Routes>
+        <Route path="e/:slug" element={<PublicLayout />}>
+          <Route index element={<PublicEventPage />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  )
+  await screen.findByRole('heading', { name: demoEvent.title })
+  expect(screen.getAllByText(/Площадка не указана/)).toHaveLength(2)
+})
+
+it('does not render null as the pool length', () => {
+  if (!demoEvent.venue) throw new Error('Expected fixture venue')
+  renderPage(<PublicEventPage />, {
+    ...demoEvent,
+    venue: { ...demoEvent.venue, courseLength: null },
+  })
+  expect(
+    screen.getByText('8 дорожек · длина бассейна не указана'),
+  ).toBeInTheDocument()
+})
+
+it('renders the missing venue placeholder in the printable header', () => {
+  render(
+    <PrintHeader
+      event={{ ...demoEvent, venue: null }}
+      title="Стартовый протокол"
+    />,
+  )
+  expect(screen.getByText(/Площадка не указана/)).toBeInTheDocument()
+})
+
+it.each([
+  ['live', <LivePage key="live" />, 1],
+  ['start-list', <StartListPage key="start-list" />, 6],
+] as const)(
+  'renders eight lanes on %s when the venue is missing',
+  async (_name, page, tables) => {
+    renderPage(page, { ...demoEvent, venue: null })
+    await vi.waitFor(() =>
+      expect(screen.getAllByRole('table')).toHaveLength(tables),
+    )
+    expect(screen.getAllByRole('row')).toHaveLength(tables * 9)
+  },
+)
+
+it('renders the heat page with eight lanes when the venue is missing', async () => {
+  render(
+    <MemoryRouter initialEntries={['/heats/' + unit.id]}>
+      <Routes>
+        <Route
+          element={<PublicContext event={{ ...demoEvent, venue: null }} />}
+        >
+          <Route path="heats/:unitId" element={<HeatPage />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  )
+  await screen.findByRole('table')
+  expect(screen.getAllByRole('row')).toHaveLength(9)
+})
+
+it('shows a dash when an athlete swim has no assigned lane', async () => {
+  server.use(
+    http.get('*/api/v1/public/events/demo/athletes', () =>
+      HttpResponse.json([
+        {
+          athleteKey: 'unassigned',
+          lastName: 'Иванов',
+          firstName: 'Иван',
+          birthYear: 2012,
+          club: null,
+          swims: [
+            {
+              disciplineName: '50 м',
+              heatNumber: 1,
+              lane: null,
+              scheduledAt: null,
+              result: null,
+            },
+          ],
+        },
+      ]),
+    ),
+  )
+  const userEvent = (await import('@testing-library/user-event')).default
+  const user = userEvent.setup()
+  render(
+    <MemoryRouter>
+      <AthleteSearch slug="demo" />
+    </MemoryRouter>,
+  )
+  await user.type(screen.getByRole('searchbox'), 'Иванов')
+  expect(await screen.findByText(/дорожка —/)).toBeInTheDocument()
+})

@@ -49,7 +49,12 @@ export type PublicEvent = {
   eventStartAt: string
   eventEndAt: string
   registrationOpen: boolean
-  venue: { name: string; city: string; lanes: number; courseLength: number }
+  venue: {
+    name: string
+    city: string
+    lanes: number
+    courseLength: number | null
+  } | null
   sessions: Session[]
   disciplines: Discipline[]
 }
@@ -114,7 +119,7 @@ export type AthleteMatch = Athlete & {
   swims: {
     disciplineName: string
     heatNumber: number
-    lane: number
+    lane: number | null
     scheduledAt: string | null
     result: SwimResult | null
   }[]

@@ -35,7 +35,7 @@ export function StartListPage() {
                     <HeatProtocol
                       key={heat.id}
                       heat={heat}
-                      lanes={event.venue.lanes}
+                      lanes={event.venue?.lanes ?? 8}
                       slug={event.publicSlug}
                     />
                   ))}

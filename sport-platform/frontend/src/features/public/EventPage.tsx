@@ -19,11 +19,18 @@ export function PublicEventPage() {
             : ''}
         </p>
         <p>
-          {event.venue.name}, {event.venue.city}
+          {event.venue
+            ? `${event.venue.name}, ${event.venue.city}`
+            : 'Площадка не указана'}
         </p>
-        <p>
-          {event.venue.lanes} дорожек · бассейн {event.venue.courseLength} м
-        </p>
+        {event.venue && (
+          <p>
+            {event.venue.lanes} дорожек ·{' '}
+            {event.venue.courseLength !== null
+              ? `бассейн ${event.venue.courseLength} м`
+              : 'длина бассейна не указана'}
+          </p>
+        )}
         {event.description && <p>{event.description}</p>}
         {event.registrationOpen && (
           <Link className={styles.button} to={`${base}/register`}>

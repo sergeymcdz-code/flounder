@@ -17,7 +17,10 @@ export function PrintHeader({
         {event.title} · {title}
       </strong>
       <div>
-        {date(event.eventStartAt)} · {event.venue.name}, {event.venue.city}
+        {date(event.eventStartAt)} ·{' '}
+        {event.venue
+          ? `${event.venue.name}, ${event.venue.city}`
+          : 'Площадка не указана'}
       </div>
     </div>
   )

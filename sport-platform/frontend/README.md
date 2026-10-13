@@ -37,7 +37,9 @@ See [PR #8](https://github.com/sergeymcdz-code/flounder/pull/8) for the implemen
 
 ```bash
 npm ci
-npm run dev:demo -- --host 0.0.0.0
+npm run dev:demo
+# Alternatively, enable mocks in the development server:
+VITE_API_MOCK=true npm run dev
 # Open http://localhost:5173/e/demo (MSW, no backend required)
 npm run test
 npm run build
@@ -46,6 +48,6 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The production build always excludes MSW. Development mocks use `npm run dev:demo` (or `VITE_API_MOCK=true` with the development server). Public API requests default to the current origin; configure
-`VITE_API_BASE_URL` for a separate backend. `--mode demo` uses MSW instead of
-the PWA worker because they share the root service-worker scope.
+The production build always excludes MSW. Development mocks use only `npm run dev:demo` or `VITE_API_MOCK=true npm run dev`. Public API requests default to the current origin; configure
+`VITE_API_BASE_URL` for a separate backend. The development mock modes register
+MSW; production registers the PWA worker. Both workers share the root scope.

@@ -569,3 +569,9 @@
     display: inline;
   }
 }
+
+@media print {
+  .heatNumber {
+    font-size: 18pt;
+  }
+}

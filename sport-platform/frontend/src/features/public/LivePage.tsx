@@ -220,7 +220,7 @@ export function AthleteSearch({ slug }: { slug: string }) {
                   <li key={`${swim.disciplineName}-${index}`}>
                     <strong>{swim.disciplineName}</strong>
                     <p>
-                      Заплыв {swim.heatNumber} · дорожка {swim.lane} ·{' '}
+                      Заплыв {swim.heatNumber} · дорожка {swim.lane ?? '—'} ·{' '}
                       {time(swim.scheduledAt)}
                     </p>
                     {swim.result ? (
@@ -284,7 +284,7 @@ export function LivePage() {
           list={list.data}
           schedule={schedule.data}
           disciplines={event.disciplines}
-          lanes={event.venue.lanes}
+          lanes={event.venue?.lanes ?? 8}
           slug={event.publicSlug}
         />
       )}

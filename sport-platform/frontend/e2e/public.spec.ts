@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { demoStartList } from '../src/mocks/demo-data'
 
@@ -154,6 +154,11 @@ test('anonymous registration returns after login; authenticated form validates p
 test('production PWA caches shell and live API and reloads offline', async ({
   browser,
 }) => {
+  expect(
+    (await readdir(resolve('dist/assets'))).filter((name) =>
+      /msw|demo/i.test(name),
+    ),
+  ).toEqual([])
   const context = await browser.newContext({
     viewport: { width: 375, height: 812 },
   })
@@ -176,6 +181,10 @@ test('production PWA caches shell and live API and reloads offline', async ({
   const manifest = await (
     await page.request.get('http://localhost:5175/manifest.webmanifest')
   ).json()
+  expect(await page.locator('link[rel=icon]').getAttribute('href')).toBe(
+    manifest.icons[0].src,
+  )
+  await expect(page).toHaveTitle(/Flounder/)
   expect(manifest).toMatchObject({
     name: 'Flounder',
     lang: 'ru',
