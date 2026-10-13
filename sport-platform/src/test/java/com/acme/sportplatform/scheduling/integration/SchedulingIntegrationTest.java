@@ -823,22 +823,53 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     void qa01PublishedWithdrawalWarnsWithoutMovingOtherLanes() throws Exception {
         // QA01-04: the validator must retain the published-change warning after withdrawal.
         var f = fixture(9);
-        UUID discipline = f.disciplines().getFirst(), withdrawn = f.registrations().getFirst();
+        UUID discipline = f.disciplines().getFirst();
+        List<UUID> withdrawn = f.registrations().subList(0, 2);
         ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
         ok(post("/api/v1/event-disciplines/{id}/competition-units/publish", discipline));
         String before = lanes(discipline);
-        ok(post("/api/v1/registrations/{id}/withdraw", withdrawn));
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertEquals("WITHDRAWN",
-                jdbc.queryForObject("select entry_status from competition_unit_entries where registration_id=?", String.class, withdrawn)));
+        Map<UUID, Integer> withdrawnLanes = new HashMap<>();
+        for (UUID registration : withdrawn) {
+            withdrawnLanes.put(registration, jdbc.queryForObject(
+                    "select lane_or_position from competition_unit_entries where registration_id=?", Integer.class, registration));
+            ok(post("/api/v1/registrations/{id}/withdraw", registration));
+            await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertEquals("WITHDRAWN",
+                    jdbc.queryForObject("select entry_status from competition_unit_entries where registration_id=?", String.class, registration)));
+        }
         var recalculated = ok(post("/api/v1/events/{id}/schedule/recalculate", f.event()));
-        assertTrue(StreamSupport.stream(recalculated.path("violations").spliterator(), false)
-                .anyMatch(v -> "PUBLISHED_HEAT_CHANGED".equals(v.path("code").asText()) && "WARNING".equals(v.path("severity").asText())));
+        assertWithdrawalWarnings(recalculated, discipline, withdrawnLanes);
         var validation = ok(get("/api/v1/event-disciplines/{id}/competition-units/validate", discipline));
-        assertTrue(StreamSupport.stream(validation.path("violations").spliterator(), false)
-                .anyMatch(v -> "PUBLISHED_HEAT_CHANGED".equals(v.path("code").asText()) && "WARNING".equals(v.path("severity").asText())));
+        assertWithdrawalWarnings(validation, discipline, withdrawnLanes);
         validation.path("violations").forEach(v -> assertNotEquals("ERROR", v.path("severity").asText()));
         assertEquals(before, lanes(discipline));
         assertTrue(jdbc.queryForObject("select exists(select 1 from rule_execution_logs where event_discipline_id=? and kind='VALIDATION' and violations_json @> '[{\"code\":\"PUBLISHED_HEAT_CHANGED\"}]'::jsonb)", Boolean.class, discipline));
+        for (UUID registration : withdrawn)
+            assertEquals(2, jdbc.queryForObject("select count(distinct kind) from rule_execution_logs where event_id=? and kind in ('SCHEDULE','VALIDATION') and violations_json @> ?::jsonb",
+                    Integer.class, f.event(), "[{\"registrationId\":\"" + registration + "\"}]"));
+        jdbc.update("update event_sessions set starts_at=starts_at+interval '1 minute' where event_id=?", f.event());
+        var shifted = ok(post("/api/v1/events/{id}/schedule/recalculate", f.event()));
+        var timeWarnings = StreamSupport.stream(shifted.path("violations").spliterator(), false)
+                .filter(v -> "PUBLISHED_HEAT_CHANGED".equals(v.path("code").asText()) && !v.hasNonNull("registrationId")).toList();
+        assertEquals(2, timeWarnings.size());
+        timeWarnings.forEach(v -> assertEquals("Опубликованный заплыв изменён при пересчёте", v.path("message").asText()));
+        assertEquals(2, StreamSupport.stream(shifted.path("violations").spliterator(), false)
+                .filter(v -> v.hasNonNull("registrationId")).count());
+    }
+
+    void assertWithdrawalWarnings(JsonNode response, UUID discipline, Map<UUID, Integer> withdrawnLanes) {
+        var warnings = StreamSupport.stream(response.path("violations").spliterator(), false)
+                .filter(v -> "PUBLISHED_HEAT_CHANGED".equals(v.path("code").asText())).toList();
+        assertEquals(withdrawnLanes.size(), warnings.size());
+        assertEquals(withdrawnLanes.keySet(), warnings.stream()
+                .map(v -> UUID.fromString(v.path("registrationId").asText())).collect(Collectors.toSet()));
+        for (var warning : warnings) {
+            UUID registration = UUID.fromString(warning.path("registrationId").asText());
+            assertEquals("WARNING", warning.path("severity").asText());
+            assertEquals(discipline.toString(), warning.path("eventDisciplineId").asText());
+            assertEquals(2, warning.path("heatNumber").asInt());
+            assertEquals("Опубликованный заплыв изменён: участник снят, дорожка " + withdrawnLanes.get(registration),
+                    warning.path("message").asText());
+        }
     }
 
     @ParameterizedTest

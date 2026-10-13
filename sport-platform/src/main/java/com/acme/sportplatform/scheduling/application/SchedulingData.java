@@ -241,6 +241,16 @@ class SchedulingData {
         return principal == null ? null : principal.getUserId();
     }
 
+    static List<Violation> publishedWithdrawalViolations(CompetitionUnitStore.Unit unit) {
+        if (!"PUBLISHED".equals(unit.status())) return List.of();
+        return unit.entries().stream()
+                .filter(entry -> "WITHDRAWN".equals(entry.status()))
+                .map(entry -> new Violation("PUBLISHED_HEAT_CHANGED", Violation.Severity.WARNING,
+                        "Опубликованный заплыв изменён: участник снят, дорожка " + entry.lane(),
+                        unit.disciplineId(), unit.number(), null, entry.registrationId()))
+                .toList();
+    }
+
     private JsonNode tree(String value) {
         try {
             return json.readTree(value == null ? "{}" : value);

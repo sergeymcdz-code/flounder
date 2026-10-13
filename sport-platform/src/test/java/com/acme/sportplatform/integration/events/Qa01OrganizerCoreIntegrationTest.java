@@ -112,13 +112,30 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"{\"lanes\":7}", "{\"lanes\":0}", "{\"lanes\":8.5}", "{\"lanes\":\"8\"}",
-            "{\"lanes\":null}", "{\"courseLength\":30}", "{\"courseLength\":25.5}", "{\"courseLength\":null}"})
+            "{\"courseLength\":30}", "{\"courseLength\":25.5}"})
     void rejectsInvalidPoolMetadata(String meta) throws Exception {
         // QA01-01: invalid pool settings must not be persisted.
         var error = call(post("/api/v1/venues"), UUID.randomUUID(), "ORGANIZER",
                 Map.of("name", "Бассейн", "timezone", "Europe/Moscow", "venueMeta", json.readTree(meta)), 400);
         assertEquals("organizations.invalid_venue_meta", error.path("code").asText());
-        assertTrue(error.path("message").asText().matches(".*[А-Яа-я].*"));
+        assertEquals(json.readTree(meta).has("lanes") ? "Число дорожек должно быть 6, 8 или 10"
+                : "Длина бассейна должна быть 25 или 50 м", error.path("message").asText());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"lanes\":null}", "{\"courseLength\":null}",
+            "{\"lanes\":null,\"courseLength\":50}", "{\"lanes\":8,\"courseLength\":null}"})
+    void nullPoolMetadataIsTreatedAsUnspecified(String meta) throws Exception {
+        UUID user = UUID.randomUUID();
+        var venue = call(post("/api/v1/venues"), user, "ORGANIZER",
+                Map.of("name", "Бассейн", "timezone", "Europe/Moscow", "venueMeta", json.readTree(meta)), 201);
+        var loaded = call(get("/api/v1/venues/{id}", venue.path("id").asText()), user, "ORGANIZER", null, 200);
+        for (String field : List.of("lanes", "courseLength")) {
+            var expected = json.readTree(meta).path(field);
+            if (expected.isNumber()) assertEquals(expected, loaded.path("venueMeta").path(field));
+            else assertTrue(loaded.path("venueMeta").path(field).isMissingNode()
+                    || loaded.path("venueMeta").path(field).isNull());
+        }
     }
 
     @ParameterizedTest
@@ -140,7 +157,7 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
         var body = eventBody(f);
         body.put("title", " ");
         var emptyTitle = call(post("/api/v1/events"), f.user(), "ORGANIZER", body, 400);
-        assertTrue(emptyTitle.path("violations").get(0).path("message").asText().matches(".*[А-Яа-я].*"));
+        assertEquals("Укажите название события", emptyTitle.path("violations").get(0).path("message").asText());
         body.put("title", "QA01");
         body.put("eventStartAt", "2026-02-30T10:00:00+03:00");
         call(post("/api/v1/events"), f.user(), "ORGANIZER", body, 400);
@@ -155,10 +172,15 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
         // QA01-03: business error messages are part of the Russian API contract.
         var f = fixture();
         UUID event = createEvent(f);
+        var transitionMessages = Map.of(
+                "publish", "Опубликовать можно только событие в статусе DRAFT",
+                "open-registration", "Открыть регистрацию можно только для события в статусе PUBLISHED",
+                "close-registration", "Закрыть регистрацию можно только для события в статусе REGISTRATION_OPEN",
+                "complete", "Завершить можно только событие в статусе LIVE или REGISTRATION_CLOSED");
         for (String action : List.of("open-registration", "close-registration", "complete")) {
             var rejected = call(post("/api/v1/events/{id}/{action}", event, action), f.user(), "ORGANIZER", null, 400);
             assertEquals("events.invalid_status_transition", rejected.path("code").asText());
-            assertTrue(rejected.path("message").asText().matches(".*[А-Яа-я].*"), rejected.toString());
+            assertEquals(transitionMessages.get(action), rejected.path("message").asText());
         }
         var discipline = call(post("/api/v1/events/{id}/disciplines", event), f.user(), "ORGANIZER",
                 Map.of("disciplineTemplateId", f.template(), "distanceM", 50, "stroke", "FREE", "gender", "M"), 200);
@@ -166,17 +188,17 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
         assertEquals("PUBLISHED", call(post("/api/v1/events/{id}/disciplines/{d}/publish", event, disciplineId), f.user(), "ORGANIZER", null, 200).path("status").asText());
         var repeated = call(post("/api/v1/events/{id}/disciplines/{d}/publish", event, disciplineId), f.user(), "ORGANIZER", null, 400);
         assertEquals("competition.discipline_not_draft", repeated.path("code").asText());
-        assertTrue(repeated.path("message").asText().matches(".*[А-Яа-я].*"));
+        assertEquals("Опубликовать можно только дисциплину в статусе DRAFT", repeated.path("message").asText());
         var foreign = call(post("/api/v1/events/{id}/disciplines/{d}/publish", createEvent(f), disciplineId), f.user(), "ORGANIZER", null, 400);
         assertEquals("competition.discipline_event_mismatch", foreign.path("code").asText());
-        assertTrue(foreign.path("message").asText().matches(".*[А-Яа-я].*"));
+        assertEquals("Дисциплина принадлежит другому событию", foreign.path("message").asText());
         String[] actions = {"publish", "open-registration", "close-registration", "complete"};
         String[] statuses = {"PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "COMPLETED"};
         for (int i = 0; i < actions.length; i++) {
             assertEquals(statuses[i], call(post("/api/v1/events/{id}/{action}", event, actions[i]), f.user(), "ORGANIZER", null, 200).path("status").asText());
             var invalid = call(post("/api/v1/events/{id}/{action}", event, actions[i]), f.user(), "ORGANIZER", null, 400);
             assertEquals("events.invalid_status_transition", invalid.path("code").asText());
-            assertTrue(invalid.path("message").asText().matches(".*[А-Яа-я].*"));
+            assertEquals(transitionMessages.get(actions[i]), invalid.path("message").asText());
         }
     }
 }

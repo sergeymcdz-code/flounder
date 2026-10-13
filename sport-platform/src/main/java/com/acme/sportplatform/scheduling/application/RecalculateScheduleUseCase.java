@@ -58,8 +58,8 @@ public class RecalculateScheduleUseCase {
                                 unit.number(),
                                 null,
                                 null));
-            if ("PUBLISHED".equals(unit.status()) && (!Objects.equals(unit.scheduledAt(), time)
-                    || unit.entries().stream().anyMatch(e -> "WITHDRAWN".equals(e.status()))))
+            violations.addAll(SchedulingData.publishedWithdrawalViolations(unit));
+            if ("PUBLISHED".equals(unit.status()) && !Objects.equals(unit.scheduledAt(), time))
                 violations.add(
                         new Violation(
                                 "PUBLISHED_HEAT_CHANGED",

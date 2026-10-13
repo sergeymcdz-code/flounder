@@ -35,11 +35,7 @@ public class ValidateUnitsUseCase {
         var violations = new ArrayList<>(
                 new SeedingValidator().validate(spec, pool, entries, heats, schedule, rules));
         for (var unit : stored)
-            if ("PUBLISHED".equals(unit.status())
-                    && unit.entries().stream().anyMatch(e -> "WITHDRAWN".equals(e.status())))
-                violations.add(new Violation("PUBLISHED_HEAT_CHANGED", Violation.Severity.WARNING,
-                        "Опубликованный заплыв изменён: участник снят", disciplineId,
-                        unit.number(), null, null));
+            violations.addAll(SchedulingData.publishedWithdrawalViolations(unit));
         var response = new ValidationResponse(violations);
         UUID runId =
                 logs.begin(
