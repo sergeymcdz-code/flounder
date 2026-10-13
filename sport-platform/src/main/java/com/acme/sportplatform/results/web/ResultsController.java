@@ -1,8 +1,6 @@
 package com.acme.sportplatform.results.web;
 
 import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.competition.EventDisciplineLookup;
-import com.acme.sportplatform.competition.EventDisciplineSummary;
 import com.acme.sportplatform.results.application.ResultsAccessService;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.results.api.AssignRegistrationRequest;
@@ -54,8 +52,6 @@ public class ResultsController {
             getPublicCompetitionUnitResultsUseCase;
     private final GetPublicDisciplineResultsUseCase
             getPublicDisciplineResultsUseCase;
-    private final EventDisciplineLookup eventDisciplineLookup;
-    private final com.acme.sportplatform.events.EventLookup eventLookup;
 
     private final ResultsAccessService resultsAccessService;
     private final com.acme.sportplatform.results.application.SwimResultsUseCase swim;
@@ -75,8 +71,6 @@ public class ResultsController {
                     getPublicCompetitionUnitResultsUseCase,
             GetPublicDisciplineResultsUseCase
                     getPublicDisciplineResultsUseCase,
-            EventDisciplineLookup eventDisciplineLookup,
-            com.acme.sportplatform.events.EventLookup eventLookup,
             ResultsAccessService resultsAccessService,
             com.acme.sportplatform.results.application.SwimResultsUseCase swim,
             com.fasterxml.jackson.databind.ObjectMapper json, jakarta.validation.Validator validator
@@ -95,8 +89,6 @@ public class ResultsController {
                 getPublicCompetitionUnitResultsUseCase;
         this.getPublicDisciplineResultsUseCase =
                 getPublicDisciplineResultsUseCase;
-        this.eventDisciplineLookup = eventDisciplineLookup;
-        this.eventLookup = eventLookup;
     }
 
     /**
@@ -157,10 +149,6 @@ public class ResultsController {
     public PublicCompetitionUnitResultsResponse getPublicResults(
             @PathVariable UUID unitId
     ) {
-        var unit = competitionUnitRepository.findById(unitId).orElseThrow(this::publicResultsNotFound);
-        var discipline = eventDisciplineLookup.findById(unit.getEventDisciplineId())
-                .orElseThrow(this::publicResultsNotFound);
-        assertPublicDiscipline(discipline);
         return getPublicCompetitionUnitResultsUseCase.execute(unitId);
     }
 
@@ -177,15 +165,6 @@ public class ResultsController {
             @PathVariable UUID eventId,
             @PathVariable UUID eventDisciplineId
     ) {
-        EventDisciplineSummary discipline = eventDisciplineLookup
-                .findById(eventDisciplineId)
-                .orElseThrow(this::publicResultsNotFound);
-
-        if (!eventId.equals(discipline.eventId())) {
-            throw publicResultsNotFound();
-        }
-        assertPublicDiscipline(discipline);
-
         return getPublicDisciplineResultsUseCase.execute(
                 eventId,
                 eventDisciplineId
@@ -387,18 +366,4 @@ public class ResultsController {
         return ResponseEntity.noContent().build();
     }
 
-    private void assertPublicDiscipline(EventDisciplineSummary discipline) {
-        var event = eventLookup.getById(discipline.eventId());
-        if (!java.util.Set.of("PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "LIVE", "COMPLETED")
-                .contains(event.status())) throw publicResultsNotFound();
-        if (eventDisciplineLookup.findPublishedByEventId(event.id()).stream()
-                .noneMatch(d -> d.id().equals(discipline.id()))) throw publicResultsNotFound();
-    }
-
-    private BusinessException publicResultsNotFound() {
-        return new BusinessException(
-                "results.public_not_found",
-                "Опубликованные результаты не найдены"
-        );
-    }
 }

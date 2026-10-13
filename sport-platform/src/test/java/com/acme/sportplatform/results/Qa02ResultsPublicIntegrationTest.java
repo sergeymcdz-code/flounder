@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -15,6 +16,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class Qa02ResultsPublicIntegrationTest extends Qa02ResultsFixture {
+    @org.springframework.beans.factory.annotation.Autowired
+    com.acme.sportplatform.results.application.GetPublicCompetitionUnitResultsUseCase publicUnitResults;
+    @org.springframework.beans.factory.annotation.Autowired
+    com.acme.sportplatform.results.application.GetPublicDisciplineResultsUseCase publicDisciplineResults;
+
     @ParameterizedTest
     @CsvSource({"OPERATOR,00:46.20,46200", "JUDGE,46.20,46200", "ORGANIZER,1:02:03.45,3723450"})
     void acceptedFormatsAndRolesPersistAndRank(String role, String time, long millis) throws Exception {
@@ -200,20 +206,25 @@ class Qa02ResultsPublicIntegrationTest extends Qa02ResultsFixture {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void qa02_05_equalOrNullScheduledTimesAdvanceInDisciplineOrder(boolean unscheduled) throws Exception {
-        UUID laterDiscipline = UUID.randomUUID(); addDiscipline(laterDiscipline, session, 2);
+    @CsvSource({"false,false", "true,false", "true,true"})
+    void qa02_05_equalOrNullScheduledTimesAdvanceInDisciplineOrder(boolean unscheduled, boolean crossSession) throws Exception {
+        UUID laterDiscipline = UUID.randomUUID();
+        addDiscipline(laterDiscipline, crossSession ? secondSession : session, crossSession ? 1 : 2);
         UUID later = heat(laterDiscipline, 1, unscheduled ? null : start.plusSeconds(90));
         if (unscheduled) jdbc.update("update competition_units set scheduled_at=null where id=?", second);
+        if (crossSession) jdbc.update("update competition_units set scheduled_at=null where id=?", first);
         state(first, "FINISHED");
-        var schedule = read("/schedule");
-        assertThat(schedule.get(1).path("heatNumber").asInt()).isEqualTo(2);
-        assertThat(schedule.get(2).path("heatNumber").asInt()).isEqualTo(1);
+        if (!crossSession) {
+            var schedule = read("/schedule");
+            assertThat(schedule.get(1).path("heatNumber").asInt()).isEqualTo(2);
+            assertThat(schedule.get(2).path("heatNumber").asInt()).isEqualTo(1);
+        }
         liveAction(second, "start");
         assertThat(liveAction(second, "finish").path("currentUnitId").asText()).isEqualTo(later.toString());
     }
 
     @Test
+    @Tag("slow")
     void publicLiveReallyExpiresWithinFifteenSecondsWithoutCacheClearing() throws Exception {
         mvc.perform(put("/api/v1/events/{id}/live", event).with(authentication(auth("JUDGE")))
                 .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(Map.of("currentUnitId", first))))
@@ -315,5 +326,73 @@ class Qa02ResultsPublicIntegrationTest extends Qa02ResultsFixture {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("results.public_not_found"))
                 .andExpect(jsonPath("$.message").value("Опубликованные результаты не найдены"));
+    }
+
+    private void publishResults() throws Exception {
+        UUID id = entry(first, 4, 2014);
+        liveAction(first, "start");
+        save(first, "JUDGE", List.of(timed(id, "46.20")), 200);
+        mvc.perform(post("/api/v1/competition-units/{id}/publication", first)
+                .with(authentication(auth("JUDGE"))).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"published\":true}")).andExpect(status().isNoContent());
+        clearCaches();
+    }
+
+    @Test
+    void qa02_07_publicationMakesValidatedResultsPublic() throws Exception {
+        publishResults();
+        assertThat(read("/results").at("/disciplines/0/overall")).hasSize(1);
+    }
+
+    @Test
+    void qa02_08_finishAfterPublicationIsIdempotent() throws Exception {
+        publishResults();
+        var currentUnitId = liveAction(first, "finish").path("currentUnitId");
+        assertThat(currentUnitId.asText()).isEqualTo(second.toString());
+        assertThat(liveAction(first, "finish").path("currentUnitId")).isEqualTo(currentUnitId);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DNS,DID_NOT_START", "DNF,DID_NOT_FINISH", "DSQ,DISQUALIFIED"})
+    void correctedTerminalOutcomeStaysVisibleOnLegacyUnitEndpoint(String code, String expectedStatus) throws Exception {
+        UUID id = entry(first, 4, 2014);
+        save(first, "JUDGE", List.of(timed(id, "46.20")), 200);
+        state(first, "FINISHED");
+        save(first, "OPERATOR", List.of(terminal(id, code)), 200);
+        em.flush(); em.clear();
+        mvc.perform(get("/api/v1/public/competition-units/{id}/results", first))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entries[0].resultStatus").value(expectedStatus))
+                .andExpect(jsonPath("$.entries[0].rawValue").value(expectedStatus))
+                .andExpect(jsonPath("$.entries[0].finalPlace").doesNotExist());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void directPublicUseCasesHideDraftParents(boolean draftEvent) throws Exception {
+        UUID id = entry(first, 4, 2014);
+        save(first, "JUDGE", List.of(timed(id, "46.20")), 200);
+        state(first, "FINISHED");
+        if (draftEvent) jdbc.update("update events set status='DRAFT' where id=?", event);
+        else jdbc.update("update event_disciplines set status='DRAFT' where id=?", discipline);
+        em.clear();
+        var unitError = org.junit.jupiter.api.Assertions.assertThrows(
+                com.acme.sportplatform.common.exception.BusinessException.class, () -> publicUnitResults.execute(first));
+        var disciplineError = org.junit.jupiter.api.Assertions.assertThrows(
+                com.acme.sportplatform.common.exception.BusinessException.class, () -> publicDisciplineResults.execute(event, discipline));
+        assertThat(unitError.getCode()).isEqualTo("results.public_not_found");
+        assertThat(disciplineError.getCode()).isEqualTo("results.public_not_found");
+    }
+
+    @Test
+    void timedCorrectionKeepsCorrectedStatusOnLegacyUnitEndpoint() throws Exception {
+        UUID id = entry(first, 4, 2014);
+        save(first, "JUDGE", List.of(timed(id, "46.20")), 200);
+        state(first, "FINISHED");
+        save(first, "OPERATOR", List.of(timed(id, "45.00")), 200);
+        em.flush(); em.clear();
+        mvc.perform(get("/api/v1/public/competition-units/{id}/results", first))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.entries[0].resultStatus").value("CORRECTED"))
+                .andExpect(jsonPath("$.entries[0].rawValue").value("00:45.00"));
     }
 }

@@ -13,6 +13,12 @@ public record EventLookupResult(
         UUID createdByUserId,
         String settingsJson,
         String publicSlug) {
+    public boolean isPublic() {
+        return status != null && java.util.Set.of(
+                "PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "LIVE", "COMPLETED")
+                .contains(status);
+    }
+
     public EventLookupResult(UUID id, UUID sportId, String status,
             java.time.OffsetDateTime registrationOpenAt, java.time.OffsetDateTime registrationCloseAt,
             java.util.List<EventSessionView> sessions, UUID venueId, UUID createdByUserId, String settingsJson) {

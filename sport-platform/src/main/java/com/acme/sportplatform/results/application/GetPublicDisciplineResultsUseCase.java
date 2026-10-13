@@ -1,5 +1,8 @@
 package com.acme.sportplatform.results.application;
 
+import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.competition.EventDisciplineLookup;
+import com.acme.sportplatform.events.EventLookup;
 import com.acme.sportplatform.registrations.RegistrationLookup;
 import com.acme.sportplatform.registrations.RegistrationLookupResult;
 import com.acme.sportplatform.results.api.PublicDisciplineResultsResponse;
@@ -30,19 +33,25 @@ public class GetPublicDisciplineResultsUseCase {
     private final ResultRepository resultRepository;
     private final RegistrationLookup registrationLookup;
     private final ObjectMapper objectMapper;
+    private final EventLookup eventLookup;
+    private final EventDisciplineLookup eventDisciplineLookup;
 
     public GetPublicDisciplineResultsUseCase(
             CompetitionUnitRepository competitionUnitRepository,
             CompetitionUnitEntryRepository entryRepository,
             ResultRepository resultRepository,
             RegistrationLookup registrationLookup,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            EventLookup eventLookup,
+            EventDisciplineLookup eventDisciplineLookup
     ) {
         this.competitionUnitRepository = competitionUnitRepository;
         this.entryRepository = entryRepository;
         this.resultRepository = resultRepository;
         this.registrationLookup = registrationLookup;
         this.objectMapper = objectMapper;
+        this.eventLookup = eventLookup;
+        this.eventDisciplineLookup = eventDisciplineLookup;
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +59,7 @@ public class GetPublicDisciplineResultsUseCase {
             UUID eventId,
             UUID eventDisciplineId
     ) {
+        assertPublicDiscipline(eventId, eventDisciplineId);
         List<CompetitionUnitEntity> units = competitionUnitRepository
                 .findByEventDisciplineIdAndStatusInOrderBySequenceNumberAsc(
                         eventDisciplineId,
@@ -120,6 +130,18 @@ public class GetPublicDisciplineResultsUseCase {
                 eventDisciplineId,
                 unitViews
         );
+    }
+
+    private void assertPublicDiscipline(UUID eventId, UUID disciplineId) {
+        var discipline = eventDisciplineLookup.findById(disciplineId).orElseThrow(this::publicNotFound);
+        if (!eventId.equals(discipline.eventId())) throw publicNotFound();
+        var event = eventLookup.getById(eventId);
+        if (!event.isPublic() || eventDisciplineLookup.findPublishedByEventId(eventId).stream()
+                .noneMatch(d -> d.id().equals(disciplineId))) throw publicNotFound();
+    }
+
+    private BusinessException publicNotFound() {
+        return new BusinessException("results.public_not_found", "Опубликованные результаты не найдены");
     }
 
     private PublicDisciplineResultsResponse.UnitView toUnitView(
