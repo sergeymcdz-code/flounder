@@ -10,7 +10,7 @@ import com.acme.sportplatform.events.*;
 import com.acme.sportplatform.organizations.VenueLookup;
 import com.acme.sportplatform.registrations.RegistrationLookup;
 import com.acme.sportplatform.results.CompetitionUnitStore;
-import com.acme.sportplatform.scheduling.infrastructure.RuleExecutionLog;
+import com.acme.sportplatform.results.RuleExecutionLog;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ class SchedulingReadTest {
         when(result.stroke()).thenReturn("FREE");
         when(result.gender()).thenReturn("M");
         when(result.code()).thenReturn("50m");
-        when(result.ageGroupsJson()).thenReturn("[]");
+        when(result.ageGroups()).thenReturn(List.of());
         when(result.settingsJson()).thenReturn("{}");
         when(result.seedingMode()).thenReturn("BY_TIME_ALL");
         return result;
@@ -62,7 +62,10 @@ class SchedulingReadTest {
         when(disciplines.getForScheduling(disciplineId)).thenReturn(discipline);
         when(disciplines.findForSchedulingByEventId(eventId)).thenReturn(List.of(discipline));
         when(events.getById(eventId))
-                .thenReturn(new EventLookupResult(eventId, null, "DRAFT", venueId, null, "{}"));
+                .thenReturn(
+                        new EventLookupResult(
+                                eventId, null, "DRAFT", null, null, List.of(), venueId, null,
+                                "{}"));
         when(venues.getMetadata(venueId)).thenReturn("{\"lanes\":8}");
         var result = new ValidateUnitsUseCase(data, logs).execute(disciplineId, null);
         assertTrue(result.violations().isEmpty());

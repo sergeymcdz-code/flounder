@@ -1,12 +1,12 @@
 package com.acme.sportplatform.scheduling.application;
 
 import com.acme.sportplatform.competition.EventDisciplineLookupResult;
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.results.CompetitionUnitStore;
+import com.acme.sportplatform.results.RuleExecutionLog;
 import com.acme.sportplatform.scheduling.api.*;
 import com.acme.sportplatform.scheduling.domain.*;
-import com.acme.sportplatform.scheduling.infrastructure.RuleExecutionLog;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +30,7 @@ public class GenerateCompetitionUnitsUseCase {
             UUID disciplineId,
             boolean force,
             boolean circleSeedTopHeats,
-            Authentication principal) {
+            AuthenticatedUserPrincipal principal) {
         Draft draft = prepare(data.discipline(disciplineId), force, circleSeedTopHeats, principal);
         var schedule = recalculate.execute(draft.eventId(), principal);
         return complete(draft, schedule.violations());
@@ -50,7 +50,7 @@ public class GenerateCompetitionUnitsUseCase {
             EventDisciplineLookupResult discipline,
             boolean force,
             boolean circleSeedTopHeats,
-            Authentication principal) {
+            AuthenticatedUserPrincipal principal) {
         UUID disciplineId = discipline.id();
         data.access.assertCanManage(discipline.eventId(), principal);
         data.locks.lockForUpdate(discipline.eventId());

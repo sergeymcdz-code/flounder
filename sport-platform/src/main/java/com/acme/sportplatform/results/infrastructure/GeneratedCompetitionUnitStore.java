@@ -74,7 +74,7 @@ select exists(select 1 from results r
                         .anyMatch(u -> !Set.of("DRAFT", "PUBLISHED").contains(u.status())))
             throw new BusinessException(
                     "scheduling.active_units_exist",
-                    "Есть заплывы с результатами, пересоздание невозможно");
+                    "Есть заплывы с результатами или уже проводившиеся заплывы, пересоздание невозможно");
         if (!force && existing.stream().anyMatch(u -> "PUBLISHED".equals(u.status())))
             throw new BusinessException(
                     "scheduling.published_units_exist",

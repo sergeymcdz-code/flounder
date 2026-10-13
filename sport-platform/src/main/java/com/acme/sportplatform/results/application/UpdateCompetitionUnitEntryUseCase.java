@@ -10,7 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.Authentication;
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +44,7 @@ public class UpdateCompetitionUnitEntryUseCase {
     }
 
     @Transactional
-    public void execute(UUID id, int lane, Authentication principal) {
+    public void execute(UUID id, int lane, AuthenticatedUserPrincipal principal) {
         var rows =
                 jdbc.query(
                         """

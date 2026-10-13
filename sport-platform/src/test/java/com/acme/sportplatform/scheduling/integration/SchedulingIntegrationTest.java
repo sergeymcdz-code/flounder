@@ -19,7 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -133,7 +133,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     @Test
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void generateRepeatValidateSchedulePublishWithdraw() throws Exception {
         Fixture f = fixture(17, 20);
         var first = ok(post("/api/v1/events/{id}/generate-competition-units", f.event()));
@@ -142,7 +142,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                 1,
                 jdbc.queryForObject(
                         "select count(*) from rule_execution_logs where event_id=? and"
-                            + " kind='SCHEDULE'",
+                                + " kind='SCHEDULE'",
                         Integer.class,
                         f.event()));
         for (JsonNode item : first.path("disciplines")) {
@@ -236,7 +236,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                         patch("/api/v1/registrations/{id}", withdrawn)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"status\":\"WITHDRAWN\"}"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
         await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(
                         () ->
@@ -287,7 +287,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     @Test
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void manualLaneConflictAndValidationBlockPublication() throws Exception {
         var f = fixture(17);
         UUID discipline = f.disciplines().getFirst();
@@ -335,7 +335,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     @Test
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void noSessionAndPublishedScheduleChangeAndDraftWithdrawal() throws Exception {
         var f = fixture(9);
         UUID discipline = f.disciplines().getFirst();
@@ -350,7 +350,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                         patch("/api/v1/registrations/{id}", withdrawn)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"status\":\"WITHDRAWN\"}"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
         await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(
                         () ->
@@ -391,7 +391,18 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     RequestPostProcessor principal(UUID userId, String role) {
-        AuthenticatedUserPrincipal user = () -> userId;
+        AuthenticatedUserPrincipal user =
+                new AuthenticatedUserPrincipal() {
+                    public UUID getUserId() {
+                        return userId;
+                    }
+
+                    public java.util.Collection<
+                                    ? extends org.springframework.security.core.GrantedAuthority>
+                            getAuthorities() {
+                        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                    }
+                };
         return authentication(
                 new UsernamePasswordAuthenticationToken(
                         user, "", List.of(new SimpleGrantedAuthority("ROLE_" + role))));
@@ -454,7 +465,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     @Test
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void eventOperationsAreAtomicAndDatabasePerformanceIsWithinBudget() throws Exception {
         var f = fixture(200, 200, 200, 200);
         var generated = ok(post("/api/v1/events/{id}/generate-competition-units", f.event()));
@@ -531,12 +542,12 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                         "select organization_id from events where id=?", UUID.class, f.event());
         jdbc.update(
                 "insert into organizations(id,type,name,created_at,updated_at)"
-                    + " values(?,'ORGANIZER','Judge membership test',now(),now())",
+                        + " values(?,'ORGANIZER','Judge membership test',now(),now())",
                 organization);
         jdbc.update(
                 "insert into"
-                    + " organization_members(id,organization_id,user_id,member_role,created_at)"
-                    + " values(?,?,?,'JUDGE',now())",
+                        + " organization_members(id,organization_id,user_id,member_role,created_at)"
+                        + " values(?,?,?,'JUDGE',now())",
                 UUID.randomUUID(),
                 organization,
                 OWNER);
@@ -569,7 +580,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
 
     @ParameterizedTest
     @ValueSource(strings = {"DRAFT", "PUBLISHED"})
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void forceRegenerationPreservesRecordedResults(String unitStatus) throws Exception {
         var f = fixture(3);
         UUID discipline = f.disciplines().getFirst();
@@ -582,7 +593,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
         UUID entry =
                 jdbc.queryForObject(
                         "select e.id from competition_unit_entries e where competition_unit_id=?"
-                            + " limit 1",
+                                + " limit 1",
                         UUID.class,
                         units.getFirst());
         UUID result = UUID.randomUUID();
@@ -606,7 +617,9 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                 .andExpect(jsonPath("$.code").value("scheduling.active_units_exist"))
                 .andExpect(
                         jsonPath("$.message")
-                                .value("Есть заплывы с результатами, пересоздание невозможно"));
+                                .value(
+                                        "Есть заплывы с результатами или уже проводившиеся заплывы,"
+                                            + " пересоздание невозможно"));
         assertEquals(
                 30000L,
                 jdbc.queryForObject("select time_ms from results where id=?", Long.class, result));
@@ -632,7 +645,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
 
     @ParameterizedTest
     @ValueSource(strings = {"IN_PROGRESS", "COMPLETED", "FINISHED"})
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void forceRegenerationNeverRebuildsActiveOrFinishedUnits(String unitStatus) throws Exception {
         var f = fixture(3);
         UUID discipline = f.disciplines().getFirst();
@@ -658,7 +671,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     @Test
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void eventSkipsEveryMissingSwimmingFieldAndKeepsExistingUnits() throws Exception {
         var f = fixture(3, 3, 3, 3);
         UUID configured = f.disciplines().getFirst();
@@ -681,13 +694,13 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
         int scheduleRuns =
                 jdbc.queryForObject(
                         "select count(*) from rule_execution_logs where event_id=? and"
-                            + " kind='SCHEDULE'",
+                                + " kind='SCHEDULE'",
                         Integer.class,
                         f.event());
         int seedRuns =
                 jdbc.queryForObject(
                         "select count(*) from rule_execution_logs where event_id=? and"
-                            + " kind='SEEDING'",
+                                + " kind='SEEDING'",
                         Integer.class,
                         f.event());
         var response = ok(post("/api/v1/events/{id}/generate-competition-units", f.event()));
@@ -726,26 +739,26 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                 scheduleRuns + 1,
                 jdbc.queryForObject(
                         "select count(*) from rule_execution_logs where event_id=? and"
-                            + " kind='SCHEDULE'",
+                                + " kind='SCHEDULE'",
                         Integer.class,
                         f.event()));
         assertEquals(
                 seedRuns + 1,
                 jdbc.queryForObject(
                         "select count(*) from rule_execution_logs where event_id=? and"
-                            + " kind='SEEDING'",
+                                + " kind='SEEDING'",
                         Integer.class,
                         f.event()));
     }
 
     @Test
-    @WithMockUser(roles = "PLATFORM_ADMIN")
+    @WithUserDetails("admin@flounder.demo")
     void cityFallbackAndVenueLaneLimit() throws Exception {
         var f = fixture(3);
         UUID discipline = f.disciplines().getFirst();
         jdbc.update(
                 "update registrations set participant_snapshot=(participant_snapshot-'clubName') ||"
-                    + " '{\"city\":\"Самара\"}'::jsonb where id=?",
+                        + " '{\"city\":\"Самара\"}'::jsonb where id=?",
                 f.registrations().getFirst());
         var response =
                 ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
@@ -790,7 +803,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                 .andExpect(status().isNoContent());
         jdbc.update(
                 "update venues set venue_meta='{\"lanes\":6}'::jsonb where id=(select venue_id from"
-                    + " events where id=?)",
+                        + " events where id=?)",
                 f.event());
         mvc.perform(
                         patch("/api/v1/competition-unit-entries/{id}", entry)
@@ -803,5 +816,58 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"laneOrPosition\":6}"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void organizationMemberCanManageEventThroughT01AccessPolicy() throws Exception {
+        var f = fixture(3);
+        UUID organization =
+                jdbc.queryForObject(
+                        "select organization_id from events where id=?", UUID.class, f.event());
+        UUID member = UUID.randomUUID();
+        jdbc.update(
+                "insert into organizations(id,type,name,created_at,updated_at)"
+                    + " values(?,'ORGANIZER','Member scheduling test',now(),now())",
+                organization);
+        jdbc.update(
+                "insert into users(id,email,password_hash,status)"
+                    + " values(?,?,'test-unused','active')",
+                member,
+                member + "@example.test");
+        jdbc.update(
+                "insert into"
+                    + " organization_members(id,organization_id,user_id,member_role,created_at)"
+                    + " values(?,?,?,'OPERATOR',now())",
+                UUID.randomUUID(),
+                organization,
+                member);
+        UUID discipline = f.disciplines().getFirst();
+        ok(
+                post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline)
+                        .with(principal(member, "OPERATOR")));
+        ok(
+                post("/api/v1/event-disciplines/{id}/competition-units/publish", discipline)
+                        .with(principal(member, "OPERATOR")));
+        mvc.perform(
+                        post(
+                                        "/api/v1/event-disciplines/{id}/generate-competition-units",
+                                        discipline)
+                                .with(principal(UUID.randomUUID())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("events.access_denied"));
+        mvc.perform(
+                        post("/api/v1/registrations/{id}/withdraw", f.registrations().getFirst())
+                                .with(principal(member, "OPERATOR")))
+                .andExpect(status().isOk());
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(
+                        () ->
+                                assertEquals(
+                                        "WITHDRAWN",
+                                        jdbc.queryForObject(
+                                                "select entry_status from competition_unit_entries"
+                                                    + " where registration_id=?",
+                                                String.class,
+                                                f.registrations().getFirst())));
     }
 }

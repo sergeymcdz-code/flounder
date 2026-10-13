@@ -366,7 +366,7 @@ public class ResultsController {
     @org.springframework.web.bind.annotation.PatchMapping("/competition-unit-entries/{id}")
     public ResponseEntity<Void> updateEntry(@PathVariable UUID id,
             @Valid @RequestBody com.acme.sportplatform.results.api.UpdateCompetitionUnitEntryRequest request,
-            org.springframework.security.core.Authentication principal) {
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         updateEntry.execute(id, request.laneOrPosition(), principal);
         return ResponseEntity.noContent().build();
     }

@@ -41,7 +41,7 @@ public class EventLookupService implements EventLookup {
         return new EventLookupResult(
                 event.getId(),
                 event.getSportId(),
-                event.getStatus(), event.getRegistrationOpenAt(), event.getRegistrationCloseAt(), sessions.views(eventId)
+                event.getStatus(), event.getRegistrationOpenAt(), event.getRegistrationCloseAt(), sessions.views(eventId), event.getVenueId(), event.getCreatedByUserId(), event.getSettingsJson()
         );
     }
 }

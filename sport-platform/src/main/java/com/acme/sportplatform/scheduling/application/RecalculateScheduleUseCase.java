@@ -1,11 +1,11 @@
 package com.acme.sportplatform.scheduling.application;
 
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.results.CompetitionUnitStore;
+import com.acme.sportplatform.results.RuleExecutionLog;
 import com.acme.sportplatform.scheduling.api.ScheduleResponse;
 import com.acme.sportplatform.scheduling.domain.*;
-import com.acme.sportplatform.scheduling.infrastructure.RuleExecutionLog;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +22,7 @@ public class RecalculateScheduleUseCase {
     }
 
     @Transactional
-    public ScheduleResponse execute(UUID eventId, Authentication principal) {
+    public ScheduleResponse execute(UUID eventId, AuthenticatedUserPrincipal principal) {
         data.access.assertCanManage(eventId, principal);
         data.locks.lockForUpdate(eventId);
         long start = System.nanoTime();

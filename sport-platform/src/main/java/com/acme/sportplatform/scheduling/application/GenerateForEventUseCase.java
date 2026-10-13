@@ -1,10 +1,10 @@
 package com.acme.sportplatform.scheduling.application;
 
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.scheduling.api.EventGenerationResponse;
 import com.acme.sportplatform.scheduling.api.GenerationResponse;
 import com.acme.sportplatform.scheduling.domain.Violation;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +27,10 @@ public class GenerateForEventUseCase {
 
     @Transactional
     public EventGenerationResponse execute(
-            UUID eventId, boolean force, boolean circleSeedTopHeats, Authentication principal) {
+            UUID eventId,
+            boolean force,
+            boolean circleSeedTopHeats,
+            AuthenticatedUserPrincipal principal) {
         data.access.assertCanManage(eventId, principal);
         data.locks.lockForUpdate(eventId);
         long start = System.nanoTime();

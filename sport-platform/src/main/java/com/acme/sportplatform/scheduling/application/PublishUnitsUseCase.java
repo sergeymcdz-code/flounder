@@ -1,10 +1,10 @@
 package com.acme.sportplatform.scheduling.application;
 
 import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.scheduling.api.ValidationResponse;
 import com.acme.sportplatform.scheduling.domain.Violation;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +20,9 @@ public class PublishUnitsUseCase {
         this.validate = validate;
     }
 
-    @Transactional(noRollbackFor = BusinessException.class)
-    public ValidationResponse forDiscipline(UUID disciplineId, Authentication principal) {
+    @Transactional(noRollbackFor = ValidationFailedException.class)
+    public ValidationResponse forDiscipline(
+            UUID disciplineId, AuthenticatedUserPrincipal principal) {
         var discipline = data.discipline(disciplineId);
         data.access.assertCanManage(discipline.eventId(), principal);
         data.locks.lockForUpdate(discipline.eventId());
@@ -31,8 +32,8 @@ public class PublishUnitsUseCase {
         return result;
     }
 
-    @Transactional(noRollbackFor = BusinessException.class)
-    public ValidationResponse forEvent(UUID eventId, Authentication principal) {
+    @Transactional(noRollbackFor = ValidationFailedException.class)
+    public ValidationResponse forEvent(UUID eventId, AuthenticatedUserPrincipal principal) {
         data.access.assertCanManage(eventId, principal);
         data.locks.lockForUpdate(eventId);
         var disciplines = data.disciplines(eventId);
@@ -46,9 +47,16 @@ public class PublishUnitsUseCase {
 
     private void assertValid(List<Violation> violations) {
         if (violations.stream().anyMatch(v -> v.severity() == Violation.Severity.ERROR))
-            throw new BusinessException(
+            throw new ValidationFailedException(violations);
+    }
+
+    // Only validation rejection commits the audit log; access and other failures roll back.
+    private static final class ValidationFailedException extends BusinessException {
+        ValidationFailedException(List<Violation> violations) {
+            super(
                     "scheduling.validation_failed",
                     "Публикация невозможна: найдены ошибки в заплывах",
                     violations);
+        }
     }
 }

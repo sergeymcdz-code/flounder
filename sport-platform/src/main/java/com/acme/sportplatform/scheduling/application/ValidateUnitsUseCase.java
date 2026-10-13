@@ -1,10 +1,10 @@
 package com.acme.sportplatform.scheduling.application;
 
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
+import com.acme.sportplatform.results.RuleExecutionLog;
 import com.acme.sportplatform.scheduling.api.ValidationResponse;
 import com.acme.sportplatform.scheduling.domain.*;
-import com.acme.sportplatform.scheduling.infrastructure.RuleExecutionLog;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +21,7 @@ public class ValidateUnitsUseCase {
     }
 
     @Transactional
-    public ValidationResponse execute(UUID disciplineId, Authentication principal) {
+    public ValidationResponse execute(UUID disciplineId, AuthenticatedUserPrincipal principal) {
         var discipline = data.discipline(disciplineId);
         data.access.assertCanManage(discipline.eventId(), principal);
         long start = System.nanoTime();

@@ -64,6 +64,17 @@ public class RuleExecutionLogEntity {
         executedAt = OffsetDateTime.now();
     }
 
+    public RuleExecutionLogEntity(UUID id, UUID eventId, UUID disciplineId, String kind, UUID userId,
+            JsonNode input, JsonNode output, JsonNode violations, int durationMs) {
+        this.id=id;this.eventId=eventId;this.eventDisciplineId=disciplineId;this.kind=kind;
+        this.executedBy=userId;this.inputJson=input;this.outputJson=output;this.violationsJson=violations;
+        this.durationMs=durationMs;this.executedAt=OffsetDateTime.now();
+    }
+
+    public void complete(JsonNode output,JsonNode violations,int durationMs) {
+        this.outputJson=output;this.violationsJson=violations;this.durationMs=durationMs;
+    }
+
     public JsonNode getInputJson() {
         return inputJson;
     }

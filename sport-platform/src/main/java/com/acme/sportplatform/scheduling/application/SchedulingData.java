@@ -11,7 +11,6 @@ import com.acme.sportplatform.scheduling.domain.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -83,7 +82,7 @@ class SchedulingData {
                     "scheduling.discipline_not_configured",
                     "Укажите дистанцию, стиль и пол дисциплины перед посевом");
         List<AgeGroupSpec> groups = new ArrayList<>();
-        JsonNode ageGroups = tree(d.ageGroupsJson());
+        JsonNode ageGroups = json.valueToTree(d.ageGroups());
         if (!ageGroups.isArray())
             throw new BusinessException(
                     "scheduling.invalid_age_groups", "Возрастные группы должны быть массивом");
@@ -238,11 +237,8 @@ class SchedulingData {
         return out;
     }
 
-    static UUID userId(Authentication principal) {
-        return principal != null
-                        && principal.getPrincipal() instanceof AuthenticatedUserPrincipal user
-                ? user.getUserId()
-                : null;
+    static UUID userId(AuthenticatedUserPrincipal principal) {
+        return principal == null ? null : principal.getUserId();
     }
 
     private JsonNode tree(String value) {
