@@ -1,0 +1,32 @@
+# Четвёртое ревью PR #7 · feat/T05-excel-import · 13.10.2026
+
+**Вердикт: слить.** Ветка перебазирована на актуальный `main` (`647dd9d`, после слияния T02/T04/T10), оба ожидавшихся конфликта в `EventLookupResult`/`EventLookupService` разрешены объединением полей с сохранением обратно совместимых конструкторов, лишняя зависимость `organizations` убрана, логика импорта с третьего ревью не менялась, CI зелёный (backend `mvn -B test` + frontend), `mergeable_state = clean`. Обязательных правок нет.
+
+Проверялся коммит `f895e69` («fix(imports): preserve event lookup compatibility with scheduling»), голова PR #7 (`head.sha` совпадает, `mergeable=true`, `mergeable_state=clean`). Сборка в контейнере ревьюера недоступна — проверка чтением `git diff origin/main..f895e69` (32 файла, +1662/−11), `git diff cf63879..f895e69` по файлам PR и полных файлов на `f895e69`; CI: run 38389880700, job `backend` (`mvn -B test`, ubuntu-runner с Docker, т.е. с Testcontainers) и `frontend` — оба `success`. Предыдущее ревью: `docs/reviews/T05-review-3.md` (коммит `cf63879`, «слить» с условием повторного ребейза после T02).
+
+## Таблица проверки
+
+| № | Пункт | Статус | Где / как проверено |
+|---|---|---|---|
+| 1 | Ветка поверх `origin/main`, merge-tree чистый, PR mergeable | ок | `git merge-base --is-ancestor origin/main f895e69` — да (`main` = `647dd9d`); `git log origin/main..f895e69` — ровно 4 коммита T05 (`42247f8`, `64b9b61`, `44e6f79`, `f895e69`); `git merge-tree --write-tree origin/main f895e69` — без конфликтов; `gh api pulls/7` → `mergeable=true`, `mergeable_state=clean` |
+| 2 | `EventLookupResult` объединяет поля T02 и `publicSlug` | ок | `events/EventLookupResult.java` на `f895e69` — record с десятью компонентами `(id, sportId, status, registrationOpenAt, registrationCloseAt, sessions, venueId, createdByUserId, settingsJson, publicSlug)`; в `main` — девять без `publicSlug` |
+| 3 | Обратно совместимые конструкторы сохранены | ок | 9-арг. конструктор (поля T02, `publicSlug = null`) и 6-арг. конструктор T02 (`venueId/createdByUserId = null`, `settingsJson = "{}"`, через 9-арг. → `publicSlug = null`). Новый `events/EventLookupResultTest` (2 теста) проверяет оба: все девять полей и `publicSlug() == null`, дефолты 6-арг. варианта |
+| 4 | Все вызовы конструктора обновлены | ок | `git grep "EventLookupResult("` на `f895e69`: единственный продуктивный вызов `EventLookupService.getById:41-46` передаёт десять аргументов, включая `event.getPublicSlug()` (getter есть в `EventEntity:172`); `scheduling/application/SchedulingReadTest:66` переведён на 10 аргументов (`"scheduling-read-test"`); `EventLookupResultTest` использует 9- и 6-арг. обёртки. Других `new EventLookupResult(` в `main`/ветке нет; `EventLookup` — только `accessibleEventIds` и `getById`, отдельного `getPublicSlug`/`isCreatedBy` нет |
+| 5 | `organizations` убран из `allowedDependencies` | ок | `imports/package-info.java`: `{events, competition, registrations, identity, common, common::exception}`; `git grep organizations` по `imports/` — пусто. `ModulithArchitectureTest` входит в зелёный `mvn -B test` |
+| 6 | Регрессии относительно `cf63879` | нет | `git diff cf63879 f895e69 -- <файлы PR>` — только 6 файлов: `GlobalExceptionHandler` (+2 `case` — это правки T02 из `main`, собственный diff PR к `main` по этому файлу по-прежнему два `@ExceptionHandler` multipart), `EventLookupResult` (+18/−1), `EventLookupService` (4 строки), `imports/package-info` (1 строка), новые `EventLookupResultTest`, `SchedulingReadTest` (1 строка). Модуль `imports` (main + test), `identity/ProfileLookupService`/`ProfileLookupResult`, `registrations/RegistrationImportLookup*`, `RegistrationRepository`, `pom.xml`, V027, ADR, `set-M*.xlsx` — байт-в-байт как на `cf63879`. Остальной diff `cf63879..f895e69` (123 файла) — содержимое `main` (T02/T04/T10), не изменения PR |
+| 7 | Миграции | ок | в diff PR только `V027__active_registration_uniqueness.sql` (без изменений); `main` заканчивается на `V026__event_live_state.sql` — нумерация непрерывна, существующие миграции не тронуты |
+| 8 | Тест набора M сохранён | ок | `ExcelImportIntegrationTest.importsDemoMInTenSecondsAndReportsExactlyThreeErrorsOnReload:66-102` не менялся с `cf63879` (`set-M.xlsx` → 200/120, ≤ 10 с; `set-M-with-errors.xlsx` → ошибки ровно в строках 202–204); 28 `@Test/@ParameterizedTest` в `imports/` как в третьем ревью; удалённых тестов в diff `origin/main..f895e69` нет (0 строк `-@Test`) |
+| 9 | Область PR | ок | `docs/` — только ADR `2026-10-12-повторная-заявка-после-снятия.md` (из второго ревью); `tasks/` и `frontend/` не тронуты |
+| 10 | Описание PR | ок | Описание обновлено: указан ребейз на `647dd9d`, объединение `EventLookupResult` с конструкторами на 6 и 9 аргументов, удаление `organizations` из `allowedDependencies`, перевод сообщений 401/403 в `RestAuthenticationEntryPoint`/`RestAccessDeniedHandler` (замечание №3 третьего ревью), результат `mvn -q test` — 225 тестов, 0 падений; набор M за 785 мс. Эндпоинты, шаги ручной проверки, «что не сделано» — на месте |
+| 11 | CI зелёный | ок | check-runs для `f895e69`: `backend completed success`, `frontend completed success` (run 38389880700; backend 2 мин 15 с, шаг `Run mvn -B test` ✓). Дождался завершения backend-джоба в ходе ревью |
+
+## Остаток (не блокирует слияние)
+
+1. Два глобальных `@ExceptionHandler` в `GlobalExceptionHandler` (`MaxUploadSizeExceededException` → 413 `imports.file_too_large`, `MissingServletRequestPartException` → 400 `imports.missing_file`) по-прежнему несут коды и тексты `imports.*`; при появлении второй multipart-загрузки код/текст придётся обобщить (`common.file_too_large`, лимит из настройки). Перенесено из третьего ревью.
+2. `ExcelImportService.execute:47` — проверка `file.getSize() > MAX_FILE_SIZE` недостижима при `max-file-size: 5MB` в `application.yml`; безвредна как защита при изменении конфигурации. Перенесено из третьего ревью.
+3. `EventLookupResult` теперь имеет три конструктора; 6-арг. обёртка используется только тестами. После слияния всех веток demo-периода можно оставить один основной конструктор и обновить тесты — отдельной задачей, не в этом PR.
+4. Замечания №1 (`organizations`), №3 (упоминание 401/403 в PR) и №4 (совместимый конструктор `EventLookupResult`) третьего ревью закрыты этим коммитом.
+
+## Текст для Codex
+
+Правок по PR #7 не требуется — ветка сливается в текущем виде (`f895e69`). После слияния `feat/T05-excel-import` в `main` остальные открытые ветки, использующие `EventLookupResult`, при ребейзе получат совместимые 6- и 9-арг. конструкторы и не потребуют правок.
