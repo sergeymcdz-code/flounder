@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 export default function setup() {
@@ -8,8 +8,10 @@ export default function setup() {
     throw new Error('QA07 создаёт тестовые данные только на локальном backend.')
   }
   const directory = resolve('../../scripts/demo')
+  const cli = resolve(directory, 'node_modules/tsx/dist/cli.mjs')
+  if (!existsSync(cli)) throw new Error('Не установлены зависимости сида: выполните cd scripts/demo && npm ci из корня репозитория.')
   const suffix = ` · QA07 ${new Date().toISOString()}`
-  const output = execFileSync(process.execPath, [resolve(directory, 'node_modules/tsx/dist/cli.mjs'), 'seed.ts'], {
+  const output = execFileSync(process.execPath, [cli, 'seed.ts'], {
     cwd: directory, timeout: 120_000, encoding: 'utf8',
     env: {
       ...process.env, API_URL: api, ADMIN_EMAIL: 'admin@flounder.demo',

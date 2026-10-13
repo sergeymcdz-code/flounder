@@ -7,6 +7,8 @@ import type {
   SwimDiscipline,
   DisciplineTemplate,
 } from './organizer.types'
+export const getEventDisciplines = (id: string, accessToken: string) =>
+  apiFetch<SwimDiscipline[]>(`/api/v1/events/${encodeURIComponent(id)}/disciplines`, { accessToken })
 export async function getOrganizerEvent(
   id: string,
   accessToken: string,
@@ -16,10 +18,7 @@ export async function getOrganizerEvent(
       `/api/v1/events/${encodeURIComponent(id)}`,
       { accessToken },
     ),
-    apiFetch<SwimDiscipline[]>(
-      `/api/v1/events/${encodeURIComponent(id)}/disciplines`,
-      { accessToken },
-    ),
+    getEventDisciplines(id, accessToken),
     getVenues(accessToken).catch(() => []),
   ])
   const venue = venues.find((v) => v.id === event.venueId)

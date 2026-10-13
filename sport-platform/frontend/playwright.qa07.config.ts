@@ -8,6 +8,11 @@ export default defineConfig({
   retries: 0,
   timeout: 180_000,
   expect: { timeout: 7_000 },
+  projects: [
+    { name: 'core', testMatch: ['qa07-admin.spec.ts', 'qa07-judge.spec.ts'] },
+    { name: 'auth', testMatch: 'qa07-auth.spec.ts', grepInvert: /@rate-limit/, dependencies: ['core'] },
+    { name: 'rate-limit-last', testMatch: 'qa07-auth.spec.ts', grep: /@rate-limit/, dependencies: ['auth'] },
+  ],
   outputDir: 'work/qa07/results',
   reporter: [['list'], ['json', { outputFile: 'work/qa07/results.json' }]],
   use: {

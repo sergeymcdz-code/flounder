@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { apiFetch } from '../../api/http'
+import { getEventDisciplines } from '../../api/organizer.api'
 import {
   changeCompetitionUnitPublication, changeHeatState, getCompetitionUnitDetails,
   getCompetitionUnitsByDiscipline, saveHeatResults, setLiveHeat,
@@ -82,7 +82,7 @@ export function JudgePanelPage() {
       let next = local.filter(u => (u.sequenceNumber ?? 0) > (currentSummary?.sequenceNumber ?? Infinity))
         .sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0))[0]
       if (eventId && currentSummary?.scheduledAt) {
-        const disciplines = await apiFetch<{ id: string }[]>(`/api/v1/events/${encodeURIComponent(eventId)}/disciplines`, { accessToken: token })
+        const disciplines = await getEventDisciplines(eventId, token!)
         const lists = await Promise.all(disciplines.map(d => d.id === resolvedDisciplineId ? Promise.resolve(local) : getCompetitionUnitsByDiscipline(d.id, token!)))
         next = lists.flat().filter(u => u.scheduledAt && Date.parse(u.scheduledAt) > Date.parse(currentSummary.scheduledAt!))
           .sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!))[0]

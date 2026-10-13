@@ -14,6 +14,8 @@ test('M10: judge publishes two heats, operator corrects, finish is idempotent an
   const registrations = await api<{ id: string; participantSnapshot: { lastName: string; firstName: string } }[]>(page, `/registrations?eventId=${seed.eventId}`)
   const units = (await api<CompetitionUnitResponse[]>(page, `/event-disciplines/${discipline.id}/competition-units`))
     .sort((a, b) => a.sequenceNumber! - b.sequenceNumber!)
+  // The full M seed produces 32 heats across four disciplines; this one must
+  // contain at least three so finishing the second still has a live successor.
   expect(units.length).toBeGreaterThan(2)
   await page.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Выполняем действие' })).toHaveCount(0)

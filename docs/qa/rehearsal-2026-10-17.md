@@ -20,23 +20,19 @@ curl -fsS https://sportgate.pro/actuator/health
 ./infra/backup.sh
 ```
 
-- [ ] Скопировать **точный путь из вывода** backup в журнал: `________________`. Зафиксировать размер, время, SHA256 и проверку формата. До M09 backup выдаёт `backups/YYYY-MM-DD[_HHMMSS].sql.gz`; после M09 — `/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump`. Не заменять расширение вручную.
+- [ ] Скопировать **точный путь из вывода** backup в журнал: `________________`. Зафиксировать размер, время, SHA256 и проверку формата. M09 в main: копия `/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump`, при наличии файлового тома — соседний `.files.tar.gz`; журнал `/home/deploy/backups/backup.log`.
 
 ```bash
 # Указать настоящий файл из вывода, без секретов в аргументах.
 REHEARSAL_BACKUP=/absolute/path/from/backup/output
 test -s "$REHEARSAL_BACKUP"
 sha256sum "$REHEARSAL_BACKUP"
-case "$REHEARSAL_BACKUP" in
-  *.sql.gz) gzip -t "$REHEARSAL_BACKUP" ;;
-  *.dump) docker exec -i flounder-postgres pg_restore --list < "$REHEARSAL_BACKUP" > /dev/null ;;
-  *) echo 'Неизвестный формат копии' >&2; exit 1 ;;
-esac
+docker exec -i flounder-postgres pg_restore --list < "$REHEARSAL_BACKUP" > /dev/null
 ```
 
 ## Restore-проверка — до удаления данных
 
-**После M09:** проверить, что развернутый `infra/restore.sh` создаёт `sport_platform_restore_test`, не останавливает production API и не удаляет рабочую БД. Код/команды брать из развернутого main, а не из открытого PR. M09 ещё не слит на момент написания QA07.
+**Обязательная проверка M09 (в main):** проверить, что развернутый `infra/restore.sh` создаёт `sport_platform_restore_test`, не останавливает production API и не удаляет рабочую БД. Код/команды брать из развернутого main, а не из открытого PR.
 
 ```bash
 ./infra/restore.sh "$REHEARSAL_BACKUP"
@@ -49,30 +45,42 @@ curl -fsS https://sportgate.pro/actuator/health
 - [ ] `events=N` соответствует исходной копии; тестовая БД удалена (`0`), production health остаётся UP, журнал/алерт restore OK сохранены. Значения: `________________`.
 - [ ] Если M04 добавил файловый том, проверены отдельный архив файлов и его наличие; восстановление одной БД не доказывает восстановление документов.
 
-**До M09:** текущий T09 `infra/restore.sh <sql.gz>` спрашивает `yes`, останавливает API и **DROP/заменяет основную БД**. На рабочем демо-стенде его для smoke-проверки не запускать. Выполнить эту команду только на отдельной одноразовой машине с изолированным T09 compose и копией `.env.prod`, где БД/тома не связаны со sportgate.pro. Проверить `events=N` до/после, запуск API и открытие события. Зафиксировать место восстановления и версию скрипта. Если изолированного окружения нет и M09 не слит, отметить restore как **не проверен**, критерий §8 п.7 не закрывать.
+`infra/restore-production.sh` — разрушительный откат рабочей БД; во время репетиции **не выполняется**.
+
+- [ ] Выполнен cron-вариант проверки последней копии, результат/алерт записан в backup.log:
+
+```bash
+./infra/verify-latest-backup.sh
+crontab -l
+timedatectl
+```
+
+- [ ] Cron сверён с `infra/crontab.example`: для host timezone Europe/Moscow бэкап ежедневно 03:00 МСК, verify по воскресеньям 04:00 МСК, check-disk каждый час. Для UTC установлена только альтернативная схема 00:00/01:00; обе схемы одновременно не установлены. Проверены журнал и доставка алертов.
 
 ## Сброс и подготовка основного/резервного события
 
-На сервере без Node использовать контейнер Node 22, как в handoff. `scripts/demo/.env` уже должен содержать API_URL, ADMIN_EMAIL/пароли и DEMO_SEED_ENABLED=true. Не выводить его. `reset.ts` по умолчанию только печатает SQL; он не удаляет событие. Не задавать `NODE_ENV=production` скриптам демо; нельзя применять их к пользовательским production-данным.
+На сервере без Node использовать контейнер Node 22, как в handoff. `scripts/demo/.env` уже должен содержать API_URL=https://sportgate.pro (внешний HTTPS, а не localhost внутри контейнера), ADMIN_EMAIL/пароли и DEMO_SEED_ENABLED=true. Не выводить его. `reset.ts` без `--apply` печатает команду psql с `-v demo_event_id`, `-v demo_event_title` и `-f reset.sql`, а не текст SQL; он не удаляет событие. Не задавать `NODE_ENV=production` скриптам демо; нельзя применять их к пользовательским production-данным.
 
 ```bash
 cd /home/deploy/flounder
-docker run --rm --user "$(id -u):$(id -g)" \
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
   sh -eu -c 'npm ci && npx tsx reset.ts'
 ```
 
-- [ ] В выводе reset проверены UUID и **точное название основного демо-события**. Если событие отсутствует, удаления не требуется. Сохранить проверенный SQL из вывода в `/tmp/rehearsal-main-reset.sql`; не копировать shell-префикс `psql -c` внутрь SQL-файла. SQL-очистка ниже — подготовка до показа, не обход дефекта в семи шагах.
+- [ ] В выводе reset проверены UUID и **точное название основного демо-события**. Если событие отсутствует, удаления не требуется. Для выполнения штатного `scripts/demo/reset.sql` передать UUID и точное название из команды reset через psql-переменные ниже; заменить placeholders фактическими значениями. SQL-очистка ниже — подготовка до показа, не обход дефекта в семи шагах.
 
 ```bash
-# Только после проверки копии и SQL-файла; API был нужен reset для проверки UUID.
+# Только после проверки копии, UUID и названия; API был нужен reset для проверки события.
 docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
 docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform \
-  -v ON_ERROR_STOP=1 < /tmp/rehearsal-main-reset.sql
+  -v ON_ERROR_STOP=1 -v demo_event_id='<uuid основного из reset.ts>' \
+  -v demo_event_title='<точное название основного из reset.ts>' \
+  < /home/deploy/flounder/scripts/demo/reset.sql
 docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
 # Дождаться healthy по compose ps; затем:
 curl -fsS https://sportgate.pro/actuator/health
-docker run --rm --user "$(id -u):$(id -g)" \
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e DEMO_DATE=2026-10-24 -e EVENT_TITLE_SUFFIX= \
   -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
   sh -eu -c 'npx tsx seed.ts --skip-import'
@@ -83,14 +91,19 @@ docker run --rm --user "$(id -u):$(id -g)" \
 - [ ] Основное событие: дата 24.10, открытая регистрация, 2 сессии, 4 вида, 0 заявок, 0 заплывов. Записаны `eventId`/slug: `________________`. Сохранившиеся профили родителя не означают сохранённые заявки.
 - [ ] Чужое контрольное событие и его заявки не изменились после reset: `________________`.
 
-Резерв подготовить независимо, с тем же суффиксом во всех командах. Если старый резерв существует, сначала сделать dry-run reset, проверить отдельный UUID/название и применить его SQL так же, как выше.
+Резерв подготовить независимо, с тем же суффиксом во всех командах. Если старый резерв существует, сначала сделать dry-run reset, проверить отдельный UUID/название и выполнить штатный reset.sql с переменными резерва ниже.
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -e EVENT_TITLE_SUFFIX=' · резерв' \
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e EVENT_TITLE_SUFFIX=' · резерв' \
   -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
   sh -eu -c 'npx tsx reset.ts'
+# Только если резерв найден и его UUID/название проверены; имя содержит « · резерв»:
+docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform \
+  -v ON_ERROR_STOP=1 -v demo_event_id='<uuid резерва из reset.ts>' \
+  -v demo_event_title='<точное название с · резерв из reset.ts>' \
+  < /home/deploy/flounder/scripts/demo/reset.sql
 # После очистки старого резерва — полный сид M только в резерв:
-docker run --rm --user "$(id -u):$(id -g)" \
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e DEMO_DATE=2026-10-24 -e EVENT_TITLE_SUFFIX=' · резерв' \
   -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
   sh -eu -c 'npx tsx seed.ts'
@@ -105,7 +118,7 @@ docker run --rm --user "$(id -u):$(id -g)" \
 
 | Шаг / роль | Интервал от начала | Ожидаемый результат / свидетельство | Факт |
 |---|---|---|---|
-| 1. org: обзор и QR | 0:00–1:30 | 24.10, 25 м/8 дорожек, 2 сессии, 4 вида, группы/пресет; QR открывает анонимную карточку на телефоне. `circleSeedTopHeats=false` в запросе; отсутствие UI-флага QA05-01 оговорить | [ ] `__ с` |
+| 1. org: обзор и QR | 0:00–1:30 | 24.10, 25 м/8 дорожек, 2 сессии, 4 вида, группы/пресет; QR открывает анонимную карточку на телефоне. `circleSeedTopHeats=false` в запросе; чекбокс кругового посева показан выключенным (только просмотр), QA05-01 закрыт #39 | [ ] `__ с` |
 | 2. org: Excel | 1:30–3:30 | Ошибочный файл 203/200/3, только строки 202/203/204; исправленный total=200, created=0, errors=[]; остаётся 200 заявок, 120 профилей; импорт ≤10 с | [ ] `__ с` |
 | 3. parent → org → sec | 3:30–5:30 | Демов Тимофей, 18.04.2014, М, Дельфин; 50 м 00:47.20 / 100 м 01:49.50. Две SUBMITTED → CONFIRMED → PAID в UI sec; итого 202 | [ ] `__ с` |
 | 4. org: посев/печать/публикация | 5:30–8:00 | 32 заплыва, полный/неполный, дорожки 4,5,3,6,2,7,1,8; NT после времён; посев ≤5 с и ERROR=0; scheduledAt 10:00/15:00 Самара, estimatedEndsAt заполнен. Проверить DRAFT PDF; если QA05-03 открыт, отметить провал, публиковать и печатать после публикации | [ ] `__ с` |
@@ -132,13 +145,13 @@ docker run --rm --user "$(id -u):$(id -g)" \
 - [ ] При слитом M03 проверить серверные PDF-кнопки согласно его контракту и распечатать файлы; до M03 сохранить браузерные PDF. До/после публикации проверять авторизацию/видимость, не раскрывать DRAFT зрителю.
 - [ ] PDF основного и резерва имеют разные названия/slug; сохранить файлы и запись в закрытом месте: `________________`.
 
-## Условные пункты после слияний и решение
+## Обязательные проверки M02/M09, условные пункты и решение
 
-- [ ] M02: пользователь меняет свой пароль; старый пароль не подходит, новый входит; 429 после настроенного N ошибок, `Retry-After` положителен; истёкший access обновляется refresh без потери сессии. Изолированный пользователь, демо-аккаунты не блокировать лимитером.
+- [ ] **M02 в main, обязательно на стенде:** пользователь меняет свой пароль; старый пароль не подходит, новый входит; 429 после настроенного N ошибок, `Retry-After` положителен; истёкший access обновляется refresh без потери сессии. Изолированный пользователь, демо-аккаунты не блокировать лимитером.
 - [ ] M06: закрытие регистрации скрывает/блокирует подачу; лимит дисциплины соблюдается; новая сверх лимита в WAITLIST, освобождение места/перевод подтверждены по контракту M06.
 - [ ] M07: Старт позже scheduledAt; actualStartedAt и delaySec на live; следующее estimatedStartAt сдвинуто, scheduledAt сохранён; повторный Финиш не меняет исходное actualFinishedAt.
 - [ ] D01/D02: новые стили/тема читаемы на проекторе и телефонах, не скрывают кнопки/статусы/печатные таблицы.
-- [ ] M09: staging отдельно от production; health/мониторинг, проверенные backup/restore; отсутствие задач фиксировать в решении, не выдавать за проверенное.
+- [ ] **M09 в main, обязательно на стенде:** staging отдельно от production; health/мониторинг, проверенные backup/restore; отсутствие задач фиксировать в решении, не выдавать за проверенное.
 
 План 17.10: 20:00–20:25 МСК версия/бэкап/restore/seed/резерв; 20:25–20:39 семь шагов; 20:39–20:55 телефоны/PDF/условные функции; 20:55–21:15 исправления и повтор; 21:15–21:20 решение. Это план, встреча автоматически не создана.
 
