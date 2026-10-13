@@ -65,7 +65,7 @@ export function PrintButton({ ready }: { ready: boolean }) {
 
 export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
   return (
-    <table className={`${styles.table} fl-protocol fl-lanes`}>
+    <table className={`${styles.table} fl-protocol fl-lanes`} role="table" tabIndex={0}>
       <caption className={styles.srOnly}>
         Дорожки заплыва №{heat.number}
       </caption>
@@ -162,7 +162,7 @@ export function ResultsTable({
       a.lastName.localeCompare(b.lastName, 'ru'),
   )
   return (
-    <table className={`${styles.table} fl-protocol fl-results`}>
+    <table className={`${styles.table} fl-protocol fl-results`} role="table" tabIndex={0}>
       <caption className={styles.srOnly}>
         Итоговый протокол{grouped ? ' по возрастной группе' : ''}
       </caption>

@@ -28,6 +28,7 @@ function mount(status: string, role = 'operator') {
 }
 beforeEach(() => {
   vi.resetAllMocks()
+  Element.prototype.scrollIntoView = vi.fn()
   sessionStorage.clear()
   vi.mocked(api.getCompetitionUnitsByDiscipline).mockResolvedValue([])
 })

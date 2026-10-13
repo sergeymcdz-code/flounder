@@ -264,6 +264,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       const ordered = [...heats].sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!))
       await api(sec, `/events/${seed.eventId}/live`, 'PUT', { currentUnitId: ordered[0].id })
       await spectator.goto(`${publicBase}/live`)
+      await expect(spectator.locator('html')).toHaveAttribute('data-theme', 'dark')
       const current = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: /^Сейчас заплыв/ }) })
       await expect.soft(current).toContainText(ordered[0].label)
       const next = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Далее', exact: true }) })
@@ -375,6 +376,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       expect.soft(special).toHaveLength(3)
       expect.soft(special.every(e => e.finalPlace == null && e.placeInAgeGroup == null)).toBe(true)
       await spectator.goto(`${publicBase}/results`)
+      await expect(spectator.locator('html')).toHaveAttribute('data-theme', 'dark')
       await expect(spectator.getByRole('heading', { name: 'Результаты', exact: true })).toBeVisible()
       // QA05: published results must appear before the later demo finish action.
       await expect.configure({ soft: true }).poll(async () => {

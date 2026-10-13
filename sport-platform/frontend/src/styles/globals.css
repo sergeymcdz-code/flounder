@@ -17,6 +17,7 @@
 }
 
 :root {
+  color-scheme: light;
   --font-body: 'Golos Text', ui-sans-serif, system-ui, sans-serif;
   --font-heading: Oswald, 'Golos Text', sans-serif;
   font-family: var(--font-body);
@@ -91,8 +92,8 @@
 
 @media screen {
   [data-theme="dark"],
-  :root:has(.fl-live-page),
-  :root:has(.fl-results-page) {
+  :root:not([data-theme]):has(.fl-live-page),
+  :root:not([data-theme]):has(.fl-results-page) {
     color-scheme: dark;
     --color-page: #11181d;
     --color-surface: #182126;
@@ -211,5 +212,7 @@ img {
     --status-dnf-soft: #ffffff;
     --status-dsq: #000000;
     --status-dsq-soft: #ffffff;
+    --color-accent-soft: #ffffff;
+    --color-on-primary: #ffffff;
   }
 }

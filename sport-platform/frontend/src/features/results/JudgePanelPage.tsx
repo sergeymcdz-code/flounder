@@ -168,8 +168,8 @@ export function JudgePanelPage() {
           navigate(`/operator/competition-units/${nextId}${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`, { state: { liveWarning } })
         })}>Следующий заплыв</button>
       </div>
-      <p role="status">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
-      {notice && <p className={styles.successMessage} role="status">{notice}</p>}
+      <p role="status" aria-live="polite" aria-atomic="true">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
+      <p className={notice ? styles.successMessage : undefined} role="status" aria-live="polite" aria-atomic="true">{notice}</p>
       {nextError && <p role="status">{nextError}</p>}
       <div className={styles.tableWrap}><table className={styles.resultsTable}>
         <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>
@@ -182,6 +182,7 @@ export function JudgePanelPage() {
               aria-describedby={errors[entry.entryId] ? `error-${entry.entryId}` : undefined}
               ref={node => { inputs.current[entry.entryId] = node }} value={draft.time} inputMode="decimal" placeholder="00:32.15"
               disabled={busy || !canEdit || draft.status !== 'VALID'} onChange={e => update(entry.entryId, { time: maskTime(e.target.value) })}
+              onFocus={e => e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
               onBlur={e => {
                 if ((e.relatedTarget as HTMLElement | null)?.dataset.entryId !== entry.entryId) validate(entry.entryId)
               }} onKeyDown={e => {

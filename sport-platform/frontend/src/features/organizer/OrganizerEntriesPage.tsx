@@ -298,7 +298,7 @@ export function OrganizerEntriesPage() {
         </table>
       </div>
       {!visible.length && (
-        <p className={styles.muted}>
+        <p className={`${styles.muted} fl-empty`}>
           Заявок не найдено. Измените фильтры или импортируйте заявки.
         </p>
       )}

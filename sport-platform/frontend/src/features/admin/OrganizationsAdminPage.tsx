@@ -48,7 +48,7 @@ export function OrganizationsAdminPage() {
   return <section className={styles.page}>
     <div className={styles.heading}><h1>Организации</h1><button onClick={() => { setOpen(true); setFormError('') }}>Создать организацию</button></div>
     {loading ? <p role="status">Загружаем организации…</p> : error ? <p role="alert" className={styles.error}>{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !organizations.length ? <p>Организаций пока нет — создайте первую.</p> : <table className={styles.table}>
+      : !organizations.length ? <p className="fl-empty">Организаций пока нет — создайте первую.</p> : <table className={styles.table}>
         <thead><tr><th>Название</th><th>Город</th><th>Владелец</th><th>Членов / события</th></tr></thead>
         <tbody>{organizations.map(org => <tr key={org.id}><td><Link to={`/admin/organizations/${org.id}`}>{org.name}</Link></td>
           <td>{org.city || '—'}</td><td>{org.owner || 'Не назначен'}</td><td>{org.memberCount ?? '—'}<br /><Link to={`/admin/organizations/${org.id}#events`}>События</Link></td></tr>)}</tbody>
@@ -117,7 +117,7 @@ export function OrganizationAdminPage() {
   return <section className={styles.page}><Link to="/admin/organizations">← Организации</Link>
     <div className={styles.heading}><h1>{organization?.name ?? 'Организация'}</h1><button disabled={loading || !!error} onClick={() => open({ type: 'add' })}>Добавить участника</button></div>
     {loading ? <p role="status">Загружаем участников…</p> : error ? <p role="alert" className={styles.error}>{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !members.length ? <p>Участников пока нет — добавьте пользователя по email.</p> : <table className={styles.table}>
+      : !members.length ? <p className="fl-empty">Участников пока нет — добавьте пользователя по email.</p> : <table className={styles.table}>
         <thead><tr><th>Email</th><th>ФИО</th><th>Роль в организации</th><th>Действия</th></tr></thead>
         <tbody>{members.map(member => <tr key={member.userId}><td>{member.email}</td><td>{member.lastName} {member.firstName}</td>
           <td>{memberRoles.find(([code]) => code === member.memberRole)?.[1] ?? member.memberRole}</td><td className={styles.actions}>
@@ -125,7 +125,7 @@ export function OrganizationAdminPage() {
       </table>}
     <h2 id="events">События организации</h2>
     {eventError ? <p role="alert" className={styles.error}>{eventError}</p> : events.length ? <ul>{events.map(event =>
-      <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p>Событий пока нет.</p>}
+      <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p className="fl-empty">Событий пока нет.</p>}
     {action && <AdminDialog title={action.type === 'add' ? 'Добавить участника' : action.type === 'edit' ? 'Изменить роль' : 'Удалить участника'} busy={busy} onClose={() => setAction(null)}>
       <form className={styles.form} onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
         {action.type === 'add' ? <label>Email пользователя<input name="email" type="email" required /></label> : <p>{action.member.email}</p>}
