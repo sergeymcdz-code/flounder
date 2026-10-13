@@ -292,6 +292,33 @@ for (const route of ['start-list', 'live']) {
   })
 }
 
+for (const route of ['start-list', 'live', 'results']) {
+  test(`D01 review 2: ${route} never wraps within a word at 375px`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openAuditPage(page, `/e/demo/${route}`)
+    const cells = page.locator('.fl-protocol tbody td')
+    await expect(cells.first()).toBeVisible()
+    await page.evaluate(() => document.fonts.ready)
+    const words = await cells.evaluateAll(nodes => nodes.flatMap(cell => {
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+      const measured = []
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        for (const match of (node.textContent ?? '').matchAll(/\S+/gu)) {
+          const range = document.createRange()
+          range.setStart(node, match.index)
+          range.setEnd(node, match.index + match[0].length)
+          const tops = Array.from(range.getClientRects()).filter(rect => rect.height > 0).map(rect => Math.round(rect.top))
+          measured.push({ word: match[0], lines: new Set(tops).size })
+        }
+      }
+      return measured
+    }))
+    expect(words.length).toBeGreaterThan(0)
+    expect(words.filter(word => word.lines !== 1)).toEqual([])
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+  })
+}
+
 test('D01 review 1: all eight live lanes fit above navigation at 1366x768', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await openAuditPage(page, '/e/demo/live')

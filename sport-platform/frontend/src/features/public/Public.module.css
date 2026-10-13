@@ -440,7 +440,8 @@
   .table th,
   .table td:nth-child(3),
   .table td:last-child { white-space: nowrap; }
-  .table td:nth-child(2) { overflow-wrap: normal; }
+  .table td:nth-child(2),
+  .table td:nth-child(4) { overflow-wrap: normal; }
   .main:has(> .live) > h1 { font-size: 32px; margin-bottom: 16px; }
   .live {
     --color-surface-muted: var(--color-board-surface);
