@@ -1,0 +1,39 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head><meta charset="UTF-8" /><title th:text="${protocol.header.title}">Протокол</title><style type="text/css">
+@page { size: A4 portrait; margin: 15mm;
+  @top-center { content: element(header); }
+  @bottom-left { content: element(footer); }
+  @bottom-right { content: "Страница " counter(page) " из " counter(pages); font-family: "Noto Sans"; font-size: 8pt; }
+}
+body { font-family: "Noto Sans"; font-size: 10pt; color: #15242c; }
+.header { position: running(header); font-size: 9pt; text-align: left; }
+.footer { position: running(footer); font-size: 8pt; }
+h1 { font-size: 14pt; margin: 0 0 4mm; }
+h2 { font-size: 12pt; margin: 5mm 0 2mm; page-break-after: avoid; }
+h3 { font-size: 10pt; margin: 3mm 0 1mm; page-break-after: avoid; }
+table { border-collapse: collapse; width: 100%; table-layout: fixed; -fs-table-paginate: paginate; }
+th, td { border: 0.2mm solid #bbc8ce; padding: 1.5mm; vertical-align: top; word-wrap: break-word; }
+th { background-color: #eef3f5; text-align: left; font-size: 9pt; }
+.heat { page-break-inside: avoid; margin-bottom: 4mm; }
+.number { width: 8%; } .name { width: 30%; } .year { width: 9%; } .club { width: 23%; } .time { width: 16%; } .status { width: 14%; }
+.withdrawn { color: #586b76; } .marker { font-size: 8pt; } .muted { color: #586b76; }
+</style></head>
+<body>
+<div class="header"><strong th:text="${protocol.header.title}">Соревнование</strong><br />
+<span th:text="${protocol.header.date}">Дата</span> · <span th:text="${protocol.header.venue}">Площадка</span><br />
+<span th:text="${protocol.header.organization}">Организация</span></div>
+<div class="footer">Сформировано: <span th:text="${protocol.header.generatedAt}">Время генерации</span></div>
+<h1>Итоговый протокол</h1>
+<p th:if="${protocol.disciplines.?[!resultSections.isEmpty()].isEmpty()}">Результаты ещё не опубликованы или не внесены.</p>
+<section th:each="discipline : ${protocol.disciplines}" th:if="${!discipline.resultSections.isEmpty()}">
+<h2>Вид № <span th:text="${discipline.number}">1</span>. <span th:text="${discipline.name}">Название</span></h2>
+<div th:each="section : ${discipline.resultSections}"><h3 th:text="${section.name}">Абсолют</h3>
+<div th:if="${!section.ranked.isEmpty()}" th:with="rows=${section.ranked}"><table><thead><tr><th class="number">Место</th><th class="name">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="time">Результат</th><th class="status">Статус</th></tr></thead><tbody><tr th:each="row : ${rows}"><td th:text="${row.place == null ? '—' : row.place}">1</td>
+<td><span th:text="${row.athlete}">Участник</span><br th:if="${row.corrected}" /><span th:if="${row.corrected}" class="marker">CORRECTED</span></td>
+<td th:text="${row.year}">2014</td><td th:text="${row.club}">Клуб</td>
+<td th:text="${row.result}">00:32.15</td><td th:text="${row.status}">VALID</td></tr></tbody></table></div>
+<div th:if="${!section.unranked.isEmpty()}" th:with="rows=${section.unranked}"><h3>Без места · DNS / DNF / DSQ</h3><table><thead><tr><th class="number">Место</th><th class="name">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="time">Результат</th><th class="status">Статус</th></tr></thead><tbody><tr th:each="row : ${rows}"><td th:text="${row.place == null ? '—' : row.place}">1</td>
+<td><span th:text="${row.athlete}">Участник</span><br th:if="${row.corrected}" /><span th:if="${row.corrected}" class="marker">CORRECTED</span></td>
+<td th:text="${row.year}">2014</td><td th:text="${row.club}">Клуб</td>
+<td th:text="${row.result}">00:32.15</td><td th:text="${row.status}">VALID</td></tr></tbody></table></div>
+</div></section></body></html>

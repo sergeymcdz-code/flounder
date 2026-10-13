@@ -1,0 +1,12 @@
+.control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media print {
+  .control {
+    display: none !important;
+  }
+}

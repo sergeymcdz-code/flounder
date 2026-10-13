@@ -76,7 +76,7 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
-              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/public/'),
+              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/public/') && !url.pathname.endsWith('.pdf'),
               handler: 'NetworkFirst',
               method: 'GET',
               options: {

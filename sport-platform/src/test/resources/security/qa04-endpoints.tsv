@@ -109,3 +109,7 @@ POST	/api/v1/auth/password-reset/confirm	public	false	204	reset-token	{"token":"
 POST	/api/v1/auth/refresh	public	false	200	refresh-token	{"refreshToken":"qa04-refresh-token"}
 POST	/api/v1/auth/logout	public	false	204	refresh-token	{"refreshToken":"qa04-refresh-token"}
 POST	/api/v1/auth/logout-all	authenticated	false	204
+GET	/api/v1/events/{eventId}/documents/start-list.pdf	manage	true	200
+GET	/api/v1/events/{eventId}/documents/results.pdf	manage	true	200
+GET	/api/v1/public/events/{slug}/start-list.pdf	public	false	200
+GET	/api/v1/public/events/{slug}/results.pdf	public	false	200

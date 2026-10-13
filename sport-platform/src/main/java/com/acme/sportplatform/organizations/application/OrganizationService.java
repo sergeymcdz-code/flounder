@@ -55,6 +55,13 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
 
     @Override
     @Transactional(readOnly = true)
+    public String nameById(UUID organizationId) {
+        return organizationRepository.findById(organizationId)
+                .map(OrganizationEntity::getName).orElseThrow(this::organizationNotFound);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean existsById(UUID organizationId) {
         return organizationRepository.existsById(organizationId);
     }

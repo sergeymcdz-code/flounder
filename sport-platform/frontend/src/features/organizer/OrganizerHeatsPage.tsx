@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import {
   generateHeats,
   recalculateSchedule,
@@ -135,6 +136,12 @@ export function OrganizerHeatsPage() {
           >
             Открыть печатную форму
           </a>
+          <PdfDownloadButton
+            path={`/api/v1/events/${event.id}/documents/start-list.pdf`}
+            filename="Стартовый-протокол.pdf"
+            accessToken={accessToken}
+            disabled={busy || !heats.length}
+          />
         </div>
         {last && (
           <div aria-live="polite">

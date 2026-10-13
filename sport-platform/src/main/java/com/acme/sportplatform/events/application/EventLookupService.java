@@ -32,6 +32,15 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
+    public com.acme.sportplatform.events.EventProtocolHeader protocolHeader(UUID eventId) {
+        var event = eventRepository.findById(eventId).orElseThrow(() ->
+                new com.acme.sportplatform.common.exception.BusinessException(
+                        "events.event_not_found", "Событие не найдено"));
+        return new com.acme.sportplatform.events.EventProtocolHeader(event.getId(), event.getTitle(),
+                event.getOrganizationId(), event.getVenueId(), event.getEventStartAt(), event.getEventEndAt());
+    }
+
+    @Override
     public EventLookupResult getById(UUID eventId) {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException(
