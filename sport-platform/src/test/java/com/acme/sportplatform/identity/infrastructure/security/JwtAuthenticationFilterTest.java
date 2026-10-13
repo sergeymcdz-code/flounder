@@ -4,8 +4,12 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -26,6 +30,49 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 class JwtAuthenticationFilterTest {
+
+    static java.util.stream.Stream<RuntimeException> downstreamFailures() {
+        return java.util.stream.Stream.of(
+                new com.acme.sportplatform.common.web.UserBlockedException(),
+                new InsufficientAuthenticationException("Downstream authentication failure"),
+                new com.acme.sportplatform.identity.domain.ExpiredTokenException(),
+                new InvalidTokenException());
+    }
+
+    @ParameterizedTest
+    @MethodSource("downstreamFailures")
+    void downstreamExceptionsAreNotHandledAsJwtAuthenticationFailures(RuntimeException failure) throws Exception {
+        var jwtService = mock(JwtService.class);
+        var users = mock(UserRepository.class);
+        var entryPoint = mock(RestAuthenticationEntryPoint.class);
+        var filter = new JwtAuthenticationFilter(jwtService, users, entryPoint);
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/v1/auth/me");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        var chain = mock(FilterChain.class);
+        var id = UUID.randomUUID();
+        request.addHeader("Authorization", "Bearer active-user-token");
+        when(jwtService.parse("active-user-token")).thenReturn(io.jsonwebtoken.Jwts.claims()
+                .subject("active@test.example").add("uid", id.toString()).add("roles", java.util.List.of("participant")).build());
+        var user = new com.acme.sportplatform.identity.infrastructure.persistence.entity.UserEntity();
+        user.setEmail("active@test.example");
+        user.setStatus("active");
+        var row = mock(com.acme.sportplatform.identity.infrastructure.persistence.projection.UserAuthenticationRow.class);
+        when(row.getUser()).thenReturn(user);
+        when(row.getRoleCode()).thenReturn("participant");
+        when(users.findAuthenticationById(id)).thenReturn(java.util.List.of(row));
+        doAnswer(invocation -> {
+            assertThat(SecurityContextHolder.getContext().getAuthentication().isAuthenticated()).isTrue();
+            response.flushBuffer();
+            throw failure;
+        }).when(chain).doFilter(request, response);
+
+        assertThatThrownBy(() -> filter.doFilter(request, response, chain)).isSameAs(failure);
+
+        verify(chain).doFilter(request, response);
+        verifyNoInteractions(entryPoint);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
 
     @AfterEach
     void clearSecurityContext() {

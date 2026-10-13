@@ -40,14 +40,20 @@ export function LoginPage() {
 
       navigate(returnTo, { replace: true })
     } catch (error) {
-      const message =
-        error instanceof ApiError && error.status === 401
-          ? 'Проверьте email и пароль.'
-          : error instanceof ApiError && error.status === 429 && error.retryAfter !== undefined
+      let message = 'Не удалось выполнить вход. Попробуйте ещё раз.'
+      if (error instanceof ApiError) {
+        if (error.status === 403 && error.code === 'identity.user_blocked') {
+          message = 'Аккаунт заблокирован, обратитесь к администратору'
+        } else if (error.status === 429) {
+          message = error.retryAfter !== undefined
             ? `Слишком много попыток входа. Попробуйте через ${Math.max(1, Math.ceil(error.retryAfter / 60))} мин.`
-          : error instanceof ApiError
-            ? error.message
-            : 'Не удалось выполнить вход. Попробуйте ещё раз.'
+            : 'Слишком много попыток входа. Попробуйте позже'
+        } else if (error.status === 401) {
+          message = 'Проверьте email и пароль.'
+        } else {
+          message = error.message
+        }
+      }
 
       setErrorMessage(message)
     } finally {

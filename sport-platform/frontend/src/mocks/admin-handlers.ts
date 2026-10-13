@@ -1,5 +1,6 @@
 import { mockAuthSession, mockPassword } from './auth-handlers'
 import { http, HttpResponse } from 'msw'
+import { DEMO_ORGANIZATION_ID } from './fixtures'
 import type { AdminUser, CreateUser, Role } from '../api/admin.api'
 import type { OrganizationMember, OrganizationRegistrationResponse, OrganizationResponse } from '../api/organizations.api'
 
@@ -15,10 +16,10 @@ let members: OrganizationMember[] = []
 let requests: OrganizationRegistrationResponse[] = []
 export function resetAdminMocks() {
   users = [structuredClone(userFixture), structuredClone(adminFixture)]
-  organizations = [{ id: 'organization-demo', name: 'Клуб Волна', type: 'club', legalName: null, inn: null,
+  organizations = [{ id: DEMO_ORGANIZATION_ID, name: 'Клуб Волна', type: 'club', legalName: null, inn: null,
     contactEmail: 'user@flounder.demo', contactPhone: null, city: 'Самара', owner: 'user@flounder.demo', memberCount: 1,
     createdAt: '2026-10-12T10:00:00Z', updatedAt: '2026-10-12T10:00:00Z' }]
-  members = [{ id: 'member-demo', organizationId: 'organization-demo', userId: 'user-demo', email: userFixture.email,
+  members = [{ id: 'member-demo', organizationId: DEMO_ORGANIZATION_ID, userId: 'user-demo', email: userFixture.email,
     firstName: userFixture.firstName, lastName: userFixture.lastName, memberRole: 'owner', createdAt: userFixture.createdAt }]
   requests = [{ id: 'request-demo', applicantUserId: 'user-demo', organizationType: 'club', organizationName: 'Новый клуб',
     legalName: null, inn: null, contactEmail: userFixture.email, contactPhone: null, status: 'PENDING', rejectionReason: null,
@@ -132,5 +133,4 @@ export const adminHandlers = [
     } else { value.status = 'REJECTED'; value.rejectionReason = (await request.json() as { comment: string }).comment }
     return HttpResponse.json(value)
   }),
-  http.get('*/api/v1/events', ({ request }) => guard(request) ?? HttpResponse.json([])),
 ]
