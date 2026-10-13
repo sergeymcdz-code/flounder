@@ -98,6 +98,7 @@ public class AssignRegistrationToUnitUseCase {
         entry.setCompetitionUnitId(competitionUnitId);
         entry.setRegistrationId(registrationId);
         entry.setLaneOrPosition(laneOrPosition);
+        entry.setSeedTimeMs(registration.seedTimeMs());
         entry.setCreatedAt(OffsetDateTime.now());
 
         return entryRepository.save(entry).getId();

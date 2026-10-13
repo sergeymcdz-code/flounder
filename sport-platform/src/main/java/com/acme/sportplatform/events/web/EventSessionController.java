@@ -24,26 +24,38 @@ public class EventSessionController {
 
     @GetMapping("/events/{eventId}/sessions")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR','JUDGE')")
-    public List<com.acme.sportplatform.events.api.EventSessionResponse> list(@PathVariable UUID eventId) {
-        return sessions.list(eventId);
+    public List<com.acme.sportplatform.events.api.EventSessionResponse> list(
+            @PathVariable UUID eventId,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return sessions.list(eventId, principal);
     }
 
     @PostMapping("/events/{eventId}/sessions")
     @ResponseStatus(HttpStatus.CREATED)
     public EventSessionView create(
-            @PathVariable UUID eventId, @RequestBody @Valid EventSessionRequest r) {
-        return sessions.create(eventId, r);
+            @PathVariable UUID eventId,
+            @RequestBody @Valid EventSessionRequest r,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return sessions.create(eventId, r, principal);
     }
 
     @PatchMapping("/event-sessions/{id}")
     public EventSessionView patch(
-            @PathVariable UUID id, @RequestBody @Valid EventSessionRequest r) {
-        return sessions.patch(id, r);
+            @PathVariable UUID id,
+            @RequestBody @Valid EventSessionRequest r,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return sessions.patch(id, r, principal);
     }
 
     @DeleteMapping("/event-sessions/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID id) {
-        sessions.delete(id);
+    public void delete(
+            @PathVariable UUID id,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        sessions.delete(id, principal);
     }
 }

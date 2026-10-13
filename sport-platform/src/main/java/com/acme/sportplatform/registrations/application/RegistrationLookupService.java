@@ -28,39 +28,6 @@ public class RegistrationLookupService implements RegistrationLookup {
     }
 
     @Override
-    @Transactional
-    public void markPaid(UUID registrationId) {
-        var registration = requireLocked(registrationId);
-        if (!"CONFIRMED".equals(registration.getStatus())
-                && !"PAID".equals(registration.getStatus()))
-            throw new com.acme.sportplatform.common.exception.BusinessException(
-                    "registrations.invalid_transition",
-                    "Отметить оплату можно только у подтверждённой заявки");
-        applyPaid(registration);
-    }
-
-    @Override
-    @Transactional
-    public void applySuccessfulPayment(UUID registrationId) {
-        applyPaid(requireLocked(registrationId));
-    }
-
-    private RegistrationEntity requireLocked(UUID id) {
-        return registrationRepository
-                .lockById(id)
-                .orElseThrow(
-                        () ->
-                                new com.acme.sportplatform.common.exception.BusinessException(
-                                        "registrations.not_found", "Заявка не найдена"));
-    }
-
-    private void applyPaid(RegistrationEntity registration) {
-        registration.setPaymentStatus("PAID");
-        if ("CONFIRMED".equals(registration.getStatus())) registration.setStatus("PAID");
-        registration.setUpdatedAt(java.time.OffsetDateTime.now());
-    }
-
-    @Override
     public RegistrationLookupResult getById(UUID registrationId) {
         return findById(registrationId)
                 .orElseThrow(() -> new IllegalArgumentException(

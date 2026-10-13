@@ -3,7 +3,7 @@ package com.acme.sportplatform.competition.application;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.api.*;
 import com.acme.sportplatform.competition.infrastructure.jpa.*;
-import com.acme.sportplatform.events.EventManagementAccess;
+import com.acme.sportplatform.events.EventAccessService;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +17,7 @@ public class UpdateEventDisciplineUseCase {
     private final EventDisciplineRepository disciplines;
     private final EventDisciplineMapper mapper;
     private final SwimDisciplineValidator swim;
-    private final EventManagementAccess access;
+    private final EventAccessService access;
     private final com.acme.sportplatform.events.EventLookup events;
     private final com.acme.sportplatform.competition.RegistrationUsageLookup registrations;
     private final com.acme.sportplatform.competition.CompetitionUnitUsageLookup units;
@@ -26,7 +26,7 @@ public class UpdateEventDisciplineUseCase {
             EventDisciplineRepository disciplines,
             EventDisciplineMapper mapper,
             SwimDisciplineValidator swim,
-            EventManagementAccess access,
+            EventAccessService access,
             com.acme.sportplatform.competition.RegistrationUsageLookup registrations,
             com.acme.sportplatform.competition.CompetitionUnitUsageLookup units,
             com.acme.sportplatform.events.EventLookup events) {
@@ -40,9 +40,12 @@ public class UpdateEventDisciplineUseCase {
     }
 
     public EventDisciplineResponse patch(
-            UUID id, CreateEventDisciplineRequest r, java.util.Set<String> clearFields) {
+            UUID id,
+            CreateEventDisciplineRequest r,
+            java.util.Set<String> clearFields,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var d = require(id);
-        access.assertCanManage(d.getEventId());
+        access.assertCanManage(d.getEventId(), principal);
         if (!java.util.Set.of("DRAFT", "PUBLISHED")
                 .contains(events.getById(d.getEventId()).status()))
             throw new BusinessException(
@@ -75,9 +78,10 @@ public class UpdateEventDisciplineUseCase {
         return mapper.toResponse(disciplines.save(d));
     }
 
-    public void delete(UUID id) {
+    public void delete(
+            UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var d = require(id);
-        access.assertCanManage(d.getEventId());
+        access.assertCanManage(d.getEventId(), principal);
         if (registrations.isInUse(id))
             throw new BusinessException(
                     "competition.discipline_in_use",

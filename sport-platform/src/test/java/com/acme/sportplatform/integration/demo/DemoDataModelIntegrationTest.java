@@ -169,7 +169,7 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
         call(post("/api/v1/events/{id}/disciplines", e.getId()), owner("ORGANIZER", a), body, 400);
         body.put("ageGroups", List.of(new AgeGroup("a", "Группа", "F", 2016, 2014)));
         call(post("/api/v1/events/{id}/disciplines", e.getId()), owner("ORGANIZER", a), body, 400);
-        mvc.perform(get("/api/v1/age-group-presets"))
+        mvc.perform(get("/api/v1/age-group-presets").with(user(owner("ORGANIZER", a))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].groups.length()").value(8));
     }
@@ -458,17 +458,16 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
                         .orElseThrow()
                         .getFinalPlace());
         assertEquals(
-                "CORRECTED",
-                results.findByCompetitionUnitEntryId(entryIds.get(0)).orElseThrow().getStatus());
-        assertEquals(
                 "DID_NOT_FINISH",
+                results.findByCompetitionUnitEntryId(entryIds.get(0)).orElseThrow().getStatus());
+        assertNull(
                 results.findByCompetitionUnitEntryId(entryIds.get(0)).orElseThrow().getRawValue());
         call(
                 post("/api/v1/competition-units/{id}/results", unit.getId()),
                 owner("OPERATOR", a),
                 changed,
                 200);
-        assertEquals(1, ruleLogs.findByEventDisciplineId(d.getId()).size());
+        assertEquals(0, ruleLogs.findByEventDisciplineId(d.getId()).size());
     }
 
     @Test
@@ -774,6 +773,45 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
         assertEquals("елкина|анна мария|2015-06-01|f", p.getExternalKey());
         assertEquals("Ивановна", p.getMiddleName());
         assertEquals("Исходный клуб", p.getClubName());
+    }
+
+    @Test
+    void markPaidUsesCanonicalServiceAndRejectsOtherStatuses() throws Exception {
+        var a = athlete("F");
+        var event = event(a.getUserId(), "REGISTRATION_OPEN");
+        var discipline = discipline(event, "F", BigDecimal.ONE);
+        String id = submit(a, event, List.of(discipline)).get(0).path("id").asText();
+        assertEquals(
+                "registrations.payment_not_applicable",
+                call(
+                                post("/api/v1/registrations/{id}/mark-paid", id),
+                                owner("OPERATOR", a),
+                                null,
+                                409)
+                        .path("code")
+                        .asText());
+        call(
+                post("/api/v1/registrations/{id}/review", id),
+                owner("ORGANIZER", a),
+                Map.of("decision", "CONFIRMED"),
+                200);
+        var paid =
+                call(
+                        post("/api/v1/registrations/{id}/mark-paid", id),
+                        owner("OPERATOR", a),
+                        null,
+                        200);
+        assertEquals("PAID", paid.path("status").asText());
+        assertEquals("PAID", paid.path("paymentStatus").asText());
+        assertEquals(
+                "registrations.payment_not_applicable",
+                call(
+                                post("/api/v1/registrations/{id}/mark-paid", id),
+                                owner("OPERATOR", a),
+                                null,
+                                409)
+                        .path("code")
+                        .asText());
     }
 
     private JsonNode call(

@@ -3,7 +3,7 @@ package com.acme.sportplatform.results.application;
 import com.acme.sportplatform.common.TimeParser;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.EventDisciplineLookup;
-import com.acme.sportplatform.events.EventManagementAccess;
+import com.acme.sportplatform.events.EventAccessService;
 import com.acme.sportplatform.registrations.RegistrationLookup;
 import com.acme.sportplatform.results.api.*;
 import com.acme.sportplatform.results.infrastructure.jpa.*;
@@ -22,7 +22,7 @@ public class SwimResultsUseCase {
     private final ResultRepository results;
     private final EventDisciplineLookup disciplines;
     private final RegistrationLookup registrations;
-    private final EventManagementAccess access;
+    private final EventAccessService access;
     private final RuleExecutionLogRepository logs;
     private final GetCompetitionUnitDetailsUseCase details;
     private final ObjectMapper json;
@@ -33,7 +33,7 @@ public class SwimResultsUseCase {
             ResultRepository results,
             EventDisciplineLookup disciplines,
             RegistrationLookup registrations,
-            EventManagementAccess access,
+            EventAccessService access,
             RuleExecutionLogRepository logs,
             GetCompetitionUnitDetailsUseCase details,
             ObjectMapper json) {
@@ -58,7 +58,10 @@ public class SwimResultsUseCase {
     }
 
     public CompetitionUnitDetailsResponse save(
-            UUID unitId, UUID userId, List<SwimResultRequest> requests) {
+            UUID unitId,
+            UUID userId,
+            List<SwimResultRequest> requests,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         long started = System.nanoTime();
         var unit =
                 units.lockById(unitId)
@@ -74,7 +77,7 @@ public class SwimResultsUseCase {
                                         new BusinessException(
                                                 "competition.discipline_not_found",
                                                 "Дисциплина не найдена"));
-        access.assertCanManage(discipline.eventId());
+        access.assertCanManage(discipline.eventId(), principal);
         if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED", "IN_PROGRESS", "FINISHED")
                 .contains(unit.getStatus()))
             throw new BusinessException(
@@ -87,7 +90,8 @@ public class SwimResultsUseCase {
                         .collect(
                                 java.util.stream.Collectors.toMap(
                                         r -> r.getCompetitionUnitEntryId(), r -> r));
-        boolean correcting = !existing.isEmpty();
+        boolean correcting =
+                !existing.isEmpty() && Set.of("PUBLISHED", "FINISHED").contains(unit.getStatus());
         if (correcting && Set.of("PUBLISHED", "FINISHED").contains(unit.getStatus())) {
             var auth =
                     org.springframework.security.core.context.SecurityContextHolder.getContext()
@@ -179,7 +183,7 @@ public class SwimResultsUseCase {
                                             && Objects.equals(result.getRawValue(), p.status()));
             if (same) continue;
             changed = true;
-            boolean correction = result != null;
+            boolean correction = correcting && result != null;
             if (result == null) {
                 result = new ResultEntity();
                 result.setId(UUID.randomUUID());
@@ -215,7 +219,9 @@ public class SwimResultsUseCase {
 
     private record PreparedResult(UUID entryId, Long timeMs, String status) {}
 
-    public DisciplineResultsResponse protocol(UUID disciplineId) {
+    public DisciplineResultsResponse protocol(
+            UUID disciplineId,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var discipline =
                 disciplines
                         .findById(disciplineId)
@@ -224,7 +230,7 @@ public class SwimResultsUseCase {
                                         new BusinessException(
                                                 "competition.discipline_not_found",
                                                 "Дисциплина не найдена"));
-        access.assertCanManage(discipline.eventId());
+        access.assertCanManage(discipline.eventId(), principal);
         Map<String, List<CompetitionUnitDetailsResponse.EntryView>> groups = new TreeMap<>();
         for (var unit : units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId))
             for (var entry : details.execute(unit.getId()).entries()) {
@@ -300,11 +306,9 @@ public class SwimResultsUseCase {
                                 java.time.LocalDate.parse(snapshot.path("birthDate").asText())
                                         .getYear();
                         String gender =
-                                switch (snapshot.path("gender").asText()) {
-                                    case "MALE" -> "M";
-                                    case "FEMALE" -> "F";
-                                    default -> snapshot.path("gender").asText();
-                                };
+                                com.acme.sportplatform.identity.ProfileExternalKey.gender(
+                                                snapshot.path("gender").asText())
+                                        .toUpperCase(java.util.Locale.ROOT);
                         group =
                                 discipline.ageGroups().stream()
                                         .filter(g -> g.includes(gender, year))

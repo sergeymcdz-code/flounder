@@ -40,10 +40,14 @@ public class SwimDisciplineController {
                                                                     CreateEventDisciplineRequest
                                                                             .class))))
     public EventDisciplineResponse patch(
-            @PathVariable UUID id, @RequestBody com.fasterxml.jackson.databind.JsonNode body) {
+            @PathVariable UUID id,
+            @RequestBody com.fasterxml.jackson.databind.JsonNode body,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var errors =
-                new ArrayList< com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
-        var request = com.acme.sportplatform.common.RequestValidation.read(
+                new ArrayList<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
+        var request =
+                com.acme.sportplatform.common.RequestValidation.read(
                         json, body, CreateEventDisciplineRequest.class, validator, "", errors);
         com.acme.sportplatform.common.RequestValidation.requireValid(
                 "competition.invalid_request", errors);
@@ -51,14 +55,17 @@ public class SwimDisciplineController {
         for (String field :
                 List.of("sessionId", "orderInSession", "heatDurationSec", "participantLimit"))
             if (body.has(field) && body.get(field).isNull()) cleared.add(field);
-        return update.patch(id, request, cleared);
+        return update.patch(id, request, cleared, principal);
     }
 
     @DeleteMapping("/event-disciplines/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
-    public void delete(@PathVariable UUID id) {
-        update.delete(id);
+    public void delete(
+            @PathVariable UUID id,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        update.delete(id, principal);
     }
 
     @GetMapping("/age-group-presets")

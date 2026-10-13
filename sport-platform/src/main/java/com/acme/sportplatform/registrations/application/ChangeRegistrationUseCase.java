@@ -21,22 +21,20 @@ import java.util.*;
 public class ChangeRegistrationUseCase {
     private final RegistrationRepository registrations;
     private final RegistrationMapper mapper;
-    private final EventManagementAccess access;
+    private final EventAccessService access;
     private final EventLookup events;
     private final ProfileLookup profiles;
     private final ApplicationEventPublisher publisher;
-    private final RegistrationLookup lookup;
     private final com.acme.sportplatform.competition.EventDisciplineLookup disciplines;
     private final com.fasterxml.jackson.databind.ObjectMapper json;
 
     public ChangeRegistrationUseCase(
             RegistrationRepository registrations,
             RegistrationMapper mapper,
-            EventManagementAccess access,
+            EventAccessService access,
             EventLookup events,
             ProfileLookup profiles,
             ApplicationEventPublisher publisher,
-            RegistrationLookup lookup,
             com.acme.sportplatform.competition.EventDisciplineLookup disciplines,
             com.fasterxml.jackson.databind.ObjectMapper json) {
         this.registrations = registrations;
@@ -45,14 +43,16 @@ public class ChangeRegistrationUseCase {
         this.events = events;
         this.profiles = profiles;
         this.publisher = publisher;
-        this.lookup = lookup;
         this.disciplines = disciplines;
         this.json = json;
     }
 
-    public RegistrationResponse patch(UUID id, PatchRegistrationRequest r) {
+    public RegistrationResponse patch(
+            UUID id,
+            PatchRegistrationRequest r,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        access.assertCanManage(entity.getEventId());
+        access.assertCanManage(entity.getEventId(), principal);
         if (r.seedTimeMs() != null) entity.setSeedTimeMs(r.seedTimeMs());
         if (r.status() != null) {
             if (!Set.of(RegistrationStatus.ADMITTED, RegistrationStatus.WITHDRAWN)
@@ -64,10 +64,21 @@ public class ChangeRegistrationUseCase {
         return save(entity);
     }
 
-    public RegistrationResponse withdraw(UUID id, UUID userId) {
+    public RegistrationResponse withdraw(
+            UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        if (!access.canManage(entity.getEventId())) {
-            assertOwner(entity, userId);
+        boolean manager =
+                principal != null
+                        && principal.getAuthorities().stream()
+                                .anyMatch(
+                                        authority ->
+                                                java.util.Set.of(
+                                                                "ROLE_PLATFORM_ADMIN",
+                                                                "ROLE_ORGANIZER",
+                                                                "ROLE_OPERATOR")
+                                                        .contains(authority.getAuthority()));
+        if (!manager || !access.canManage(entity.getEventId(), principal)) {
+            assertOwner(entity, principal.getUserId());
             assertOpen(entity.getEventId());
         }
         transition(entity, RegistrationStatus.WITHDRAWN);
@@ -134,13 +145,6 @@ public class ChangeRegistrationUseCase {
         transition(entity, RegistrationStatus.SUBMITTED);
         entity.setSubmittedAt(OffsetDateTime.now());
         return save(entity);
-    }
-
-    public RegistrationResponse markPaid(UUID id) {
-        var entity = require(id);
-        access.assertCanManage(entity.getEventId());
-        lookup.markPaid(id);
-        return mapper.toResponse(entity);
     }
 
     private void transition(RegistrationEntity e, RegistrationStatus target) {

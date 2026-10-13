@@ -56,6 +56,9 @@ public class ResultsController {
     private final EventDisciplineLookup eventDisciplineLookup;
 
     private final ResultsAccessService resultsAccessService;
+    private final com.acme.sportplatform.results.application.SwimResultsUseCase swim;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
+    private final jakarta.validation.Validator validator;
 
     public ResultsController(
             CreateCompetitionUnitUseCase createCompetitionUnitUseCase,
@@ -70,9 +73,12 @@ public class ResultsController {
             GetPublicDisciplineResultsUseCase
                     getPublicDisciplineResultsUseCase,
             EventDisciplineLookup eventDisciplineLookup,
-            ResultsAccessService resultsAccessService
+            ResultsAccessService resultsAccessService,
+            com.acme.sportplatform.results.application.SwimResultsUseCase swim,
+            com.fasterxml.jackson.databind.ObjectMapper json, jakarta.validation.Validator validator
     ) {
         this.resultsAccessService = resultsAccessService;
+        this.swim=swim;this.json=json;this.validator=validator;
         this.createCompetitionUnitUseCase = createCompetitionUnitUseCase;
         this.assignRegistrationToUnitUseCase = assignRegistrationToUnitUseCase;
         this.recordResultUseCase = recordResultUseCase;
@@ -251,30 +257,53 @@ public class ResultsController {
     @PreAuthorize(
             "hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')"
     )
+    @io.swagger.v3.oas.annotations.Operation(summary="Ввод результатов заплыва", requestBody=@io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content=@io.swagger.v3.oas.annotations.media.Content(array=@io.swagger.v3.oas.annotations.media.ArraySchema(schema=@io.swagger.v3.oas.annotations.media.Schema(implementation=com.acme.sportplatform.results.api.SwimResultRequest.class)))))
     public CompetitionUnitDetailsResponse recordResultAndRecalculate(
             @PathVariable UUID unitId,
-            @AuthenticationPrincipal(expression = "userId")
-            UUID recordedByUserId,
-            @Valid @RequestBody RecordResultRequest request,
-            @RequestParam String resultType,
+            @AuthenticationPrincipal(expression = "userId") UUID recordedByUserId,
+            @RequestBody com.fasterxml.jackson.databind.JsonNode body,
+            @RequestParam(defaultValue = "TIME") String resultType,
             @RequestParam(defaultValue = "ASC") String rankingStrategy,
-            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
-    ) {
-        resultsAccessService.assertUnitAccess(unitId, principal);
-        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(), principal);
-
-        recordResultUseCase.execute(
-                request,
-                resultType,
-                recordedByUserId,
-                unitId
-        );
-
-        recalculatePlacesUseCase.execute(
-                unitId,
-                rankingStrategy
-        );
-
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        resultsAccessService.assertUnitAccess(unitId,principal);
+        if (body.isArray()) {
+            var errors =
+                    new
+            java.util.ArrayList<
+                            com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
+            var requests =
+                    new java.util.ArrayList<com.acme.sportplatform.results.api.SwimResultRequest>();
+            if (body.isEmpty())
+                errors.add(
+                        new com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation(
+                                "items", "Укажите результаты участников"));
+            for (int i = 0; i < body.size(); i++)
+                requests.add(
+                        com.acme.sportplatform.common.RequestValidation.read(
+                                json,
+                                body.get(i),
+                                                com.acme.sportplatform.results.api
+                                                        .SwimResultRequest.class,
+                                validator,
+                                "[" + i + "].",
+                                errors));
+            com.acme.sportplatform.common.RequestValidation.requireValid(
+                    "results.invalid_request", errors);
+            return swim.save(unitId, recordedByUserId, requests,principal);
+        }
+        RecordResultRequest request;
+        try {
+            request = json.convertValue(body, RecordResultRequest.class);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(
+                    "results.invalid_request", "Некорректный формат результата");
+        }
+        if (request == null || request.competitionUnitEntryId() == null)
+            throw new BusinessException("results.invalid_request", "Укажите участника заплыва");
+        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(),principal);
+        recordResultUseCase.execute(request, resultType, recordedByUserId, unitId);
+        recalculatePlacesUseCase.execute(unitId, rankingStrategy);
         return getCompetitionUnitDetailsUseCase.execute(unitId);
     }
 
@@ -320,6 +349,14 @@ public class ResultsController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/event-disciplines/{id}/results")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR','JUDGE')")
+    public com.acme.sportplatform.results.api.DisciplineResultsResponse protocol(@PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        resultsAccessService.assertDisciplineAccess(id,principal);
+        return swim.protocol(id,principal);
     }
 
     private BusinessException publicResultsNotFound() {

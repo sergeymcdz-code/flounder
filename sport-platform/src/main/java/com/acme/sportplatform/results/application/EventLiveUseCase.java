@@ -2,7 +2,7 @@ package com.acme.sportplatform.results.application;
 
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.EventDisciplineLookup;
-import com.acme.sportplatform.events.EventManagementAccess;
+import com.acme.sportplatform.events.EventAccessService;
 import com.acme.sportplatform.results.api.*;
 import com.acme.sportplatform.results.domain.CompetitionUnitStatus;
 import com.acme.sportplatform.results.infrastructure.jpa.*;
@@ -19,21 +19,24 @@ public class EventLiveUseCase {
     private final EventLiveStateRepository live;
     private final CompetitionUnitRepository units;
     private final EventDisciplineLookup disciplines;
-    private final EventManagementAccess access;
+    private final EventAccessService access;
 
     public EventLiveUseCase(
             EventLiveStateRepository live,
             CompetitionUnitRepository units,
             EventDisciplineLookup disciplines,
-            EventManagementAccess access) {
+            EventAccessService access) {
         this.live = live;
         this.units = units;
         this.disciplines = disciplines;
         this.access = access;
     }
 
-    public LiveStateResponse set(UUID eventId, UUID currentUnitId) {
-        access.assertCanManage(eventId);
+    public LiveStateResponse set(
+            UUID eventId,
+            UUID currentUnitId,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        access.assertCanManage(eventId, principal);
         if (currentUnitId != null && !eventId.equals(eventId(require(currentUnitId))))
             throw new BusinessException(
                     "results.unit_event_mismatch", "Заплыв принадлежит другому событию");
@@ -43,10 +46,11 @@ public class EventLiveUseCase {
         return new LiveStateResponse(eventId, currentUnitId, state.getUpdatedAt());
     }
 
-    public LiveStateResponse start(UUID id) {
+    public LiveStateResponse start(
+            UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var unit = require(id);
         UUID eventId = eventId(unit);
-        access.assertCanManage(eventId);
+        access.assertCanManage(eventId, principal);
         if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED").contains(unit.getStatus()))
             throw new BusinessException(
                     "results.invalid_transition", "Заплыв нельзя начать из текущего статуса");
@@ -59,13 +63,14 @@ public class EventLiveUseCase {
                     "results.unit_in_progress", "Другой заплыв ещё не завершён");
         unit.setStatus(CompetitionUnitStatus.IN_PROGRESS.name());
         unit.setUpdatedAt(OffsetDateTime.now());
-        return set(eventId, id);
+        return set(eventId, id, principal);
     }
 
-    public LiveStateResponse finish(UUID id) {
+    public LiveStateResponse finish(
+            UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var unit = require(id);
         UUID eventId = eventId(unit);
-        access.assertCanManage(eventId);
+        access.assertCanManage(eventId, principal);
         lockState(eventId);
         if (!CompetitionUnitStatus.IN_PROGRESS.name().equals(unit.getStatus()))
             throw new BusinessException(
@@ -80,7 +85,7 @@ public class EventLiveUseCase {
                                 unit.getId())
                         .map(CompetitionUnitEntity::getId)
                         .orElse(null);
-        return set(eventId, next);
+        return set(eventId, next, principal);
     }
 
     private EventLiveStateEntity lockState(UUID eventId) {

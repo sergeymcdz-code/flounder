@@ -28,10 +28,14 @@ public class RegistrationPaymentService implements RegistrationPaymentLookup {
     @Override
     @Transactional
     public void markPaid(UUID id) {
-        int updated = registrations.markConfirmedPaid(id, OffsetDateTime.now(ZoneOffset.UTC));
-        if (updated == 0 && !"PAID".equals(get(id).getStatus())) {
+        RegistrationEntity registration = registrations.lockById(id)
+                .orElseThrow(() -> new BusinessException("registrations.not_found", "Заявка не найдена"));
+        if (!"CONFIRMED".equals(registration.getStatus())) {
             throw new BusinessException("registrations.payment_not_applicable",
                     "Отметить оплату можно только у подтверждённой заявки");
         }
+        registration.setPaymentStatus("PAID");
+        registration.setStatus("PAID");
+        registration.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
     }
 }

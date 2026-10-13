@@ -16,13 +16,13 @@ import java.util.*;
 @Transactional
 public class EventSessionService implements SessionLookup {
     private final EventSessionRepository sessions;
-    private final EventManagementAccess access;
+    private final EventAccessService access;
     private final SessionUsageLookup usage;
     private final SessionHeatsLookup heats;
 
     public EventSessionService(
             EventSessionRepository sessions,
-            EventManagementAccess access,
+            EventAccessService access,
             SessionUsageLookup usage,
             SessionHeatsLookup heats) {
         this.sessions = sessions;
@@ -31,8 +31,9 @@ public class EventSessionService implements SessionLookup {
         this.heats = heats;
     }
 
-    public List<com.acme.sportplatform.events.api.EventSessionResponse> list(UUID eventId) {
-        access.assertCanManage(eventId);
+    public List<com.acme.sportplatform.events.api.EventSessionResponse> list(
+            UUID eventId, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        access.assertCanManage(eventId, principal);
         return views(eventId).stream()
                 .map(
                         s -> {
@@ -54,8 +55,11 @@ public class EventSessionService implements SessionLookup {
         return sessions.findByEventIdOrderByOrderNoAsc(eventId).stream().map(this::view).toList();
     }
 
-    public EventSessionView create(UUID eventId, EventSessionRequest request) {
-        access.assertCanManage(eventId);
+    public EventSessionView create(
+            UUID eventId,
+            EventSessionRequest request,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        access.assertCanManage(eventId, principal);
         var entity = new EventSessionEntity();
         entity.setId(UUID.randomUUID());
         entity.setEventId(eventId);
@@ -63,9 +67,12 @@ public class EventSessionService implements SessionLookup {
         return save(entity, request);
     }
 
-    public EventSessionView patch(UUID id, EventSessionRequest request) {
+    public EventSessionView patch(
+            UUID id,
+            EventSessionRequest request,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        access.assertCanManage(entity.getEventId());
+        access.assertCanManage(entity.getEventId(), principal);
         return save(entity, request);
     }
 
@@ -90,9 +97,10 @@ public class EventSessionService implements SessionLookup {
         return view(sessions.save(entity));
     }
 
-    public void delete(UUID id) {
+    public void delete(
+            UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        access.assertCanManage(entity.getEventId());
+        access.assertCanManage(entity.getEventId(), principal);
         if (usage.isInUse(id))
             throw new BusinessException(
                     "events.session_in_use",

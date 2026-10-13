@@ -19,17 +19,27 @@ public class EventLiveController {
     }
 
     @PutMapping("/events/{eventId}/live")
-    public LiveStateResponse set(@PathVariable UUID eventId, @RequestBody SetLiveStateRequest r) {
-        return live.set(eventId, r.currentUnitId());
+    public LiveStateResponse set(
+            @PathVariable UUID eventId,
+            @RequestBody SetLiveStateRequest r,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return live.set(eventId, r.currentUnitId(), principal);
     }
 
     @PostMapping("/competition-units/{id}/start")
-    public LiveStateResponse start(@PathVariable UUID id) {
-        return live.start(id);
+    public LiveStateResponse start(
+            @PathVariable UUID id,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return live.start(id, principal);
     }
 
     @PostMapping("/competition-units/{id}/finish")
-    public LiveStateResponse finish(@PathVariable UUID id) {
-        return live.finish(id);
+    public LiveStateResponse finish(
+            @PathVariable UUID id,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return live.finish(id, principal);
     }
 }

@@ -23,15 +23,20 @@ public class RegistrationChangesController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
     public RegistrationResponse patch(
-            @PathVariable UUID id, @RequestBody @Valid PatchRegistrationRequest r) {
-        return changes.patch(id, r);
+            @PathVariable UUID id,
+            @RequestBody @Valid PatchRegistrationRequest r,
+            @AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return changes.patch(id, r, principal);
     }
 
     @PostMapping("/{id}/withdraw")
     @PreAuthorize("hasAnyRole('PARTICIPANT','PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
     public RegistrationResponse withdraw(
-            @PathVariable UUID id, @AuthenticationPrincipal(expression = "userId") UUID userId) {
-        return changes.withdraw(id, userId);
+            @PathVariable UUID id,
+            @AuthenticationPrincipal
+                    com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        return changes.withdraw(id, principal);
     }
 
     @PostMapping("/{id}/resubmit")
@@ -41,11 +46,5 @@ public class RegistrationChangesController {
             @AuthenticationPrincipal(expression = "userId") UUID userId,
             @RequestBody(required = false) @Valid ResubmitRegistrationRequest request) {
         return changes.resubmit(id, userId, request);
-    }
-
-    @PostMapping("/{id}/mark-paid")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
-    public RegistrationResponse markPaid(@PathVariable UUID id) {
-        return changes.markPaid(id);
     }
 }
