@@ -25,8 +25,6 @@ import java.util.stream.Collectors;
 @Service
 public class GetPublicDisciplineResultsUseCase {
 
-    private static final String PUBLISHED = "FINISHED";
-
     private final CompetitionUnitRepository competitionUnitRepository;
     private final CompetitionUnitEntryRepository entryRepository;
     private final ResultRepository resultRepository;
@@ -53,9 +51,9 @@ public class GetPublicDisciplineResultsUseCase {
             UUID eventDisciplineId
     ) {
         List<CompetitionUnitEntity> units = competitionUnitRepository
-                .findByEventDisciplineIdAndStatusOrderBySequenceNumberAsc(
+                .findByEventDisciplineIdAndStatusInOrderBySequenceNumberAsc(
                         eventDisciplineId,
-                        PUBLISHED
+                        List.of("FINISHED", "COMPLETED")
                 );
 
         if (units.isEmpty()) {

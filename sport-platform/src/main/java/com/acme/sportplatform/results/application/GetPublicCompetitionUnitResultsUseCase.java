@@ -52,7 +52,7 @@ public class GetPublicCompetitionUnitResultsUseCase {
                 .findById(unitId)
                 .orElseThrow(this::publicNotFound);
 
-        if (!"FINISHED".equals(unit.getStatus())) {
+        if (!java.util.Set.of("FINISHED", "COMPLETED").contains(unit.getStatus())) {
             throw publicNotFound();
         }
 
