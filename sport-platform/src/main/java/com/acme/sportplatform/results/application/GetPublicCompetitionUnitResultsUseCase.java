@@ -1,6 +1,8 @@
 package com.acme.sportplatform.results.application;
 
 import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.competition.EventDisciplineLookup;
+import com.acme.sportplatform.events.EventLookup;
 import com.acme.sportplatform.registrations.RegistrationLookup;
 import com.acme.sportplatform.registrations.RegistrationLookupResult;
 import com.acme.sportplatform.results.api.PublicCompetitionUnitResultsResponse;
@@ -31,19 +33,25 @@ public class GetPublicCompetitionUnitResultsUseCase {
     private final ResultRepository resultRepository;
     private final RegistrationLookup registrationLookup;
     private final ObjectMapper objectMapper;
+    private final EventLookup eventLookup;
+    private final EventDisciplineLookup eventDisciplineLookup;
 
     public GetPublicCompetitionUnitResultsUseCase(
             CompetitionUnitRepository competitionUnitRepository,
             CompetitionUnitEntryRepository entryRepository,
             ResultRepository resultRepository,
             RegistrationLookup registrationLookup,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            EventLookup eventLookup,
+            EventDisciplineLookup eventDisciplineLookup
     ) {
         this.competitionUnitRepository = competitionUnitRepository;
         this.entryRepository = entryRepository;
         this.resultRepository = resultRepository;
         this.registrationLookup = registrationLookup;
         this.objectMapper = objectMapper;
+        this.eventLookup = eventLookup;
+        this.eventDisciplineLookup = eventDisciplineLookup;
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +63,7 @@ public class GetPublicCompetitionUnitResultsUseCase {
         if (!java.util.Set.of("FINISHED", "COMPLETED").contains(unit.getStatus())) {
             throw publicNotFound();
         }
+        assertPublicDiscipline(unit.getEventDisciplineId());
 
         List<CompetitionUnitEntryEntity> entries =
                 entryRepository.findByCompetitionUnitId(unitId);
@@ -124,6 +133,12 @@ public class GetPublicCompetitionUnitResultsUseCase {
             ResultEntity result,
             RegistrationLookupResult registration
     ) {
+        String status = result == null ? null : result.getStatus();
+        if (result != null && "CORRECTED".equals(status) && result.getTimeMs() == null
+                && java.util.Set.of("DID_NOT_START", "DID_NOT_FINISH", "DISQUALIFIED")
+                        .contains(result.getRawValue() == null ? "" : result.getRawValue())) {
+            status = result.getRawValue();
+        }
         return new PublicCompetitionUnitResultsResponse.EntryView(
                 registration == null
                         ? fallbackParticipantName(entry.getRegistrationId())
@@ -134,9 +149,16 @@ public class GetPublicCompetitionUnitResultsUseCase {
                 entry.getLaneOrPosition(),
                 result == null ? null : result.getRawValue(),
                 result == null ? null : result.getResultType(),
-                result == null ? null : result.getStatus(),
+                status,
                 result == null ? null : result.getFinalPlace()
         );
+    }
+
+    private void assertPublicDiscipline(UUID disciplineId) {
+        var discipline = eventDisciplineLookup.findById(disciplineId).orElseThrow(this::publicNotFound);
+        var event = eventLookup.getById(discipline.eventId());
+        if (!event.isPublic() || eventDisciplineLookup.findPublishedByEventId(event.id()).stream()
+                .noneMatch(d -> d.id().equals(disciplineId))) throw publicNotFound();
     }
 
     private BusinessException publicNotFound() {

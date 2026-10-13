@@ -35,10 +35,12 @@ public interface CompetitionUnitRepository
             value =
                     """
                     with program as (
-                        select u.*, row_number() over (partition by d.session_id
-                            order by u.scheduled_at nulls last, d.order_in_session,
+                        select u.*, s.order_no as session_order_no, d.order_in_session as discipline_order_no,
+                            row_number() over (
+                            order by u.scheduled_at nulls last, s.order_no nulls last, d.order_in_session,
                                 u.sequence_number, u.id) as sequence_in_session
                         from competition_units u join event_disciplines d on d.id=u.event_discipline_id
+                        left join event_sessions s on s.id=d.session_id
                         where d.event_id=:eventId
                     )
                     select u.* from program u where u.status in ('DRAFT','SCHEDULED','PUBLISHED')
@@ -47,7 +49,8 @@ public interface CompetitionUnitRepository
                             or (u.scheduled_at is not distinct from cast(:scheduledAt as timestamptz)
                                 and (u.sequence_in_session,u.id) >
                                     (coalesce((select sequence_in_session from program where id=:id),:sequence),:id)))
-                    order by u.scheduled_at nulls last,u.sequence_in_session,u.id limit 1
+                    order by u.scheduled_at nulls last,u.session_order_no nulls last,
+                        u.discipline_order_no,u.sequence_number,u.id limit 1
                     """,
             nativeQuery = true)
     java.util.Optional<CompetitionUnitEntity> nextScheduled(
@@ -61,9 +64,4 @@ public interface CompetitionUnitRepository
     List<CompetitionUnitEntity>
     findByEventDisciplineIdAndStatusInOrderBySequenceNumberAsc(UUID eventDisciplineId, List<String> statuses);
 
-    List<CompetitionUnitEntity>
-    findByEventDisciplineIdAndStatusOrderBySequenceNumberAsc(
-            UUID eventDisciplineId,
-            String status
-    );
 }
