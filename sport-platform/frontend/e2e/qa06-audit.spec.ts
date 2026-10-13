@@ -40,7 +40,8 @@ test('read states at 375px: empty, loading, HTTP 500 and network', async ({ brow
   test.skip(process.env.QA06_CAPTURE !== '1', 'Opt-in state evidence capture')
   test.setTimeout(360000)
   await mkdir(output, { recursive: true })
-  const readPages = routes.filter(([name]) => !['login', 'register', 'legacy-register', 'admin-review', 'legacy-event', 'organizer-registrations'].includes(name))
+  const readPages = routes.filter(([name]) => !['login', 'register', 'legacy-register', 'admin-review', 'legacy-event', 'organizer-registrations'].includes(name)
+    && (!process.env.QA06_ROUTE_FILTER || process.env.QA06_ROUTE_FILTER.split(',').includes(name)))
   const rows = []
   for (const mode of (process.env.QA06_STATE_FILTER?.split(',') ?? ['empty', '500', 'network', 'loading'])) {
     for (const [name, path, role] of readPages) {
@@ -85,7 +86,7 @@ test('read states at 375px: empty, loading, HTTP 500 and network', async ({ brow
     }
   }
   const file = `${output}/../QA06-states.json`
-  const previous = process.env.QA06_STATE_FILTER ? JSON.parse(await readFile(file, 'utf8')) : []
+  const previous = process.env.QA06_STATE_FILTER || process.env.QA06_ROUTE_FILTER ? JSON.parse(await readFile(file, 'utf8')) : []
   const merged = [...previous.filter((row: { name: string; mode: string }) => !rows.some(updated => updated.name === row.name && updated.mode === row.mode)), ...rows]
   await writeFile(file, JSON.stringify(merged, null, 2) + '\n')
 })

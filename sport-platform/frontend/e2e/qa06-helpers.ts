@@ -171,8 +171,8 @@ export const routes: [string, string, string][] = [
 ]
 
 const extraMocks = `async () => {
- const {worker}=await import('/src/mocks/browser.ts');
  const resources=performance.getEntriesByType('resource').map(x=>x.name);
+ const {worker}=await import(resources.find(x=>new URL(x).pathname==='/src/mocks/browser.ts'));
  const {http,HttpResponse}=await import(resources.find(x=>new URL(x).pathname.endsWith('/msw.js')));
  const {createFixtures}=await import('/src/mocks/fixtures.ts');
  const f=createFixtures();

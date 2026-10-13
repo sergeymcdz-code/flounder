@@ -1,85 +1,5 @@
 [
   {
-    "name": "home",
-    "path": "/",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo",
-    "path": "/e/demo",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo-start-list",
-    "path": "/e/demo/start-list",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo/start-list",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo-schedule",
-    "path": "/e/demo/schedule",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo/schedule",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo-live",
-    "path": "/e/demo/live",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo/live",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo-results",
-    "path": "/e/demo/results",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo/results",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo-register",
-    "path": "/e/demo/register",
-    "role": "participant",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo/register",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "e-demo-heats",
-    "path": "/e/demo/heats/M-50-FREE-1",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/e/demo/heats/M-50-FREE-1",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
     "name": "login",
     "path": "/login",
     "role": "",
@@ -136,16 +56,6 @@
     "width": 1366,
     "height": 768,
     "finalPath": "/events/demo/disciplines/M-50-FREE/register",
-    "scrollWidth": 1366,
-    "errors": []
-  },
-  {
-    "name": "legacy-results",
-    "path": "/events/demo/disciplines/M-50-FREE/results",
-    "role": "",
-    "width": 1366,
-    "height": 768,
-    "finalPath": "/events/demo/disciplines/M-50-FREE/results",
     "scrollWidth": 1366,
     "errors": []
   },
@@ -316,6 +226,96 @@
     "width": 1366,
     "height": 768,
     "finalPath": "/admin/sports",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "home",
+    "path": "/",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo",
+    "path": "/e/demo",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-start-list",
+    "path": "/e/demo/start-list",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/start-list",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-schedule",
+    "path": "/e/demo/schedule",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/schedule",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-live",
+    "path": "/e/demo/live",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/live",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-results",
+    "path": "/e/demo/results",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/results",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-register",
+    "path": "/e/demo/register",
+    "role": "participant",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/register",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-heats",
+    "path": "/e/demo/heats/M-50-FREE-1",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/heats/M-50-FREE-1",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "legacy-results",
+    "path": "/events/demo/disciplines/M-50-FREE/results",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/events/demo/disciplines/M-50-FREE/results",
     "scrollWidth": 1366,
     "errors": []
   },

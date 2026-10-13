@@ -210,12 +210,20 @@ test('QA06-18 payment loading is announced as a status', async ({ page }) => {
 
 test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page }) => {
   await openAuditPage(page, '/')
+  const event = await page.evaluate('(async () => { const { demoEvent } = await import("/src/mocks/demo-data.ts"); return { ...demoEvent, venue: { ...demoEvent.venue, city: "Самара", timezone: "Europe/Samara" } } })()')
+  await scenario(page, 'public/events/demo', event)
   await scenario(page, 'public/events/demo/schedule', [{
     sessionName: 'Утро в Самаре', disciplineName: '50 м вольный стиль', heatNumber: 1,
     sequenceInSession: 1, scheduledAt: '2026-10-17T10:00:00+04:00', status: 'PUBLISHED',
   }])
   await navigate(page, '/e/demo/schedule')
   await expect(page.locator('li')).toContainText('Заплыв 1')
-  knownDefect()
   await expect(page.locator('li')).toContainText('10:00')
+})
+
+test('QA06-22 judge can discover the results panel from primary navigation', async ({ page }) => {
+  await openAuditPage(page, '/', 'judge')
+  knownDefect()
+  await expect(page.getByRole('navigation', { name: 'Основная навигация' })
+    .getByRole('link', { name: 'Результаты', exact: true })).toBeVisible()
 })
