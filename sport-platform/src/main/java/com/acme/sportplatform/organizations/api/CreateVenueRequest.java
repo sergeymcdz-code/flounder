@@ -5,11 +5,11 @@ import java.util.Map;
 import jakarta.validation.constraints.NotBlank;
 
 public record CreateVenueRequest(
-        @NotBlank String name,
+        @NotBlank(message = "Укажите название площадки") String name,
         String countryCode,
         String city,
         String address,
-        @NotBlank String timezone,
+        @NotBlank(message = "Укажите часовой пояс") String timezone,
         Map<String, Object> venueMeta
 ) {
     public CreateVenueRequest {

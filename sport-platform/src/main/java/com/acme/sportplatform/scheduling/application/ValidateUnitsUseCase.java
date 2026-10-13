@@ -28,11 +28,18 @@ public class ValidateUnitsUseCase {
         var spec = data.spec(discipline);
         var pool = data.pool(discipline.eventId());
         var entries = data.entries(disciplineId);
-        var heats = data.heats(data.units.findByDisciplineId(disciplineId), entries);
+        var stored = data.units.findByDisciplineId(disciplineId);
+        var heats = data.heats(stored, entries);
         var schedule = data.schedule(discipline.eventId());
         var rules = data.rules(discipline.eventId());
-        var violations =
-                new SeedingValidator().validate(spec, pool, entries, heats, schedule, rules);
+        var violations = new ArrayList<>(
+                new SeedingValidator().validate(spec, pool, entries, heats, schedule, rules));
+        for (var unit : stored)
+            if ("PUBLISHED".equals(unit.status())
+                    && unit.entries().stream().anyMatch(e -> "WITHDRAWN".equals(e.status())))
+                violations.add(new Violation("PUBLISHED_HEAT_CHANGED", Violation.Severity.WARNING,
+                        "Опубликованный заплыв изменён: участник снят", disciplineId,
+                        unit.number(), null, null));
         var response = new ValidationResponse(violations);
         UUID runId =
                 logs.begin(

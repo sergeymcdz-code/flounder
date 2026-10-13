@@ -48,6 +48,15 @@ public class CreateEventUseCase {
 
     @Transactional
     public EventResponse execute(CreateEventRequest request, java.util.UUID createdByUserId) {
+        if (request.eventEndAt().isBefore(request.eventStartAt()))
+            throw com.acme.sportplatform.common.RequestValidation.field(
+                    "events.invalid_dates", "eventEndAt",
+                    "Окончание события не может быть раньше начала");
+        if (request.registrationOpenAt() != null && request.registrationCloseAt() != null
+                && request.registrationCloseAt().isBefore(request.registrationOpenAt()))
+            throw com.acme.sportplatform.common.RequestValidation.field(
+                    "events.invalid_dates", "registrationCloseAt",
+                    "Закрытие регистрации не может быть раньше открытия");
         if (!organizationLookup.existsById(request.organizationId())) {
             throw new BusinessException(
                     "events.organization_not_found",

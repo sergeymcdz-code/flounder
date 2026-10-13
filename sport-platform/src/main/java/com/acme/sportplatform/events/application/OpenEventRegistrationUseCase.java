@@ -27,13 +27,13 @@ public class OpenEventRegistrationUseCase {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new BusinessException(
                         "events.event_not_found",
-                        "Event not found"
+                        "Событие не найдено"
                 ));
 
         if (!EventStatus.PUBLISHED.name().equals(event.getStatus())) {
             throw new BusinessException(
                     "events.invalid_status_transition",
-                    "Only published event can be moved to registration_open"
+                    "Открыть регистрацию можно только для события в статусе PUBLISHED"
             );
         }
 
