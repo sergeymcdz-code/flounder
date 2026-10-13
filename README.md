@@ -1,5 +1,7 @@
 # Flounder
 
+[![CI](https://github.com/sergeymcdz-code/flounder/actions/workflows/ci.yml/badge.svg)](https://github.com/sergeymcdz-code/flounder/actions/workflows/ci.yml)
+
 Платформа организации массовых соревнований по плаванию: регистрация, заявки, автоматический посев заплывов, стартовые протоколы, результаты, публичные страницы (PWA).
 
 - Код: `sport-platform/` (Spring Boot 3 / Spring Modulith / PostgreSQL / React + Vite). Запуск — `sport-platform/README.md`.

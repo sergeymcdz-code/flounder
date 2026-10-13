@@ -29,11 +29,13 @@ public class CorsConfig {
         configuration.setAllowedHeaders(List.of(
                 "Authorization",
                 "Content-Type",
-                "Idempotency-Key"
+                "Idempotency-Key",
+                "X-Request-Id"
         ));
 
         configuration.setExposedHeaders(List.of(
-                "Location"
+                "Location",
+                "X-Request-Id"
         ));
 
         configuration.setAllowCredentials(false);

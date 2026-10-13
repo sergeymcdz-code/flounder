@@ -89,7 +89,7 @@ PS> ssh deploy@SERVER_IP
 $ docker ps                        # должно вывести пустую таблицу без ошибки
 ```
 
-Если места на диске мало (40 ГБ), включим ограничение логов — оно уже задано в `compose.prod.yaml` (20 МБ × 5 файлов на контейнер), ничего делать не надо.
+Если места на диске мало (40 ГБ), включим ограничение логов — оно уже задано в `compose.prod.yaml` (50 МБ × 5 файлов на контейнер), ничего делать не надо.
 
 ---
 
@@ -256,46 +256,119 @@ $ fl ps   # теперь так
 
 ---
 
-## 9. Бэкап и восстановление
+## 9. Бэкап и восстановление (M09)
 
-### Бэкап вручную
+Все команды ниже выполняет оператор как `deploy`; разработчик их на сервере не запускает.
+`restore.sh` теперь **проверяет** бэкап в отдельной БД `sport_platform_restore_test`,
+считает строки `events`, удаляет созданную тестовую БД и сообщает результат в Telegram.
+Рабочая БД и API продолжают работать. Если тестовая БД уже существует, скрипт отказывается
+её трогать: сначала выясните, кто её создал. Не запускайте проверки на непроверенных чужих дампах.
 
-**Зачем:** перед демо, перед обновлением, после сида.
-
-```bash
-$ /opt/flounder/infra/backup.sh
-# [backup] ... dumping sport_platform -> /opt/flounder/backups/2026-10-14.sql.gz
-```
-
-Файлы лежат в `/opt/flounder/backups/`, старше 14 дней удаляются автоматически. Скопировать бэкап к себе: `PS> scp deploy@SERVER_IP:/opt/flounder/backups/2026-10-14.sql.gz .` — храните хотя бы один бэкап вне сервера.
-
-### Ежедневный бэкап в 03:00
+### Бэкап вручную и расписание
 
 ```bash
-$ mkdir -p /opt/flounder/backups
-$ crontab -e      # зачем: открыть расписание задач; при первом запуске выбрать редактор 1 (nano)
+cd /opt/flounder
+mkdir -p /home/deploy/backups
+chmod 700 /home/deploy/backups
+./infra/backup.sh
+ls -lh /home/deploy/backups
 ```
 
-Вставить строку из `infra/crontab.example`:
+Новый формат: `/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump` (`pg_dump -Fc`,
+время имени по Москве). Повтор в ту же минуту отказывается перезаписывать файл;
+для второй копии дождитесь следующей минуты. Права файлов — только для deploy.
+Лог: `/home/deploy/backups/backup.log`, локальная ротация бэкапов — 30 суток.
+Неполные временные файлы удаляются, ошибка возвращает ненулевой код и алерт.
+Если есть Docker volume `flounder_files`, рядом создаётся `.files.tar.gz`;
+другое имя задайте `FILES_VOLUME` в `.env.prod`. БД и файлы копируются последовательно:
+для согласованного снимка документов оператор должен приостановить их изменение.
+Volume отсутствует на текущем main; восстановление файлов проверяется отдельно по мере появления M04.
 
-```
-0 3 * * * /opt/flounder/infra/backup.sh >> /opt/flounder/backups/backup.log 2>&1
-```
-
-Сохранить (`Ctrl+O`, `Enter`, `Ctrl+X`). Проверить: `crontab -l`. Результаты — в `backups/backup.log`.
-
-### Восстановление
-
-**Зачем:** откатить базу к бэкапу (например, после неудачной репетиции). Текущие данные будут **удалены** и заменены содержимым бэкапа; API на время восстановления останавливается (~1 минута).
+Старый боевой `.sql.gz` (~36 КБ, снят 13.10.2026) совместим с новым `restore.sh`:
+расширение `.dump` выбирает `pg_restore`, `.sql.gz` — `gzip` → `psql`.
+Скопируйте старые файлы из `/opt/flounder/backups` в `/home/deploy/backups`, сохраняя оригиналы;
+их размер сам по себе не подтверждает целостность.
 
 ```bash
-$ /opt/flounder/infra/restore.sh /opt/flounder/backups/2026-10-14.sql.gz
-# This will DROP database 'sport_platform' ... Type 'yes' to continue: yes
+./infra/restore.sh /home/deploy/backups/OLD_BACKUP.sql.gz
+./infra/verify-latest-backup.sh
+sudo timedatectl set-timezone Europe/Moscow
+timedatectl
+crontab -e
 ```
 
-Проверка после восстановления: `curl -s https://DOMAIN/actuator/health` → `UP`, открыть сайт.
+Замените старую строку бэкапа строками `infra/crontab.example`, сохранив прочие задания.
+Ubuntu cron считает расписание в timezone **хоста**; одной переменной `TZ` в crontab недостаточно.
+Ежедневно 03:00 МСК — бэкап, воскресенье 04:00 — восстановление последней копии,
+каждые 15 минут — диск (>85%). Настройте Telegram до установки cron (§12),
+проверьте `crontab -l`. Изменение timezone хоста не меняет timezone соревнований/контейнера API.
 
-Проверку «бэкап восстанавливается» сделайте один раз до демо: `backup.sh` → `restore.sh` на только что созданный файл → сайт работает, данные на месте.
+### Восстановление за 10 минут
+
+Цель для небольшой демо-БД — около 10 минут после выбора проверенного бэкапа;
+это план процедуры, время на сервере ещё не измерено. Общие MVP-цели: RPO 24 ч, RTO 2 ч.
+Для обычной проверки достаточно `restore.sh`; следующие команды **заменяют рабочие данные**
+и выполняются только при согласованном откате в окно обслуживания. Сначала сохраните
+текущую БД, проверьте выбранный дамп, убедитесь, что его схема совместима с выбранной версией API.
+
+1. Войти как deploy, выбрать копию абсолютным путём и выполнить проверку:
+
+```bash
+cd /opt/flounder
+FILE=/home/deploy/backups/CHOSEN_BACKUP.dump  # или старый .sql.gz
+./infra/backup.sh
+./infra/restore.sh "$FILE"
+```
+
+2. Если проверка успешна, закрыть запись пользователей, подтвердить откат и остановить API.
+Значения DB/USER ниже — стандартные; при изменённых `.env.prod` сначала подставьте свои.
+Не продолжать после любой ошибки (включён `set -e`).
+
+```bash
+set -euo pipefail
+DB=sport_platform
+DB_USER=sport_user
+read -r -p "Удалить текущую БД $DB? Введите restore-production: " answer
+[[ "$answer" == restore-production ]]
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
+docker exec flounder-postgres dropdb -U "$DB_USER" --force "$DB"
+docker exec flounder-postgres createdb -U "$DB_USER" -T template0 -O "$DB_USER" "$DB"
+case "$FILE" in
+  *.dump) docker exec -i flounder-postgres pg_restore -U "$DB_USER" -d "$DB" \
+    --no-owner --no-privileges --single-transaction --exit-on-error < "$FILE" ;;
+  *.sql.gz) gzip -dc "$FILE" | docker exec -i flounder-postgres psql -X -U "$DB_USER" \
+    -d "$DB" -v ON_ERROR_STOP=1 --single-transaction ;;
+  *) echo "Неизвестный формат"; exit 1 ;;
+esac
+docker exec flounder-postgres psql -X -U "$DB_USER" -d "$DB" -v ON_ERROR_STOP=1 -c 'select count(*) from events'
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
+curl -fsS https://sportgate.pro/actuator/health
+```
+
+3. Открыть публичную страницу существующего события, войти организатором, проверить
+число заявок/результаты. При ошибке загрузки оставить API остановленным, изучить `backup.log`
+и логи PostgreSQL; использовать сохранённую текущую копию, не выполнять повторный DROP наугад.
+
+Если появились файлы M04: сначала остановить сервисы, пишущие в volume, сохранить его текущую
+копию и проверить парный архив (`tar -tzf ...files.tar.gz`). Восстановление в новый volume:
+`docker volume create flounder_files_recovered`, затем
+`docker run --rm -i --network none -v flounder_files_recovered:/files postgres:16 tar -xzf - -C /files < ...files.tar.gz`.
+Подключить новый volume в compose M04, проверить ссылки на документы, только потом открыть запись.
+Оригинальный volume сохранять до приёмки; восстановление файлов нельзя считать проверенным лишь по SQL smoke.
+
+### Опционально: копия в S3 в РФ
+
+По умолчанию выгрузка выключена (`BACKUP_S3_REMOTE` пуст). Установить `rclone`, выбрать
+российский регион у Selectel/Yandex/VK и передать через `.env.prod` переменные
+`RCLONE_CONFIG_RF_TYPE=s3`, `RCLONE_CONFIG_RF_PROVIDER=Other`,
+`RCLONE_CONFIG_RF_ENDPOINT`, `RCLONE_CONFIG_RF_ACCESS_KEY_ID`,
+`RCLONE_CONFIG_RF_SECRET_ACCESS_KEY`; затем `BACKUP_S3_REMOTE=rf:BUCKET/flounder`.
+Скрипт загружает дамп и парный файловый архив; ошибка выгрузки означает ошибку задания,
+локальная копия остаётся. Настроить lifecycle bucket на 30 дней, приватный доступ и шифрование.
+Для ручной проверки под deploy: загрузить один дамп, скачать в отдельный путь через
+`rclone copyto rf:BUCKET/flounder/NAME.dump /home/deploy/backups/downloaded.dump`,
+затем `./infra/restore.sh /home/deploy/backups/downloaded.dump`.
+Не передавать ключи в CLI, не коммитить `.env`; хотя бы одну копию хранить вне сервера.
 
 ---
 
@@ -369,7 +442,7 @@ $ nslookup DOMAIN            # A-запись ведёт на этот серв�
 $ docker system df           # сколько занимают образы/контейнеры
 $ docker image prune -af     # зачем: удалить неиспользуемые образы (текущие не тронет)
 $ sudo journalctl --vacuum-size=200M
-$ ls -la /opt/flounder/backups   # старые бэкапы удалить вручную при необходимости
+$ ls -la /home/deploy/backups   # старые бэкапы удалить вручную при необходимости
 ```
 
 ### Полный перезапуск
@@ -398,9 +471,158 @@ $ fl down && fl up -d        # зачем: остановить и поднят�
 | Логи API | `fl logs -f api` |
 | Обновить | `cd /opt/flounder && ./infra/deploy.sh` |
 | Бэкап | `/opt/flounder/infra/backup.sh` |
-| Восстановить | `/opt/flounder/infra/restore.sh backups/<файл>.sql.gz` |
+| Восстановить | `/opt/flounder/infra/restore.sh /home/deploy/backups/<файл>.dump` (проверка) |
 | Перезапуск одного сервиса | `fl restart api` |
 | Полный перезапуск | `fl down && fl up -d` |
 | Здоровье | `curl -s https://DOMAIN/actuator/health` |
 
 (`fl` — алиас из п. 8; без него: `docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod …` из `/opt/flounder`.)
+
+## 12. Мониторинг и Telegram (M09)
+
+1. В Telegram открыть `@BotFather`, выполнить `/newbot`. Полученный токен хранить только
+в `.env.prod`: `TELEGRAM_BOT_TOKEN`, туда же `TELEGRAM_CHAT_ID`. Написать боту `/start`;
+для группы добавить бота и написать ему адресованное сообщение. Chat ID взять из ответа
+`getUpdates` через Telegram Bot API в доверенном локальном инструменте (не вставлять токен
+в адресную строку браузера/логи). Для группы ID отрицательный. `chmod 600 infra/.env.prod`.
+Не отправлять в Telegram дампы, ФИО и секреты: алерты содержат лишь статус инфраструктуры.
+2. Под deploy запустить Kuma и отправить тестовый алерт:
+
+```bash
+cd /opt/flounder
+docker compose -f infra/compose.monitoring.yaml up -d
+./infra/alert.sh "Flounder: проверка доставки уведомлений"
+./infra/check-disk.sh
+```
+
+3. С ноутбука открыть туннель `ssh -L 3001:127.0.0.1:3001 deploy@SERVER_IP`,
+перейти на `http://localhost:3001`, создать администратора с уникальным паролем.
+Порт Kuma открыт только на loopback; не публиковать его через ufw.
+4. В **Settings → Notifications → Telegram** внести токен/Chat ID из защищённого окружения,
+нажать **Test**, назначить уведомление по умолчанию. Kuma хранит настройки в своём volume;
+переменные `TELEGRAM_*` используются `alert.sh`, Kuma не импортирует их автоматически.
+5. Создать HTTP(s) монитор раз в 60 с: `https://sportgate.pro/actuator/health`, статус 200
+и keyword `"UP"` (не принимать один только HTTP 200). Второй монитор:
+`https://sportgate.pro/api/v1/public/events/PUBLIC_SLUG`, статус 200, keyword реального slug;
+третий — страница `https://sportgate.pro/e/PUBLIC_SLUG`. У SPA fallback даже неизвестный slug
+может вернуть 200, поэтому API-монитор обязателен. Включить проверку TLS/уведомления
+об истечении сертификата на 14/7 дней; **Ignore TLS errors** выключено.
+6. Временно указать в копии монитора несуществующий API slug, дождаться Telegram DOWN,
+вернуть существующий slug и проверить UP. Выполнить `verify-latest-backup.sh`, убедиться
+в сообщении об успешной проверке и отсутствии `sport_platform_restore_test`.
+
+Kuma на том же VPS не сможет отправить сообщение при падении всего VPS/сети.
+Для алерта о полном отказе нужен внешний монитор на отдельном узле (желательно в РФ).
+`alert.sh` возвращает ошибку при отсутствии настроек/HTTP-ошибке; ошибка доставки пишется
+в лог cron, но не меняет результат успешной SQL-проверки. Еженедельно просматривать лог.
+
+## 13. Staging на том же сервере (M09)
+
+Staging не меняет checkout `/opt/flounder`, имеет проект `flounder-staging`, отдельные
+БД `sport_platform_staging`, postgres volume, JWT/пароль БД и образы. БД не публикуется наружу.
+Только staging gateway подключён к общей edge-сети Caddy. Код выбранной ветки собирается
+в `/home/deploy/flounder-staging`; повторный деплой отказывается затирать локальные изменения.
+Удалять staging volume при смене ветки автоматически нельзя; миграции должны идти вперёд.
+Для отката ветки со старой схемой сначала согласовать отдельный сброс staging.
+
+Оценка 2 vCPU/4 ГБ: prod JVM heap 1 ГБ + native ~0,3–0,6 ГБ, PostgreSQL ~0,2–0,5 ГБ,
+ОС/Docker ~0,5–0,8 ГБ; staging лимиты 768+384+96+96 МБ, Kuma 384 МБ.
+Суммарно ~3,5–4,7 ГБ: для двух постоянно нагруженных стендов запаса нет.
+Сборка Maven/Vite добавляет временную нагрузку и не ограничена runtime-лимитами.
+На текущем VPS запускать staging кратковременно вне демонстрации/старта, наблюдать
+`free -m`, `docker stats`, `df -h`; после проверки останавливать staging.
+Рекомендация для постоянной эксплуатации: 4 vCPU/8 ГБ или отдельный staging VPS;
+сборки перенести в CI с публикацией образов. Это оценка, нагрузочная проверка не выполнена.
+
+Шаги под deploy после слияния PR:
+
+```bash
+cd /opt/flounder
+git pull --ff-only origin main
+# В окно обслуживания обновить prod compose: подключает Caddy к flounder_edge.
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod up -d --build
+mkdir -p /home/deploy/.config/flounder
+cp infra/.env.staging.example /home/deploy/.config/flounder/.env.staging
+chmod 700 /home/deploy/.config/flounder
+chmod 600 /home/deploy/.config/flounder/.env.staging
+nano /home/deploy/.config/flounder/.env.staging
+./infra/deploy-staging.sh feat/M01-admin-panel
+curl -fsS http://127.0.0.1:8081/actuator/health
+```
+
+В `.env.staging` заполнить независимые секреты БД/JWT, актуальные `ADMIN_EMAIL/ADMIN_PASSWORD`
+seed-админа выделенной staging-БД и `DEMO_PASSWORD`. На чистой БД seed-админ приходит из
+существующих миграций (см. `docs/02_ТЗ_демо.md` §1), затем сменить его пароль через UI.
+Скрипт дожидается health и запускает **настоящий HTTP-сид** `scripts/demo/seed.ts`
+с `DEMO_SEED_ENABLED=true`. Он не полагается на неработающий флаг `DEMO_SEED` backend.
+Требуется Node.js 22+; ветка должна содержать `scripts/demo` и совместимые миграции/API.
+Сид обращается к loopback gateway, а не к production. Его профиль процесса `staging`
+не меняет серверный prod-профиль, который используется для настроек БД/логов.
+
+У DNS добавить A `staging.sportgate.pro` → этот сервер; после успешной локальной проверки:
+
+```bash
+cp infra/caddy-sites/staging.example infra/caddy-sites/staging.caddy
+docker exec flounder-caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker exec flounder-caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+curl -fsS https://staging.sportgate.pro/actuator/health
+```
+
+Открыть `/e/PUBLIC_SLUG` из вывода staging-сида, проверить вход организатора и импорт.
+Для остановки (данные сохраняются):
+
+```bash
+docker compose --project-name flounder-staging -f infra/compose.staging.yaml \
+  --env-file /home/deploy/.config/flounder/.env.staging stop
+```
+
+После остановки staging убрать его сайт `rm infra/caddy-sites/staging.caddy` и перезагрузить
+Caddy той же командой, чтобы не оставлять публичный 502. Не использовать `down -v` у prod.
+
+## 14. Correlation-id и опциональный Sentry (M09)
+
+JSON ECS в `application-prod.yml` уже включён; Docker ограничивает журналы 50 МБ × 5
+на контейнер (также staging/Kuma). Фильтр до Spring Security принимает безопасный
+`X-Request-Id` (буквы/цифры/`._-`, 1–128 знаков), иначе генерирует UUID;
+записывает `correlation-id` в MDC и возвращает заголовок. CORS разрешает/открывает этот
+заголовок. Проверка под deploy:
+
+```bash
+curl -fsS -D - -H 'X-Request-Id: m09-manual-check' https://sportgate.pro/actuator/health
+docker logs --tail=100 flounder-api
+```
+
+Для проверки MDC отправить запрос, который создаёт запись приложения в логах
+(например, существующий сценарий бизнес-ошибки), и найти `correlation-id` в JSON.
+`health` может не создавать лог на каждый запрос. Фильтр очищает MDC и при исключении.
+
+Sentry **опционален**, без DSN транспорт выключен. Backend подготовлен через
+`sentry-spring-boot-starter-jakarta`, frontend — динамический `@sentry/react` только
+при непустом `VITE_SENTRY_DSN`. Чтобы включить: создать отдельные backend/frontend
+проекты, внести `SENTRY_DSN` и `VITE_SENTRY_DSN` в окружение нужного стенда и пересобрать
+API/web (`VITE_*` встраивается при сборке, runtime-переменной недостаточно).
+На staging вызвать контролируемую ошибку и убедиться в получении события правильным
+проектом; затем очистить тестовые события. Автоматическая отправка PII выключена,
+tracing sampling = 0. Не использовать реальные персональные данные в проверке;
+внешний Sentry включать только после выбора размещения и политики обработки данных.
+DSN пусты в примерах; доступ к аккаунту Sentry и реальная доставка здесь не проверялись.
+
+## 15. Опциональное усиление SSH (M09)
+
+`harden.sh` не запускается при деплое. Он идемпотентно устанавливает fail2ban/sshd,
+unattended-upgrades; ufw остаётся настроенным ранее. Шаг отключения root SSH выполняется
+только после явного подтверждения работающего ключа deploy. Не закрывать исходную сессию.
+
+1. В отдельном терминале ноутбука: `ssh -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no deploy@SERVER_IP`.
+Проверить `whoami` → deploy и `sudo -v`. Убедиться в доступе к консоли провайдера.
+2. В исходной SSH-сессии deploy: `cd /opt/flounder && ./infra/harden.sh`.
+3. Только после успеха шага 1 ввести `deploy-key-verified`. Скрипт ставит
+`PermitRootLogin no`, проверяет `sshd -t` и эффективную политику `sshd -T`, перезагружает
+`ssh` (не обрывает существующую сессию). При ошибке проверки файл откатывается.
+4. Проверить ещё один вход deploy по ключу, `sudo fail2ban-client status sshd`,
+`systemctl status unattended-upgrades`, `sudo ufw status`. Root SSH должен отказать.
+
+Не принимать подтверждение без фактической проверки второго входа.
+Скрипт и пакетная конфигурация проверены статически; их выполнение на сервере — отдельный
+опциональный шаг оператора. При потере входа использовать консоль провайдера и убрать
+`/etc/ssh/sshd_config.d/00-flounder-hardening.conf`, проверить `sshd -t`, reload ssh.

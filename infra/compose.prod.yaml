@@ -8,7 +8,7 @@ name: flounder
 x-logging: &default-logging
   driver: json-file
   options:
-    max-size: "20m"
+    max-size: "50m"
     max-file: "5"
 
 services:
@@ -50,6 +50,8 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://${DOMAIN}}
       APP_PAYMENTS_PROVIDER: ${APP_PAYMENTS_PROVIDER:-MANUAL}
       DEMO_SEED: ${DEMO_SEED:-false}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: production
       TZ: ${TZ:-Europe/Samara}
       # 4 GB server: cap the JVM heap so that postgres + caddy + OS fit as well.
       JAVA_TOOL_OPTIONS: "-Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
@@ -68,6 +70,7 @@ services:
       args:
         # Vite inlines this at build time; API is served from the same origin via Caddy.
         VITE_API_BASE_URL: https://${DOMAIN:?DOMAIN is required in infra/.env.prod}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     image: flounder-web:latest
     container_name: flounder-web
     restart: unless-stopped
@@ -86,8 +89,12 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required in infra/.env.prod}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-sites:/etc/caddy/sites:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - default
+      - edge
     depends_on:
       - api
       - web
@@ -97,3 +104,7 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+
+networks:
+  edge:
+    name: flounder_edge

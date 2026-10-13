@@ -1,45 +1,45 @@
 #!/usr/bin/env bash
-# Restore the Flounder PostgreSQL database from a backup made by infra/backup.sh.
-# Usage:  ./infra/restore.sh backups/2026-10-14.sql.gz
-#
-# WARNING: the current database is DROPPED and replaced by the backup contents.
-# The API container is stopped during the restore and started again afterwards.
-set -euo pipefail
-
-if [[ $# -ne 1 || ! -f "$1" ]]; then
-  echo "Usage: $0 <path-to-backup.sql.gz>" >&2
-  exit 1
-fi
-BACKUP_FILE="$(realpath "$1")"
-
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="$REPO_DIR/infra/compose.prod.yaml"
-ENV_FILE="$REPO_DIR/infra/.env.prod"
-CONTAINER="flounder-postgres"
-
-# shellcheck disable=SC1090
-set -a; source "$ENV_FILE"; set +a
-DB="${POSTGRES_DB:-sport_platform}"
-USER_NAME="${POSTGRES_USER:-sport_user}"
-
-compose() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
-psql_admin() { docker exec -i "$CONTAINER" psql -U "$USER_NAME" -d postgres -v ON_ERROR_STOP=1 "$@"; }
-
-echo "This will DROP database '$DB' and restore it from:"
-echo "  $BACKUP_FILE"
-read -r -p "Type 'yes' to continue: " answer
-[[ "$answer" == "yes" ]] || { echo "Aborted."; exit 1; }
-
-echo "[restore] stopping api"
-compose stop api
-
-echo "[restore] recreating database $DB"
-psql_admin -c "DROP DATABASE IF EXISTS \"$DB\" WITH (FORCE);"
-psql_admin -c "CREATE DATABASE \"$DB\" OWNER \"$USER_NAME\";"
-
-echo "[restore] loading dump"
-gunzip -c "$BACKUP_FILE" | docker exec -i "$CONTAINER" psql -U "$USER_NAME" -d "$DB" -v ON_ERROR_STOP=1 -q
-
-echo "[restore] starting api"
-compose start api
-echo "[restore] done. Check: docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod logs -f api"
+# Verify a trusted backup in an isolated database. Never stop the production API.
+set -Eeuo pipefail
+# shellcheck source=infra/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+log_start
+[[ $# -eq 1 && -r "$1" ]] || { echo 'Usage: restore.sh <backup.dump|backup.sql.gz>'; exit 2; }
+FILE="$(realpath "$1")"
+TEST_DB=sport_platform_restore_test
+[[ "$DB" != "$TEST_DB" ]] || { echo '[restore] test database matches source'; exit 2; }
+[[ "$USER_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || exit 2
+exec 9>"$BACKUP_DIR/.restore.lock"
+flock -n 9 || { echo '[restore] already running'; exit 1; }
+created=0
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if (( created )); then
+    docker exec "$CONTAINER" dropdb -U "$USER_NAME" --force "$TEST_DB" || status=1
+  fi
+  if (( status == 0 )); then
+    alert 'Flounder: restore verification OK; test database removed'
+  else
+    alert "Flounder: restore verification FAILED ($status), see backup.log"
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+case "$FILE" in
+  *.dump) docker exec -i "$CONTAINER" pg_restore --list < "$FILE" >/dev/null ;;
+  *.sql.gz) gzip -t "$FILE" ;;
+  *) echo '[restore] unsupported format'; exit 2 ;;
+esac
+# If the name already exists, fail without touching it; only delete our own DB.
+docker exec "$CONTAINER" createdb -U "$USER_NAME" -T template0 -O "$USER_NAME" "$TEST_DB"
+created=1
+case "$FILE" in
+  *.dump) docker exec -i "$CONTAINER" pg_restore -U "$USER_NAME" -d "$TEST_DB" \
+    --no-owner --no-privileges --exit-on-error --single-transaction < "$FILE" ;;
+  *.sql.gz) gzip -dc "$FILE" | docker exec -i "$CONTAINER" psql -X -U "$USER_NAME" -d "$TEST_DB" \
+    -v ON_ERROR_STOP=1 --single-transaction -q ;;
+esac
+count="$(docker exec "$CONTAINER" psql -X -U "$USER_NAME" -d "$TEST_DB" -v ON_ERROR_STOP=1 -Atc 'select count(*) from events')"
+[[ "$count" =~ ^[0-9]+$ ]] || exit 1
+printf '[restore] %s OK: events=%s\n' "$(date -Is)" "$count"

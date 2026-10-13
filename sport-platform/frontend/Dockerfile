@@ -7,6 +7,8 @@ WORKDIR /build
 
 # VITE_* variables are inlined at build time, so the API base URL is a build arg
 # (passed from infra/compose.prod.yaml as https://${DOMAIN}).
+ARG VITE_SENTRY_DSN
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 

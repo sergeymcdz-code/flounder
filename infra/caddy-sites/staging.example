@@ -1,0 +1,4 @@
+staging.sportgate.pro {
+	encode gzip zstd
+	reverse_proxy staging-gateway:80
+}
