@@ -84,7 +84,7 @@ POST	/api/v1/competition-units/{unitId}/entries	manage	true	201	unassigned	{"reg
 POST	/api/v1/results	manage-read	true	200		{"competitionUnitEntryId":"$entry","rawValue":"00:32.15","status":"PENDING"}
 POST	/api/v1/competition-units/{unitId}/results	manage-read	true	200		{"competitionUnitEntryId":"$entry","rawValue":"00:32.15","status":"PENDING"}
 POST	/api/v1/competition-units/{unitId}/recalculate	manage-read	true	200		
-POST	/api/v1/competition-units/{unitId}/publication	manage-read	true	204	unit-draft	{"published":true}
+POST	/api/v1/competition-units/{unitId}/publication	manage-read	true	204	unit-in-progress	{"published":true}
 GET	/api/v1/event-disciplines/{id}/results	manage-read	true	200		
 POST	/api/v1/event-disciplines/{id}/generate-competition-units	manage	true	200	seedable	{"force":false,"circleSeedTopHeats":false}
 POST	/api/v1/events/{eventId}/generate-competition-units	manage	true	200	seedable	{"force":false,"circleSeedTopHeats":false}

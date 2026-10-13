@@ -81,11 +81,9 @@ export function OrganizerResultsPage() {
                         </span>
                       </td>
                       <td>
-                        {!hasResults(h.id)
-                          ? 'Нет'
-                          : ['FINISHED', 'COMPLETED'].includes(h.status)
-                            ? 'Опубликованы'
-                            : 'Внесены'}
+                        {['FINISHED', 'COMPLETED'].includes(h.status)
+                          ? 'Опубликованы'
+                          : hasResults(h.id) ? 'Внесены' : 'Нет'}
                       </td>
                       <td>
                         <Link

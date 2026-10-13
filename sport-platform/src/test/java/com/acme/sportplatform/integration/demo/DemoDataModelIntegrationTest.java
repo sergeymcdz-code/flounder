@@ -621,14 +621,17 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
                                 31000,
                                 "status",
                                 "VALID"));
+        // Repeated input before results publication is ordinary judge input.
         call(
                 post("/api/v1/competition-units/{id}/results", u.getId()),
                 owner("JUDGE", a),
-                correction,
-                403);
-        u = units.findById(u.getId()).orElseThrow();
-        u.setStatus("FINISHED");
-        units.saveAndFlush(u);
+                List.of(Map.of("competitionUnitEntryId", ids.get(1), "timeMs", 33100, "status", "VALID")),
+                200);
+        assertEquals("VALID", results.findByCompetitionUnitEntryId(ids.get(1)).orElseThrow().getStatus());
+        assertEquals(0, ruleLogs.findByEventDisciplineId(d.getId()).size());
+        call(post("/api/v1/competition-units/{id}/publication", u.getId()),
+                owner("JUDGE", a), Map.of("published", true), 204);
+        assertEquals("FINISHED", units.findById(u.getId()).orElseThrow().getStatus());
         call(
                 post("/api/v1/competition-units/{id}/results", u.getId()),
                 owner("JUDGE", a),
@@ -648,7 +651,7 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
         var logs = ruleLogs.findByEventDisciplineId(d.getId());
         assertEquals(1, logs.size());
         assertEquals("RANKING", logs.get(0).getKind());
-        assertTrue(logs.get(0).getInputJson().toString().contains("33000"));
+        assertTrue(logs.get(0).getInputJson().toString().contains("33100"));
         assertTrue(logs.get(0).getOutputJson().toString().contains("CORRECTED"));
         var grouped =
                 call(
