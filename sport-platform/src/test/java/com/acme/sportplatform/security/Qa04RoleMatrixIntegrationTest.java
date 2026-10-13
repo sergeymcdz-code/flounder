@@ -136,6 +136,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             case "org-member" -> member("org", "target", "member");
             case "event-draft" -> jdbc.update("update events set status='DRAFT' where id=?", id("event"));
             case "event-published" -> jdbc.update("update events set status='PUBLISHED' where id=?", id("event"));
+            case "event-completed" -> jdbc.update("update events set status='COMPLETED' where id=?", id("event"));
             case "event-closed" -> jdbc.update("update events set status='REGISTRATION_CLOSED' where id=?", id("event"));
             case "discipline-draft" -> jdbc.update("update event_disciplines set status='DRAFT' where id=?", id("discipline"));
             case "empty-session" -> jdbc.update("update event_disciplines set session_id=null where id=?", id("discipline"));

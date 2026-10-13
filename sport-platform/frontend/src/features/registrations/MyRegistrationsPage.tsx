@@ -21,7 +21,8 @@ function formatDate(value: string) {
 
 function getStatusLabel(status: RegistrationStatus) {
   const labels: Record<RegistrationStatus, string> = {
-    SUBMITTED: 'На рассмотрении',
+    WAITLISTED: 'Лист ожидания',
+  SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
     PAID: 'Оплачена',
     REJECTED: 'Отклонена',
@@ -34,6 +35,7 @@ function getStatusLabel(status: RegistrationStatus) {
 
 function getStatusClassName(status: RegistrationStatus) {
   const classes: Record<RegistrationStatus, string> = {
+    WAITLISTED: styles.statusCorrection,
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,
@@ -54,6 +56,7 @@ function getParticipantName(registration: Registration) {
 
 function getStatusHint(status: RegistrationStatus) {
   const hints: Record<RegistrationStatus, string | null> = {
+    WAITLISTED: 'Вы в листе ожидания. Заявка поступит на рассмотрение, когда освободится место.',
     SUBMITTED:
       'Организатор проверяет данные заявки. Оплата станет доступна после подтверждения.',
     CONFIRMED:
@@ -72,6 +75,7 @@ function getStatusHint(status: RegistrationStatus) {
 
 function getStatusHintClassName(status: RegistrationStatus) {
   const classes: Record<RegistrationStatus, string> = {
+    WAITLISTED: styles.hintCorrection,
     SUBMITTED: styles.hintSubmitted,
     CONFIRMED: styles.hintConfirmed,
     PAID: styles.hintConfirmed,

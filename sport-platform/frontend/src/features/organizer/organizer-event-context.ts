@@ -59,6 +59,7 @@ export const statusLabels: Record<string, string> = {
   LIVE: 'Идёт соревнование',
   COMPLETED: 'Завершено',
   ARCHIVED: 'В архиве',
+  WAITLISTED: 'Лист ожидания',
   SUBMITTED: 'На рассмотрении',
   CONFIRMED: 'Подтверждена',
   NEEDS_CORRECTION: 'На исправлении',

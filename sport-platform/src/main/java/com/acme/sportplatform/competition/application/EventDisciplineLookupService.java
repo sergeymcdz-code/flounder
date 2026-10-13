@@ -19,11 +19,13 @@ import java.util.UUID;
 public class EventDisciplineLookupService implements EventDisciplineLookup {
 
     private final EventDisciplineRepository eventDisciplineRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     public EventDisciplineLookupService(
-            EventDisciplineRepository eventDisciplineRepository
+            EventDisciplineRepository eventDisciplineRepository, jakarta.persistence.EntityManager entityManager
     ) {
         this.eventDisciplineRepository = eventDisciplineRepository;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -40,11 +42,12 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
     @Override
     @Transactional
     public EventDisciplineLookupResult lockPublishedById(UUID id) {
-        eventDisciplineRepository
+        var discipline = eventDisciplineRepository
                 .lockById(id)
                 .orElseThrow(
                         () ->
                                 new IllegalArgumentException("Discipline not found"));
+        entityManager.refresh(discipline);
         return getPublishedById(id);
     }
 
@@ -86,7 +89,7 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 entity.getSeedingMode(),
                 entity.getSessionId(),
                 entity.getOrderInSession(),
-                entity.getHeatDurationSec());
+                entity.getHeatDurationSec(), entity.getMaxParticipants(), entity.getLimitsByAgeGroup());
     }
 
     @Override

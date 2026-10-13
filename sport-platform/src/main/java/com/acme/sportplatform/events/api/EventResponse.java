@@ -23,7 +23,30 @@ public record EventResponse(
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         List<DisciplineResponse> disciplines,
+        List<com.acme.sportplatform.events.EventSessionView> sessions,
+        Integer maxParticipants) {
+    public EventResponse(
+        UUID id,
+        UUID organizationId,
+        UUID venueId,
+        UUID sportId,
+        UUID regulationVersionId,
+        String title,
+        String description,
+        OffsetDateTime registrationOpenAt,
+        OffsetDateTime registrationCloseAt,
+        OffsetDateTime eventStartAt,
+        OffsetDateTime eventEndAt,
+        String status,
+        String publicSlug,
+        String settingsJson,
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt,
+        List<DisciplineResponse> disciplines,
         List<com.acme.sportplatform.events.EventSessionView> sessions) {
+        this(id, organizationId, venueId, sportId, regulationVersionId, title, description, registrationOpenAt, registrationCloseAt, eventStartAt, eventEndAt, status, publicSlug, settingsJson, createdAt, updatedAt, disciplines, sessions, null);
+    }
+
     public record DisciplineResponse(
             UUID id,
             String code,

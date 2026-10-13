@@ -20,4 +20,12 @@ public class EventLockService {
     public void lockForUpdate(UUID eventId) {
         jdbc.queryForObject("select id from events where id = ? for update", UUID.class, eventId);
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockWritableForUpdate(UUID eventId) {
+        String status = jdbc.queryForObject("select status from events where id = ? for update", String.class, eventId);
+        if ("ARCHIVED".equals(status))
+            throw new com.acme.sportplatform.common.exception.BusinessException(
+                    "events.archived", "Архивное событие доступно только для чтения");
+    }
 }

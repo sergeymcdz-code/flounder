@@ -15,6 +15,7 @@ import java.util.UUID;
 @Transactional
 public class UpdateEventDisciplineUseCase {
     private final EventDisciplineRepository disciplines;
+    private final com.acme.sportplatform.events.EventLockService locks;
     private final EventDisciplineMapper mapper;
     private final SwimDisciplineValidator swim;
     private final EventAccessService access;
@@ -29,7 +30,7 @@ public class UpdateEventDisciplineUseCase {
             EventAccessService access,
             com.acme.sportplatform.competition.RegistrationUsageLookup registrations,
             com.acme.sportplatform.competition.CompetitionUnitUsageLookup units,
-            com.acme.sportplatform.events.EventLookup events) {
+            com.acme.sportplatform.events.EventLookup events, com.acme.sportplatform.events.EventLockService locks) {
         this.disciplines = disciplines;
         this.mapper = mapper;
         this.swim = swim;
@@ -37,6 +38,7 @@ public class UpdateEventDisciplineUseCase {
         this.registrations = registrations;
         this.units = units;
         this.events = events;
+        this.locks = locks;
     }
 
     public EventDisciplineResponse patch(
@@ -45,7 +47,7 @@ public class UpdateEventDisciplineUseCase {
             java.util.Set<String> clearFields,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var d = require(id);
-        access.assertCanManage(d.getEventId(), principal);
+        access.assertCanModify(d.getEventId(), principal);
         if (!java.util.Set.of("DRAFT", "PUBLISHED")
                 .contains(events.getById(d.getEventId()).status()))
             throw new BusinessException(
@@ -55,7 +57,12 @@ public class UpdateEventDisciplineUseCase {
         if (clearFields.contains("orderInSession")) d.setOrderInSession(null);
         if (clearFields.contains("heatDurationSec")) d.setHeatDurationSec(null);
         if (clearFields.contains("participantLimit")) d.setParticipantLimit(null);
+        if (clearFields.contains("maxParticipants")) d.setMaxParticipants(null);
+        if (clearFields.contains("limitsByAgeGroup")) d.setLimitsByAgeGroup(null);
+        if (r.maxParticipants() != null) d.setMaxParticipants(r.maxParticipants());
+        if (r.limitsByAgeGroup() != null) d.setLimitsByAgeGroup(r.limitsByAgeGroup());
         swim.apply(d, r);
+        swim.validateLimits(d);
         if (r.code() != null) {
             if (r.code().isBlank())
                 throw com.acme.sportplatform.common.RequestValidation.field(
@@ -81,7 +88,7 @@ public class UpdateEventDisciplineUseCase {
     public void delete(
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var d = require(id);
-        access.assertCanManage(d.getEventId(), principal);
+        access.assertCanModify(d.getEventId(), principal);
         if (registrations.isInUse(id))
             throw new BusinessException(
                     "competition.discipline_in_use",
@@ -94,8 +101,11 @@ public class UpdateEventDisciplineUseCase {
     }
 
     private EventDisciplineEntity require(UUID id) {
+        var eventId = disciplines.findEventIdById(id).orElseThrow(() ->
+                new BusinessException("competition.discipline_not_found", "Дисциплина не найдена"));
+        locks.lockWritableForUpdate(eventId);
         return disciplines
-                .findById(id)
+                .lockById(id)
                 .orElseThrow(
                         () ->
                                 new BusinessException(

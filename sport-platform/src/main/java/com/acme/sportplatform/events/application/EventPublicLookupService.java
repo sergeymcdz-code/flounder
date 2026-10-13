@@ -23,7 +23,8 @@ public class EventPublicLookupService
             EventStatus.REGISTRATION_OPEN.name(),
             EventStatus.REGISTRATION_CLOSED.name(),
             EventStatus.LIVE.name(),
-            EventStatus.COMPLETED.name()
+            EventStatus.COMPLETED.name(),
+            EventStatus.ARCHIVED.name()
     );
 
     private final EventRepository eventRepository;

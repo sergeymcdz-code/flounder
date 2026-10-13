@@ -36,7 +36,7 @@ public class EventLiveUseCase {
             UUID eventId,
             UUID currentUnitId,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         if (currentUnitId != null && !eventId.equals(eventId(require(currentUnitId))))
             throw new BusinessException(
                     "results.unit_event_mismatch", "Заплыв принадлежит другому событию");
@@ -50,7 +50,7 @@ public class EventLiveUseCase {
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var unit = require(id);
         UUID eventId = eventId(unit);
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED").contains(unit.getStatus()))
             throw new BusinessException(
                     "results.invalid_transition", "Заплыв нельзя начать из текущего статуса");
@@ -70,7 +70,7 @@ public class EventLiveUseCase {
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var unit = require(id);
         UUID eventId = eventId(unit);
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         var state = lockState(eventId);
         if (!Set.of("IN_PROGRESS", "FINISHED").contains(unit.getStatus()))
             throw new BusinessException(

@@ -41,7 +41,7 @@ class PublicRegistrationUseCaseTest {
                                 new PublicRegistrationRequest.Item(two.id(), 33000L)));
         assertEquals(
                 2,
-                new PublicRegistrationUseCase(events, disciplines, profiles, create)
+                new PublicRegistrationUseCase(events, disciplines, profiles, create, mock(EventLookup.class), mock(com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository.class), mock(RegistrationCapacityService.class))
                         .submit("demo", UUID.randomUUID(), request)
                         .size());
         verify(disciplines, times(1)).findPublishedByEventId(eventId);

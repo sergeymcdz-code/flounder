@@ -50,6 +50,7 @@ function paymentStatusLabel(status: string) {
 
 function registrationStatusLabel(status: RegistrationStatus) {
   const labels: Record<RegistrationStatus, string> = {
+    WAITLISTED: 'Лист ожидания',
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
     PAID: 'Оплачена',
@@ -63,6 +64,7 @@ function registrationStatusLabel(status: RegistrationStatus) {
 
 function registrationStatusClassName(status: RegistrationStatus) {
   const classes: Record<RegistrationStatus, string> = {
+    WAITLISTED: styles.statusCorrection,
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,

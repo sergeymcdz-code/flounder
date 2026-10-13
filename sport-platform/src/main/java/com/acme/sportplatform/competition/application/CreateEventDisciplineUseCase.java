@@ -111,6 +111,9 @@ public class CreateEventDisciplineUseCase {
         entity.setResultType(template.resultType());
         entity.setRankingStrategy(template.rankingStrategy());
         entity.setParticipantLimit(request.participantLimit());
+        entity.setMaxParticipants(request.maxParticipants());
+        entity.setLimitsByAgeGroup(request.limitsByAgeGroup());
+        swim.validateLimits(entity);
         entity.setEntryFeeAmount(
         request.entryFeeAmount() == null
                 ? BigDecimal.ZERO

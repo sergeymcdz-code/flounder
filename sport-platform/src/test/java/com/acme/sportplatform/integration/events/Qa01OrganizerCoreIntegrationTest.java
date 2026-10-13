@@ -174,12 +174,12 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
         UUID event = createEvent(f);
         var transitionMessages = Map.of(
                 "publish", "Опубликовать можно только событие в статусе DRAFT",
-                "open-registration", "Открыть регистрацию можно только для события в статусе PUBLISHED",
+                "open-registration", "Открыть регистрацию можно только для события в статусе PUBLISHED или REGISTRATION_CLOSED",
                 "close-registration", "Закрыть регистрацию можно только для события в статусе REGISTRATION_OPEN",
                 "complete", "Завершить можно только событие в статусе LIVE или REGISTRATION_CLOSED");
         for (String action : List.of("open-registration", "close-registration", "complete")) {
             var rejected = call(post("/api/v1/events/{id}/{action}", event, action), f.user(), "ORGANIZER", null, 400);
-            assertEquals("events.invalid_status_transition", rejected.path("code").asText());
+            assertEquals(action.equals("complete") ? "events.invalid_status_transition" : "events.invalid_transition", rejected.path("code").asText());
             assertEquals(transitionMessages.get(action), rejected.path("message").asText());
         }
         var discipline = call(post("/api/v1/events/{id}/disciplines", event), f.user(), "ORGANIZER",
@@ -197,7 +197,7 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
         for (int i = 0; i < actions.length; i++) {
             assertEquals(statuses[i], call(post("/api/v1/events/{id}/{action}", event, actions[i]), f.user(), "ORGANIZER", null, 200).path("status").asText());
             var invalid = call(post("/api/v1/events/{id}/{action}", event, actions[i]), f.user(), "ORGANIZER", null, 400);
-            assertEquals("events.invalid_status_transition", invalid.path("code").asText());
+            assertEquals(Set.of("open-registration", "close-registration").contains(actions[i]) ? "events.invalid_transition" : "events.invalid_status_transition", invalid.path("code").asText());
             assertEquals(transitionMessages.get(actions[i]), invalid.path("message").asText());
         }
     }

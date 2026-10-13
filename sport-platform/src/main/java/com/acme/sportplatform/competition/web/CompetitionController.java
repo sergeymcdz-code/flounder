@@ -43,7 +43,7 @@ public class CompetitionController {
     public ResponseEntity<EventDisciplineResponse> create(@PathVariable UUID eventId,
             @RequestBody @org.springframework.validation.annotation.Validated({jakarta.validation.groups.Default.class,CreateEventDisciplineRequest.Create.class}) CreateEventDisciplineRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
-        eventAccessService.assertCanManage(eventId, principal);
+        eventAccessService.assertCanModify(eventId, principal);
         return ResponseEntity.ok(createEventDisciplineUseCase.execute(eventId, request));
     }
 
@@ -59,7 +59,7 @@ public class CompetitionController {
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventDisciplineResponse> publish(@PathVariable UUID eventId,
             @PathVariable UUID disciplineId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
-        eventAccessService.assertCanManage(eventId, principal);
+        eventAccessService.assertCanModify(eventId, principal);
         return ResponseEntity.ok(publishEventDisciplineUseCase.execute(eventId, disciplineId));
     }
 }

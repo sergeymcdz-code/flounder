@@ -12,10 +12,25 @@ public record EventLookupResult(
         UUID venueId,
         UUID createdByUserId,
         String settingsJson,
+        String publicSlug,
+        Integer maxParticipants) {
+    public EventLookupResult(
+        UUID id,
+        UUID sportId,
+        String status,
+        java.time.OffsetDateTime registrationOpenAt,
+        java.time.OffsetDateTime registrationCloseAt,
+        java.util.List<EventSessionView> sessions,
+        UUID venueId,
+        UUID createdByUserId,
+        String settingsJson,
         String publicSlug) {
+        this(id, sportId, status, registrationOpenAt, registrationCloseAt, sessions, venueId, createdByUserId, settingsJson, publicSlug, null);
+    }
+
     public boolean isPublic() {
         return status != null && java.util.Set.of(
-                "PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "LIVE", "COMPLETED")
+                "PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "LIVE", "COMPLETED", "ARCHIVED")
                 .contains(status);
     }
 

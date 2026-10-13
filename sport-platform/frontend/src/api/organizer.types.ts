@@ -23,6 +23,8 @@ export type SessionInput = Pick<
   'name' | 'orderNo' | 'startsAt' | 'breakBetweenEventsSec'
 >
 export type DisciplineInput = {
+  maxParticipants?: number | null
+  limitsByAgeGroup?: Record<string, number> | null
   code?: string
   name?: string
   disciplineTemplateId: string

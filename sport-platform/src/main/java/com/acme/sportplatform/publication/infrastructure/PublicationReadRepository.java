@@ -30,13 +30,23 @@ public class PublicationReadRepository {
                     cast(v.venue_meta as text) as venue_meta_text
                 from events e left join venues v on v.id = e.venue_id
                 where e.public_slug = :slug and e.status in
-                    ('PUBLISHED','REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','COMPLETED')
+                    ('PUBLISHED','REGISTRATION_OPEN','REGISTRATION_CLOSED','LIVE','COMPLETED','ARCHIVED')
                 """, Map.of("slug", slug)).stream().map(t -> new Event(uuid(t,"id"), uuid(t,"sport_id"),
                 str(t,"title"), str(t,"description"), date(t,"registration_open_at"),
                 date(t,"registration_close_at"), date(t,"event_start_at"), date(t,"event_end_at"),
                 str(t,"status"), str(t,"public_slug"), str(t,"venue_name"), str(t,"venue_city"),
                 str(t,"venue_timezone"), str(t,"venue_meta_text"))).findFirst();
     }
+    public Capacity capacity(UUID eventId) {
+        var row = rows("""
+                select e.max_participants, count(distinct r.participant_profile_id) as participants_count
+                from events e left join registrations r on r.event_id=e.id
+                    and r.status in ('SUBMITTED','UNDER_REVIEW','CONFIRMED','PAID','ADMITTED')
+                where e.id=:eventId group by e.id
+                """, Map.of("eventId", eventId)).getFirst();
+        return new Capacity(integer(row, "max_participants"), ((Number) row.get("participants_count")).longValue());
+    }
+
     public List<Session> sessions(UUID eventId) {
         return rows("""
                 select id, name, order_no, starts_at, break_between_events_sec

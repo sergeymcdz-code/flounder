@@ -170,7 +170,7 @@ export function OrganizerHeatsPage() {
         <div className={styles.toolbar}>
           <h2>Проверка</h2>
           <button
-            disabled={busy}
+            disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => {
               void validate()
             }}
@@ -229,7 +229,7 @@ export function OrganizerHeatsPage() {
             <h2>
               Вид № {d.number ?? index + 1}. {d.name}
             </h2>
-            <button disabled={busy} onClick={() => requestGenerate(d.id)}>
+            <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>
               Сформировать по виду
             </button>
           </div>
@@ -278,7 +278,7 @@ export function OrganizerHeatsPage() {
                               <td>
                                 <select
                                   aria-label={`Дорожка ${entry.participantName}`}
-                                  disabled={busy}
+                                  disabled={busy || event.status === 'ARCHIVED'}
                                   title={
                                     !event.venue?.lanes
                                       ? 'Число дорожек площадки не указано'

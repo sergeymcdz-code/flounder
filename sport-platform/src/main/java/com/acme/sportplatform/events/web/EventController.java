@@ -36,6 +36,10 @@ public class EventController {
 
     private static final String ROLE_PLATFORM_ADMIN = "ROLE_PLATFORM_ADMIN";
 
+    private final com.acme.sportplatform.events.application.EventLifecycleService lifecycle;
+    private final com.acme.sportplatform.events.application.UpdateEventUseCase update;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
+    private final jakarta.validation.Validator validator;
     private final OrganizationManagementAccess organizationManagementAccess;
     private final CreateEventUseCase createEventUseCase;
     private final PublishEventUseCase publishEventUseCase;
@@ -55,8 +59,12 @@ public class EventController {
             EventRepository eventRepository,
             EventMapper eventMapper,
             OrganizationManagementAccess organizationManagementAccess,
-            EventAccessService eventAccessService
+            EventAccessService eventAccessService,
+            com.acme.sportplatform.events.application.EventLifecycleService lifecycle,
+            com.acme.sportplatform.events.application.UpdateEventUseCase update,
+            com.fasterxml.jackson.databind.ObjectMapper json, jakarta.validation.Validator validator
     ) {
+        this.lifecycle = lifecycle; this.update = update; this.json = json; this.validator = validator;
         this.createEventUseCase = createEventUseCase;
         this.publishEventUseCase = publishEventUseCase;
         this.openEventRegistrationUseCase = openEventRegistrationUseCase;
@@ -175,6 +183,28 @@ public class EventController {
     ) {
         getManagedEvent(id, principal);
         return ResponseEntity.ok(completeEventUseCase.execute(id));
+    }
+
+    @PostMapping("/events/{id}/archive")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
+    public EventResponse archive(@PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        eventAccessService.assertCanManage(id, principal);
+        return lifecycle.transition(id, com.acme.sportplatform.events.domain.EventStatus.ARCHIVED);
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/events/{id}")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
+    public EventResponse patch(@PathVariable UUID id, @RequestBody com.fasterxml.jackson.databind.JsonNode body,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        eventAccessService.assertCanModify(id, principal);
+        var errors = new java.util.ArrayList<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
+        var request = com.acme.sportplatform.common.RequestValidation.read(json, body,
+                com.acme.sportplatform.events.api.PatchEventRequest.class, validator, "", errors);
+        com.acme.sportplatform.common.RequestValidation.requireValid("events.invalid_request", errors);
+        java.util.Set<String> fields = new java.util.HashSet<>();
+        body.fieldNames().forEachRemaining(fields::add);
+        return update.execute(id, request, fields);
     }
 
     private EventEntity getManagedEvent(

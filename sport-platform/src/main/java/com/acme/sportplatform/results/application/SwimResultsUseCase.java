@@ -77,7 +77,7 @@ public class SwimResultsUseCase {
                                         new BusinessException(
                                                 "competition.discipline_not_found",
                                                 "Дисциплина не найдена"));
-        access.assertCanManage(discipline.eventId(), principal);
+        access.assertCanModify(discipline.eventId(), principal);
         if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED", "IN_PROGRESS", "FINISHED")
                 .contains(unit.getStatus()))
             throw new BusinessException(
@@ -223,7 +223,7 @@ public class SwimResultsUseCase {
                                         new BusinessException(
                                                 "competition.discipline_not_found",
                                                 "Дисциплина не найдена"));
-        access.assertCanManage(discipline.eventId(), principal);
+        access.assertCanModify(discipline.eventId(), principal);
         Map<String, List<CompetitionUnitDetailsResponse.EntryView>> groups = new TreeMap<>();
         for (var unit : units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId))
             for (var entry : details.execute(unit.getId()).entries()) {

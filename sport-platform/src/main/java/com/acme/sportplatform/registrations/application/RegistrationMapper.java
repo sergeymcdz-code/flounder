@@ -36,7 +36,7 @@ public class RegistrationMapper {
                 entity.getSeedTimeMs(),
                 com.acme.sportplatform.common.TimeParser.format(entity.getSeedTimeMs()),
                 entity.getSource(),
-                entity.getPaymentStatus());
+                entity.getPaymentStatus(), entity.getWaitlistPosition());
     }
 
     private JsonNode readJson(String json) {

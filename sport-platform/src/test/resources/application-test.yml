@@ -28,3 +28,7 @@ app:
       secret: "change-me-change-me-change-me-change-me-change-me-please"
       issuer: "sport-platform-test"
       access-token-ttl: ${app.jwt.access-ttl:PT2H}
+
+events:
+  lifecycle:
+    cron: "-"

@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EventDisciplineRepository
         extends JpaRepository<EventDisciplineEntity, UUID> {
+    @org.springframework.data.jpa.repository.Query("select d.eventId from EventDisciplineEntity d where d.id=:id")
+    Optional<UUID> findEventIdById(UUID id);
     boolean existsBySessionId(UUID id);
 
     @org.springframework.data.jpa.repository.Lock(

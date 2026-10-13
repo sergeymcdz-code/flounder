@@ -17,6 +17,11 @@ import jakarta.persistence.Table;
 @Table(name = "event_disciplines")
 public class EventDisciplineEntity {
 
+    private Integer maxParticipants;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private java.util.Map<String, Integer> limitsByAgeGroup;
     @Id
     private UUID id;
 
@@ -155,6 +160,11 @@ public class EventDisciplineEntity {
     public void setHeatDurationSec(Integer value) {
         this.heatDurationSec = value;
     }
+
+    public Integer getMaxParticipants() { return maxParticipants; }
+    public void setMaxParticipants(Integer value) { maxParticipants = value; }
+    public java.util.Map<String, Integer> getLimitsByAgeGroup() { return limitsByAgeGroup; }
+    public void setLimitsByAgeGroup(java.util.Map<String, Integer> value) { limitsByAgeGroup = value; }
 
     public UUID getId() {
         return id;

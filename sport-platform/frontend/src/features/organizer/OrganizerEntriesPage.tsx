@@ -97,7 +97,7 @@ export function OrganizerEntriesPage() {
         <h2>Заявки участников · {registrations.length}</h2>
         <button
           className={styles.primary}
-          disabled={busy}
+          disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => setImportOpen(true)}
         >
           Импорт из Excel
@@ -129,6 +129,7 @@ export function OrganizerEntriesPage() {
             <option value="">Все статусы</option>
             <option value="EXCLUDED">Не допущены</option>
             {[
+              'WAITLISTED',
               'SUBMITTED',
               'CONFIRMED',
               'PAID',
@@ -212,40 +213,42 @@ export function OrganizerEntriesPage() {
                 </td>
                 <td>
                   <span className={styles.badge}>
-                    {statusLabels[r.status] ?? r.status}
+                    {statusLabels[r.status] ?? r.status}{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
                   </span>
                 </td>
                 <td>{statusLabels[r.paymentStatus] ?? 'Не указана'}</td>
                 <td>{statusLabels[r.source] ?? r.source ?? '—'}</td>
                 <td>
                   <div className={styles.actions}>
-                    {['SUBMITTED', 'NEEDS_CORRECTION'].includes(r.status) && (
+                    {['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED'].includes(r.status) && (
                       <button
-                        disabled={busy}
+                        disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() => openReview(r.id, 'CONFIRMED')}
                       >
-                        Подтвердить
+                        {r.status === 'WAITLISTED' ? 'Подтвердить вне лимита' : 'Подтвердить'}
                       </button>
                     )}
                     {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(
                       r.status,
                     ) && (
                       <>
+                        {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && (
+                          <button
+                            disabled={busy || event.status === 'ARCHIVED'}
+                            onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}
+                          >
+                            Вернуть
+                          </button>
+                        )}
                         <button
-                          disabled={busy}
-                          onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}
-                        >
-                          Вернуть
-                        </button>
-                        <button
-                          disabled={busy}
+                          disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() => openReview(r.id, 'REJECTED')}
                         >
                           Отклонить
                         </button>
-                        {r.paymentStatus !== 'PAID' && (
+                        {r.status === 'CONFIRMED' && r.paymentStatus !== 'PAID' && (
                             <button
-                              disabled={busy}
+                              disabled={busy || event.status === 'ARCHIVED'}
                               onClick={() => {
                                 void run(
                                   () =>
@@ -261,7 +264,7 @@ export function OrganizerEntriesPage() {
                               Оплачено
                             </button>
                           )}
-                        <button disabled={busy} onClick={() => setWithdraw(r)}>
+                        <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setWithdraw(r)}>
                           Снять
                         </button>
                       </>
@@ -314,7 +317,7 @@ export function OrganizerEntriesPage() {
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
-            <button disabled={busy} className={styles.primary}>
+            <button disabled={busy || event.status === 'ARCHIVED'} className={styles.primary}>
               Сохранить решение
             </button>
           </form>
@@ -352,7 +355,7 @@ function SeedTimeEditor({
 }: {
   registration: OrganizerRegistration
 }) {
-  const { accessToken, busy, run } = useOrganizerEvent()
+  const { event, accessToken, busy, run } = useOrganizerEvent()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
@@ -389,8 +392,8 @@ function SeedTimeEditor({
         }}
       />
       <div className={styles.actions}>
-        <button disabled={busy}>Сохранить</button>
-        <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+        <button disabled={busy || event.status === 'ARCHIVED'}>Сохранить</button>
+        <button type="button" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setEditing(false)}>
           Отмена
         </button>
       </div>
@@ -402,7 +405,7 @@ function SeedTimeEditor({
     </form>
   ) : (
     <button
-      disabled={busy}
+      disabled={busy || event.status === 'ARCHIVED'}
       title="Изменить заявочное время"
       onClick={() => {
         setValue(
@@ -459,7 +462,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
     >
       <div className={styles.stack}>
         <button
-          disabled={busy}
+          disabled={busy || event.status === 'ARCHIVED'}
           className={styles.link}
           onClick={() => {
             void download()
@@ -474,7 +477,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
               type="file"
               required
               accept=".xlsx"
-              disabled={busy}
+              disabled={busy || event.status === 'ARCHIVED'}
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null)
                 setReport(null)
@@ -526,7 +529,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
         <button
-          disabled={busy}
+          disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => {
             void run(async () => undefined, 'registrations').then((ok) => {
               if (ok) onClose()

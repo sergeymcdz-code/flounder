@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 public interface RegistrationRepository
         extends JpaRepository<RegistrationEntity, UUID> {
+    @Query("select r.eventId from RegistrationEntity r where r.id=:id")
+    Optional<UUID> findEventIdById(UUID id);
+
     boolean existsByEventDisciplineId(UUID id);
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RegistrationEntity r where r.id=:id")
