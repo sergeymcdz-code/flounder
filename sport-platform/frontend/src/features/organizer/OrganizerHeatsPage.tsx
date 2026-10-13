@@ -112,7 +112,17 @@ export function OrganizerHeatsPage() {
         <p id="circle-seed-help" className={styles.muted}>
           Круговой посев выключен. Настройка доступна только для просмотра.
         </p>
-        <p aria-live="polite">{live.data ? `Отставание: +${Math.ceil((live.data.delaySec ?? 0) / 60)} мин` : !hasPublicLive ? 'Отставание появится после публикации события' : live.error ? 'Отставание временно недоступно' : 'Загрузка отставания…'}</p>
+        <p aria-live="polite">
+          {live.data
+            ? (live.data.delaySec ?? 0) > 0
+              ? `Отставание: +${Math.ceil((live.data.delaySec ?? 0) / 60)} мин`
+              : 'Идём по расписанию'
+            : !hasPublicLive
+              ? 'Отставание появится после публикации события'
+              : live.error
+                ? 'Отставание временно недоступно'
+                : 'Загрузка отставания…'}
+        </p>
         <div className={styles.actions}>
           <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status))} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           <button
