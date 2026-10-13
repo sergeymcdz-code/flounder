@@ -1,21 +1,5 @@
 package com.acme.sportplatform.integration.payments;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
-
 import com.acme.sportplatform.competition.domain.EventDisciplineStatus;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineEntity;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineRepository;
@@ -31,11 +15,25 @@ import com.acme.sportplatform.payments.PaymentProvider;
 import com.acme.sportplatform.payments.domain.PaymentStatus;
 import com.acme.sportplatform.payments.infrastructure.jpa.PaymentEntity;
 import com.acme.sportplatform.payments.infrastructure.jpa.PaymentRepository;
+import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
 import com.acme.sportplatform.sports.infrastructure.jpa.DisciplineTemplateEntity;
 import com.acme.sportplatform.sports.infrastructure.jpa.DisciplineTemplateRepository;
 import com.acme.sportplatform.support.AbstractPostgresIntegrationTest;
 import com.jayway.jsonpath.JsonPath;
-
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -43,7 +41,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @AutoConfigureMockMvc
 @TestPropertySource(properties = "app.payments.provider=MANUAL")
 class ManualPaymentIntegrationTest
@@ -75,6 +72,9 @@ class ManualPaymentIntegrationTest
     @Autowired
     private PaymentRepository paymentRepository;
 
+    @Autowired
+    private RegistrationRepository registrationRepository;
+
     @Test
     void shouldCreateAndConfirmManualPaymentAsOperator()
             throws Exception {
@@ -89,7 +89,7 @@ class ManualPaymentIntegrationTest
                                 "/api/v1/payments/{paymentId}/confirm",
                                 paymentId
                         )
-                                .with(user(principal("OPERATOR")))
+                                .with(user(managerPrincipal("OPERATOR")))
                 )
                 .andExpect(status().isOk())
                 .andExpect(
@@ -118,6 +118,7 @@ class ManualPaymentIntegrationTest
                 payment.getStatus()
         );
         assertNotNull(payment.getPaidAt());
+        assertEquals("PAID", registrationRepository.findById(fixture.registrationId()).orElseThrow().getStatus());
     }
 
     @Test
@@ -167,7 +168,7 @@ class ManualPaymentIntegrationTest
         UUID paymentId = createManualPayment(fixture);
 
         PlatformUserPrincipal operator =
-                principal("OPERATOR");
+                managerPrincipal("OPERATOR");
 
         mockMvc.perform(
                         post(
@@ -210,7 +211,7 @@ class ManualPaymentIntegrationTest
                                 "/api/v1/payments/{paymentId}/confirm",
                                 payment.getId()
                         )
-                                .with(user(principal("OPERATOR")))
+                                .with(user(managerPrincipal("OPERATOR")))
                 )
                 .andExpect(status().isBadRequest())
                 .andExpect(
@@ -267,7 +268,7 @@ class ManualPaymentIntegrationTest
                                 "/api/v1/payments/review/registrations/{registrationId}",
                                 fixture.registrationId()
                         )
-                                .with(user(principal("OPERATOR")))
+                                .with(user(managerPrincipal("OPERATOR")))
                 )
                 .andExpect(status().isOk())
                 .andExpect(
@@ -412,7 +413,7 @@ class ManualPaymentIntegrationTest
                                 registrationId
                         )
                                 .with(user(
-                                        principal("ORGANIZER")
+                                        managerPrincipal("ORGANIZER")
                                 ))
                                 .contentType(
                                         MediaType.APPLICATION_JSON
@@ -457,6 +458,13 @@ class ManualPaymentIntegrationTest
         payment.setUpdatedAt(now);
 
         return paymentRepository.saveAndFlush(payment);
+    }
+
+    private UUID managerUserId;
+
+    private PlatformUserPrincipal managerPrincipal(String role) {
+        return new PlatformUserPrincipal(managerUserId, "manager@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     }
 
     private PlatformUserPrincipal principal(
@@ -538,6 +546,7 @@ class ManualPaymentIntegrationTest
          * events.created_by_user_id не может быть null.
          */
         event.setCreatedByUserId(createdByUserId);
+        managerUserId = createdByUserId;
 
         event.setOrganizationId(UUID.randomUUID());
         event.setVenueId(UUID.randomUUID());

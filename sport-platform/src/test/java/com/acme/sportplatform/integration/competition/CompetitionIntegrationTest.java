@@ -43,6 +43,20 @@ class CompetitionIntegrationTest
                     "20000000-0000-0000-0000-000000000001"
             );
 
+    @org.junit.jupiter.api.BeforeEach
+    void useAdminPrincipalWithAuthorities() {
+        var context = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        var authentication = context.getAuthentication();
+        if (authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(role -> "ROLE_PLATFORM_ADMIN".equals(role.getAuthority()))) {
+            var principal = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
+                    UUID.fromString("11111111-1111-1111-1111-111111111111"), "admin@flounder.demo", "", "active",
+                    authentication.getAuthorities());
+            context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    principal, null, principal.getAuthorities()));
+        }
+    }
+
     @Autowired
     private MockMvc mockMvc;
 

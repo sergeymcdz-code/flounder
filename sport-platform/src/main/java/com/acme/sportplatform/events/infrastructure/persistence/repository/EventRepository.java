@@ -11,6 +11,11 @@ import com.acme.sportplatform.events.infrastructure.persistence.entity.EventEnti
 
 public interface EventRepository extends JpaRepository<EventEntity, UUID> {
 
+    List<EventEntity> findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
+            Collection<UUID> organizationIds, UUID userId);
+
+    List<EventEntity> findAllByOrderByEventStartAtDesc();
+
     boolean existsByPublicSlug(String publicSlug);
 
     List<EventEntity> findByStatusInOrderByEventStartAtAsc(

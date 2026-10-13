@@ -12,9 +12,11 @@ import com.acme.sportplatform.organizations.infrastructure.jpa.VenueRepository;
 public class CreateVenueUseCase {
 
     private final VenueRepository venueRepository;
+    private final VenueMapper venueMapper;
 
-    public CreateVenueUseCase(VenueRepository venueRepository) {
+    public CreateVenueUseCase(VenueRepository venueRepository, VenueMapper venueMapper) {
         this.venueRepository = venueRepository;
+        this.venueMapper = venueMapper;
     }
 
     @Transactional
@@ -25,17 +27,10 @@ public class CreateVenueUseCase {
         entity.setCity(request.city());
         entity.setAddress(request.address());
         entity.setTimezone(request.timezone());
-        entity.setVenueMeta("{}");
+        entity.setVenueMeta(venueMapper.serializeMeta(request.venueMeta()));
 
         VenueEntity saved = venueRepository.save(entity);
 
-        return new VenueResponse(
-                saved.getId(),
-                saved.getName(),
-                saved.getCountryCode(),
-                saved.getCity(),
-                saved.getAddress(),
-                saved.getTimezone()
-        );
+        return venueMapper.toResponse(saved);
     }
 }

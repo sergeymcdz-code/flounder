@@ -14,9 +14,11 @@ import com.acme.sportplatform.organizations.infrastructure.jpa.VenueRepository;
 public class GetVenueByIdUseCase {
 
     private final VenueRepository venueRepository;
+    private final VenueMapper venueMapper;
 
-    public GetVenueByIdUseCase(VenueRepository venueRepository) {
+    public GetVenueByIdUseCase(VenueRepository venueRepository, VenueMapper venueMapper) {
         this.venueRepository = venueRepository;
+        this.venueMapper = venueMapper;
     }
 
     @Transactional(readOnly = true)
@@ -24,16 +26,9 @@ public class GetVenueByIdUseCase {
         VenueEntity entity = venueRepository.findById(venueId)
                 .orElseThrow(() -> new BusinessException(
                         "organizations.venue_not_found",
-                        "Venue not found"
+                        "Площадка не найдена"
                 ));
 
-        return new VenueResponse(
-                entity.getId(),
-                entity.getName(),
-                entity.getCountryCode(),
-                entity.getCity(),
-                entity.getAddress(),
-                entity.getTimezone()
-        );
+        return venueMapper.toResponse(entity);
     }
 }

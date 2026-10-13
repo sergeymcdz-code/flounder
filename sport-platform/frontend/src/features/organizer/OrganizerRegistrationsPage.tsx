@@ -23,6 +23,7 @@ const FILTER_OPTIONS: Array<{
   { value: 'ALL', label: 'Все статусы' },
   { value: 'SUBMITTED', label: 'На рассмотрении' },
   { value: 'CONFIRMED', label: 'Подтверждённые' },
+  { value: 'PAID', label: 'Оплаченные' },
   { value: 'NEEDS_CORRECTION', label: 'Требуют уточнения' },
   { value: 'REJECTED', label: 'Отклонённые' },
   { value: 'CANCELLED', label: 'Отменённые' },
@@ -48,6 +49,7 @@ function registrationStatusLabel(status: RegistrationStatus) {
   const labels: Record<RegistrationStatus, string> = {
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
+    PAID: 'Оплачена',
     NEEDS_CORRECTION: 'Требует уточнения',
     REJECTED: 'Отклонена',
     CANCELLED: 'Отменена',
@@ -63,6 +65,7 @@ function registrationStatusClassName(
   const classes: Record<RegistrationStatus, string> = {
     SUBMITTED: stylesObject.statusSubmitted,
     CONFIRMED: stylesObject.statusConfirmed,
+    PAID: stylesObject.statusConfirmed,
     NEEDS_CORRECTION: stylesObject.statusCorrection,
     REJECTED: stylesObject.statusRejected,
     CANCELLED: stylesObject.statusCancelled,

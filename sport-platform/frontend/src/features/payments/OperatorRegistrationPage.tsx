@@ -52,6 +52,7 @@ function registrationStatusLabel(status: RegistrationStatus) {
   const labels: Record<RegistrationStatus, string> = {
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
+    PAID: 'Оплачена',
     NEEDS_CORRECTION: 'Требует уточнения',
     REJECTED: 'Отклонена',
     CANCELLED: 'Отменена',
@@ -64,6 +65,7 @@ function registrationStatusClassName(status: RegistrationStatus) {
   const classes: Record<RegistrationStatus, string> = {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
+    PAID: styles.statusConfirmed,
     NEEDS_CORRECTION: styles.statusCorrection,
     REJECTED: styles.statusRejected,
     CANCELLED: styles.statusCancelled,
@@ -229,6 +231,7 @@ export function OperatorRegistrationPage() {
       const updated = await confirmPayment(payment.id, accessToken)
 
       setPayment(updated)
+      setRegistration((current) => current?.status === 'CONFIRMED' ? { ...current, status: 'PAID' } : current)
       setSuccessMessage('Ручная оплата подтверждена.')
     } catch (error) {
       setErrorMessage(

@@ -1,22 +1,7 @@
 package com.acme.sportplatform.events.web;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.events.EventAccessService;
 import com.acme.sportplatform.events.api.CreateEventRequest;
 import com.acme.sportplatform.events.api.EventResponse;
 import com.acme.sportplatform.events.application.CloseEventRegistrationUseCase;
@@ -29,8 +14,21 @@ import com.acme.sportplatform.events.infrastructure.persistence.entity.EventEnti
 import com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.organizations.OrganizationManagementAccess;
-
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -46,6 +44,7 @@ public class EventController {
     private final CompleteEventUseCase completeEventUseCase;
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
+    private final EventAccessService eventAccessService;
 
     public EventController(
             CreateEventUseCase createEventUseCase,
@@ -55,7 +54,8 @@ public class EventController {
             CompleteEventUseCase completeEventUseCase,
             EventRepository eventRepository,
             EventMapper eventMapper,
-            OrganizationManagementAccess organizationManagementAccess
+            OrganizationManagementAccess organizationManagementAccess,
+            EventAccessService eventAccessService
     ) {
         this.createEventUseCase = createEventUseCase;
         this.publishEventUseCase = publishEventUseCase;
@@ -65,6 +65,7 @@ public class EventController {
         this.eventRepository = eventRepository;
         this.eventMapper = eventMapper;
         this.organizationManagementAccess = organizationManagementAccess;
+        this.eventAccessService = eventAccessService;
     }
 
     @PostMapping("/events")
@@ -93,16 +94,14 @@ public class EventController {
     }
 
     @GetMapping("/events/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
     public ResponseEntity<EventResponse> get(
             @PathVariable UUID id,
-            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
-            Authentication authentication
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         EventEntity entity = getManagedEvent(
                 id,
-                principal,
-                authentication
+                principal
         );
 
         return ResponseEntity.ok(eventMapper.toResponse(entity));
@@ -119,90 +118,76 @@ public class EventController {
     }
 
     @GetMapping("/organizer/events")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
     public ResponseEntity<List<EventResponse>> listMyEvents(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         UUID currentUserId = requireUserId(principal);
 
-        List<EventResponse> events = eventRepository
-                .findByCreatedByUserIdOrderByEventStartAtDesc(currentUserId)
-                .stream()
-                .map(eventMapper::toResponse)
-                .toList();
+        var managedEvents = principal.isPlatformAdmin()
+                ? eventRepository.findAllByOrderByEventStartAtDesc()
+                : eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
+                        organizationManagementAccess.organizationIdsOf(currentUserId), currentUserId);
+        List<EventResponse> events = managedEvents.stream().map(eventMapper::toResponse).toList();
 
         return ResponseEntity.ok(events);
     }
 
     @PostMapping("/events/{id}/publish")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventResponse> publish(
             @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             Authentication authentication
     ) {
-        getManagedEvent(id, principal, authentication);
+        getManagedEvent(id, principal);
         return ResponseEntity.ok(publishEventUseCase.execute(id));
     }
 
     @PostMapping("/events/{id}/open-registration")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventResponse> openRegistration(
             @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             Authentication authentication
     ) {
-        getManagedEvent(id, principal, authentication);
+        getManagedEvent(id, principal);
         return ResponseEntity.ok(openEventRegistrationUseCase.execute(id));
     }
 
     @PostMapping("/events/{id}/close-registration")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventResponse> closeRegistration(
             @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             Authentication authentication
     ) {
-        getManagedEvent(id, principal, authentication);
+        getManagedEvent(id, principal);
         return ResponseEntity.ok(closeEventRegistrationUseCase.execute(id));
     }
 
     @PostMapping("/events/{id}/complete")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventResponse> complete(
             @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             Authentication authentication
     ) {
-        getManagedEvent(id, principal, authentication);
+        getManagedEvent(id, principal);
         return ResponseEntity.ok(completeEventUseCase.execute(id));
     }
 
     private EventEntity getManagedEvent(
             UUID eventId,
-            AuthenticatedUserPrincipal principal,
-            Authentication authentication
+            AuthenticatedUserPrincipal principal
     ) {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new BusinessException(
                         "events.event_not_found",
-                        "Event not found"
+                        "Событие не найдено"
                 ));
 
-        if (isPlatformAdmin(authentication)) {
-            return event;
-        }
-
-        UUID currentUserId = requireUserId(principal);
-
-        if (!organizationManagementAccess.canManageOrganization(
-                event.getOrganizationId(),
-                currentUserId
-        )) {
-            throw new AccessDeniedException(
-                    "You cannot manage this event"
-            );
-        }
+        eventAccessService.assertCanManage(eventId, principal);
 
         return event;
     }
@@ -223,7 +208,7 @@ public class EventController {
                 currentUserId
         )) {
             throw new AccessDeniedException(
-                    "You cannot create events for this organization"
+                    "Нет доступа к созданию событий этой организации"
             );
         }
     }
@@ -234,7 +219,7 @@ public class EventController {
         if (principal == null) {
             throw new BusinessException(
                     "identity.invalid_principal",
-                    "Authenticated user principal is unavailable"
+                    "Данные авторизованного пользователя недоступны"
             );
         }
 

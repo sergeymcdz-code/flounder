@@ -62,9 +62,6 @@ public class GlobalExceptionHandler {
             case "events.public_not_found" ->
                     HttpStatus.NOT_FOUND;
 
-            case "registrations.not_found" ->
-                    HttpStatus.NOT_FOUND;
-
             case "payments.not_found" ->
                     HttpStatus.NOT_FOUND;
 
@@ -95,6 +92,10 @@ public class GlobalExceptionHandler {
             case "results.public_not_found" ->
                     HttpStatus.NOT_FOUND;
 
+            case "events.access_denied", "organizations.access_denied" -> HttpStatus.FORBIDDEN;
+            case "events.event_not_found", "registrations.not_found", "organizations.organization_not_found", "organizations.registration_not_found",
+                    "competition.discipline_not_found", "results.competition_unit_not_found", "results.entry_not_found" -> HttpStatus.NOT_FOUND;
+            case "organizations.registration_already_reviewed", "registrations.payment_not_applicable" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
 
@@ -135,7 +136,7 @@ public class GlobalExceptionHandler {
                 new ApiErrorResponse(
                         "request_error",
                         ex.getReason() == null
-                                ? "Request could not be completed"
+                                ? "Не удалось выполнить запрос"
                                 : ex.getReason(),
                         OffsetDateTime.now(),
                         List.of()
@@ -157,7 +158,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 new ApiErrorResponse(
                         "validation_error",
-                        "Request validation failed",
+                        "Ошибка проверки запроса",
                         OffsetDateTime.now(),
                         violations
                 )
@@ -171,7 +172,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 new ApiErrorResponse(
                         "invalid_request_body",
-                        "Request body has an invalid JSON format",
+                        "Некорректный JSON в теле запроса",
                         OffsetDateTime.now(),
                         List.of()
                 )
@@ -188,7 +189,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 new ApiErrorResponse(
                         "access_denied",
-                        "Access is denied",
+                        "Доступ запрещён",
                         OffsetDateTime.now(),
                         List.of()
                 )
@@ -202,11 +203,11 @@ public class GlobalExceptionHandler {
         String field = ex.getName();
 
         String message =
-                "Invalid value for parameter '" + field + "'";
+                "Некорректное значение параметра '" + field + "'";
 
         if (UUID.class.equals(ex.getRequiredType())) {
             message =
-                    "Invalid UUID format for parameter '"
+                    "Некорректный UUID параметра '"
                             + field
                             + "'";
         }
@@ -214,7 +215,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 new ApiErrorResponse(
                         "validation_error",
-                        "Request validation failed",
+                        "Ошибка проверки запроса",
                         OffsetDateTime.now(),
                         List.of(
                                 new ApiErrorResponse.FieldViolation(
@@ -237,7 +238,7 @@ public class GlobalExceptionHandler {
         ).body(
                 new ApiErrorResponse(
                         "internal_error",
-                        "Unexpected internal server error",
+                        "Непредвиденная внутренняя ошибка сервера",
                         OffsetDateTime.now(),
                         List.of()
                 )

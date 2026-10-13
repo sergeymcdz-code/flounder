@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record AddOrganizationMemberRequest(
-        @NotNull UUID userId,
-        @NotBlank String memberRole
+        @NotNull(message = "Укажите пользователя") UUID userId,
+        @NotBlank(message = "Укажите роль участника") String memberRole
 ) {
 }

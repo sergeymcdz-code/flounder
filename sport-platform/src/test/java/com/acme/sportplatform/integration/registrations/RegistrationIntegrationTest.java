@@ -128,7 +128,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
         String registrationId = JsonPath.read(registrationResponse, "$.id");
 
         PlatformUserPrincipal organizerPrincipal = new PlatformUserPrincipal(
-                UUID.randomUUID(),
+                user.getId(),
                 "organizer@example.com",
                 "",
                 "active",
@@ -228,7 +228,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         PlatformUserPrincipal organizerPrincipal =
                 new PlatformUserPrincipal(
-                        UUID.randomUUID(),
+                        user.getId(),
                         "organizer@example.com",
                         "",
                         "active",
@@ -237,7 +237,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         PlatformUserPrincipal operatorPrincipal =
                 new PlatformUserPrincipal(
-                        UUID.randomUUID(),
+                        user.getId(),
                         "operator@example.com",
                         "",
                         "active",
@@ -302,7 +302,8 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         mockMvc.perform(
                         post("/api/v1/payments/{paymentId}/confirm", paymentId)
-                                .with(user(organizerPrincipal))
+                                .with(user(new PlatformUserPrincipal(UUID.randomUUID(), "outsider@example.com", "", "active",
+                                        List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")))))
                 )
                 .andExpect(status().isForbidden());
 
@@ -400,7 +401,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         String registrationId = JsonPath.read(registrationResponse, "$.id");
 
-        UUID organizerId = UUID.randomUUID();
+        UUID organizerId = user.getId();
         PlatformUserPrincipal organizerPrincipal = new PlatformUserPrincipal(
                 organizerId,
                 "organizer@example.com",
@@ -411,6 +412,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         mockMvc.perform(
                         get("/api/v1/registrations")
+                                .param("eventId", eventId.toString())
                                 .param("status", "SUBMITTED")
                                 .with(user(organizerPrincipal))
                 )
@@ -441,6 +443,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         mockMvc.perform(
                         get("/api/v1/registrations")
+                                .param("eventId", eventId.toString())
                                 .param("status", "CONFIRMED")
                                 .with(user(organizerPrincipal))
                 )
@@ -452,6 +455,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
 
         mockMvc.perform(
                         get("/api/v1/registrations")
+                                .param("eventId", eventId.toString())
                                 .param("status", "SUBMITTED")
                                 .with(user(organizerPrincipal))
                 )

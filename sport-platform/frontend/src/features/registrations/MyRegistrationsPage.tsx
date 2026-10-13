@@ -23,6 +23,7 @@ function getStatusLabel(status: RegistrationStatus) {
   const labels: Record<RegistrationStatus, string> = {
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
+    PAID: 'Оплачена',
     REJECTED: 'Отклонена',
     NEEDS_CORRECTION: 'Требует уточнения',
     CANCELLED: 'Отменена',
@@ -35,6 +36,7 @@ function getStatusClassName(status: RegistrationStatus) {
   const classes: Record<RegistrationStatus, string> = {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
+    PAID: styles.statusConfirmed,
     REJECTED: styles.statusRejected,
     NEEDS_CORRECTION: styles.statusCorrection,
     CANCELLED: styles.statusCancelled,
@@ -56,6 +58,7 @@ function getStatusHint(status: RegistrationStatus) {
       'Организатор проверяет данные заявки. Оплата станет доступна после подтверждения.',
     CONFIRMED:
       'Заявка подтверждена. Перейдите к оплате участия.',
+    PAID: 'Оплата участия подтверждена.',
     NEEDS_CORRECTION:
       'Организатор запросил уточнение данных. Ознакомьтесь с комментарием и свяжитесь с организатором при необходимости.',
     REJECTED:
@@ -71,6 +74,7 @@ function getStatusHintClassName(status: RegistrationStatus) {
   const classes: Record<RegistrationStatus, string> = {
     SUBMITTED: styles.hintSubmitted,
     CONFIRMED: styles.hintConfirmed,
+    PAID: styles.hintConfirmed,
     NEEDS_CORRECTION: styles.hintCorrection,
     REJECTED: styles.hintRejected,
     CANCELLED: styles.hintCancelled,

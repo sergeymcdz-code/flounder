@@ -22,6 +22,7 @@ function registrationStatusLabel(status: Registration['status']) {
   const labels: Record<Registration['status'], string> = {
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
+    PAID: 'Оплачена',
     REJECTED: 'Отклонена',
     NEEDS_CORRECTION: 'Требует уточнения',
     CANCELLED: 'Отменена',
@@ -34,6 +35,7 @@ function registrationStatusClassName(status: Registration['status']) {
   const classes: Record<Registration['status'], string> = {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
+    PAID: styles.statusConfirmed,
     REJECTED: styles.statusRejected,
     NEEDS_CORRECTION: styles.statusCorrection,
     CANCELLED: styles.statusCancelled,

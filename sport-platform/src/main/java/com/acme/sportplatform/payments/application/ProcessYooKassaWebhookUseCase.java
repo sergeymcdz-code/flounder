@@ -1,12 +1,5 @@
 package com.acme.sportplatform.payments.application;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.payments.PaymentProvider;
 import com.acme.sportplatform.payments.domain.PaymentStatus;
 import com.acme.sportplatform.payments.domain.PaymentWebhookProcessingStatus;
@@ -14,6 +7,12 @@ import com.acme.sportplatform.payments.infrastructure.jpa.PaymentEntity;
 import com.acme.sportplatform.payments.infrastructure.jpa.PaymentRepository;
 import com.acme.sportplatform.payments.infrastructure.jpa.PaymentWebhookEventEntity;
 import com.acme.sportplatform.payments.infrastructure.jpa.PaymentWebhookEventRepository;
+import com.acme.sportplatform.registrations.RegistrationPaymentLookup;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProcessYooKassaWebhookUseCase {
@@ -24,10 +23,14 @@ public class ProcessYooKassaWebhookUseCase {
     private final PaymentRepository paymentRepository;
     private final PaymentWebhookEventRepository webhookEventRepository;
 
+    private final RegistrationPaymentLookup registrationPaymentLookup;
+
     public ProcessYooKassaWebhookUseCase(
             PaymentRepository paymentRepository,
-            PaymentWebhookEventRepository webhookEventRepository
+            PaymentWebhookEventRepository webhookEventRepository,
+            RegistrationPaymentLookup registrationPaymentLookup
     ) {
+        this.registrationPaymentLookup = registrationPaymentLookup;
         this.paymentRepository = paymentRepository;
         this.webhookEventRepository = webhookEventRepository;
     }
@@ -101,9 +104,11 @@ public class ProcessYooKassaWebhookUseCase {
             return;
         }
 
+        registrationPaymentLookup.markPaid(payment.getRegistrationId());
         payment.setStatus(PaymentStatus.SUCCEEDED.name());
         payment.setPaidAt(now);
         payment.setUpdatedAt(now);
+        paymentRepository.save(payment);
 
         markProcessed(event, now);
     }
@@ -135,6 +140,7 @@ public class ProcessYooKassaWebhookUseCase {
         payment.setStatus(PaymentStatus.CANCELED.name());
         payment.setCanceledAt(now);
         payment.setUpdatedAt(now);
+        paymentRepository.save(payment);
 
         markProcessed(event, now);
     }
@@ -148,6 +154,7 @@ public class ProcessYooKassaWebhookUseCase {
         );
         event.setProcessedAt(now);
         event.setProcessingError(null);
+        webhookEventRepository.save(event);
     }
 
     private void reject(

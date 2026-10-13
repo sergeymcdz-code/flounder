@@ -1,23 +1,10 @@
 package com.acme.sportplatform.results.web;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.competition.EventDisciplineSummary;
+import com.acme.sportplatform.results.application.ResultsAccessService;
+import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.results.api.AssignRegistrationRequest;
 import com.acme.sportplatform.results.api.CompetitionUnitDetailsResponse;
 import com.acme.sportplatform.results.api.CompetitionUnitResponse;
@@ -36,8 +23,20 @@ import com.acme.sportplatform.results.application.PublishCompetitionUnitUseCase;
 import com.acme.sportplatform.results.application.RecalculatePlacesUseCase;
 import com.acme.sportplatform.results.application.RecordResultUseCase;
 import com.acme.sportplatform.results.infrastructure.jpa.CompetitionUnitRepository;
-
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -56,6 +55,8 @@ public class ResultsController {
             getPublicDisciplineResultsUseCase;
     private final EventDisciplineLookup eventDisciplineLookup;
 
+    private final ResultsAccessService resultsAccessService;
+
     public ResultsController(
             CreateCompetitionUnitUseCase createCompetitionUnitUseCase,
             AssignRegistrationToUnitUseCase assignRegistrationToUnitUseCase,
@@ -68,8 +69,10 @@ public class ResultsController {
                     getPublicCompetitionUnitResultsUseCase,
             GetPublicDisciplineResultsUseCase
                     getPublicDisciplineResultsUseCase,
-            EventDisciplineLookup eventDisciplineLookup
+            EventDisciplineLookup eventDisciplineLookup,
+            ResultsAccessService resultsAccessService
     ) {
+        this.resultsAccessService = resultsAccessService;
         this.createCompetitionUnitUseCase = createCompetitionUnitUseCase;
         this.assignRegistrationToUnitUseCase = assignRegistrationToUnitUseCase;
         this.recordResultUseCase = recordResultUseCase;
@@ -92,11 +95,14 @@ public class ResultsController {
     @PreAuthorize(
             "hasRole('PLATFORM_ADMIN') or "
             + "hasRole('ORGANIZER') or "
-            + "hasRole('OPERATOR')"
+            + "hasRole('OPERATOR') or hasRole('JUDGE')"
     )
     public List<CompetitionUnitResponse> listCompetitionUnits(
-            @PathVariable UUID eventDisciplineId
+            @PathVariable UUID eventDisciplineId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertDisciplineAccess(eventDisciplineId, principal);
+
         return competitionUnitRepository
                 .findByEventDisciplineIdOrderBySequenceNumberAsc(
                         eventDisciplineId
@@ -120,11 +126,14 @@ public class ResultsController {
     @PreAuthorize(
             "hasRole('PLATFORM_ADMIN') or "
             + "hasRole('ORGANIZER') or "
-            + "hasRole('OPERATOR')"
+            + "hasRole('OPERATOR') or hasRole('JUDGE')"
     )
     public CompetitionUnitDetailsResponse getUnitDetails(
-            @PathVariable UUID unitId
+            @PathVariable UUID unitId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertUnitAccess(unitId, principal);
+
         return getCompetitionUnitDetailsUseCase.execute(unitId);
     }
 
@@ -171,11 +180,14 @@ public class ResultsController {
      */
     @PostMapping("/competition-units")
     @PreAuthorize(
-            "hasRole('PLATFORM_ADMIN') or hasRole('ORGANIZER')"
+            "hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')"
     )
     public ResponseEntity<CompetitionUnitResponse> createCompetitionUnit(
-            @Valid @RequestBody CreateCompetitionUnitRequest request
+            @Valid @RequestBody CreateCompetitionUnitRequest request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertDisciplineAccess(request.eventDisciplineId(), principal);
+
         CompetitionUnitResponse response =
                 createCompetitionUnitUseCase.execute(request);
 
@@ -189,12 +201,15 @@ public class ResultsController {
      */
     @PostMapping("/competition-units/{unitId}/entries")
     @PreAuthorize(
-            "hasRole('PLATFORM_ADMIN') or hasRole('ORGANIZER')"
+            "hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')"
     )
     public ResponseEntity<UUID> assignRegistration(
             @PathVariable UUID unitId,
-            @Valid @RequestBody AssignRegistrationRequest request
+            @Valid @RequestBody AssignRegistrationRequest request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertUnitAccess(unitId, principal);
+
         UUID entryId = assignRegistrationToUnitUseCase.execute(
                 unitId,
                 request.registrationId(),
@@ -211,14 +226,17 @@ public class ResultsController {
      */
     @PostMapping("/results")
     @PreAuthorize(
-            "hasRole('PLATFORM_ADMIN') or hasRole('OPERATOR')"
+            "hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')"
     )
     public ResultResponse recordResult(
             @AuthenticationPrincipal(expression = "userId")
             UUID recordedByUserId,
             @Valid @RequestBody RecordResultRequest request,
-            @RequestParam String resultType
+            @RequestParam String resultType,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(), principal);
+
         return recordResultUseCase.execute(
                 request,
                 resultType,
@@ -231,7 +249,7 @@ public class ResultsController {
      */
     @PostMapping("/competition-units/{unitId}/results")
     @PreAuthorize(
-            "hasRole('PLATFORM_ADMIN') or hasRole('OPERATOR')"
+            "hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')"
     )
     public CompetitionUnitDetailsResponse recordResultAndRecalculate(
             @PathVariable UUID unitId,
@@ -239,8 +257,12 @@ public class ResultsController {
             UUID recordedByUserId,
             @Valid @RequestBody RecordResultRequest request,
             @RequestParam String resultType,
-            @RequestParam(defaultValue = "ASC") String rankingStrategy
+            @RequestParam(defaultValue = "ASC") String rankingStrategy,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertUnitAccess(unitId, principal);
+        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(), principal);
+
         recordResultUseCase.execute(
                 request,
                 resultType,
@@ -261,12 +283,15 @@ public class ResultsController {
      */
     @PostMapping("/competition-units/{unitId}/recalculate")
     @PreAuthorize(
-            "hasRole('PLATFORM_ADMIN') or hasRole('OPERATOR')"
+            "hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')"
     )
     public CompetitionUnitDetailsResponse recalculate(
             @PathVariable UUID unitId,
-            @RequestParam String rankingStrategy
+            @RequestParam String rankingStrategy,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertUnitAccess(unitId, principal);
+
         recalculatePlacesUseCase.execute(
                 unitId,
                 rankingStrategy
@@ -284,8 +309,11 @@ public class ResultsController {
     )
     public ResponseEntity<Void> changePublication(
             @PathVariable UUID unitId,
-            @RequestBody PublishCompetitionUnitRequest request
+            @RequestBody PublishCompetitionUnitRequest request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
+        resultsAccessService.assertUnitAccess(unitId, principal);
+
         publishCompetitionUnitUseCase.execute(
                 unitId,
                 request.published()
@@ -297,7 +325,7 @@ public class ResultsController {
     private BusinessException publicResultsNotFound() {
         return new BusinessException(
                 "results.public_not_found",
-                "Published results were not found."
+                "Опубликованные результаты не найдены"
         );
     }
 }

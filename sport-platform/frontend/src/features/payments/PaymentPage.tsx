@@ -57,6 +57,7 @@ function registrationStatusLabel(status: RegistrationStatus) {
   const labels: Record<RegistrationStatus, string> = {
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
+    PAID: 'Оплачена',
     REJECTED: 'Отклонена',
     NEEDS_CORRECTION: 'Требует уточнения',
     CANCELLED: 'Отменена',
@@ -199,7 +200,7 @@ export function PaymentPage() {
 
         setRegistration(ownRegistration)
 
-        if (ownRegistration.status !== 'CONFIRMED') {
+        if (ownRegistration.status !== 'CONFIRMED' && ownRegistration.status !== 'PAID') {
           setPayment(null)
           return
         }
@@ -313,7 +314,7 @@ export function PaymentPage() {
     return null
   }
 
-  const isConfirmed = registration.status === 'CONFIRMED'
+  const isConfirmed = registration.status === 'CONFIRMED' || registration.status === 'PAID'
   const unavailableCopy = getPaymentUnavailableCopy(registration)
 
   const isManualAwaitingConfirmation =
@@ -339,6 +340,8 @@ export function PaymentPage() {
         Проверьте статус заявки и выполните оплату участия, если она
         требуется.
       </p>
+
+      {registration.status === 'PAID' ? <p>Оплата участия подтверждена.</p> : null}
 
       <div className={styles.content}>
         <article className={styles.card}>
@@ -469,7 +472,7 @@ export function PaymentPage() {
             </>
           ) : null}
 
-          {isConfirmed && !payment ? (
+          {isConfirmed && !payment && registration.status !== 'PAID' ? (
             <>
               <p className={styles.paymentDescription}>
                 Создайте платёж, чтобы оплатить участие в соревновании.

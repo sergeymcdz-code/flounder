@@ -75,7 +75,7 @@ export default function App() {
         <Route
           element={
             <RequireRole
-              roles={['platformadmin', 'organizer']}
+              roles={['platform_admin', 'organizer']}
             />
           }
         >
@@ -113,7 +113,7 @@ export default function App() {
           element={
             <RequireRole
               roles={[
-                'platformadmin',
+                'platform_admin',
                 'organizer',
                 'operator',
               ]}
@@ -129,7 +129,7 @@ export default function App() {
         <Route
           element={
             <RequireRole
-              roles={['platformadmin', 'operator']}
+              roles={['platform_admin', 'operator']}
             />
           }
         >
@@ -151,7 +151,7 @@ export default function App() {
 
         <Route
           element={
-            <RequireRole roles={['platformadmin']} />
+            <RequireRole roles={['platform_admin']} />
           }
         >
           <Route

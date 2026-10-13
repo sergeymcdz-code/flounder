@@ -2,7 +2,6 @@ package com.acme.sportplatform.events.application;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +21,7 @@ import com.acme.sportplatform.sports.SportLookup;
 public class CreateEventUseCase {
 
     private final EventRepository eventRepository;
+    private final EventSlugService slugService;
     private final SportLookup sportLookup;
     private final EventMapper eventMapper;
     private final OrganizationLookup organizationLookup;
@@ -34,9 +34,11 @@ public class CreateEventUseCase {
             VenueLookup venueLookup,
             SportLookup sportLookup,
             RegulationVersionLookup regulationVersionLookup,
-            EventMapper eventMapper
+            EventMapper eventMapper,
+            EventSlugService slugService
     ) {
         this.eventRepository = eventRepository;
+        this.slugService = slugService;
         this.organizationLookup = organizationLookup;
         this.venueLookup = venueLookup;
         this.sportLookup = sportLookup;
@@ -45,25 +47,25 @@ public class CreateEventUseCase {
     }
 
     @Transactional
-    public EventResponse execute(CreateEventRequest request, UUID createdByUserId) {
+    public EventResponse execute(CreateEventRequest request, java.util.UUID createdByUserId) {
         if (!organizationLookup.existsById(request.organizationId())) {
             throw new BusinessException(
                     "events.organization_not_found",
-                    "Organization not found"
+                    "Организация не найдена"
             );
         }
 
         if (!venueLookup.existsById(request.venueId())) {
             throw new BusinessException(
                     "events.venue_not_found",
-                    "Venue not found"
+                    "Площадка не найдена"
             );
         }
 
         if (!sportLookup.existsById(request.sportId())) {
             throw new BusinessException(
                     "events.sport_not_found",
-                    "Sport not found"
+                    "Вид спорта не найден"
             );
         }
 
@@ -72,12 +74,12 @@ public class CreateEventUseCase {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
                     "events.regulation_version_not_found",
-                    "Regulation version not found"
+                    "Версия регламента не найдена"
             );
         }
 
         EventEntity entity = new EventEntity();
-        entity.setId(UUID.randomUUID());
+        entity.setId(java.util.UUID.randomUUID());
         entity.setCreatedByUserId(createdByUserId);
         entity.setOrganizationId(request.organizationId());
         entity.setVenueId(request.venueId());
@@ -90,18 +92,11 @@ public class CreateEventUseCase {
         entity.setEventStartAt(request.eventStartAt());
         entity.setEventEndAt(request.eventEndAt());
         entity.setStatus(EventStatus.DRAFT.name());
-        entity.setPublicSlug(generateSlug(request.title()));
+        entity.setPublicSlug(slugService.generate(request.title()));
         entity.setSettingsJson("{}");
         entity.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         entity.setUpdatedAt(entity.getCreatedAt());
 
         return eventMapper.toResponse(eventRepository.save(entity));
-    }
-
-    private String generateSlug(String title) {
-        String base = title == null ? "event" : title.toLowerCase()
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("(^-|-$)", "");
-        return base + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 }
