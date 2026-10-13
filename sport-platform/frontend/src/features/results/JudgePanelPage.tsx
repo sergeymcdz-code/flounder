@@ -39,7 +39,7 @@ export function JudgePanelPage() {
   const saveButton = useRef<HTMLButtonElement | null>(null)
   const eventId = unit?.eventId ?? params.get('eventId')
   const published = unit?.status === 'PUBLISHED'
-  const canEdit = !published || hasAnyRole(['operator', 'organizer'])
+  const canEdit = !published || hasAnyRole(['operator', 'organizer', 'platform_admin', 'platformadmin'])
   const loadedUnitId = unit?.id
   const disciplineId = unit?.eventDisciplineId
   const navigationWarning = (location.state as { liveWarning?: string } | null)?.liveWarning
@@ -182,7 +182,7 @@ export function JudgePanelPage() {
               onBlur={e => {
                 if ((e.relatedTarget as HTMLElement | null)?.dataset.entryId !== entry.entryId) validate(entry.entryId)
               }} onKeyDown={e => {
-                const shortcut = e.altKey ? ({ d: 'DNS', n: 'DNF', q: 'DSQ' } as const)[e.key.toLowerCase() as 'd' | 'n' | 'q'] : undefined
+                const shortcut = e.altKey ? ({ KeyD: 'DNS', KeyN: 'DNF', KeyQ: 'DSQ' } as const)[e.code as 'KeyD' | 'KeyN' | 'KeyQ'] : undefined
                 if (shortcut) {
                   e.preventDefault()
                   update(entry.entryId, { status: shortcut })
