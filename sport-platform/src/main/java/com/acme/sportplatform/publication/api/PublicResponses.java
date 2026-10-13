@@ -25,7 +25,7 @@ public final class PublicResponses {
             boolean unitsPublished) {}
     public record StartList(List<StartSession> sessions) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
-    public record StartSession(UUID id, String name, OffsetDateTime startsAt,
+    public record StartSession(String id, String name, OffsetDateTime startsAt,
             List<StartDiscipline> disciplines) {}
     public record StartDiscipline(UUID id, int number, String name, List<Heat> heats) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -44,11 +44,12 @@ public final class PublicResponses {
     public record Schedule(String sessionName, String disciplineName, int heatNumber,
             int sequenceInSession, OffsetDateTime scheduledAt, String status) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
-    public record LiveUnit(UUID id, UUID disciplineId, int disciplineNumber,
-            String disciplineName, int heatNumber, int sequenceInSession,
-            OffsetDateTime scheduledAt, String status) {}
+    public record LiveUnit(UUID id, int number, String ageGroupCode, OffsetDateTime scheduledAt,
+            int sequenceInSession, String status, List<Lane> lanes, UUID disciplineId,
+            int disciplineNumber, String disciplineName) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Live(LiveUnit currentUnit, List<LiveUnit> next, OffsetDateTime updatedAt) {}
+    public record Results(List<DisciplineResults> disciplines) {}
     public record DisciplineResults(UUID id, int number, String name,
             List<ResultRow> overall, List<AgeGroupResults> byAgeGroup) {}
     public record AgeGroupResults(String code, String name, List<ResultRow> rows) {}

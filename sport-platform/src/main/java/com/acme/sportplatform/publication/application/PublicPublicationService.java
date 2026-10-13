@@ -41,7 +41,7 @@ public class PublicPublicationService {
                 meta.path("lanes").asInt(8), nullableInt(meta,"courseLength"));
         return new Event(event.id(), event.sportId(), event.title(), event.description(), event.registrationOpenAt(),
                 event.registrationCloseAt(), event.eventStartAt(), event.eventEndAt(), event.status(), event.slug(),
-                "REGISTRATION_OPEN".equals(event.status()), venue, sessionViews(event.id()),
+                registrationOpen(event), venue, sessionViews(event.id()),
                 disciplines.stream().map(d -> new Discipline(d.id(), d.number(), d.name(), d.distanceM(), d.stroke(),
                         d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()))).toList());
     }
@@ -58,11 +58,11 @@ public class PublicPublicationService {
         for (Session session : sessionViews(event.id())) {
             var views = startDisciplines(disciplines.stream().filter(d -> session.id().equals(d.sessionId())).toList(),
                     unitsByDiscipline, entries, laneCount);
-            if (!views.isEmpty()) response.add(new StartSession(session.id(),session.name(),session.startsAt(),views));
+            if (!views.isEmpty()) response.add(new StartSession(session.id().toString(),session.name(),session.startsAt(),views));
         }
         var unassigned = startDisciplines(disciplines.stream().filter(d -> d.sessionId() == null).toList(),
                 unitsByDiscipline, entries, laneCount);
-        if (!unassigned.isEmpty()) response.add(new StartSession(null,"Без сессии",null,unassigned));
+        if (!unassigned.isEmpty()) response.add(new StartSession("unassigned","Без сессии",null,unassigned));
         return new StartList(List.copyOf(response));
     }
     private List<StartDiscipline> startDisciplines(List<ReadModels.Discipline> disciplines,
@@ -79,7 +79,7 @@ public class PublicPublicationService {
         for (int lane = 1; lane <= laneCount; lane++) {
             var entry = byLane.get(lane);
             lanes.add(entry == null ? new EmptyLane(lane,true)
-                    : new OccupiedLane(lane,entry.withdrawn() ? true : null,entry.withdrawn() ? true : null,entry.registrationId(),
+                    : new OccupiedLane(lane,null,entry.withdrawn() ? true : null,entry.registrationId(),
                         new Athlete(entry.lastName(),entry.firstName(),entry.birthYear(),entry.club()),
                         entry.seedTimeMs(),display(entry.seedTimeMs(),null)));
         }
@@ -102,26 +102,35 @@ public class PublicPublicationService {
         var event = requireEvent(slug);
         var units = reads.units(event.id());
         var state = liveStates.findById(event.id());
+        var now = OffsetDateTime.now(clock);
         var current = state.isPresent() ? units.stream().filter(u -> u.id().equals(state.get().getCurrentUnitId())).findFirst().orElse(null)
-                : units.stream().filter(u -> canRun(u) && u.scheduledAt() != null && !u.scheduledAt().isBefore(OffsetDateTime.now(clock)))
-                        .findFirst().orElse(null);
+                : units.stream().filter(u -> upcoming(u,now)).findFirst().orElse(null);
         var disciplines = disciplineMap(event.id());
-        int start = current == null ? 0 : units.indexOf(current) + 1;
-        var next = (current == null ? java.util.stream.Stream.<ReadModels.Unit>empty() : units.subList(start,units.size()).stream()).filter(PublicPublicationService::canRun).limit(3)
-                .map(u -> liveUnit(u,disciplines.get(u.disciplineId()))).toList();
-        return new Live(current == null ? null : liveUnit(current,disciplines.get(current.disciplineId())),next,
-                state.map(EventLiveStateEntity::getUpdatedAt).orElse(null));
+        var entries = reads.entries(event.id()).stream().collect(Collectors.groupingBy(ReadModels.Entry::unitId));
+        int laneCount = json(event.venueMeta()).path("lanes").asInt(8);
+        var candidates = current == null ? units.stream().filter(u -> upcoming(u,now))
+                : units.subList(units.indexOf(current) + 1,units.size()).stream().filter(PublicPublicationService::canRun);
+        var next = candidates.limit(3)
+                .map(u -> liveUnit(u,disciplines.get(u.disciplineId()),entries.getOrDefault(u.id(),List.of()),laneCount)).toList();
+        return new Live(current == null ? null : liveUnit(current,disciplines.get(current.disciplineId()),
+                entries.getOrDefault(current.id(),List.of()),laneCount),next,
+                state.map(EventLiveStateEntity::getUpdatedAt).orElse(now));
+    }
+    private boolean upcoming(ReadModels.Unit unit, OffsetDateTime now) {
+        return "PUBLISHED".equals(unit.status()) && unit.scheduledAt() != null && !unit.scheduledAt().isBefore(now);
     }
     public static boolean canRun(ReadModels.Unit unit) {
         return "PUBLISHED".equals(unit.status()) || "IN_PROGRESS".equals(unit.status());
     }
-    private LiveUnit liveUnit(ReadModels.Unit unit, ReadModels.Discipline discipline) {
-        return new LiveUnit(unit.id(),discipline.id(),discipline.number(),discipline.name(),unit.number(),
-                unit.sequenceInSession(),unit.scheduledAt(),unit.status());
+    private LiveUnit liveUnit(ReadModels.Unit unit, ReadModels.Discipline discipline,
+            List<ReadModels.Entry> entries, int laneCount) {
+        return new LiveUnit(unit.id(),unit.number(),unit.ageGroupCode(),unit.scheduledAt(),
+                unit.sequenceInSession(),unit.status(),lanes(entries,laneCount),
+                discipline.id(),discipline.number(),discipline.name());
     }
 
     @Cacheable(cacheNames = "publicResults", cacheManager = "publicationCacheManager")
-    public List<DisciplineResults> results(String slug) {
+    public Results results(String slug) {
         var event = requireEvent(slug);
         var disciplines = reads.disciplines(event.id());
         var units = reads.units(event.id()).stream().collect(Collectors.toMap(ReadModels.Unit::id,Function.identity()));
@@ -138,7 +147,7 @@ public class PublicPublicationService {
             }
             result.add(new DisciplineResults(d.id(),d.number(),d.name(),resultRows(rows,false),List.copyOf(groups)));
         }
-        return List.copyOf(result);
+        return new Results(List.copyOf(result));
     }
     private boolean inAgeGroup(ReadModels.Entry entry, ReadModels.Unit unit, ReadModels.Discipline discipline, JsonNode group) {
         if ("BY_AGE_GROUP".equals(discipline.seedingMode()) && unit.ageGroupCode() != null)
@@ -181,6 +190,12 @@ public class PublicPublicationService {
             return new AthleteSwims(group.getKey(),athlete.lastName(),athlete.firstName(),athlete.birthYear(),athlete.club(),swims);
         }).sorted(Comparator.comparing(AthleteSwims::lastName).thenComparing(AthleteSwims::firstName).thenComparing(AthleteSwims::athleteKey)).toList();
     }
+    private boolean registrationOpen(ReadModels.Event event) {
+        var now = OffsetDateTime.now(clock);
+        return "REGISTRATION_OPEN".equals(event.status())
+                && (event.registrationOpenAt() == null || !now.isBefore(event.registrationOpenAt()))
+                && (event.registrationCloseAt() == null || !now.isAfter(event.registrationCloseAt()));
+    }
     private ReadModels.Event requireEvent(String slug) {
         return reads.event(slug).orElseThrow(() -> new BusinessException("events.public_not_found","Публичное событие не найдено."));
     }
@@ -198,7 +213,7 @@ public class PublicPublicationService {
     public static String publicStatus(String status) {
         if (status == null) return null;
         return switch (status) {
-            case "DID_NOT_START" -> "DNS"; case "DID_NOT_FINISH" -> "DNF"; case "DISQUALIFIED" -> "DSQ"; default -> status;
+            case "DID_NOT_START" -> "DNS"; case "DID_NOT_FINISH" -> "DNF"; case "DISQUALIFIED" -> "DSQ"; case "CORRECTED" -> "VALID"; default -> status;
         };
     }
     private static boolean hasPlace(String status) { return "VALID".equals(status) || "CORRECTED".equals(status); }

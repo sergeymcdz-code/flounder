@@ -46,7 +46,9 @@ public class LiveManagementService {
     @Caching(evict = {
         @CacheEvict(cacheNames = "publicLive", cacheManager = "publicationCacheManager", allEntries = true),
         @CacheEvict(cacheNames = "publicStartList", cacheManager = "publicationCacheManager", allEntries = true),
-        @CacheEvict(cacheNames = "publicSchedule", cacheManager = "publicationCacheManager", allEntries = true)
+        @CacheEvict(cacheNames = "publicSchedule", cacheManager = "publicationCacheManager", allEntries = true),
+        @CacheEvict(cacheNames = "publicResults", cacheManager = "publicationCacheManager", allEntries = true),
+        @CacheEvict(cacheNames = "publicAthletes", cacheManager = "publicationCacheManager", allEntries = true)
     })
     public void finish(UUID unitId, Authentication authentication) { transition(unitId,authentication,false); }
     private void transition(UUID unitId, Authentication authentication, boolean start) {

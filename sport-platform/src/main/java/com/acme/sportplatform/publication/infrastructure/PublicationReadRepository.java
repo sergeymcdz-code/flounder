@@ -19,8 +19,7 @@ public class PublicationReadRepository {
     private static final String PUBLIC_UNITS = "('PUBLISHED','IN_PROGRESS','FINISHED','COMPLETED')";
     private static final String UNIT_QUERY = """
             select u.*, cast(row_number() over (partition by d.session_id
-                order by d.order_in_session nulls last, d.created_at, d.id,
-                         u.sequence_number, u.id) as integer) as sequence_in_session
+                order by u.scheduled_at nulls last, d.order_in_session, u.sequence_number) as integer) as sequence_in_session
             from competition_units u join event_disciplines d on d.id = u.event_discipline_id
             where d.event_id = :eventId and d.status = 'PUBLISHED'
                 and u.status in ('PUBLISHED','IN_PROGRESS','FINISHED','COMPLETED')
@@ -84,7 +83,7 @@ public class PublicationReadRepository {
                 join registrations r on r.id = ce.registration_id
                 join profiles p on p.id = r.participant_profile_id
                 left join results res on res.competition_unit_entry_id = ce.id
-                    and u.status = 'PUBLISHED' and res.status <> 'PENDING'
+                    and u.status in ('FINISHED','COMPLETED') and res.status <> 'PENDING'
                 where d.event_id = :eventId and r.event_id = :eventId and d.status = 'PUBLISHED'
                 """ + " and u.status in " + PUBLIC_UNITS +
                 (prefix == null ? "" : " and p.id in (select id from selected_profiles)") +

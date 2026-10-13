@@ -38,14 +38,14 @@ public class PublicPublicationController {
     @GetMapping("/live")
     @Operation(summary = "Текущий заплыв и следующие три", description = "Обновление из кэша не реже 10 секунд.")
     @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/json", examples = @ExampleObject(value =
-            "{\"currentUnit\":null,\"next\":[],\"updatedAt\":null}")))
+            "{\"currentUnit\":null,\"next\":[{\"id\":\"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\"number\":1,\"ageGroupCode\":null,\"scheduledAt\":\"2026-10-17T10:00:00Z\",\"sequenceInSession\":1,\"status\":\"PUBLISHED\",\"lanes\":[{\"lane\":1,\"empty\":true}],\"disciplineId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\",\"disciplineNumber\":1,\"disciplineName\":\"50 м\"}],\"updatedAt\":\"2026-10-17T09:59:00Z\"}")))
     public Live live(@PathVariable String slug) { return service.live(slug); }
 
     @GetMapping("/results")
     @Operation(summary = "Опубликованные результаты по видам и возрастным группам")
     @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/json", examples = @ExampleObject(value =
-            "[{\"id\":\"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\"number\":1,\"name\":\"50 м\",\"overall\":[{\"place\":1,\"lastName\":\"Иванов\",\"firstName\":\"Иван\",\"birthYear\":2014,\"club\":\"Волна\",\"display\":\"00:32.15\",\"timeMs\":32150,\"status\":\"VALID\"}],\"byAgeGroup\":[]}]")))
-    public List<DisciplineResults> results(@PathVariable String slug) { return service.results(slug); }
+            "{\"disciplines\":[{\"id\":\"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\"number\":1,\"name\":\"50 м\",\"overall\":[{\"place\":1,\"lastName\":\"Иванов\",\"firstName\":\"Иван\",\"birthYear\":2014,\"club\":\"Волна\",\"display\":\"00:32.15\",\"timeMs\":32150,\"status\":\"VALID\"}],\"byAgeGroup\":[]}]}")))
+    public Results results(@PathVariable String slug) { return service.results(slug); }
 
     @GetMapping("/athletes")
     @Operation(summary = "Найти себя", description = "Префикс фамилии без учёта регистра и ё/е, максимум 20 спортсменов.")
