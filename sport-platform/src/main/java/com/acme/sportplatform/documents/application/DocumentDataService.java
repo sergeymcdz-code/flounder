@@ -56,9 +56,12 @@ public class DocumentDataService {
         var sessionOrder = sessions.stream().collect(Collectors.toMap(s -> s.id(), s -> s.orderNo()));
         var sessionNames = sessions.stream().collect(Collectors.toMap(s -> s.id(), s -> s.name()));
         var program = new ArrayList<>(publishedOnly ? disciplines.findPublishedByEventId(eventId) : disciplines.findByEventId(eventId));
-        program.sort(Comparator.comparing((EventDisciplineSummary d) -> sessionOrder.getOrDefault(d.sessionId(), Integer.MAX_VALUE))
+        program.sort(Comparator.comparing((EventDisciplineSummary d) -> sessionOrder.get(d.sessionId()),
+                        Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(EventDisciplineSummary::orderInSession, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(EventDisciplineSummary::id));
+                .thenComparing(EventDisciplineSummary::createdAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                // PostgreSQL UUID ordering is unsigned; Java UUID.compareTo uses signed longs.
+                .thenComparing(d -> d.id().toString()));
         var heats = results.heats(program.stream().map(EventDisciplineSummary::id).toList()).stream()
                 .filter(h -> !publishedOnly || PUBLIC_HEATS.contains(h.status()))
                 .collect(Collectors.groupingBy(ResultsProtocolLookup.Heat::disciplineId));

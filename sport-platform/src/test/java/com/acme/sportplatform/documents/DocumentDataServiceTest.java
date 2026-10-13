@@ -27,7 +27,7 @@ class DocumentDataServiceTest {
 
     @BeforeEach
     void fixture() {
-        when(events.protocolHeader(event)).thenReturn(new EventProtocolHeader(event, "Кубок", org, venue, start, start.plusHours(6)));
+        when(events.protocolHeader(event)).thenReturn(new EventProtocolHeader(event, "Кубок", org, venue, start, start.plusHours(6), "cup"));
         when(events.getById(event)).thenReturn(new EventLookupResult(event, UUID.randomUUID(), "PUBLISHED", null, null, List.of()));
         when(organizations.nameById(org)).thenReturn("Федерация");
         when(venues.protocolVenue(venue)).thenReturn(new VenueLookup.ProtocolVenue("Бассейн", "Самара", "Europe/Samara", "{\"lanes\":8}"));
@@ -95,10 +95,41 @@ class DocumentDataServiceTest {
     private Entry entry(String name, int year, Integer place, String status, Long ms, String raw) {
         return new Entry(++nextLane, name, "Иван", year, "MALE", "Волна", ms, false, new Outcome(ms, status, raw, place, place));
     }
+
+    @Test
+    void disciplineNumbersFollowPublicApiSessionOrderPositionCreationAndUnsignedUuidOrder() {
+        var morning = UUID.randomUUID();
+        var evening = UUID.randomUUID();
+        var last = UUID.randomUUID();
+        var sessions = List.of(new EventSessionView(morning, event, "Утро", 1, start, 60),
+                new EventSessionView(evening, event, "Вечер", 2, start, 60),
+                new EventSessionView(last, event, "Последняя", Integer.MAX_VALUE, start, 60));
+        when(events.getById(event)).thenReturn(new EventLookupResult(event, UUID.randomUUID(), "PUBLISHED", null, null, sessions));
+        var program = List.of(
+                orderedDiscipline("no-session", null, 1, start.minusDays(1), "00000000-0000-0000-0000-000000000004"),
+                orderedDiscipline("later-created", morning, null, start.plusDays(1), "00000000-0000-0000-0000-000000000001"),
+                orderedDiscipline("high-uuid", morning, null, start, "f0000000-0000-0000-0000-000000000001"),
+                orderedDiscipline("last-session", last, null, start, "00000000-0000-0000-0000-000000000003"),
+                orderedDiscipline("low-uuid", morning, null, start, "00000000-0000-0000-0000-000000000002"),
+                orderedDiscipline("second-session", evening, 1, start, "00000000-0000-0000-0000-000000000005"),
+                orderedDiscipline("first-position", morning, 1, start.plusDays(2), "00000000-0000-0000-0000-000000000006"));
+        when(disciplines.findPublishedByEventId(event)).thenReturn(program);
+        when(results.heats(anyList())).thenAnswer(call -> program.stream()
+                .map(d -> new Heat(d.id(), 1, null, "PUBLISHED", start, List.of())).toList());
+        var protocol = service.protocol(event, true);
+        assertThat(protocol.disciplines()).extracting(d -> d.name()).containsExactly("first-position", "low-uuid",
+                "high-uuid", "later-created", "second-session", "last-session", "no-session");
+        assertThat(protocol.disciplines()).extracting(d -> d.number()).containsExactly(1, 2, 3, 4, 5, 6, 7);
+    }
+
+    private EventDisciplineSummary orderedDiscipline(String name, UUID session, Integer order, OffsetDateTime createdAt, String id) {
+        return new EventDisciplineSummary(UUID.fromString(id), event, name, name, "INDIVIDUAL", "HEAT", "TIME", "ASC",
+                null, null, null, "{}", 50, "FREE", "M", List.of(), "BY_TIME_ALL", session, order, 90, createdAt);
+    }
     private EventDisciplineSummary program(String mode) {
         return new EventDisciplineSummary(discipline, event, "M-50", "50 м", "INDIVIDUAL", "HEAT", "TIME", "ASC",
                 null, null, null, "{}", 50, "FREE", "M",
                 List.of(new AgeGroup("young", "2014–2015", "M", 2014, 2015), new AgeGroup("older", "2012–2013", "M", 2012, 2013)),
-                mode, null, 1, 90);
+                mode, null, 1, 90, start);
     }
 }

@@ -37,7 +37,8 @@ public class EventLookupService implements EventLookup {
                 new com.acme.sportplatform.common.exception.BusinessException(
                         "events.event_not_found", "Событие не найдено"));
         return new com.acme.sportplatform.events.EventProtocolHeader(event.getId(), event.getTitle(),
-                event.getOrganizationId(), event.getVenueId(), event.getEventStartAt(), event.getEventEndAt());
+                event.getOrganizationId(), event.getVenueId(), event.getEventStartAt(), event.getEventEndAt(),
+                event.getPublicSlug());
     }
 
     @Override

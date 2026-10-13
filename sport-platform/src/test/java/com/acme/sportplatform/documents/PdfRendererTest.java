@@ -26,19 +26,23 @@ class PdfRendererTest {
                 assertThat(document.getNumberOfPages()).isGreaterThanOrEqualTo(1);
                 var text = new PDFTextStripper().getText(document).replaceAll("\\s+", " ");
                 assertThat(text).contains("Коновалов", "Кубок Самары", "Сформировано", "Страница", "2012", "СШОР");
-                if (results) assertThat(text).contains("CORRECTED", "DNS", "DNF", "DSQ", "Абсолют", "2010–2015");
+                if (results) assertThat(text).contains("CORRECTED", "DNS", "DNF", "DSQ", "Абсолют", "2010–2015").doesNotContain("VALID");
                 else assertThat(text).contains("NT", "Снят", "10:00:00", "Заявочное время");
+                boolean fitsThreeHeats = false;
                 for (var page : document.getPages()) {
                     assertThat(page.getMediaBox().getWidth()).isBetween(594f, 597f);
                     assertThat(page.getMediaBox().getHeight()).isBetween(840f, 843f);
                     var stripper = new PDFTextStripper();
                     stripper.setStartPage(document.getPages().indexOf(page) + 1);
                     stripper.setEndPage(document.getPages().indexOf(page) + 1);
-                    assertThat(stripper.getText(document)).contains("Кубок Самары", "Бассейн", "Страница");
+                    var pageText = stripper.getText(document);
+                    assertThat(pageText).contains("Кубок Самары", "Бассейн", "Страница");
+                    fitsThreeHeats |= java.util.regex.Pattern.compile("Заплыв\\s+").matcher(pageText).results().count() >= 3;
                     assertThat(page.getResources().getFontNames()).isNotEmpty();
                     for (var font : page.getResources().getFontNames())
                         assertThat(page.getResources().getFont(font).isEmbedded()).isTrue();
                 }
+                if (!results) assertThat(fitsThreeHeats).as("Three eight-lane heats fit on a page").isTrue();
                 System.out.printf(Locale.ROOT, "M03 %s: %d entries, %d pages, %d ms%n", results ? "results" : "start-list", 200, document.getNumberOfPages(), durationMs);
             }
             if (Boolean.getBoolean("documents.writeSamples")) {

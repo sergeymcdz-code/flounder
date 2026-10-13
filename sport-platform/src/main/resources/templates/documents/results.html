@@ -12,9 +12,9 @@ h1 { font-size: 14pt; margin: 0 0 4mm; }
 h2 { font-size: 12pt; margin: 5mm 0 2mm; page-break-after: avoid; }
 h3 { font-size: 10pt; margin: 3mm 0 1mm; page-break-after: avoid; }
 table { border-collapse: collapse; width: 100%; table-layout: fixed; -fs-table-paginate: paginate; }
-th, td { border: 0.2mm solid #bbc8ce; padding: 1.5mm; vertical-align: top; word-wrap: break-word; }
+th, td { border: 0.2mm solid #bbc8ce; padding: 1mm 1.5mm; vertical-align: top; word-wrap: break-word; }
 th { background-color: #eef3f5; text-align: left; font-size: 9pt; }
-.heat { page-break-inside: avoid; margin-bottom: 4mm; }
+.heat { page-break-inside: avoid; margin-bottom: 2.5mm; }
 .number { width: 8%; } .name { width: 30%; } .year { width: 9%; } .club { width: 23%; } .time { width: 16%; } .status { width: 14%; }
 .withdrawn { color: #586b76; } .marker { font-size: 8pt; } .muted { color: #586b76; }
 </style></head>
@@ -31,9 +31,9 @@ th { background-color: #eef3f5; text-align: left; font-size: 9pt; }
 <div th:if="${!section.ranked.isEmpty()}" th:with="rows=${section.ranked}"><table><thead><tr><th class="number">Место</th><th class="name">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="time">Результат</th><th class="status">Статус</th></tr></thead><tbody><tr th:each="row : ${rows}"><td th:text="${row.place == null ? '—' : row.place}">1</td>
 <td><span th:text="${row.athlete}">Участник</span><br th:if="${row.corrected}" /><span th:if="${row.corrected}" class="marker">CORRECTED</span></td>
 <td th:text="${row.year}">2014</td><td th:text="${row.club}">Клуб</td>
-<td th:text="${row.result}">00:32.15</td><td th:text="${row.status}">VALID</td></tr></tbody></table></div>
+<td th:text="${row.result}">00:32.15</td><td th:text="${row.status == 'VALID' ? '' : row.status}"></td></tr></tbody></table></div>
 <div th:if="${!section.unranked.isEmpty()}" th:with="rows=${section.unranked}"><h3>Без места · DNS / DNF / DSQ</h3><table><thead><tr><th class="number">Место</th><th class="name">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="time">Результат</th><th class="status">Статус</th></tr></thead><tbody><tr th:each="row : ${rows}"><td th:text="${row.place == null ? '—' : row.place}">1</td>
 <td><span th:text="${row.athlete}">Участник</span><br th:if="${row.corrected}" /><span th:if="${row.corrected}" class="marker">CORRECTED</span></td>
 <td th:text="${row.year}">2014</td><td th:text="${row.club}">Клуб</td>
-<td th:text="${row.result}">00:32.15</td><td th:text="${row.status}">VALID</td></tr></tbody></table></div>
+<td th:text="${row.result}">00:32.15</td><td th:text="${row.status == 'VALID' ? '' : row.status}"></td></tr></tbody></table></div>
 </div></section></body></html>
