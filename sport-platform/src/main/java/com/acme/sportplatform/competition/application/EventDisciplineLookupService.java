@@ -1,18 +1,18 @@
 package com.acme.sportplatform.competition.application;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.competition.EventDisciplineLookupResult;
 import com.acme.sportplatform.competition.EventDisciplineSummary;
 import com.acme.sportplatform.competition.domain.EventDisciplineStatus;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineEntity;
 import com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,6 +24,17 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
             EventDisciplineRepository eventDisciplineRepository
     ) {
         this.eventDisciplineRepository = eventDisciplineRepository;
+    }
+
+    @Override
+    @Transactional
+    public EventDisciplineLookupResult lockPublishedById(UUID id) {
+        eventDisciplineRepository
+                .lockById(id)
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException("Discipline not found"));
+        return getPublishedById(id);
     }
 
     @Override
@@ -52,8 +63,15 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 entity.getParticipantLimit(),
                 entity.getEntryFeeAmount(),
                 entity.getEntryFeeCurrency(),
-                entity.getSettingsJson()
-        );
+                entity.getSettingsJson(),
+                entity.getDistanceM(),
+                entity.getStroke(),
+                entity.getGender(),
+                entity.getAgeGroups(),
+                entity.getSeedingMode(),
+                entity.getSessionId(),
+                entity.getOrderInSession(),
+                entity.getHeatDurationSec());
     }
 
     @Override
@@ -99,7 +117,14 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 entity.getParticipantLimit(),
                 entity.getEntryFeeAmount(),
                 entity.getEntryFeeCurrency(),
-                entity.getSettingsJson()
-        );
+                entity.getSettingsJson(),
+                entity.getDistanceM(),
+                entity.getStroke(),
+                entity.getGender(),
+                entity.getAgeGroups(),
+                entity.getSeedingMode(),
+                entity.getSessionId(),
+                entity.getOrderInSession(),
+                entity.getHeatDurationSec());
     }
 }

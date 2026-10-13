@@ -22,6 +22,7 @@ import com.acme.sportplatform.sports.DisciplineTemplateLookupResult;
 @Service
 public class CreateEventDisciplineUseCase {
 
+    private final SwimDisciplineValidator swim;
     private final EventDisciplineRepository eventDisciplineRepository;
     private final EventLookup eventLookup;
     private final DisciplineTemplateLookup disciplineTemplateLookup;
@@ -31,8 +32,9 @@ public class CreateEventDisciplineUseCase {
             EventDisciplineRepository eventDisciplineRepository,
             EventLookup eventLookup,
             DisciplineTemplateLookup disciplineTemplateLookup,
-            EventDisciplineMapper eventDisciplineMapper
-    ) {
+            EventDisciplineMapper eventDisciplineMapper,
+            SwimDisciplineValidator swim) {
+        this.swim = swim;
         this.eventDisciplineRepository = eventDisciplineRepository;
         this.eventLookup = eventLookup;
         this.disciplineTemplateLookup = disciplineTemplateLookup;
@@ -49,17 +51,13 @@ public class CreateEventDisciplineUseCase {
         try {
             event = eventLookup.getById(eventId);
         } catch (IllegalArgumentException exception) {
-            throw new BusinessException(
-                    "competition.event_not_found",
-                    "Event not found"
-            );
+            throw new BusinessException("competition.event_not_found", "Событие не найдено");
         }
 
-        if (!"DRAFT".equals(event.status())) {
+        if (!java.util.Set.of("DRAFT", "PUBLISHED").contains(event.status())) {
             throw new BusinessException(
                     "competition.event_not_editable",
-                    "Disciplines can only be configured for a draft event"
-            );
+                    "Дисциплины можно добавлять к черновику или опубликованному событию");
         }
 
         DisciplineTemplateLookupResult template;
@@ -70,16 +68,13 @@ public class CreateEventDisciplineUseCase {
             );
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
-                    "competition.discipline_template_not_found",
-                    "Discipline template not found"
-            );
+                    "competition.discipline_template_not_found", "Шаблон дисциплины не найден");
         }
 
         if (!event.sportId().equals(template.sportId())) {
             throw new BusinessException(
                     "competition.sport_mismatch",
-                    "Event and discipline template must belong to the same sport"
-            );
+                    "Событие и шаблон дисциплины должны относиться к одному виду спорта");
         }
 
         if (eventDisciplineRepository.existsByEventIdAndCode(
@@ -88,8 +83,7 @@ public class CreateEventDisciplineUseCase {
         )) {
             throw new BusinessException(
                     "competition.discipline_code_already_exists",
-                    "Discipline code already exists for this event"
-            );
+                    "Код дисциплины уже существует в событии");
         }
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -98,8 +92,20 @@ public class CreateEventDisciplineUseCase {
         entity.setId(UUID.randomUUID());
         entity.setEventId(eventId);
         entity.setDisciplineTemplateId(template.id());
-        entity.setCode(request.code());
-        entity.setName(request.name());
+        swim.apply(entity, request);
+        String code = request.code();
+        if (code == null || code.isBlank()) {
+            String base = swim.generatedCode(entity);
+            code = base;
+            int suffix = 2;
+            while (eventDisciplineRepository.existsByEventIdAndCode(eventId, code))
+                code = base + "-" + suffix++;
+        }
+        entity.setCode(code);
+        entity.setName(
+                request.name() == null || request.name().isBlank()
+                        ? swim.generatedName(entity)
+                        : request.name());
         entity.setCompetitionFormat(template.competitionFormat());
         entity.setUnitType(template.unitType());
         entity.setResultType(template.resultType());

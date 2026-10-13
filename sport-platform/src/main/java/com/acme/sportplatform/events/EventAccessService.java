@@ -20,6 +20,17 @@ public class EventAccessService {
     }
 
     @Transactional(readOnly = true)
+    public boolean canManage(UUID eventId, AuthenticatedUserPrincipal principal) {
+        try {
+            assertCanManage(eventId, principal);
+            return true;
+        } catch (BusinessException exception) {
+            if ("events.access_denied".equals(exception.getCode())) return false;
+            throw exception;
+        }
+    }
+
+    @Transactional(readOnly = true)
     public void assertCanManage(UUID eventId, AuthenticatedUserPrincipal principal) {
         var event = events.findById(eventId)
                 .orElseThrow(() -> new BusinessException("events.event_not_found", "Событие не найдено"));

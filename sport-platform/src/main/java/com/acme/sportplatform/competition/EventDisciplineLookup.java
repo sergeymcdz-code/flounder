@@ -6,6 +6,8 @@ import java.util.UUID;
 
 public interface EventDisciplineLookup {
 
+    EventDisciplineLookupResult lockPublishedById(UUID eventDisciplineId);
+
     EventDisciplineLookupResult getPublishedById(UUID eventDisciplineId);
 
     List<EventDisciplineSummary> findByEventId(UUID eventId);

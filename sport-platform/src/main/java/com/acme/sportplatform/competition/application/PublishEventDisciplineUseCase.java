@@ -32,12 +32,14 @@ public class PublishEventDisciplineUseCase {
             UUID eventId,
             UUID disciplineId
     ) {
-        EventDisciplineEntity discipline = eventDisciplineRepository
-                .findById(disciplineId)
-                .orElseThrow(() -> new BusinessException(
-                        "competition.discipline_not_found",
-                        "Event discipline not found"
-                ));
+        EventDisciplineEntity discipline =
+                eventDisciplineRepository
+                        .findById(disciplineId)
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                "competition.discipline_not_found",
+                                                "Дисциплина не найдена"));
 
         if (!discipline.getEventId().equals(eventId)) {
             throw new BusinessException(

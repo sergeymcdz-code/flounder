@@ -15,12 +15,13 @@ import com.acme.sportplatform.events.infrastructure.persistence.repository.Event
 public class EventLookupService implements EventLookup {
 
     private final EventRepository eventRepository;
+    private final EventSessionService sessions;
     private final com.acme.sportplatform.organizations.OrganizationManagementAccess organizations;
 
     public EventLookupService(EventRepository eventRepository,
-            com.acme.sportplatform.organizations.OrganizationManagementAccess organizations) {
+            com.acme.sportplatform.organizations.OrganizationManagementAccess organizations, EventSessionService sessions) {
         this.eventRepository = eventRepository;
-        this.organizations = organizations;
+        this.organizations = organizations; this.sessions=sessions;
     }
 
     @Override
@@ -40,7 +41,7 @@ public class EventLookupService implements EventLookup {
         return new EventLookupResult(
                 event.getId(),
                 event.getSportId(),
-                event.getStatus()
+                event.getStatus(), event.getRegistrationOpenAt(), event.getRegistrationCloseAt(), sessions.views(eventId)
         );
     }
 }

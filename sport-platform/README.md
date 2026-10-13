@@ -252,3 +252,87 @@ Frontend-образ запускает Caddy на порту 80, раздаёт 
 В среде с собственным CA сборка поддерживает `--secret id=proxy_ca,src=/path/to/ca.pem`.
 Для Maven можно передать proxy-настройки через `--secret id=maven_settings,src=/path/to/settings.xml`; они не попадают в образ.
 CI запускает backend-тесты с Testcontainers и frontend lint/build на PR и push в main.
+
+## Демо: модель плавания (T03)
+
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`, OpenAPI JSON:
+`http://localhost:8080/v3/api-docs`. Для защищённых запросов используйте Bearer JWT.
+
+Сессии создаются через `POST /api/v1/events/{eventId}/sessions`:
+
+```json
+{"name":"Утро","orderNo":1,"startsAt":"2026-10-15T09:00:00+03:00","breakBetweenEventsSec":60}
+```
+
+К существующему телу создания дисциплины (`disciplineTemplateId`) добавьте:
+
+```json
+{
+  "distanceM":50,"stroke":"FREE","gender":"F","seedingMode":"BY_AGE_GROUP",
+  "sessionId":"<sessionId>","orderInSession":1,"heatDurationSec":null,
+  "ageGroups":[{"code":"F-2014-2015","name":"Девушки 2014–2015","gender":"F","birthYearFrom":2014,"birthYearTo":2015}]
+}
+```
+
+Если `name` и `code` отсутствуют, сервер создаёт «50 м вольный стиль, девушки»
+и `F-50-FREE`. При коллизии кода в одном событии добавляется `-2`, `-3`, … .
+Для Excel используйте **точный код из ответа API**, например `F-50-FREE`,
+`M-100-BACK` или `F-50-FREE-2`. Один спортсмен в нескольких дисциплинах —
+несколько строк Excel. Сам импорт реализуется в T05.
+
+Форматы времени: `32.15`, `0:32.15`, `00:32.15` → `32150` мс;
+`1:02:30.50` → `3750500` мс. Разделитель дробной части — точка; парсер допускает
+до трёх знаков (миллисекунды). `display` и `seedTime` выводятся с точностью до
+сотых: `00:32.15`, `62:30.50` (минуты суммарные). В Excel время может быть пустым;
+публичная форма требует положительный `seedTimeMs` для каждой дисциплины.
+
+Публичная форма доступна через
+`GET /api/v1/public/events/{slug}/registration-form`. Авторизованный участник
+подаёт заявку:
+
+```json
+{
+  "profile":{"lastName":"Иванова","firstName":"Анна","middleName":null,"birthDate":"2015-06-01","gender":"F","club":"Дельфин"},
+  "items":[{"eventDisciplineId":"<disciplineId>","seedTimeMs":32150}]
+}
+```
+
+Дисциплина должна быть опубликована, событие — в статусе `REGISTRATION_OPEN`
+и в пределах дат регистрации. Профиль и весь пакет заявок сохраняются атомарно.
+При нулевом взносе `paymentStatus=NOT_REQUIRED`, иначе `PENDING`.
+После `POST /api/v1/registrations/{id}/review` с `{"decision":"CONFIRMED"}`
+оператор может подтвердить ручной платёж через `POST /api/v1/payments/{id}/confirm`
+либо отметить оплату через `POST /api/v1/registrations/{id}/mark-paid`:
+заявка получает `status=PAID`, `paymentStatus=PAID`.
+
+`POST /api/v1/registrations/{id}/resubmit` доступен только после
+`NEEDS_CORRECTION`; необязательное тело позволяет исправить `profile`, `seedTimeMs`
+или `seedTime`. Снятие через `/withdraw` публикует `RegistrationWithdrawn`.
+Участник может снять свою заявку до закрытия регистрации; организатор — заявку
+своего события. PATCH статуса поддерживает `ADMITTED` и `WITHDRAWN`.
+
+Результаты заплыва вводятся массивом через
+`POST /api/v1/competition-units/{unitId}/results`:
+
+```json
+[
+  {"competitionUnitEntryId":"<entryId>","time":"00:32.15","status":"VALID"},
+  {"competitionUnitEntryId":"<otherEntryId>","timeMs":null,"status":"DNS"}
+]
+```
+
+Допустимы `VALID`, `DNS`, `DNF`, `DSQ`; вместо `time` можно передать `timeMs`.
+Равные времена дают места `1,1,3`; DNS/DNF/DSQ не получают мест.
+Протокол организатора: `GET /api/v1/event-disciplines/{id}/results`.
+Live управляется через `PUT /api/v1/events/{eventId}/live {"currentUnitId":"<unitId>"}`
+и `POST /api/v1/competition-units/{id}/start`, `/finish`.
+Завершение ставит `FINISHED` и выбирает следующий заплыв того же события
+по расписанию; после последнего возвращает `currentUnitId: null`.
+
+Доступ к управлению проверяет EventAccessService: администратор, создатель
+или участник организации события. Оплата объединена с RegistrationPaymentService:
+CONFIRMED → PAID с paymentStatus=PAID; остальные статусы дают 409
+registrations.payment_not_applicable. Результаты считаются опубликованными по
+FINISHED. Исправления CORRECTED и аудит RANKING применяются к PUBLISHED/FINISHED;
+в DRAFT/SCHEDULED/IN_PROGRESS выполняется обычная перезапись результата.
+До интеграции T02 ранжирование остаётся с TODO. T03 добавляет только V021–V026.

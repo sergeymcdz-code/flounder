@@ -18,7 +18,8 @@ public record CompetitionUnitDetailsResponse(
             String rawValue,
             String resultType,
             String resultStatus,
-            Integer finalPlace
-    ) {
-    }
+            Integer finalPlace,
+            Long timeMs,
+            String display,
+            Integer placeInAgeGroup) {}
 }

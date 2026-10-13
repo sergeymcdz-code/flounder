@@ -15,18 +15,20 @@ public class ListMyRegistrationsUseCase {
 
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
+    private final com.acme.sportplatform.identity.ProfileLookup profiles;
 
     public ListMyRegistrationsUseCase(
             RegistrationRepository registrationRepository,
-            RegistrationMapper registrationMapper
-    ) {
+            RegistrationMapper registrationMapper,
+            com.acme.sportplatform.identity.ProfileLookup profiles) {
+        this.profiles = profiles;
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
     }
 
     public List<RegistrationResponse> execute(UUID participantUserId) {
         return registrationRepository
-                .findByParticipantUserId(participantUserId)
+                .findByParticipantProfileId(profiles.getByUserId(participantUserId).id())
                 .stream()
                 .map(registrationMapper::toResponse)
                 .toList();

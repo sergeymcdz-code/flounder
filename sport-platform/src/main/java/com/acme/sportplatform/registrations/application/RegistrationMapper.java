@@ -32,8 +32,11 @@ public class RegistrationMapper {
                 entity.getReviewedAt(),
                 entity.getSubmittedAt(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
-        );
+                entity.getUpdatedAt(),
+                entity.getSeedTimeMs(),
+                com.acme.sportplatform.common.TimeParser.format(entity.getSeedTimeMs()),
+                entity.getSource(),
+                entity.getPaymentStatus());
     }
 
     private JsonNode readJson(String json) {

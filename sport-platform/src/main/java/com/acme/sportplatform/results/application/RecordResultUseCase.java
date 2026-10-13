@@ -70,12 +70,15 @@ public class RecordResultUseCase {
             );
         }
 
-        CompetitionUnitEntity unit = competitionUnitRepository
-                .findById(entry.getCompetitionUnitId())
-                .orElseThrow(() -> new BusinessException(
-                        "results.unit_not_found",
-                        "Competition unit not found: " + entry.getCompetitionUnitId()
-                ));
+        CompetitionUnitEntity unit =
+                competitionUnitRepository
+                        .findById(entry.getCompetitionUnitId())
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                "results.unit_not_found",
+                                                "Заплыв не найден: "
+                                                        + entry.getCompetitionUnitId()));
 
         if ("PUBLISHED".equals(unit.getStatus())) {
             throw new BusinessException(
@@ -118,9 +121,14 @@ public class RecordResultUseCase {
 
         if (requestedStatus == ResultStatus.PENDING) {
             result.setRawValue(request.rawValue().trim());
+            if ("TIME".equalsIgnoreCase(resultType))
+                result.setTimeMs(
+                        com.acme.sportplatform.common.TimeParser.parse(request.rawValue().trim()));
             result.setStatus(ResultStatus.PENDING.name());
         } else {
             result.setRawValue(null);
+            result.setTimeMs(null);
+            result.setPlaceInAgeGroup(null);
             result.setStatus(requestedStatus.name());
         }
 
@@ -147,7 +155,7 @@ public class RecordResultUseCase {
                 return status;
             }
         } catch (IllegalArgumentException exception) {
-            // Ниже будет единая бизнес-ошибка.
+            // Return a consistent business error below.
         }
 
         throw new BusinessException(
@@ -163,7 +171,9 @@ public class RecordResultUseCase {
                 entity.getRawValue(),
                 entity.getResultType(),
                 entity.getStatus(),
-                entity.getFinalPlace()
-        );
+                entity.getFinalPlace(),
+                entity.getTimeMs(),
+                com.acme.sportplatform.common.TimeParser.format(entity.getTimeMs()),
+                entity.getPlaceInAgeGroup());
     }
 }

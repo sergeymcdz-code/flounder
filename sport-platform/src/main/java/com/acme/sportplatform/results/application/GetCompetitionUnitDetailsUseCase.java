@@ -45,12 +45,14 @@ public class GetCompetitionUnitDetailsUseCase {
 
     @Transactional(readOnly = true)
     public CompetitionUnitDetailsResponse execute(UUID unitId) {
-        CompetitionUnitEntity unit = competitionUnitRepository
-                .findById(unitId)
-                .orElseThrow(() -> new BusinessException(
-                        "results.unit_not_found",
-                        "Competition unit not found: " + unitId
-                ));
+        CompetitionUnitEntity unit =
+                competitionUnitRepository
+                        .findById(unitId)
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                "results.unit_not_found",
+                                                "Заплыв не найден: " + unitId));
 
         List<CompetitionUnitEntryEntity> entries =
                 entryRepository.findByCompetitionUnitId(unitId);
@@ -85,16 +87,22 @@ public class GetCompetitionUnitDetailsUseCase {
                 registration == null
                         ? fallbackParticipantName(entry.getRegistrationId())
                         : extractParticipantName(
-                                registration.participantSnapshot(),
-                                entry.getRegistrationId()
-                        ),
+                                registration.participantSnapshot(), entry.getRegistrationId()),
                 entry.getRegistrationId(),
                 entry.getLaneOrPosition(),
                 result != null ? result.getRawValue() : null,
                 result != null ? result.getResultType() : null,
-                result != null ? result.getStatus() : null,
-                result != null ? result.getFinalPlace() : null
-        );
+                result != null
+                        ? com.acme.sportplatform.results.domain.ResultStatus.valueOf(
+                                        result.getStatus())
+                                .apiCode()
+                        : null,
+                result != null ? result.getFinalPlace() : null,
+                result != null ? result.getTimeMs() : null,
+                result != null
+                        ? com.acme.sportplatform.common.TimeParser.format(result.getTimeMs())
+                        : null,
+                result != null ? result.getPlaceInAgeGroup() : null);
     }
 
     private String extractParticipantName(

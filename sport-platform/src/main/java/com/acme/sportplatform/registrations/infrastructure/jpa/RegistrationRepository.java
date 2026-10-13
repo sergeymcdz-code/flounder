@@ -4,14 +4,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 public interface RegistrationRepository
         extends JpaRepository<RegistrationEntity, UUID> {
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update RegistrationEntity r set r.status = 'PAID', r.updatedAt = :now where r.id = :id and r.status = 'CONFIRMED'")
-    int markConfirmedPaid(UUID id, java.time.OffsetDateTime now);
-
+    boolean existsByEventDisciplineId(UUID id);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from RegistrationEntity r where r.id=:id")
+    Optional<RegistrationEntity> lockById(UUID id);
+    List<RegistrationEntity> findByParticipantProfileId(UUID profileId);
+    boolean existsByEventDisciplineIdAndParticipantProfileId(UUID disciplineId,UUID profileId);
 
         List<RegistrationEntity> findByEventId(UUID eventId);
 

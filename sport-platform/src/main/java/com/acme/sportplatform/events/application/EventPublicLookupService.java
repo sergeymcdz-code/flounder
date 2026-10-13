@@ -27,10 +27,10 @@ public class EventPublicLookupService
     );
 
     private final EventRepository eventRepository;
+    private final EventSessionService sessions;
 
-    public EventPublicLookupService(
-            EventRepository eventRepository
-    ) {
+    public EventPublicLookupService(EventRepository eventRepository, EventSessionService sessions) {
+        this.sessions = sessions;
         this.eventRepository = eventRepository;
     }
 
@@ -49,15 +49,14 @@ public class EventPublicLookupService
     public EventPublicLookupResult getPublicBySlug(
             String publicSlug
     ) {
-        EventEntity event = eventRepository
-                .findByPublicSlugAndStatusIn(
-                        publicSlug,
-                        PUBLIC_EVENT_STATUSES
-                )
-                .orElseThrow(() -> new BusinessException(
-                        "events.public_not_found",
-                        "Public event not found"
-                ));
+        EventEntity event =
+                eventRepository
+                        .findByPublicSlugAndStatusIn(publicSlug, PUBLIC_EVENT_STATUSES)
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                "events.public_not_found",
+                                                "Публичное событие не найдено"));
 
         return toResult(event);
     }
@@ -75,7 +74,7 @@ public class EventPublicLookupService
                 event.getEventStartAt(),
                 event.getEventEndAt(),
                 event.getStatus(),
-                event.getPublicSlug()
-        );
+                event.getPublicSlug(),
+                sessions.views(event.getId()));
     }
 }

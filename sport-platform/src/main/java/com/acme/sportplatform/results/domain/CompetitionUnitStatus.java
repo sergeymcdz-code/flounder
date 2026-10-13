@@ -5,5 +5,7 @@ public enum CompetitionUnitStatus {
     SCHEDULED,
     IN_PROGRESS,
     COMPLETED,
+    PUBLISHED,
+    FINISHED,
     CANCELLED
 }

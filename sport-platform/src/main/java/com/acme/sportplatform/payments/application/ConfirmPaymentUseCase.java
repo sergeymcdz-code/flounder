@@ -59,10 +59,11 @@ public class ConfirmPaymentUseCase {
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 
-        registrationPaymentLookup.markPaid(payment.getRegistrationId());
         payment.setStatus(PaymentStatus.SUCCEEDED.name());
         payment.setPaidAt(now);
         payment.setUpdatedAt(now);
+        paymentRepository.saveAndFlush(payment);
+        registrationPaymentLookup.markPaid(payment.getRegistrationId());
 
         return paymentMapper.toResponse(paymentRepository.save(payment));
     }

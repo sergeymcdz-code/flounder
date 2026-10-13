@@ -26,7 +26,7 @@ public class ProfileEntity {
     @GeneratedValue
     private UUID id;
 
-    @Column(name = "user_id", nullable = false, unique = true)
+    @Column(name = "user_id", unique = true)
     private UUID userId;
 
     @Column(name = "first_name", nullable = false, length = 128)
@@ -73,6 +73,17 @@ public class ProfileEntity {
     @PreUpdate
     void preUpdate() {
         updatedAt = OffsetDateTime.now();
+    }
+
+    @Column(name = "external_key", length = 255)
+    private String externalKey;
+
+    public String getExternalKey() {
+        return externalKey;
+    }
+
+    public void setExternalKey(String value) {
+        this.externalKey = value;
     }
 
     public UUID getId() { return id; }

@@ -27,7 +27,14 @@ public class EventDisciplineMapper {
                 entity.getStatus(),
                 entity.getSettingsJson(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
-        );
+                entity.getUpdatedAt(),
+                entity.getDistanceM(),
+                entity.getStroke(),
+                entity.getGender(),
+                entity.getAgeGroups(),
+                entity.getSeedingMode(),
+                entity.getSessionId(),
+                entity.getOrderInSession(),
+                entity.getHeatDurationSec());
     }
 }

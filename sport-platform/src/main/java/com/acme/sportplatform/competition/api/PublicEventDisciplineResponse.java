@@ -14,6 +14,12 @@ public record PublicEventDisciplineResponse(
         Integer participantLimit,
         BigDecimal entryFeeAmount,
         String entryFeeCurrency,
-        String settingsJson
-) {
-}
+        String settingsJson,
+        Integer distanceM,
+        String stroke,
+        String gender,
+        java.util.List<com.acme.sportplatform.competition.AgeGroup> ageGroups,
+        String seedingMode,
+        UUID sessionId,
+        Integer orderInSession,
+        Integer heatDurationSec) {}

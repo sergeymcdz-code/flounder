@@ -41,7 +41,7 @@ public class CompetitionController {
     @PostMapping
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public ResponseEntity<EventDisciplineResponse> create(@PathVariable UUID eventId,
-            @RequestBody @Valid CreateEventDisciplineRequest request,
+            @RequestBody @org.springframework.validation.annotation.Validated({jakarta.validation.groups.Default.class,CreateEventDisciplineRequest.Create.class}) CreateEventDisciplineRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         eventAccessService.assertCanManage(eventId, principal);
         return ResponseEntity.ok(createEventDisciplineUseCase.execute(eventId, request));

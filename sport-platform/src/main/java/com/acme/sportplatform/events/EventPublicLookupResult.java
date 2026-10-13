@@ -13,6 +13,5 @@ public record EventPublicLookupResult(
         OffsetDateTime eventStartAt,
         OffsetDateTime eventEndAt,
         String status,
-        String publicSlug
-) {
-}
+        String publicSlug,
+        java.util.List<EventSessionView> sessions) {}

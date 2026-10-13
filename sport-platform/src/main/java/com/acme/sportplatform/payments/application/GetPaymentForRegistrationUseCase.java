@@ -39,7 +39,7 @@ public class GetPaymentForRegistrationUseCase {
                         "Registration not found: " + registrationId
                 ));
 
-        if (!registration.participantUserId().equals(requestingUserId)) {
+        if (!java.util.Objects.equals(registration.participantUserId(), requestingUserId)) {
             throw new BusinessException(
                     "payments.registration_access_denied",
                     "You cannot access another participant payment"

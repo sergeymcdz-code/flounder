@@ -16,9 +16,13 @@ import com.acme.sportplatform.payments.provider.ProviderPaymentResult;
 public class ApplyProviderPaymentResultUseCase {
 
     private final PaymentRepository paymentRepository;
+    private final com.acme.sportplatform.registrations.RegistrationPaymentLookup registrations;
 
-    public ApplyProviderPaymentResultUseCase(PaymentRepository paymentRepository) {
+    public ApplyProviderPaymentResultUseCase(
+            PaymentRepository paymentRepository,
+            com.acme.sportplatform.registrations.RegistrationPaymentLookup registrations) {
         this.paymentRepository = paymentRepository;
+        this.registrations = registrations;
     }
 
     @Transactional
@@ -34,6 +38,11 @@ public class ApplyProviderPaymentResultUseCase {
         payment.setExternalPaymentId(providerResult.externalPaymentId());
         payment.setConfirmationUrl(providerResult.confirmationUrl());
         payment.setStatus(providerResult.status().name());
+        if (providerResult.status()
+                == com.acme.sportplatform.payments.domain.PaymentStatus.SUCCEEDED) {
+            payment.setPaidAt(now);
+            registrations.markPaid(payment.getRegistrationId());
+        }
         payment.setExpiresAt(providerResult.expiresAt());
         payment.setProviderMetadata(providerResult.providerMetadata());
         payment.setUpdatedAt(now);

@@ -1,5 +1,7 @@
 package com.acme.sportplatform.registrations.domain;
 
+import java.util.Set;
+
 public enum RegistrationStatus {
     DRAFT,
     SUBMITTED,
@@ -9,5 +11,20 @@ public enum RegistrationStatus {
     REJECTED,
     PAID,
     ADMITTED,
-    WITHDRAWN
+    WITHDRAWN;
+
+    public boolean canTransition(RegistrationStatus target) {
+        return (switch (this) {
+                    case DRAFT -> Set.of(SUBMITTED, WITHDRAWN);
+                    case SUBMITTED ->
+                            Set.of(UNDER_REVIEW, CONFIRMED, NEEDS_CORRECTION, REJECTED, WITHDRAWN);
+                    case UNDER_REVIEW -> Set.of(CONFIRMED, NEEDS_CORRECTION, REJECTED, WITHDRAWN);
+                    case NEEDS_CORRECTION -> Set.of(SUBMITTED, WITHDRAWN);
+                    case CONFIRMED -> Set.of(PAID, ADMITTED, WITHDRAWN);
+                    case PAID -> Set.of(ADMITTED, WITHDRAWN);
+                    case ADMITTED -> Set.of(WITHDRAWN);
+                    case REJECTED, WITHDRAWN -> Set.<RegistrationStatus>of();
+                })
+                .contains(target);
+    }
 }

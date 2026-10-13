@@ -7,10 +7,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotNull;
 
 public record CreateRegistrationRequest(
-
-        @NotNull
-        UUID eventDisciplineId,
-
-        JsonNode registrationMeta
-) {
-}
+        @NotNull(message = "Укажите дисциплину") UUID eventDisciplineId,
+        JsonNode registrationMeta,
+        @jakarta.validation.constraints.Positive(
+                        message = "Заявочное время должно быть положительным")
+                Long seedTimeMs,
+        String seedTime) {}
