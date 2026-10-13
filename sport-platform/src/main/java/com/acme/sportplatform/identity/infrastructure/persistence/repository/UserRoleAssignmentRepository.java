@@ -18,7 +18,7 @@ public interface UserRoleAssignmentRepository extends JpaRepository<UserRoleAssi
             """)
     List<com.acme.sportplatform.identity.api.UserDetailsResponse.Role> findRolesByUserId(UUID userId);
 
-    @Query("select a.userId, r.code from UserRoleAssignmentEntity a, RoleEntity r where a.roleId = r.id and a.userId in :userIds")
+    @Query("select a.userId, r.code from UserRoleAssignmentEntity a, RoleEntity r where a.roleId = r.id and a.userId in :userIds and a.organizationId is null and a.eventId is null")
     List<Object[]> findRoleCodesByUserIds(Collection<UUID> userIds);
 
     boolean existsByUserIdAndRoleIdAndEventIdIsNullAndOrganizationIdIsNull(UUID userId, UUID roleId);

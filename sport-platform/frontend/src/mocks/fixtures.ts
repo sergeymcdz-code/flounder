@@ -8,6 +8,7 @@ import type {
 export const DEMO_EVENT_ID = '11111111-1111-4111-8111-111111111111'
 const id = (kind: number, n: number) =>
   `${String(kind).padStart(8, '0')}-1111-4111-8111-${String(n).padStart(12, '0')}`
+export const DEMO_ORGANIZATION_ID = id(7, 1)
 export function createFixtures() {
   const sessions: Session[] = [
     {
@@ -42,7 +43,7 @@ export function createFixtures() {
   ]
   const event: OrganizerEventDetails = {
     id: DEMO_EVENT_ID,
-    organizationId: id(7, 1),
+    organizationId: DEMO_ORGANIZATION_ID,
     sportId: id(8, 1),
     venueId: id(9, 1),
     title: 'Осенний кубок Flounder',

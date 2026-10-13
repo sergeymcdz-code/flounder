@@ -235,6 +235,12 @@ export const handlers = [
     HttpResponse.json(state.event.disciplines),
   ),
   http.get(path('/organizer/events'), () => HttpResponse.json([state.event])),
+  http.get(path('/events'), ({ request }) => {
+    const payload = JSON.parse(atob(request.headers.get('Authorization')!.split('.')[1])) as { roles: string[] }
+    return payload.roles.some(role => ['platform_admin', 'platformadmin'].includes(role.toLowerCase()))
+      ? HttpResponse.json([state.event])
+      : error(403, 'identity.access_denied', 'Доступ запрещён')
+  }),
   http.get(path('/events/:id'), ({ params }) =>
     params.id === state.event.id ? HttpResponse.json(state.event) : notFound(),
   ),
