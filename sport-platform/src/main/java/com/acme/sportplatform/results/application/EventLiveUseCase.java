@@ -71,10 +71,16 @@ public class EventLiveUseCase {
         var unit = require(id);
         UUID eventId = eventId(unit);
         access.assertCanManage(eventId, principal);
-        lockState(eventId);
+        var state = lockState(eventId);
         if (!Set.of("IN_PROGRESS", "FINISHED").contains(unit.getStatus()))
             throw new BusinessException(
                     "results.invalid_transition", "Завершить можно только начатый или опубликованный заплыв");
+        // A delayed finish retry must not displace a different heat already in progress.
+        if (CompetitionUnitStatus.FINISHED.name().equals(unit.getStatus())
+                && state.getCurrentUnitId() != null && !id.equals(state.getCurrentUnitId())
+                && CompetitionUnitStatus.IN_PROGRESS.name().equals(require(state.getCurrentUnitId()).getStatus())) {
+            return new LiveStateResponse(eventId, state.getCurrentUnitId(), state.getUpdatedAt());
+        }
         if (CompetitionUnitStatus.IN_PROGRESS.name().equals(unit.getStatus())) {
             unit.setStatus(CompetitionUnitStatus.FINISHED.name());
             unit.setUpdatedAt(OffsetDateTime.now());

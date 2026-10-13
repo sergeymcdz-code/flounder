@@ -13,7 +13,8 @@
     "test": "node --test tests/ && vitest run",
     "dev:demo": "vite --mode demo",
     "test:e2e": "playwright test",
-    "test:demo": "playwright test --config playwright.qa05.config.ts"
+    "test:demo": "playwright test --config playwright.qa05.config.ts",
+    "test:qa07": "playwright test --config playwright.qa07.config.ts"
   },
   "dependencies": {
     "@sentry/react": "8.55.0",
