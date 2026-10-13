@@ -86,6 +86,8 @@
 }
 
 .card {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 24px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -102,7 +104,7 @@
 
 .cardLabel {
   margin: 0;
-  color: #71809a;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -165,7 +167,7 @@
 }
 
 .facts dt {
-  color: #71809a;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.05em;

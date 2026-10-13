@@ -77,7 +77,7 @@ export function PublicLayout() {
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
     ['schedule', 'Расписание'],
-    ['live', 'Live'],
+    ['live', 'Табло'],
     ['results', 'Результаты'],
     ['live#find-me', 'Найти себя'],
   ]
@@ -117,7 +117,7 @@ export function PublicLayout() {
         </header>
         {(offline || cached) && (
           <div className={`${styles.notice} ${styles.noPrint}`} role="status">
-            Нет связи, показаны последние данные. Live обновится после
+            Нет связи, показаны последние данные. Табло обновится после
             подключения.
           </div>
         )}

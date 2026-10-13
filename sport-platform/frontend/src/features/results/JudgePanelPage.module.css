@@ -113,7 +113,7 @@
 }
 
 .summaryLabel {
-  color: #71809a;
+  color: var(--color-text-muted);
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -363,7 +363,7 @@
 
 .registrationId {
   margin-top: 4px;
-  color: #71809a;
+  color: var(--color-text-muted);
   font-size: 0.76rem;
 }
 

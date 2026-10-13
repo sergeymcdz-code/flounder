@@ -358,7 +358,7 @@ export function OperatorRegistrationPage() {
 
                 <div>
                   <dt>Способ оплаты</dt>
-                  <dd>{payment.provider}</dd>
+                  <dd>{payment.provider === 'MANUAL' ? 'Ручная оплата' : payment.provider === 'YOOKASSA' ? 'ЮKassa' : payment.provider}</dd>
                 </div>
 
                 <div>
@@ -382,8 +382,8 @@ export function OperatorRegistrationPage() {
 
               {payment.provider === 'YOOKASSA' ? (
                 <p className={styles.emptyText}>
-                  Оплата через YooKassa подтверждается автоматически
-                  через webhook платёжного провайдера.
+                  Оплата через ЮKassa подтверждается автоматически
+                  после уведомления от платёжного сервиса.
                 </p>
               ) : null}
             </>

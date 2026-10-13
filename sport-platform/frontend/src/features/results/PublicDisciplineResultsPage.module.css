@@ -100,6 +100,7 @@
 }
 
 .unitCard {
+  min-width: 0;
   padding: 24px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -117,7 +118,7 @@
 
 .unitLabel {
   margin: 0;
-  color: #71809a;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -190,7 +191,7 @@
 }
 
 .table th {
-  color: #71809a;
+  color: var(--color-text-muted);
   background: var(--color-surface-muted);
   font-size: 0.76rem;
   font-weight: 800;
@@ -247,7 +248,7 @@
 
 .positionLabel {
   margin-top: 4px;
-  color: #71809a;
+  color: var(--color-text-muted);
   font-size: 0.77rem;
 }
 

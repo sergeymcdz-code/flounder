@@ -102,7 +102,7 @@ function formatRegulationVersionLabel(
 
   return (
     `Версия ${regulationVersion.versionNo} · ` +
-    `${regulationVersion.status} · с ${effectiveFrom}`
+    `${isPublishedRegulation(regulationVersion.status) ? 'Опубликована' : regulationVersion.status} · с ${effectiveFrom}`
   )
 }
 

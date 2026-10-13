@@ -50,6 +50,7 @@
 }
 
 .tableWrap {
+  position: relative;
   margin-top: 32px;
   overflow-x: auto;
   border: 1px solid var(--color-border);
@@ -73,7 +74,7 @@
 }
 
 .table th {
-  color: #71809a;
+  color: var(--color-text-muted);
   background: var(--color-surface-muted);
   font-size: 0.76rem;
   font-weight: 800;
@@ -101,7 +102,7 @@
   display: block;
   max-width: 240px;
   margin-top: 5px;
-  color: #71809a;
+  color: var(--color-text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.72rem;
   line-height: 1.35;

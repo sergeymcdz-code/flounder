@@ -441,7 +441,7 @@
   }
   :global(html),
   :global(body) {
-    background: white;
+    background: white !important;
     min-width: 0;
     min-height: 0;
   }

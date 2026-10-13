@@ -2,6 +2,7 @@
   display: grid;
   gap: 20px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .page h1 {
   font-size: 28px;
@@ -79,6 +80,14 @@
 }
 .publicCard a {
   overflow-wrap: anywhere;
+}
+.publicCard svg {
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .publicCard {
+    flex-direction: column;
+  }
 }
 .badge {
   background: var(--color-primary-soft);

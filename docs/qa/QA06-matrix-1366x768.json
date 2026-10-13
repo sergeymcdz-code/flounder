@@ -1,0 +1,332 @@
+[
+  {
+    "name": "home",
+    "path": "/",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo",
+    "path": "/e/demo",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-start-list",
+    "path": "/e/demo/start-list",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/start-list",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-schedule",
+    "path": "/e/demo/schedule",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/schedule",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-live",
+    "path": "/e/demo/live",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/live",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-results",
+    "path": "/e/demo/results",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/results",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-register",
+    "path": "/e/demo/register",
+    "role": "participant",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/register",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "e-demo-heats",
+    "path": "/e/demo/heats/M-50-FREE-1",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo/heats/M-50-FREE-1",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "login",
+    "path": "/login",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/login",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "register",
+    "path": "/register",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/register",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "my-registrations",
+    "path": "/my/registrations",
+    "role": "participant",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/my/registrations",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "my-payment",
+    "path": "/my/registrations/00000004-1111-4111-8111-000000000001/payment",
+    "role": "participant",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/my/registrations/00000004-1111-4111-8111-000000000001/payment",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "payment-return",
+    "path": "/payment-return?registrationId=00000004-1111-4111-8111-000000000001",
+    "role": "participant",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/payment-return",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "legacy-register",
+    "path": "/events/demo/disciplines/M-50-FREE/register",
+    "role": "participant",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/events/demo/disciplines/M-50-FREE/register",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "legacy-results",
+    "path": "/events/demo/disciplines/M-50-FREE/results",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/events/demo/disciplines/M-50-FREE/results",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer",
+    "path": "/organizer",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-events",
+    "path": "/organizer/events",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-events-new",
+    "path": "/organizer/events/new",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/new",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-regulations-create",
+    "path": "/organizer/regulations/create",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/regulations/create",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-event",
+    "path": "/organizer/events/11111111-1111-4111-8111-111111111111",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/11111111-1111-4111-8111-111111111111",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-program",
+    "path": "/organizer/events/11111111-1111-4111-8111-111111111111/program",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/11111111-1111-4111-8111-111111111111/program",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-entries",
+    "path": "/organizer/events/11111111-1111-4111-8111-111111111111/entries",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/11111111-1111-4111-8111-111111111111/entries",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-heats",
+    "path": "/organizer/events/11111111-1111-4111-8111-111111111111/heats",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/11111111-1111-4111-8111-111111111111/heats",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-results",
+    "path": "/organizer/events/11111111-1111-4111-8111-111111111111/results",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/11111111-1111-4111-8111-111111111111/results",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "organizer-registrations",
+    "path": "/organizer/events/11111111-1111-4111-8111-111111111111/registrations",
+    "role": "organizer",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/organizer/events/11111111-1111-4111-8111-111111111111/entries",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "operator-registration",
+    "path": "/operator/registrations/00000004-1111-4111-8111-000000000001",
+    "role": "operator",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/operator/registrations/00000004-1111-4111-8111-000000000001",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "operator-payments",
+    "path": "/operator/payments",
+    "role": "operator",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/operator/payments",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "operator-results",
+    "path": "/operator/results",
+    "role": "operator",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/operator/results",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "operator-unit",
+    "path": "/operator/competition-units/00000010-1111-4111-8111-000000000001?eventId=11111111-1111-4111-8111-111111111111",
+    "role": "operator",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/operator/competition-units/00000010-1111-4111-8111-000000000001",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "judge-unit",
+    "path": "/operator/competition-units/00000010-1111-4111-8111-000000000001?eventId=11111111-1111-4111-8111-111111111111",
+    "role": "judge",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/operator/competition-units/00000010-1111-4111-8111-000000000001",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "admin-review",
+    "path": "/admin/registrations/review",
+    "role": "platform_admin",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/admin/registrations/review",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "admin-sports",
+    "path": "/admin/sports",
+    "role": "platform_admin",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/admin/sports",
+    "scrollWidth": 1366,
+    "errors": []
+  },
+  {
+    "name": "legacy-event",
+    "path": "/events/demo",
+    "role": "",
+    "width": 1366,
+    "height": 768,
+    "finalPath": "/e/demo",
+    "scrollWidth": 1366,
+    "errors": []
+  }
+]
