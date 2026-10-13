@@ -255,3 +255,12 @@
   color: #8d9aad;
   opacity: 1;
 }
+.field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #bfcddd;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}

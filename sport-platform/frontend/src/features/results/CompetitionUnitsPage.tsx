@@ -1,193 +1,72 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { ApiError } from '../../api/http'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
+import { getEvent, getMyEvents, type Event, type EventDiscipline } from '../../api/events.api'
+import { getCompetitionUnitsByDiscipline, type CompetitionUnitResponse } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
-import {
-  getCompetitionUnitsByDiscipline,
-  type CompetitionUnitResponse,
-} from '../../api/results.api'
+import { heatStatusLabel, resultErrorMessage } from './results-ui'
 import styles from './CompetitionUnitsPage.module.css'
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof ApiError) {
-    if (error.status === 403) {
-      return 'У вашей учётной записи нет прав на просмотр результатов.'
-    }
-
-    if (error.status === 404) {
-      return 'Дисциплина не найдена.'
-    }
-
-    return error.message
-  }
-
-  return 'Не удалось загрузить соревновательные единицы.'
-}
-
-function unitStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    DRAFT: 'Черновик',
-    PUBLISHED: 'Опубликовано',
-  }
-
-  return labels[status] ?? status
-}
-
-function unitStatusClassName(status: string) {
-  const classes: Record<string, string> = {
-    DRAFT: styles.statusDraft,
-    PUBLISHED: styles.statusPublished,
-  }
-
-  return `${styles.statusBadge} ${classes[status] ?? styles.statusNeutral}`
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return 'Не назначено'
-  }
-
-  return new Intl.DateTimeFormat('ru-RU', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Europe/Moscow',
-  }).format(new Date(value))
-}
 
 export function CompetitionUnitsPage() {
   const { session } = useAuth()
+  const token = session?.accessToken
   const navigate = useNavigate()
-  const accessToken = session?.accessToken
-
-  const [eventDisciplineId, setEventDisciplineId] = useState('')
+  const [events, setEvents] = useState<Event[]>([])
+  const [eventId, setEventId] = useState('')
+  const [disciplines, setDisciplines] = useState<EventDiscipline[]>([])
+  const [disciplineId, setDisciplineId] = useState('')
   const [units, setUnits] = useState<CompetitionUnitResponse[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasLoaded, setHasLoaded] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [unitId, setUnitId] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    Promise.resolve().then(() => { if (active) setLoading(true); return getMyEvents(token) }).then(data => { if (active) setEvents(data) })
+      .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить события. Повторите попытку.')) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [token])
 
-    const normalizedDisciplineId = eventDisciplineId.trim()
+  useEffect(() => {
+    if (!token || !eventId) return
+    let active = true
+    Promise.resolve().then(() => { if (active) { setLoading(true); setError('') }; return getEvent(eventId, token) }).then(data => { if (active) setDisciplines(data.disciplines ?? []) })
+      .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить виды программы. Повторите попытку.')) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [token, eventId])
 
-    if (!accessToken) {
-      navigate('/login', { replace: true })
-      return
-    }
+  useEffect(() => {
+    if (!token || !disciplineId) return
+    let active = true
+    Promise.resolve().then(() => { if (active) { setLoading(true); setError('') }; return getCompetitionUnitsByDiscipline(disciplineId, token) }).then(data => {
+      if (active) setUnits([...data].sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0)))
+    }).catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить заплывы. Повторите попытку.')) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [token, disciplineId])
 
-    if (!normalizedDisciplineId) {
-      setErrorMessage('Введите ID дисциплины.')
-      return
-    }
-
-    setIsLoading(true)
-    setHasLoaded(false)
-    setErrorMessage(null)
-
-    try {
-      const data = await getCompetitionUnitsByDiscipline(
-        normalizedDisciplineId,
-        accessToken,
-      )
-
-      setUnits(data)
-      setHasLoaded(true)
-    } catch (error) {
-      setUnits([])
-      setErrorMessage(getErrorMessage(error))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <section className={styles.page}>
-      <Link className={styles.backLink} to="/operator/payments">
-        ← К панели оператора
-      </Link>
-
-      <p className={styles.eyebrow}>Оператор</p>
-
-      <h1 className={styles.title}>Результаты</h1>
-
-      <p className={styles.description}>
-        Введите идентификатор дисциплины, чтобы открыть список заплывов,
-        матчей, групп или финалов.
-      </p>
-
-      <form className={styles.searchForm} onSubmit={handleSubmit}>
-        <label className={styles.field}>
-          <span>ID дисциплины</span>
-
-          <input
-            autoComplete="off"
-            disabled={isLoading}
-            onChange={(event) => setEventDisciplineId(event.target.value)}
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            spellCheck={false}
-            type="text"
-            value={eventDisciplineId}
-          />
-        </label>
-
-        <button
-          className={styles.submitButton}
-          disabled={isLoading}
-          type="submit"
-        >
-          {isLoading ? 'Загружаем…' : 'Открыть'}
-        </button>
-      </form>
-
-      {errorMessage ? (
-        <p className={styles.errorMessage} role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-
-      {hasLoaded && units.length === 0 ? (
-        <div className={styles.stateCard}>
-          <h2>Соревновательных единиц пока нет</h2>
-          <p>
-            Организатор должен создать заплыв, матч, группу или финал для этой
-            дисциплины.
-          </p>
-        </div>
-      ) : null}
-
-      {units.length > 0 ? (
-        <div className={styles.unitsList}>
-          {units.map((unit) => (
-            <article className={styles.unitCard} key={unit.id}>
-              <div>
-                <p className={styles.unitLabel}>
-                  Единица #{unit.sequenceNumber ?? '—'}
-                </p>
-
-                <h2 className={styles.unitTitle}>{unit.label}</h2>
-
-                <p className={styles.unitMeta}>
-                  Проведение: {formatDate(unit.scheduledAt)}
-                </p>
-              </div>
-
-              <div className={styles.unitActions}>
-                <span className={unitStatusClassName(unit.status)}>
-                  {unitStatusLabel(unit.status)}
-                </span>
-
-                <Link
-                  className={styles.openLink}
-                  to={`/operator/competition-units/${unit.id}`}
-                >
-                  Открыть результаты
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  )
+  return <section className={styles.page}>
+    <p className={styles.eyebrow}>Оператор</p><h1 className={styles.title}>Результаты</h1>
+    <form className={styles.searchForm} onSubmit={e => {
+      e.preventDefault()
+      if (unitId) navigate(`/operator/competition-units/${unitId}?eventId=${encodeURIComponent(eventId)}`)
+    }}>
+      <label className={styles.field}>Событие<select value={eventId} disabled={loading} onChange={e => {
+        setEventId(e.target.value); setDisciplineId(''); setUnitId(''); setDisciplines([]); setUnits([])
+      }}><option value="">Выберите событие</option>{events.map(event => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label>
+      <label className={styles.field}>Вид программы<select value={disciplineId} disabled={!eventId || loading} onChange={e => {
+        setDisciplineId(e.target.value); setUnitId(''); setUnits([])
+      }}><option value="">Выберите вид</option>{disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+      <label className={styles.field}>Заплыв<select value={unitId} disabled={!disciplineId || loading} onChange={e => setUnitId(e.target.value)}>
+        <option value="">Выберите заплыв</option>{units.map(unit => <option key={unit.id} value={unit.id}>{unit.label} — {heatStatusLabel(unit.status)}</option>)}
+      </select></label>
+      <button className={styles.submitButton} disabled={!unitId || loading}>Открыть</button>
+    </form>
+    {loading && <p role="status">Загрузка…</p>}
+    {eventId && !loading && !error && disciplines.length === 0 && <p>Виды программы пока не добавлены.</p>}
+    {disciplineId && !loading && !error && units.length === 0 && <p>Заплывы пока не созданы.</p>}
+    {error && <p className={styles.errorMessage} role="alert">{error}</p>}
+  </section>
 }

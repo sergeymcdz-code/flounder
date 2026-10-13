@@ -1,748 +1,211 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { ApiError } from '../../api/http'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { getEvent } from '../../api/events.api'
 import {
-  changeCompetitionUnitPublication,
-  getCompetitionUnitDetails,
-  recalculatePlaces,
-  recordResult,
-  type CompetitionUnitDetailsResponse,
-  type RankingStrategy,
-  type ResultType,
+  changeCompetitionUnitPublication, changeHeatState, getCompetitionUnitDetails,
+  getCompetitionUnitsByDiscipline, saveHeatResults, setLiveHeat,
+  type CompetitionUnitDetailsResponse, type HeatResultRequest,
 } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
+import { maskTime, normalizeTime } from './time-input'
+import { heatStatusLabel, resultErrorMessage } from './results-ui'
 import styles from './JudgePanelPage.module.css'
 
-type EditableResultStatus =
-  | 'PENDING'
-  | 'DID_NOT_START'
-  | 'DID_NOT_FINISH'
-  | 'DISQUALIFIED'
-
-const RESULT_STATUS_OPTIONS: Array<{
-  value: EditableResultStatus
-  label: string
-}> = [
-  {
-    value: 'PENDING',
-    label: 'Обычный результат',
-  },
-  {
-    value: 'DID_NOT_START',
-    label: 'DNS — не стартовал',
-  },
-  {
-    value: 'DID_NOT_FINISH',
-    label: 'DNF — не финишировал',
-  },
-  {
-    value: 'DISQUALIFIED',
-    label: 'DSQ — дисквалифицирован',
-  },
-]
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof ApiError) {
-    if (error.status === 401) {
-      return 'Сессия истекла. Войдите в систему снова.'
-    }
-
-    if (error.status === 403) {
-      return 'У вашей учётной записи нет прав для работы с результатами.'
-    }
-
-    if (error.status === 404) {
-      return 'Заплыв, матч или соревновательная единица не найдены.'
-    }
-
-    return error.message
-  }
-
-  return fallback
-}
-
-function resultStatusLabel(status: string | null) {
-  const labels: Record<string, string> = {
-    PENDING: 'Ожидает пересчёта',
-    VALID: 'Учтён',
-    DID_NOT_START: 'Не стартовал',
-    DID_NOT_FINISH: 'Не финишировал',
-    DISQUALIFIED: 'Дисквалифицирован',
-    CORRECTED: 'Исправлен',
-    EXHIBITION: 'Вне зачёта',
-  }
-
-  return status ? labels[status] ?? status : 'Нет результата'
-}
-
-function resultStatusClassName(status: string | null) {
-  if (status === 'VALID') {
-    return `${styles.resultStatus} ${styles.resultStatusValid}`
-  }
-
-  if (
-    status === 'DID_NOT_START' ||
-    status === 'DID_NOT_FINISH'
-  ) {
-    return `${styles.resultStatus} ${styles.resultStatusWarning}`
-  }
-
-  if (status === 'DISQUALIFIED') {
-    return `${styles.resultStatus} ${styles.resultStatusDanger}`
-  }
-
-  if (status === 'CORRECTED') {
-    return `${styles.resultStatus} ${styles.resultStatusCorrected}`
-  }
-
-  if (status === 'EXHIBITION') {
-    return `${styles.resultStatus} ${styles.resultStatusNeutral}`
-  }
-
-  return `${styles.resultStatus} ${styles.resultStatusPending}`
-}
-
-function unitStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    DRAFT: 'Черновик',
-    PUBLISHED: 'Опубликовано',
-  }
-
-  return labels[status] ?? status
-}
-
-function unitStatusClassName(status: string) {
-  if (status === 'PUBLISHED') {
-    return `${styles.unitStatus} ${styles.unitStatusPublished}`
-  }
-
-  if (status === 'DRAFT') {
-    return `${styles.unitStatus} ${styles.unitStatusDraft}`
-  }
-
-  return `${styles.unitStatus} ${styles.unitStatusNeutral}`
-}
-
-function sortEntries(
-  entries: CompetitionUnitDetailsResponse['entries'],
-) {
-  return [...entries].sort((left, right) => {
-    const leftLane = left.laneOrPosition ?? Number.MAX_SAFE_INTEGER
-    const rightLane = right.laneOrPosition ?? Number.MAX_SAFE_INTEGER
-
-    return leftLane - rightLane
-  })
+type Draft = { time: string; status: HeatResultRequest['status'] }
+const specialStatuses = ['DNS', 'DNF', 'DSQ'] as const
+const statusMap: Record<string, Draft['status']> = {
+  DID_NOT_START: 'DNS', DID_NOT_FINISH: 'DNF', DISQUALIFIED: 'DSQ', DNS: 'DNS', DNF: 'DNF', DSQ: 'DSQ',
 }
 
 export function JudgePanelPage() {
-  const { session } = useAuth()
+  const { unitId } = useParams()
+  const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { unitId } = useParams<{ unitId: string }>()
-  const accessToken = session?.accessToken
+  const location = useLocation()
+  const { session, hasAnyRole } = useAuth()
+  const token = session?.accessToken
+  const [unit, setUnit] = useState<CompetitionUnitDetailsResponse | null>(null)
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [savedAt, setSavedAt] = useState('')
+  const [dirty, setDirty] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [nextId, setNextId] = useState<string | null>(null)
+  const [nextError, setNextError] = useState('')
+  const inputs = useRef<Record<string, HTMLInputElement | null>>({})
+  const saveButton = useRef<HTMLButtonElement | null>(null)
+  const eventId = unit?.eventId ?? params.get('eventId')
+  const published = unit?.status === 'PUBLISHED'
+  const canEdit = !published || hasAnyRole(['operator', 'organizer', 'platform_admin', 'platformadmin'])
+  const loadedUnitId = unit?.id
+  const disciplineId = unit?.eventDisciplineId
+  const navigationWarning = (location.state as { liveWarning?: string } | null)?.liveWarning
+  const statusButtons = useRef<Record<string, HTMLButtonElement | null>>({})
+  const entries = [...(unit?.entries ?? [])].sort((a, b) =>
+    (a.laneOrPosition ?? Infinity) - (b.laneOrPosition ?? Infinity))
 
-  const [unit, setUnit] =
-    useState<CompetitionUnitDetailsResponse | null>(null)
-
-  const [draftValues, setDraftValues] =
-    useState<Record<string, string>>({})
-
-  const [draftStatuses, setDraftStatuses] =
-    useState<Record<string, EditableResultStatus>>({})
-
-  const [resultType, setResultType] =
-    useState<ResultType>('TIME')
-
-  const [rankingStrategy, setRankingStrategy] =
-    useState<RankingStrategy>('ASC')
-
-  const [isLoading, setIsLoading] = useState(true)
-
-  const [savingEntryId, setSavingEntryId] =
-    useState<string | null>(null)
-
-  const [isRecalculating, setIsRecalculating] = useState(false)
-
-  const [isChangingPublication, setIsChangingPublication] =
-    useState(false)
-
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null)
-
-  const [successMessage, setSuccessMessage] =
-    useState<string | null>(null)
-
-  const entries = useMemo(
-    () => (unit ? sortEntries(unit.entries) : []),
-    [unit],
-  )
-
-  const isPublished = unit?.status === 'PUBLISHED'
-
-  const isBusy =
-    savingEntryId !== null ||
-    isRecalculating ||
-    isChangingPublication
-
-  const completedResultsCount = useMemo(
-    () =>
-      entries.filter(
-        (entry) =>
-          Boolean(entry.rawValue?.trim()) ||
-          entry.resultStatus === 'DID_NOT_START' ||
-          entry.resultStatus === 'DID_NOT_FINISH' ||
-          entry.resultStatus === 'DISQUALIFIED',
-      ).length,
-    [entries],
-  )
-
-  const hasPendingResults = entries.some(
-    (entry) =>
-      Boolean(entry.rawValue?.trim()) &&
-      entry.resultStatus === 'PENDING',
-  )
-
-  function updateDraftValues(
-    nextUnit: CompetitionUnitDetailsResponse,
-  ) {
-    setDraftValues(
-      Object.fromEntries(
-        nextUnit.entries.map((entry) => [
-          entry.entryId,
-          entry.rawValue ?? '',
-        ]),
-      ),
-    )
-
-    setDraftStatuses(
-      Object.fromEntries(
-        nextUnit.entries.map((entry) => [
-          entry.entryId,
-          entry.resultStatus === 'DID_NOT_START' ||
-          entry.resultStatus === 'DID_NOT_FINISH' ||
-          entry.resultStatus === 'DISQUALIFIED'
-            ? entry.resultStatus
-            : 'PENDING',
-        ]),
-      ),
-    )
-  }
-
-  async function loadUnit() {
-    if (!unitId || !accessToken) {
-      return
-    }
-
-    setIsLoading(true)
-    setErrorMessage(null)
-
-    try {
-      const loadedUnit = await getCompetitionUnitDetails(
-        unitId,
-        accessToken,
-      )
-
-      setUnit(loadedUnit)
-      updateDraftValues(loadedUnit)
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(
-          error,
-          'Не удалось загрузить стартовый лист и результаты.',
-        ),
-      )
-    } finally {
-      setIsLoading(false)
-    }
+  function applyUnit(data: CompetitionUnitDetailsResponse) {
+    setUnit(data)
+    setDrafts(Object.fromEntries(data.entries.map(e => [e.entryId, {
+      time: e.display ?? e.rawValue ?? '', status: statusMap[e.resultStatus ?? ''] ?? 'VALID',
+    }])))
+    setDirty(false)
+    setErrors({})
   }
 
   useEffect(() => {
-    if (!accessToken) {
-      navigate('/login', { replace: true })
-      return
+    if (!token || !unitId) return
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) { setLoading(true); setError(''); setNotice(''); setSavedAt(''); setUnit(null) }
+      return getCompetitionUnitDetails(unitId, token)
+    }).then(data => { if (active) applyUnit(data) })
+      .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить заплыв. Повторите попытку.')) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [token, unitId])
+
+  useEffect(() => {
+    if (!token || !disciplineId || loadedUnitId !== unitId) return
+    const resolvedDisciplineId = disciplineId
+    let active = true
+    async function findNext() {
+      await Promise.resolve()
+      if (!active) return
+      setNextId(null); setNextError('')
+      const local = await getCompetitionUnitsByDiscipline(resolvedDisciplineId, token!)
+      const currentSummary = local.find(u => u.id === loadedUnitId)
+      let next = local.filter(u => (u.sequenceNumber ?? 0) > (currentSummary?.sequenceNumber ?? Infinity))
+        .sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0))[0]
+      if (eventId && currentSummary?.scheduledAt) {
+        const event = await getEvent(eventId, token)
+        const lists = await Promise.all((event.disciplines ?? []).map(d => d.id === resolvedDisciplineId ? Promise.resolve(local) : getCompetitionUnitsByDiscipline(d.id, token!)))
+        next = lists.flat().filter(u => u.scheduledAt && Date.parse(u.scheduledAt) > Date.parse(currentSummary.scheduledAt!))
+          .sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!))[0]
+      }
+      if (active) setNextId(next?.id ?? null)
     }
+    void findNext().catch(error => { if (active) setNextError(resultErrorMessage(error, 'Не удалось определить следующий заплыв.')) })
+    return () => { active = false }
+  }, [token, loadedUnitId, disciplineId, unitId, eventId])
 
-    if (!unitId) {
-      setErrorMessage('Идентификатор заплыва или матча не указан.')
-      setIsLoading(false)
-      return
+  function update(id: string, change: Partial<Draft>) {
+    setDrafts(current => ({ ...current, [id]: { ...current[id], ...change } }))
+    setErrors(current => ({ ...current, [id]: '' }))
+    setDirty(true); setNotice('')
+  }
+
+  function validate(id: string) {
+    const draft = drafts[id]
+    if (draft?.status !== 'VALID' || !draft.time.trim()) {
+      setErrors(current => ({ ...current, [id]: '' }))
+      return true
     }
+    const normalized = normalizeTime(draft.time)
+    setErrors(current => ({ ...current, [id]: normalized ? '' : 'Введите время мм:сс.сс (секунды 00–59).' }))
+    if (normalized) setDrafts(current => ({ ...current, [id]: { ...current[id], time: normalized } }))
+    return Boolean(normalized)
+  }
 
-    void loadUnit()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, unitId, navigate])
+  async function run(action: () => Promise<void>) {
+    if (busy) return
+    setBusy(true); setError(''); setNotice('')
+    try { await action() } catch (e) {
+      setError(resultErrorMessage(e, 'Не удалось выполнить действие. Повторите попытку.'))
+    } finally { setBusy(false) }
+  }
 
-  async function handleSaveResult(entryId: string) {
-    if (!accessToken || isPublished) {
-      return
-    }
+  function save() {
+    if (!unit || !token || !canEdit) return
+    const invalid = entries.filter(e => !validate(e.entryId))
+    if (invalid.length) { inputs.current[invalid[0].entryId]?.focus(); return }
+    void run(async () => {
+      const data = await saveHeatResults(unit.id, entries.map(e => ({
+        competitionUnitEntryId: e.entryId,
+        status: drafts[e.entryId].status,
+        time: drafts[e.entryId].status === 'VALID' ? normalizeTime(drafts[e.entryId].time) : null,
+      })), token)
+      applyUnit(data)
+      setSavedAt(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
+    })
+  }
 
-    const status = draftStatuses[entryId] ?? 'PENDING'
-    const rawValue = draftValues[entryId]?.trim()
-
-    if (status === 'PENDING' && !rawValue) {
-      setErrorMessage('Введите результат перед сохранением.')
-      return
-    }
-
-    setSavingEntryId(entryId)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
-    try {
-      await recordResult(
-        status === 'PENDING'
-          ? {
-              competitionUnitEntryId: entryId,
-              rawValue,
+  return <section className={styles.page}>
+    <Link className={styles.backLink} to="/operator/results">← К списку заплывов</Link>
+    <div className={styles.titleRow}><div><p className={styles.eyebrow}>Судейская панель</p>
+      <h1 className={styles.title}>{unit?.label ?? 'Результаты'}</h1></div>
+      {unit && <span className={styles.unitStatus}>{heatStatusLabel(unit.status)}</span>}
+    </div>
+    <p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p>
+    {loading && <p role="status">Загрузка…</p>}
+    {error && <p className={styles.errorMessage} role="alert">{error}</p>}
+    {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
+    {unit && !loading && <>
+      <div className={styles.toolbarControls}>
+        <button className={styles.saveButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{published ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
+        <button className={styles.publishButton} disabled={busy || (!published && (dirty || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? ''])))} onClick={() => void run(async () => {
+          applyUnit(await changeCompetitionUnitPublication(unit.id, !published, token!))
+          setNotice(published ? 'Публикация снята.' : 'Результаты опубликованы.')
+        })}>{published ? 'Снять с публикации' : 'Опубликовать'}</button>
+        {(['start', 'finish'] as const).map(action => <button key={action} className={styles.unpublishButton} disabled={busy || dirty} onClick={() => void run(async () => {
+          await changeHeatState(unit.id, action, token!)
+          const data = await getCompetitionUnitDetails(unit.id, token!)
+          applyUnit(data); setNotice(action === 'start' ? 'Заплыв начат.' : 'Заплыв завершён.')
+        })}>{action === 'start' ? 'Старт' : 'Финиш'}</button>)}
+        <button className={styles.unpublishButton} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
+          let liveWarning: string | undefined
+          if (eventId) {
+            try { await setLiveHeat(eventId, nextId!, token!) } catch (error) {
+              liveWarning = `Следующий заплыв открыт, но табло не обновлено. ${resultErrorMessage(error, 'Не удалось обновить live. Повторите обновление табло.')}`
             }
-          : {
-              competitionUnitEntryId: entryId,
-              rawValue: '',
-              status,
-            },
-        {
-          resultType,
-          accessToken,
-        },
-      )
-
-      setSuccessMessage(
-        status === 'PENDING'
-          ? 'Результат сохранён. Пересчитайте места, чтобы обновить таблицу.'
-          : `Статус «${resultStatusLabel(status)}» сохранён.`,
-      )
-
-      await loadUnit()
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(error, 'Не удалось сохранить результат.'),
-      )
-    } finally {
-      setSavingEntryId(null)
-    }
-  }
-
-  async function handleRecalculate() {
-    if (!unit || !accessToken || isPublished) {
-      return
-    }
-
-    setIsRecalculating(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
-    try {
-      const updatedUnit = await recalculatePlaces(unit.id, {
-        rankingStrategy,
-        accessToken,
-      })
-
-      setUnit(updatedUnit)
-      updateDraftValues(updatedUnit)
-      setSuccessMessage('Места успешно пересчитаны.')
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(error, 'Не удалось пересчитать места.'),
-      )
-    } finally {
-      setIsRecalculating(false)
-    }
-  }
-
-  async function handleChangePublication() {
-    if (!unit || !accessToken) {
-      return
-    }
-
-    const willPublish = unit.status !== 'PUBLISHED'
-
-    setIsChangingPublication(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
-    try {
-      await changeCompetitionUnitPublication(
-        unit.id,
-        willPublish,
-        accessToken,
-      )
-
-      await loadUnit()
-
-      setSuccessMessage(
-        willPublish
-          ? 'Результаты опубликованы и доступны на публичной странице.'
-          : 'Публикация результатов снята.',
-      )
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(
-          error,
-          'Не удалось изменить статус публикации результатов.',
-        ),
-      )
-    } finally {
-      setIsChangingPublication(false)
-    }
-  }
-
-  return (
-    <section className={styles.page}>
-      <Link className={styles.backLink} to="/operator/results">
-        ← К списку соревновательных единиц
-      </Link>
-
-      <div className={styles.titleRow}>
-        <div>
-          <p className={styles.eyebrow}>Судейская панель</p>
-
-          <h1 className={styles.title}>
-            {unit?.label ?? 'Результаты'}
-          </h1>
-        </div>
-
-        {unit ? (
-          <span className={unitStatusClassName(unit.status)}>
-            {unitStatusLabel(unit.status)}
-          </span>
-        ) : null}
+          }
+          navigate(`/operator/competition-units/${nextId}${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`, { state: { liveWarning } })
+        })}>Следующий заплыв</button>
       </div>
-
-      <p className={styles.description}>
-        Вносите результаты участников, затем пересчитывайте итоговые места.
-        Для времени используйте формат <code>00:58.42</code>.
-      </p>
-
-      {isLoading ? (
-        <div className={styles.stateCard}>
-          <h2>Загрузка</h2>
-          <p>Получаем стартовый лист и результаты.</p>
-        </div>
-      ) : null}
-
-      {errorMessage ? (
-        <p className={styles.errorMessage} role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-
-      {successMessage ? (
-        <p className={styles.successMessage} role="status">
-          {successMessage}
-        </p>
-      ) : null}
-
-      {!isLoading && !errorMessage && unit ? (
-        <>
-          <div className={styles.summaryCard}>
-            <div>
-              <span className={styles.summaryLabel}>Статус</span>
-
-              <strong>{unitStatusLabel(unit.status)}</strong>
-            </div>
-
-            <div>
-              <span className={styles.summaryLabel}>Участников</span>
-
-              <strong>{unit.entries.length}</strong>
-            </div>
-
-            <div>
-              <span className={styles.summaryLabel}>Введено результатов</span>
-
-              <strong>
-                {completedResultsCount} / {unit.entries.length}
-              </strong>
-            </div>
-
-            <div className={styles.disciplineSummary}>
-              <span className={styles.summaryLabel}>ID дисциплины</span>
-
-              <code>{unit.eventDisciplineId}</code>
-            </div>
-          </div>
-
-          {isPublished ? (
-            <div className={styles.publishedNotice} role="status">
-              <div>
-                <strong>Результаты опубликованы</strong>
-
-                <p>
-                  Ввод результатов и пересчёт мест заблокированы, чтобы
-                  опубликованный протокол не изменился случайно.
-                </p>
-              </div>
-
-              <button
-                className={styles.unpublishButton}
-                disabled={isBusy}
-                onClick={handleChangePublication}
-                type="button"
-              >
-                {isChangingPublication
-                  ? 'Снимаем…'
-                  : 'Снять с публикации'}
-              </button>
-            </div>
-          ) : null}
-
-          <section className={styles.toolbarCard}>
-            <div>
-              <h2>Настройки результата</h2>
-
-              <p>
-                Выберите формат результата. Для времени лучшим считается
-                меньшее значение, для очков — большее.
-              </p>
-            </div>
-
-            <div className={styles.toolbarControls}>
-              <label className={styles.field}>
-                <span>Тип результата</span>
-
-                <select
-                  disabled={isPublished || isBusy}
-                  onChange={(event) => {
-                    const nextType = event.target.value as ResultType
-
-                    setResultType(nextType)
-                    setRankingStrategy(
-                      nextType === 'TIME' ? 'ASC' : 'DESC',
-                    )
-                  }}
-                  value={resultType}
-                >
-                  <option value="TIME">
-                    Время — меньше лучше
-                  </option>
-
-                  <option value="POINTS">
-                    Очки — больше лучше
-                  </option>
-                </select>
-              </label>
-
-              <button
-                className={styles.recalculateButton}
-                disabled={
-                  isPublished ||
-                  isBusy ||
-                  entries.length === 0
+      <p role="status">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
+      {notice && <p className={styles.successMessage} role="status">{notice}</p>}
+      {nextError && <p role="status">{nextError}</p>}
+      <div className={styles.tableWrap}><table className={styles.resultsTable}>
+        <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>
+        <tbody>{entries.map((entry, index) => {
+          const draft = drafts[entry.entryId] ?? { time: '', status: 'VALID' }
+          return <tr key={entry.entryId}>
+            <td className={styles.laneCell}>{entry.laneOrPosition ?? '—'}</td>
+            <td><span className={styles.participantName}>{entry.participantName}</span></td><td>{entry.entryTime ?? '—'}</td>
+            <td><input className={styles.resultInput} aria-label={`Время, дорожка ${entry.laneOrPosition}`} aria-invalid={Boolean(errors[entry.entryId])}
+              aria-describedby={errors[entry.entryId] ? `error-${entry.entryId}` : undefined}
+              ref={node => { inputs.current[entry.entryId] = node }} value={draft.time} inputMode="decimal" placeholder="00:32.15"
+              disabled={busy || !canEdit || draft.status !== 'VALID'} onChange={e => update(entry.entryId, { time: maskTime(e.target.value) })}
+              onBlur={e => {
+                if ((e.relatedTarget as HTMLElement | null)?.dataset.entryId !== entry.entryId) validate(entry.entryId)
+              }} onKeyDown={e => {
+                const shortcut = e.altKey ? ({ KeyD: 'DNS', KeyN: 'DNF', KeyQ: 'DSQ' } as const)[e.code as 'KeyD' | 'KeyN' | 'KeyQ'] : undefined
+                if (shortcut) {
+                  e.preventDefault()
+                  update(entry.entryId, { status: shortcut })
+                  statusButtons.current[`${entry.entryId}-${shortcut}`]?.focus()
+                  return
                 }
-                onClick={handleRecalculate}
-                type="button"
-              >
-                {isRecalculating
-                  ? 'Пересчитываем…'
-                  : 'Пересчитать места'}
-              </button>
-
-              {!isPublished ? (
-                <button
-                  className={styles.publishButton}
-                  disabled={
-                    isBusy ||
-                    entries.length === 0 ||
-                    hasPendingResults
-                  }
-                  onClick={handleChangePublication}
-                  type="button"
-                >
-                  {isChangingPublication
-                    ? 'Публикуем…'
-                    : 'Опубликовать результаты'}
-                </button>
-              ) : null}
-            </div>
-
-            {!isPublished && hasPendingResults ? (
-              <p className={styles.recalculateHint}>
-                Перед публикацией пересчитайте места после внесения
-                результатов.
-              </p>
-            ) : null}
-          </section>
-
-          <section className={styles.entriesSection}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2>Стартовый протокол</h2>
-
-                <p>
-                  Сохраняйте результат каждого участника отдельно. После
-                  изменений пересчитайте места.
-                </p>
-              </div>
-
-              <span className={styles.entriesCount}>
-                {entries.length}{' '}
-                {entries.length === 1 ? 'участник' : 'участников'}
-              </span>
-            </div>
-
-            {entries.length === 0 ? (
-              <div className={styles.stateCard}>
-                <h2>Участники не назначены</h2>
-
-                <p>
-                  Организатор должен добавить подтверждённые заявки в этот
-                  заплыв или матч.
-                </p>
-              </div>
-            ) : (
-              <div className={styles.tableWrap}>
-                <table className={styles.resultsTable}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Место</th>
-                      <th scope="col">Дорожка</th>
-                      <th scope="col">Участник</th>
-                      <th scope="col">Результат</th>
-                      <th scope="col">Статус ввода</th>
-                      <th scope="col">Статус</th>
-                      <th scope="col">
-                        <span className={styles.visuallyHidden}>
-                          Действия
-                        </span>
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {entries.map((entry) => {
-                      const isSaving =
-                        savingEntryId === entry.entryId
-
-                      const draftStatus =
-                        draftStatuses[entry.entryId] ?? 'PENDING'
-
-                      const hasSpecialStatus =
-                        draftStatus !== 'PENDING'
-
-                      const isEntryDisabled =
-                        isPublished ||
-                        isSaving ||
-                        isBusy
-
-                      return (
-                        <tr key={entry.entryId}>
-                          <td className={styles.placeCell}>
-                            {entry.finalPlace ?? '—'}
-                          </td>
-
-                          <td className={styles.laneCell}>
-                            {entry.laneOrPosition ?? '—'}
-                          </td>
-
-                          <td>
-                            <strong className={styles.participantName}>
-                              {entry.participantName}
-                            </strong>
-
-                            <span className={styles.registrationId}>
-                              Заявка {entry.registrationId.slice(0, 8)}
-                            </span>
-                          </td>
-
-                          <td>
-                            <input
-                              className={styles.resultInput}
-                              disabled={
-                                isEntryDisabled || hasSpecialStatus
-                              }
-                              onChange={(event) => {
-                                setDraftValues((current) => ({
-                                  ...current,
-                                  [entry.entryId]: event.target.value,
-                                }))
-                              }}
-                              placeholder={
-                                hasSpecialStatus
-                                  ? 'Не требуется'
-                                  : resultType === 'TIME'
-                                    ? '00:58.42'
-                                    : '0'
-                              }
-                              spellCheck={false}
-                              type="text"
-                              value={draftValues[entry.entryId] ?? ''}
-                            />
-                          </td>
-
-                          <td>
-                            <select
-                              className={styles.statusSelect}
-                              disabled={isEntryDisabled}
-                              onChange={(event) => {
-                                const nextStatus =
-                                  event.target
-                                    .value as EditableResultStatus
-
-                                setDraftStatuses((current) => ({
-                                  ...current,
-                                  [entry.entryId]: nextStatus,
-                                }))
-
-                                if (nextStatus !== 'PENDING') {
-                                  setDraftValues((current) => ({
-                                    ...current,
-                                    [entry.entryId]: '',
-                                  }))
-                                }
-                              }}
-                              value={draftStatus}
-                            >
-                              {RESULT_STATUS_OPTIONS.map((option) => (
-                                <option
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          <td>
-                            <span
-                              className={resultStatusClassName(
-                                entry.resultStatus,
-                              )}
-                            >
-                              {resultStatusLabel(entry.resultStatus)}
-                            </span>
-                          </td>
-
-                          <td>
-                            <button
-                              className={styles.saveButton}
-                              disabled={
-                                isEntryDisabled ||
-                                (!hasSpecialStatus &&
-                                  !draftValues[
-                                    entry.entryId
-                                  ]?.trim())
-                              }
-                              onClick={() =>
-                                handleSaveResult(entry.entryId)
-                              }
-                              type="button"
-                            >
-                              {isSaving
-                                ? 'Сохраняем…'
-                                : 'Сохранить'}
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </>
-      ) : null}
-    </section>
-  )
+                if (e.key === 'Escape') { e.preventDefault(); update(entry.entryId, { time: '' }); return }
+                if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+                  e.preventDefault(); validate(entry.entryId)
+                  const next = entries.slice(index + 1).find(row => drafts[row.entryId]?.status === 'VALID')
+                  if (next) inputs.current[next.entryId]?.focus(); else saveButton.current?.focus()
+                }
+              }} />
+              {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
+            </td>
+            <td><div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
+              ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
+              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
+            <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>
+          </tr>
+        })}</tbody>
+      </table></div>
+      {!entries.length && <p>В заплыве пока нет участников.</p>}
+    </>}
+  </section>
 }

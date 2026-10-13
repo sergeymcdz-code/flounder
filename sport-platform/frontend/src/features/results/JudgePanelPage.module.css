@@ -483,3 +483,8 @@
     width: 100%;
   }
 }
+.fieldError { color: var(--color-danger); margin: 6px 0 0; font-size: 0.8rem; }
+.statusButtons { display: flex; gap: 4px; }
+.statusButtons button { padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; }
+.statusButtons button[aria-pressed='true'] { background: var(--color-primary); color: white; }
+.statusButtons button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
