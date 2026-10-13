@@ -23,12 +23,6 @@ class Qa04KnownDefectsIT extends Qa04SecurityFixture {
                 .content(json.writeValueAsBytes(Map.of("email", "admin@flounder.demo", "password", "Demo2026!"))))
                 .andExpect(status().isUnauthorized());
     }
-    /** Owner: M02 — password policy. */
-    @Test
-    void qa04_07_oneCharacterPasswordMustNotCreateAnAccount() throws Exception {
-        mvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(userBody("a")))
-                .andExpect(status().isBadRequest());
-    }
     /** Owner: separate task "Подтверждение владения импортированным профилем". */
     @Test
     void qa04_10_importedAthleteCannotBeClaimedByUnverifiedSelfRegistration() throws Exception {

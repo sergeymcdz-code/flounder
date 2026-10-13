@@ -129,6 +129,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     }
     void prepare(Endpoint e, String actor) {
         switch (e.state()) {
+            case "org-member" -> member("org", "target", "member");
             case "event-draft" -> jdbc.update("update events set status='DRAFT' where id=?", id("event"));
             case "event-published" -> jdbc.update("update events set status='PUBLISHED' where id=?", id("event"));
             case "event-closed" -> jdbc.update("update events set status='REGISTRATION_CLOSED' where id=?", id("event"));

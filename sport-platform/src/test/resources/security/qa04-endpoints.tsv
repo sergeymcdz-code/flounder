@@ -97,3 +97,9 @@ POST	/api/v1/sports	admin	false	200		{"code":"QA04","name":"QA04"}
 GET	/api/v1/discipline-templates	authenticated	false	200		
 POST	/api/v1/discipline-templates	admin	false	200		{"sportId":"$sport","code":"QA04","name":"QA04","competitionFormat":"INDIVIDUAL","unitType":"HEAT","resultType":"TIME","rankingStrategy":"ASC"}
 PATCH	/api/v1/competition-unit-entries/{id}	manage	true	204		{"laneOrPosition":2}
+GET	/api/v1/users	admin	false	200		
+PATCH	/api/v1/users/{userId}/password	admin	false	204		{"newPassword":"Qa04-new-password!"}
+GET	/api/v1/roles	admin	false	200		
+PATCH	/api/v1/organizations/{id}/members/{userId}	owner	true	200	org-member	{"memberRole":"operator"}
+DELETE	/api/v1/organizations/{id}/members/{userId}	owner	true	204	org-member	
+GET	/api/v1/organization-registration-requests	admin	false	200		

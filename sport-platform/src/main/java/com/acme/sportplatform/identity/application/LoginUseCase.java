@@ -2,10 +2,13 @@ package com.acme.sportplatform.identity.application;
 
 import java.util.List;
 
+import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.acme.sportplatform.common.exception.BusinessException;
@@ -24,15 +27,17 @@ public class LoginUseCase {
     private final PlatformUserDetailsService userDetailsService;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
     public LoginUseCase(AuthenticationManager authenticationManager,
                         PlatformUserDetailsService userDetailsService,
                         UserRoleAssignmentRepository userRoleAssignmentRepository,
-                        JwtService jwtService) {
+                        JwtService jwtService, PasswordEncoder passwordEncoder) {
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
         this.userRoleAssignmentRepository = userRoleAssignmentRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public AuthTokenResponse execute(LoginRequest request) {
@@ -41,8 +46,15 @@ public class LoginUseCase {
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
         } catch (DisabledException ex) {
-            throw new BusinessException("identity.user_blocked", "Пользователь заблокирован. Обратитесь к администратору");
-        } catch (BadCredentialsException ex) {
+            PlatformUserPrincipal principal = (PlatformUserPrincipal) userDetailsService.loadUserByUsername(request.email());
+            if (passwordEncoder.matches(request.password(), principal.getPassword())) {
+                throw new BusinessException("identity.user_blocked", "Пользователь заблокирован. Обратитесь к администратору");
+            }
+            throw new InvalidCredentialsException();
+        } catch (BadCredentialsException | UsernameNotFoundException ex) {
+            throw new InvalidCredentialsException();
+        } catch (AccountStatusException ex) {
+            // Other account restrictions keep QA04's generic credential error.
             throw new InvalidCredentialsException();
         }
 

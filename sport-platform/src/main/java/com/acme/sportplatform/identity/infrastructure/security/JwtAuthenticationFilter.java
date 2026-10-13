@@ -120,16 +120,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
         } catch (UserBlockedException | InsufficientAuthenticationException ex) {
             SecurityContextHolder.clearContext();
             entryPoint.commence(request, response, ex);
+            return;
         } catch (ExpiredTokenException ex) {
             SecurityContextHolder.clearContext();
-            throw new InsufficientAuthenticationException("JWT expired", ex);
+            entryPoint.commence(request, response, new InsufficientAuthenticationException("JWT expired", ex));
+            return;
         } catch (InvalidTokenException ex) {
             SecurityContextHolder.clearContext();
-            throw new InsufficientAuthenticationException("JWT invalid", ex);
+            entryPoint.commence(request, response, new InsufficientAuthenticationException("JWT invalid", ex));
+            return;
         }
+        filterChain.doFilter(request, response);
     }
 }

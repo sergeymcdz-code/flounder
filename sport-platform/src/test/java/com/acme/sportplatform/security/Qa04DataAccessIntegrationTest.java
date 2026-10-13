@@ -61,17 +61,26 @@ class Qa04DataAccessIntegrationTest extends Qa04SecurityFixture {
         assertThat(jdbc.queryForObject("select status from competition_units where id=?", String.class, id("foreignUnit"))).isEqualTo("FINISHED");
     }
     @Test
-    void selfRegistrationIgnoresInjectedRolesMembershipAndStatus() throws Exception {
-        var body = json.readTree(userBody(PASSWORD));
-        var object = (com.fasterxml.jackson.databind.node.ObjectNode) body;
-        object.put("status", "platform_admin").put("memberRole", "owner").put("organizationId", ids.get("org"));
-        object.putArray("roles").add("platform_admin");
+    void anonymousSelfRegistrationRejectsInjectedRolesWithoutCreatingAUser() throws Exception {
+        var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(userBody(PASSWORD));
+        body.put("status", "platform_admin").put("memberRole", "owner").put("organizationId", ids.get("org"));
+        body.putArray("roles").add("platform_admin");
+        mvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body)))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("identity.access_denied"));
+        em.flush();
+        assertThat(jdbc.queryForObject("select count(*) from users where email=?", Integer.class, ids.get("newEmail"))).isZero();
+    }
+    @Test
+    void selfRegistrationWithoutRolesIgnoresInjectedMembershipAndStatus() throws Exception {
+        var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(userBody(PASSWORD));
+        body.put("status", "platform_admin").put("memberRole", "owner").put("organizationId", ids.get("org"));
         mvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body)))
                 .andExpect(status().isCreated());
         em.flush();
         var user = jdbc.queryForObject("select id from users where email=?", java.util.UUID.class, ids.get("newEmail"));
         assertThat(jdbc.queryForList("select r.code from roles r join user_role_assignments a on a.role_id=r.id where a.user_id=?", String.class, user)).containsExactly("participant");
         assertThat(jdbc.queryForObject("select count(*) from organization_members where user_id=?", Integer.class, user)).isZero();
+        assertThat(jdbc.queryForObject("select status from users where id=?", String.class, user)).isEqualTo("active");
     }
     @Test
     void onlyOrganizationOwnerOrAdminCanAssignMemberRolesAndNoGlobalRoleIsGranted() throws Exception {
