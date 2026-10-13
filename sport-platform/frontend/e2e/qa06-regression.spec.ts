@@ -26,7 +26,7 @@ for (const path of ['/organizer/events', '/operator/payments', '/events/demo/dis
 test('QA06-02 QR keeps its square geometry at 375px', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await openAuditPage(page, base, 'organizer')
-  const box = await page.locator('svg').boundingBox()
+  const box = await page.locator('[class*=publicCard] svg').boundingBox()
   expect(box?.width).toBe(140)
   expect(box?.height).toBe(140)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
@@ -193,6 +193,15 @@ for (const target of ['organizer', 'participant']) {
       await expect(page.locator('body')).toContainText('МуниципальнаяСпортивнаяШкола')
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    if (target === 'organizer') {
+      await navigate(page, `${base}/entries`)
+      const table = page.locator('[class*=table]').filter({ has: page.locator('table') }).first()
+      await expect(page.locator('table tbody tr').first()).toBeVisible()
+      expect(await page.locator('table td').first().evaluate(node => getComputedStyle(node).overflowWrap)).toBe('normal')
+      await table.evaluate(node => { node.scrollLeft = node.scrollWidth })
+      expect(await table.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    }
   })
 }
 
@@ -223,7 +232,6 @@ test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page 
 
 test('QA06-22 judge can discover the results panel from primary navigation', async ({ page }) => {
   await openAuditPage(page, '/', 'judge')
-  knownDefect()
   await expect(page.getByRole('navigation', { name: 'Основная навигация' })
     .getByRole('link', { name: 'Результаты', exact: true })).toBeVisible()
 })
