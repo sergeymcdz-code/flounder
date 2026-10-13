@@ -28,6 +28,11 @@ public class RegistrationLookupService implements RegistrationLookup {
     }
 
     @Override
+    public List<RegistrationLookupResult> findByDisciplineId(UUID id) {
+        return toResults(registrationRepository.findByEventDisciplineId(id));
+    }
+
+    @Override
     public RegistrationLookupResult getById(UUID registrationId) {
         return findById(registrationId)
                 .orElseThrow(() -> new IllegalArgumentException(

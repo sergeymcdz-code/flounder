@@ -3,7 +3,7 @@ package com.acme.sportplatform.common.exception;
 public class BusinessException extends RuntimeException {
 
     private final String code;
-    private final java.util.List<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>
+    private final java.util.List<?>
             violations;
 
     public BusinessException(String code, String message) {
@@ -13,14 +13,14 @@ public class BusinessException extends RuntimeException {
     public BusinessException(
             String code,
             String message,
-            java.util.List<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>
+            java.util.List<?>
                     violations) {
         super(message);
         this.code = code;
         this.violations = java.util.List.copyOf(violations);
     }
 
-    public java.util.List<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>
+    public java.util.List<?>
             getViolations() {
         return violations;
     }

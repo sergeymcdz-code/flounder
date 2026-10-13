@@ -23,7 +23,7 @@ public class SwimResultsUseCase {
     private final EventDisciplineLookup disciplines;
     private final RegistrationLookup registrations;
     private final EventAccessService access;
-    private final RuleExecutionLogRepository logs;
+    private final com.acme.sportplatform.results.RuleExecutionLog logs;
     private final GetCompetitionUnitDetailsUseCase details;
     private final ObjectMapper json;
 
@@ -34,7 +34,7 @@ public class SwimResultsUseCase {
             EventDisciplineLookup disciplines,
             RegistrationLookup registrations,
             EventAccessService access,
-            RuleExecutionLogRepository logs,
+            com.acme.sportplatform.results.RuleExecutionLog logs,
             GetCompetitionUnitDetailsUseCase details,
             ObjectMapper json) {
         this.units = units;
@@ -202,18 +202,11 @@ public class SwimResultsUseCase {
         }
         rankDiscipline(unit.getEventDisciplineId());
         var table = details.execute(unitId);
-        if (correcting && changed)
-            logs.save(
-                    new RuleExecutionLogEntity(
-                            discipline.eventId(),
-                            discipline.id(),
-                            userId,
-                            previous,
-                            json.valueToTree(table),
-                            (int)
-                                    Math.min(
-                                            Integer.MAX_VALUE,
-                                            (System.nanoTime() - started) / 1_000_000)));
+        if (correcting && changed) {
+            UUID runId = logs.begin(discipline.eventId(), discipline.id(), "RANKING", previous, userId);
+            logs.finish(runId, json.valueToTree(table), List.of(),
+                    Math.min(Integer.MAX_VALUE, (System.nanoTime() - started) / 1_000_000));
+        }
         return table;
     }
 
