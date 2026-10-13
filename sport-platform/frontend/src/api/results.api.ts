@@ -217,12 +217,12 @@ export function recalculatePlaces(
  * Публикует результаты либо возвращает unit в DRAFT.
  * Backend: PLATFORM_ADMIN, OPERATOR, ORGANIZER или JUDGE.
  */
-export function changeCompetitionUnitPublication(
+export async function changeCompetitionUnitPublication(
   unitId: CompetitionUnitId,
   published: boolean,
   accessToken: string,
 ): Promise<CompetitionUnitDetailsResponse> {
-  return apiFetch<CompetitionUnitDetailsResponse>(
+  await apiFetch<void>(
     `/api/v1/competition-units/${encodeURIComponent(unitId)}/publication`,
     {
       method: 'POST',
@@ -233,6 +233,7 @@ export function changeCompetitionUnitPublication(
       body: JSON.stringify({ published }),
     },
   )
+  return getCompetitionUnitDetails(unitId, accessToken)
 }
 
 export function getCompetitionUnitsByDiscipline(

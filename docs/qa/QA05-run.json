@@ -1,0 +1,124 @@
+{
+  "seed": {
+    "eventId": "ff0421e5-e761-439b-83f5-01bf53617d43",
+    "date": "2026-10-17",
+    "slug": "otkrytyy-kubok-samary-po-plavaniyu-demo-qa05-2026-10-13t14-23-10-881z",
+    "suffix": " · QA05 2026-10-13T14:23:10.881Z"
+  },
+  "steps": [
+    {
+      "name": "1. Anonymous overview, program, organizer QR and settings",
+      "durationMs": 3016,
+      "errors": 0
+    },
+    {
+      "name": "2. Excel download, 203/200/3 report and duplicate-free reimport",
+      "durationMs": 6826,
+      "errors": 0
+    },
+    {
+      "name": "3. Parent mobile submission, organizer confirmation and secretary payment",
+      "durationMs": 12717,
+      "errors": 1
+    },
+    {
+      "name": "4. Seeding, validator, schedule, draft PDF and anonymous publication",
+      "durationMs": 24399,
+      "errors": 3
+    },
+    {
+      "name": "5. Secretary live, three next heats, Demov search, polling and PWA",
+      "durationMs": 16592,
+      "errors": 0
+    },
+    {
+      "name": "6. Published withdrawal preserves neighbors, schedule and validator WARNING",
+      "durationMs": 15403,
+      "errors": 1
+    },
+    {
+      "name": "7. Times/DNS/DSQ, shared places 1,1,3, publication, correction and final PDF",
+      "durationMs": 47465,
+      "errors": 4
+    }
+  ],
+  "timings": {
+    "set-M-with-errors.xlsx": 796,
+    "set-M.xlsx": 630,
+    "seeding": 299,
+    "liveRefresh": 14948
+  },
+  "audit": [
+    {
+      "kind": "http",
+      "message": "403 GET http://localhost:8080/api/v1/venues"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 ()"
+    },
+    {
+      "kind": "http",
+      "message": "400 POST http://localhost:8080/api/v1/competition-units/94549360-cefb-4c2a-883a-d1cd56aa0ffc/finish"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 400 ()"
+    },
+    {
+      "kind": "http",
+      "message": "400 POST http://localhost:8080/api/v1/competition-units/15797a75-22c2-497f-a877-80dddf8941fb/finish"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 400 ()"
+    }
+  ],
+  "baseCommit": "0a758521b5acbe3f4daaa4f3b5595bf426c2c19d",
+  "mode": "real-backend",
+  "status": "failed",
+  "openDefects": [
+    "QA05-01",
+    "QA05-02",
+    "QA05-03",
+    "QA05-07",
+    "QA05-08",
+    "QA05-09"
+  ],
+  "fixedDefects": [
+    "QA05-04",
+    "QA05-05",
+    "QA05-06"
+  ],
+  "finalCounts": {
+    "eventId": "ff0421e5-e761-439b-83f5-01bf53617d43",
+    "registrations": 202,
+    "importedRegistrations": 200,
+    "importedProfiles": 120,
+    "demov": [
+      {
+        "status": "PAID",
+        "paymentStatus": "PAID",
+        "seedTimeMs": 47200
+      },
+      {
+        "status": "PAID",
+        "paymentStatus": "PAID",
+        "seedTimeMs": 109500
+      }
+    ],
+    "withdrawn": 1
+  },
+  "artifacts": {
+    "screenshots": 66,
+    "widths": [
+      1366,
+      375
+    ],
+    "pdfs": [
+      "QA05-draft-start-list.pdf",
+      "QA05-start-list.pdf",
+      "QA05-results.pdf"
+    ]
+  }
+}

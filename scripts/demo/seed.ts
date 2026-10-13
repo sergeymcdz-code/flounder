@@ -71,7 +71,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   let version = unique(await api.request<Row[]>('GET', '/regulation-versions', undefined, adminToken),
     row => row.regulationTemplateId === regulationTemplate.id && row.versionNo === 1, `${REGULATION_CODE} v1`);
   if (!version) version = await api.request<Row>('POST', `/regulation-templates/${regulationTemplate.id}/versions`, regulationVersionBody(), adminToken);
-  if (version.status !== 'PUBLISHED') await api.request('POST', `/regulation-versions/${version.id}/publish`, undefined, adminToken);
+  if (String(version.status).toUpperCase() !== 'PUBLISHED') await api.request('POST', `/regulation-versions/${version.id}/publish`, undefined, adminToken);
   let event = unique(await api.request<Row[]>('GET', '/events', undefined, adminToken),
     row => row.title === title, title);
   if (!event) event = await api.request<Row>('POST', '/events', eventBody({
