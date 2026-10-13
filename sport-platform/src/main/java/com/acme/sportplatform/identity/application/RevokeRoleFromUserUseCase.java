@@ -29,11 +29,12 @@ public class RevokeRoleFromUserUseCase {
 
     @Transactional
     public void execute(UUID userId, String roleCode) {
+        if ("platform_admin".equals(roleCode)) AdminSelfProtection.assertNotSelf(userId);
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("identity.user_not_found", "User not found"));
+                .orElseThrow(() -> new BusinessException("identity.user_not_found", "Пользователь не найден"));
 
         RoleEntity role = roleRepository.findByCode(roleCode)
-                .orElseThrow(() -> new BusinessException("identity.role_not_found", "Role not found"));
+                .orElseThrow(() -> new BusinessException("identity.role_not_found", "Роль не найдена"));
 
         userRoleAssignmentRepository
                 .deleteByUserIdAndRoleIdAndEventIdIsNullAndOrganizationIdIsNull(user.getId(), role.getId());

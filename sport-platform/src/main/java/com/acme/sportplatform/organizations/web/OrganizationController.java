@@ -1,26 +1,32 @@
 package com.acme.sportplatform.organizations.web;
 
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.organizations.api.AddOrganizationMemberRequest;
 import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
 import com.acme.sportplatform.organizations.api.OrganizationMemberResponse;
 import com.acme.sportplatform.organizations.api.OrganizationResponse;
+import com.acme.sportplatform.organizations.api.UpdateOrganizationMemberRequest;
 import com.acme.sportplatform.organizations.application.OrganizationService;
+
 import jakarta.validation.Valid;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/organizations")
@@ -46,6 +52,23 @@ public class OrganizationController {
             @Valid @RequestBody AddOrganizationMemberRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.addMember(
                 id, request, getCurrentUserId(principal, isPlatformAdmin(authentication)), isPlatformAdmin(authentication)));
+    }
+
+    @PatchMapping("/{id}/members/{userId}")
+    @PreAuthorize("isAuthenticated()")
+    public OrganizationMemberResponse updateMember(@PathVariable UUID id, @PathVariable UUID userId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal, Authentication authentication,
+            @Valid @RequestBody UpdateOrganizationMemberRequest request) {
+        return organizationService.updateMember(id, userId, request.memberRole(),
+                getCurrentUserId(principal, isPlatformAdmin(authentication)), isPlatformAdmin(authentication));
+    }
+
+    @DeleteMapping("/{id}/members/{userId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteMember(@PathVariable UUID id, @PathVariable UUID userId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal, Authentication authentication) {
+        organizationService.deleteMember(id, userId, getCurrentUserId(principal, isPlatformAdmin(authentication)), isPlatformAdmin(authentication));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/members")

@@ -14,7 +14,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.ArgumentCaptor;
 import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -38,8 +37,7 @@ class JwtAuthenticationFilterTest {
         JwtService jwtService = mock(JwtService.class);
         var entryPoint = mock(RestAuthenticationEntryPoint.class);
         var users = mock(UserRepository.class);
-        var assignments = mock(UserRoleAssignmentRepository.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, users, assignments, entryPoint);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, users, entryPoint);
 
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
@@ -65,9 +63,31 @@ class JwtAuthenticationFilterTest {
         var error = ArgumentCaptor.forClass(InsufficientAuthenticationException.class);
         verify(entryPoint).commence(eq(request), eq(response), error.capture());
         assertThat(error.getValue()).hasMessage("JWT invalid").hasCauseInstanceOf(InvalidTokenException.class);
-        verifyNoInteractions(filterChain, users, assignments);
+        verifyNoInteractions(filterChain, users);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication())
                 .isNull();
+    }
+    @Test
+    void missingUserGetsOrdinaryAuthenticationErrorWithoutContinuingTheRequest() throws ServletException, IOException {
+        var jwtService = mock(JwtService.class);
+        var users = mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository.class);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        var filter = new JwtAuthenticationFilter(jwtService, users, new com.acme.sportplatform.common.web.RestAuthenticationEntryPoint(mapper));
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/v1/auth/me");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        var chain = mock(FilterChain.class);
+        var id = UUID.randomUUID();
+        request.addHeader("Authorization", "Bearer missing-user-token");
+        when(jwtService.parse("missing-user-token")).thenReturn(io.jsonwebtoken.Jwts.claims()
+                .subject("missing@test.example").add("uid", id.toString()).add("roles", java.util.List.of("participant")).build());
+        when(users.findAuthenticationById(id)).thenReturn(java.util.List.of());
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(mapper.readTree(response.getContentAsByteArray()).get("code").asText()).isEqualTo("authentication_required");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(chain);
     }
 }

@@ -5,6 +5,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.acme.sportplatform.identity.UserMembershipLookup;
+
 public record UserDetailsResponse(
         UUID id,
         String email,
@@ -12,8 +14,10 @@ public record UserDetailsResponse(
         String status,
         OffsetDateTime createdAt,
         Profile profile,
-        List<String> roles
+        List<Role> roles,
+        List<UserMembershipLookup.Membership> memberships
 ) {
+        public record Role(String code, String name, UUID organizationId, UUID eventId) {}
         public record Profile(
                 String firstName,
                 String lastName,

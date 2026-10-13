@@ -1,0 +1,24 @@
+.page { min-width: 0; }
+.heading, .toolbar, .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.heading { justify-content: space-between; }
+.toolbar { margin: 24px 0; }
+.toolbar label { display: grid; gap: 6px; flex: 1; }
+.page input, .page select, .dialog input, .dialog select, .page textarea { padding: 9px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); max-width: 100%; }
+.page button, .dialog button { cursor: pointer; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface, white); color: var(--color-text); }
+.page button:disabled, .dialog button:disabled { cursor: default; opacity: .55; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.table th, .table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; vertical-align: top; }
+.table th:first-child { width: 22%; }
+.table th:last-child { width: 23%; }
+.badge { display: inline-block; padding: 3px 7px; border-radius: var(--radius-sm); background: var(--color-primary-soft); margin: 2px; font-size: .8rem; }
+.dialog { width: min(520px, calc(100% - 48px)); border: 1px solid var(--color-border); border-radius: var(--radius-lg, 12px); padding: 24px; max-height: 85vh; overflow-y: auto; }
+.dialog::backdrop { background: #0006; }
+.form { display: grid; gap: 14px; }
+.form > label { display: grid; gap: 6px; }
+.checks { display: flex; gap: 12px; flex-wrap: wrap; }
+.checks label { display: flex; align-items: center; gap: 6px; }
+.form fieldset { border: 1px solid var(--color-border); padding: 12px; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; }
+.queue { display: grid; gap: 18px; }
+.card { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.error { color: var(--color-danger, #a51e2b); }

@@ -1,5 +1,13 @@
 package com.acme.sportplatform.identity.application;
 
+import java.util.Locale;
+import java.util.List;
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.api.CreateUserRequest;
 import com.acme.sportplatform.identity.api.UserResponse;
 import com.acme.sportplatform.identity.domain.UserAlreadyExistsException;
@@ -11,9 +19,8 @@ import com.acme.sportplatform.identity.infrastructure.persistence.repository.Pro
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.RoleRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
+
 import jakarta.transaction.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 @Service
 public class CreateUserUseCase {
@@ -38,6 +45,14 @@ public class CreateUserUseCase {
 
     @Transactional
     public UserResponse execute(CreateUserRequest request) {
+        List<String> roleCodes = List.of("participant");
+        if (request.roles() != null) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || auth.getAuthorities().stream().noneMatch(a -> "ROLE_PLATFORM_ADMIN".equals(a.getAuthority())))
+                throw new BusinessException("identity.access_denied", "Только администратор платформы может назначать роли при создании пользователя");
+            roleCodes = request.roles().stream().distinct().toList();
+        }
+
         if (userRepository.existsByEmail(request.email())) {
             throw new UserAlreadyExistsException(request.email());
         }
@@ -69,19 +84,21 @@ public class CreateUserUseCase {
         profile.setClubName(request.clubName());
         profileRepository.save(profile);
 
-        RoleEntity participantRole = roleRepository.findByCode("participant")
-                .orElseThrow(() -> new IllegalStateException("Default participant role not found"));
+        for (String roleCode : roleCodes) {
+            RoleEntity role = roleRepository.findByCode(roleCode)
+                    .orElseThrow(() -> new BusinessException("identity.role_not_found", "Роль не найдена"));
 
-        UserRoleAssignmentEntity assignment = new UserRoleAssignmentEntity();
-        assignment.setUserId(savedUser.getId());
-        assignment.setRoleId(participantRole.getId());
-        userRoleAssignmentRepository.save(assignment);
+            UserRoleAssignmentEntity assignment = new UserRoleAssignmentEntity();
+            assignment.setUserId(savedUser.getId());
+            assignment.setRoleId(role.getId());
+            userRoleAssignmentRepository.save(assignment);
+        }
 
         return new UserResponse(
                 savedUser.getId(),
                 savedUser.getEmail(),
                 savedUser.getPhone(),
-                savedUser.getStatus(),
+                savedUser.getStatus().toUpperCase(Locale.ROOT),
                 savedUser.getCreatedAt()
         );
     }

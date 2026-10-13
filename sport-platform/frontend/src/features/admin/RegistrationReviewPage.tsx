@@ -1,4 +1,8 @@
-import { useState } from 'react'
+import { getOrganizationRequests, approveOrganizationRequest, rejectOrganizationRequest, type OrganizationRegistrationResponse } from '../../api/organizations.api'
+import { AdminDialog } from './AdminDialog'
+import { adminError } from './admin-utils'
+import adminStyles from './Admin.module.css'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ApiError } from '../../api/http'
 import {
@@ -196,4 +200,54 @@ export function RegistrationReviewPage() {
       </form>
     </section>
   )
+}
+// Organization moderation uses its own API; athlete moderation above remains available.
+export function OrganizationRegistrationReviewPage() {
+  const { session } = useAuth()
+  const token = session?.accessToken ?? ''
+  const [requests, setRequests] = useState<OrganizationRegistrationResponse[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reload, setReload] = useState(0)
+  const [selected, setSelected] = useState<{ id: string; name: string; approve: boolean } | null>(null)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState('')
+  useEffect(() => {
+    let active = true
+    setLoading(true); setError('')
+    getOrganizationRequests(token).then(value => { if (active) setRequests(value) })
+      .catch(err => { if (active) setError(adminError(err)) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [token, reload])
+  async function decide(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selected || busy) return
+    if (!selected.approve && !reason.trim()) { setFormError('Укажите причину отклонения.'); return }
+    setBusy(true); setFormError('')
+    try {
+      if (selected.approve) await approveOrganizationRequest(token, selected.id)
+      else await rejectOrganizationRequest(token, selected.id, reason.trim())
+      setSelected(null); setReload(value => value + 1)
+    } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
+  }
+  return <section className={adminStyles.page}><h1>Заявки организаций</h1>
+    {loading ? <p role="status">Загружаем заявки…</p> : error ? <p className={adminStyles.error} role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
+      : !requests.length ? <p>Заявок организаций на рассмотрении нет.</p> : <div className={adminStyles.queue}>
+        {requests.map(request => <article key={request.id} className={adminStyles.card}>
+          <h2>{request.organizationName}</h2><p>{request.legalName || request.organizationType} · ИНН: {request.inn || '—'}</p>
+          <p>{request.contactEmail} {request.contactPhone}</p><p>Подана: {new Date(request.createdAt).toLocaleDateString('ru-RU')}</p>
+          <div className={adminStyles.actions}>{[true, false].map(approve => <button key={String(approve)} onClick={() => {
+            setSelected({ id: request.id, name: request.organizationName, approve }); setReason(''); setFormError('')
+          }}>{approve ? 'Одобрить' : 'Отклонить'}</button>)}</div>
+        </article>)}
+      </div>}
+    {selected && <AdminDialog title={selected.approve ? 'Одобрить заявку' : 'Отклонить заявку'} busy={busy} onClose={() => setSelected(null)}>
+      <form className={adminStyles.form} onSubmit={decide}><p>{selected.name}</p>
+        {selected.approve ? <p>Создать организацию и назначить заявителя владельцем?</p> : <label>Причина отклонения<textarea required maxLength={2000} disabled={busy} value={reason} onChange={event => setReason(event.target.value)} /></label>}
+        {formError && <p className={adminStyles.error} role="alert">{formError}</p>}
+        <button type="submit" disabled={busy}>{busy ? 'Сохраняем…' : 'Подтвердить'}</button>
+      </form>
+    </AdminDialog>}
+  </section>
 }

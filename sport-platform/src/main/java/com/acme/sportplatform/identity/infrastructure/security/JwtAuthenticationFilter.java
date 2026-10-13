@@ -13,13 +13,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
+import com.acme.sportplatform.common.web.UserBlockedException;
 import com.acme.sportplatform.identity.domain.ExpiredTokenException;
 import com.acme.sportplatform.identity.domain.InvalidTokenException;
-import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
 
 import io.jsonwebtoken.Claims;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,15 +31,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository users;
-    private final UserRoleAssignmentRepository assignments;
     private final RestAuthenticationEntryPoint entryPoint;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserRepository users,
-            UserRoleAssignmentRepository assignments, RestAuthenticationEntryPoint entryPoint) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+            UserRepository users,
+            RestAuthenticationEntryPoint entryPoint) {
+        this.users = users; this.entryPoint = entryPoint;
         this.jwtService = jwtService;
-        this.users = users;
-        this.assignments = assignments;
-        this.entryPoint = entryPoint;
     }
 
     @Override
@@ -76,18 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new InvalidTokenException();
             }
 
-            if (!(rolesClaim instanceof Collection<?> rawRoles)) {
-                throw new InvalidTokenException();
-            }
-
-            List<String> roles = rawRoles.stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .map(String::trim)
-                    .filter(role -> !role.isBlank())
-                    .toList();
-
-            if (roles.isEmpty()) {
+            if (!(rolesClaim instanceof Collection<?>)) {
                 throw new InvalidTokenException();
             }
 
@@ -99,10 +87,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new InvalidTokenException();
             }
 
-            var user = users.findById(userId).orElseThrow(InvalidTokenException::new);
-            if (!"active".equalsIgnoreCase(user.getStatus())) throw new InvalidTokenException();
-
-            List<GrantedAuthority> authorities = assignments.findRoleCodesByUserId(userId).stream()
+            // One fresh database read supplies both status and global roles, without a cache.
+            var snapshot = users.findAuthenticationById(userId);
+            var user = snapshot.isEmpty() ? null : snapshot.getFirst().getUser();
+            if (user == null) throw new InsufficientAuthenticationException("Пользователь не найден");
+            if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) throw new UserBlockedException();
+            // Global authority changes take effect immediately; scoped assignments are not global privileges.
+            List<GrantedAuthority> authorities = snapshot.stream().map(row -> row.getRoleCode()).filter(java.util.Objects::nonNull)
+                    .distinct()
                     .map(role -> role.startsWith("ROLE_")
                             ? role.substring("ROLE_".length())
                             : role)
@@ -115,7 +107,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     userId,
                     user.getEmail(),
                     "",
-                    "active",
+                    user.getStatus(),
                     authorities
             );
 
@@ -128,13 +120,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
+        } catch (UserBlockedException | InsufficientAuthenticationException ex) {
+            SecurityContextHolder.clearContext();
+            entryPoint.commence(request, response, ex);
+            return;
         } catch (ExpiredTokenException ex) {
             SecurityContextHolder.clearContext();
             entryPoint.commence(request, response, new InsufficientAuthenticationException("JWT expired", ex));
+            return;
         } catch (InvalidTokenException ex) {
             SecurityContextHolder.clearContext();
             entryPoint.commence(request, response, new InsufficientAuthenticationException("JWT invalid", ex));
+            return;
         }
+        filterChain.doFilter(request, response);
     }
 }

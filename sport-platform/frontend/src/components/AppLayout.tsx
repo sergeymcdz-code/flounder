@@ -57,16 +57,22 @@ export function AppLayout() {
           {canReviewRegistrations ? (
             <NavLink
               className={navLinkClassName}
-              to="/admin/registrations/review"
+              to="/organizer/registrations/review"
             >
               Заявки
             </NavLink>
           ) : null}
 
           {isPlatformAdmin ? (
-            <NavLink className={navLinkClassName} to="/admin/sports">
-              Виды спорта
-            </NavLink>
+            <details className={styles.adminMenu}>
+              <summary className={styles.navLink}>Администрирование</summary>
+              <div className={styles.adminLinks}>
+                <NavLink className={navLinkClassName} to="/admin/users">Пользователи</NavLink>
+                <NavLink className={navLinkClassName} to="/admin/organizations">Организации</NavLink>
+                <NavLink className={navLinkClassName} to="/admin/registration-requests">Заявки организаций</NavLink>
+                <NavLink className={navLinkClassName} to="/admin/sports">Виды спорта</NavLink>
+              </div>
+            </details>
           ) : null}
 
           {canManageResults ? (
