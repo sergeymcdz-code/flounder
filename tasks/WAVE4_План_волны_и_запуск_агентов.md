@@ -14,7 +14,7 @@
 | 6 | QA04 Безопасность и RBAC | `QA04_…` | `qa/QA04-security-rbac` | QA security | Высокое | да |
 | 7 | QA05 E2E Playwright по сценарию демо | `QA05_…` | `qa/QA05-e2e-demo` | QA e2e | Высокое | да |
 | 8 | QA06 UI/UX-аудит | `QA06_…` | `qa/QA06-ui-ux` | QA frontend | Высокое | да |
-| 9 | M02 Пароли, reset, rate-limit, refresh | `M02_…` | `feat/M02-auth-hardening` | E identity + auth UI | Высокое | нет — **после слияния M01 (#15)** |
+| 9 | M02 Пароли, reset, rate-limit, refresh | `M02_…` | `feat/M02-auth-hardening` | E identity + auth UI | Высокое | да, 13.10 ≈20:25 МСК |
 | 10 | M03 Серверные PDF-протоколы | `M03_…` | `feat/M03-server-pdf` | новый модуль documents | Высокое | нет |
 | 11 | M04 Документы участников | `M04_…` | `feat/M04-participant-documents` | новый модуль files + registrations | Высокое | нет |
 | 12 | M05 E-mail уведомления (outbox) | `M05_…` | `feat/M05-email-notifications` | новый модуль notifications | Высокое | нет |
@@ -25,7 +25,9 @@
 | 18 | M10 Публикация результатов и «Финиш» (фикс QA05-07/09, без миграции) | `M10_Публикация_результатов_и_финиш.md` | `fix/M10-results-publication` | B results/publication | Высокое | да, 13.10 ≈18:40 МСК |
 | 17 | D01 Визуальный стиль | `D01_…` | `feat/D01-visual-style` | frontend CSS | Высокое | нет — **после** слияния QA06 или с ребейзом |
 
-Треды Codex волны 4 (постоянные ссылки `https://chatgpt.com/local/<id>`): M01 `01a13558-91af-72cb-9ab8-f08f33ae706e`, T11 `01a1355b-5279-74d9-b42b-671b52b1e048`, QA01 `01a13568-5dcc-707e-a2e0-a7bb9861b062`, QA02 `01a13569-efae-70ba-b7f3-9b661ecdd073`, QA03 `01a1356a-26d7-753a-9757-a030146b307c`, QA04 `01a1356b-1a4d-7028-94ca-f96ee78d804b`, QA05 `01a1356b-4a48-7417-9614-03de34268072`, QA06 `01a1356c-1ebe-73d1-9b32-6c1945a7205e`, M10 `01a135dd-b0bb-74c7-90dc-be532a031066`, M09 `01a135e9-118f-74dd-8024-79a8a1ccd048`.
+Треды Codex волны 4 (постоянные ссылки `https://chatgpt.com/local/<id>`): M01 `01a13558-91af-72cb-9ab8-f08f33ae706e`, T11 `01a1355b-5279-74d9-b42b-671b52b1e048`, QA01 `01a13568-5dcc-707e-a2e0-a7bb9861b062`, QA02 `01a13569-efae-70ba-b7f3-9b661ecdd073`, QA03 `01a1356a-26d7-753a-9757-a030146b307c`, QA04 `01a1356b-1a4d-7028-94ca-f96ee78d804b`, QA05 `01a1356b-4a48-7417-9614-03de34268072`, QA06 `01a1356c-1ebe-73d1-9b32-6c1945a7205e`, M10 `01a135dd-b0bb-74c7-90dc-be532a031066`, M09 `01a135e9-118f-74dd-8024-79a8a1ccd048`, M02 `01a1361e-debf-7444-adb7-10309670e045`.
+
+**Статус 13.10 20:30 МСК:** слиты #15 M01, #18 QA03, #26 QA02, #24 M10 (публикация результатов без обхода), #21 QA06. Открыт #25 M09 (правки, слияние после демо). В работе: M02. Стенд: ждёт второго deploy.sh.
 
 **Статус 13.10 19:00 МСК (сессия `session_015wFupGxw1cTcVbyr5i5oBj`):** слиты #16 QA04, #17 QA05, #19 QA01 (+docs #20, #22). В правках: #15 M01 (раунд 2 — ребейз на QA04), #18 QA03 (known-defect IT + guard 409), #21 QA06 (бинарники, judge-ссылка). QA02 перезапущен (упал на прокси 16:20). Ревью — `docs/reviews/`. Слияния делает Claude после зелёного CI (разрешение Сергея 13.10). Практика: намеренно красные тесты — класс `*IT` + `@Tag("known-defect")`, вне surefire/CI.
 
