@@ -44,11 +44,16 @@ MVP-платформа для управления спортивными мер
 Copy-Item .env.example .env
 ```
 
-Задайте минимум JWT secret длиной от 32 символов:
+`JWT_SECRET` — Base64 от не менее 32 случайных байт: `JwtService` декодирует
+его через `Decoders.BASE64`. Обычная строка с дефисами вызывает HTTP 500 при входе.
+Сгенерируйте подходящий секрет с OpenSSL (Bash):
 
-```dotenv
-JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
+```bash
+export JWT_SECRET="$(openssl rand -base64 48)"
 ```
+
+В локальном `.env` замените значение `JWT_SECRET` на сгенерированную Base64-строку,
+а не на текст команды. Секрет не должен попадать в Git.
 
 > `.env` не должен попадать в Git. Maven/Spring Boot может не загружать `.env`
 > автоматически. Перед локальным запуском установите `JWT_SECRET` как переменную
@@ -57,7 +62,7 @@ JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
 PowerShell:
 
 ```powershell
-$env:JWT_SECRET = "local-development-secret-must-be-at-least-32-characters-long"
+$env:JWT_SECRET = (openssl rand -base64 48)
 ```
 
 ## Запуск инфраструктуры
@@ -79,7 +84,7 @@ docker compose ps
 Из корня проекта:
 
 ```powershell
-$env:JWT_SECRET = "local-development-secret-must-be-at-least-32-characters-long"
+$env:JWT_SECRET = (openssl rand -base64 48)
 mvn spring-boot:run
 ```
 
@@ -172,7 +177,7 @@ GET /api/v1/public/events/{eventId}/disciplines/{eventDisciplineId}/results
 
 | Переменная | Назначение / локальный вариант |
 |---|---|
-| `JWT_SECRET` | Обязательный секрет JWT, не менее 32 символов |
+| `JWT_SECRET` | Обязательный секрет JWT: Base64 от ≥32 случайных байт (`openssl rand -base64 48`) |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/sport_platform` |
 | `SPRING_DATASOURCE_USERNAME` | `sport_user` |
 | `SPRING_DATASOURCE_PASSWORD` | `sport_pass` (только локально) |

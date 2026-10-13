@@ -96,6 +96,13 @@ export function OrganizerHeatsPage() {
   return (
     <div className={styles.stack}>
       <article className={styles.card}>
+        <label>
+          <input type="checkbox" checked={false} disabled aria-describedby="circle-seed-help" />
+          Круговой посев трёх сильнейших заплывов
+        </label>
+        <p id="circle-seed-help" className={styles.muted}>
+          Круговой посев выключен. Настройка доступна только для просмотра.
+        </p>
         <div className={styles.actions}>
           <button
             className={styles.primary}

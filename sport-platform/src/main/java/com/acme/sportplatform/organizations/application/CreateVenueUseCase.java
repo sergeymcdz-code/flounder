@@ -23,8 +23,8 @@ public class CreateVenueUseCase {
     public VenueResponse execute(CreateVenueRequest request) {
         var meta = request.venueMeta();
         for (String field : java.util.List.of("lanes", "courseLength")) {
-            if (!meta.containsKey(field)) continue;
             Object value = meta.get(field);
+            if (value == null) continue;
             var allowed = field.equals("lanes") ? java.util.Set.of(6, 8, 10) : java.util.Set.of(25, 50);
             if (!(value instanceof Integer number) || !allowed.contains(number))
                 throw com.acme.sportplatform.common.RequestValidation.field(
