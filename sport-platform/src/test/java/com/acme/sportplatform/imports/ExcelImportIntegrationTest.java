@@ -24,6 +24,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.mock.web.MockMultipartFile;
@@ -433,6 +436,72 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         var stream = new ByteArrayOutputStream();
         workbook.write(stream);
         return stream.toByteArray();
+    }
+
+    @Test
+    void qa03_03ReusesProfileAfterPublicFormChangesAthleteIdentity() throws Exception {
+        UUID userId = UUID.randomUUID();
+        jdbc.update("insert into users (id,email,password_hash,status) values (?,?,'test','active')",
+                userId, "qa03-identity-" + userId + "@example.com");
+        var original = new ProfileData("Правкин", "Иван", null, LocalDate.of(2014, 5, 10), "M", "Дельфин");
+        var revised = new ProfileData("Исправкин", "Иван", null, original.birthDate(), "M", original.club());
+        var first = profileLookup.upsertForUser(userId, original);
+        var changed = profileLookup.upsertForUser(userId, revised);
+        assertThat(changed.id()).isEqualTo(first.id());
+        UUID event = event();
+        var report = upload(event, file(List.of(List.of(revised.lastName(), revised.firstName(),
+                "10.05.2014", "M", "M-50-FREE", "32.15"))));
+        assertThat(report.errors()).isEmpty();
+        assertThat(report.createdProfiles()).isZero();
+        assertThat(registrations.findByEventId(event)).singleElement()
+                .satisfies(r -> assertThat(r.getParticipantProfileId()).isEqualTo(first.id()));
+    }
+
+    @Test
+    void acceptsFiveThousandDistinctRowsAtTheImportLimit() throws Exception {
+        UUID event = event();
+        var entries = java.util.stream.IntStream.range(0, 5000).mapToObj(i ->
+                List.of("Лимитов" + i, "Иван", "10.05.2014", "M", "M-50-FREE", "32.15")).toList();
+        byte[] workbook = file(entries);
+        long started = System.nanoTime();
+        var report = upload(event, workbook);
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+        assertThat(report.total()).isEqualTo(5000);
+        assertThat(report.created()).isEqualTo(5000);
+        assertThat(report.createdProfiles()).isEqualTo(5000);
+        assertThat(report.errors()).isEmpty();
+        assertThat(registrations.findByEventId(event)).hasSize(5000);
+        System.out.println("QA03 5000 distinct rows import duration: " + elapsedMs + " ms");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "демо|родитель|1990-01-01|m")
+    void qa03_04ConflictingImportedAthleteReturns409AndKeepsAccountProfile(String externalKey) throws Exception {
+        UUID event = event();
+        var data = new ProfileData("Импортов", "Иван", null, LocalDate.of(2014, 5, 10), "M", "Дельфин");
+        assertThat(upload(event, file(List.of(List.of(data.lastName(), data.firstName(),
+                "10.05.2014", "M", "M-50-FREE", "32.15")))).created()).isEqualTo(1);
+        UUID userId = UUID.randomUUID();
+        jdbc.update("insert into users (id,email,password_hash,status) values (?,?,'test','active')",
+                userId, "qa03-import-" + userId + "@example.com");
+        UUID accountProfileId = UUID.randomUUID();
+        jdbc.update("insert into profiles (id,user_id,first_name,last_name,birth_date,gender,external_key) values (?,?,'Родитель','Демо','1990-01-01','M',?)",
+                accountProfileId, userId, externalKey);
+        UUID secondDiscipline = disciplines.findByEventId(event).stream()
+                .filter(d -> d.getCode().equals("M-100-FREE")).findFirst().orElseThrow().getId();
+        var request = new com.acme.sportplatform.registrations.api.PublicRegistrationRequest(data,
+                List.of(new com.acme.sportplatform.registrations.api.PublicRegistrationRequest.Item(secondDiscipline, 65000L)));
+        mvc.perform(post("/api/v1/public/events/" + events.findById(event).orElseThrow().getPublicSlug() + "/registrations")
+                .with(user(principal(userId, "PARTICIPANT"))).contentType("application/json")
+                .content(mapper.writeValueAsBytes(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("identity.profile_already_attached"));
+        assertThat(registrations.findByEventId(event)).hasSize(1);
+        var accountProfile = profiles.findById(accountProfileId).orElseThrow();
+        assertThat(accountProfile.getFirstName()).isEqualTo("Родитель");
+        assertThat(accountProfile.getLastName()).isEqualTo("Демо");
+        assertThat(accountProfile.getExternalKey()).isEqualTo(externalKey);
     }
 
     private UUID event() {
