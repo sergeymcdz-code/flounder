@@ -45,4 +45,6 @@ export type Registration = {
   submittedAt: string
   createdAt: string
   updatedAt: string
+  documents?: Partial<Record<import('../../api/documents.api').DocumentType, import('../../api/documents.api').DocumentStatus>>
+  admissionWarnings?: string[]
 }

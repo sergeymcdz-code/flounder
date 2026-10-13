@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { ApiError } from '../../api/http'
 import { getMyRegistrations } from '../../api/registrations.api'
 import { useAuth } from '../../app/providers/AuthProvider'
@@ -165,6 +166,12 @@ export function MyRegistrationsPage() {
 
       {!isLoading && !errorMessage && registrations.length > 0 ? (
         <div className={styles.list}>
+          {accessToken && [...new Map(registrations.map((r) => [r.participantProfileId, r])).values()].map((r) => (
+            <div key={r.participantProfileId}>
+              <h2>{getParticipantName(r)}</h2>
+              <DocumentsPanel profileId={r.participantProfileId} accessToken={accessToken} />
+            </div>
+          ))}
           {registrations.map((registration) => {
             const statusHint = getStatusHint(registration.status)
 

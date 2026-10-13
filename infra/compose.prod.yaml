@@ -52,12 +52,15 @@ services:
       APP_PAYMENTS_PROVIDER: ${APP_PAYMENTS_PROVIDER:-MANUAL}
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
+      FILES_STORAGE_DIR: ${FILES_STORAGE_DIR:-/data/files}
       DEMO_SEED: ${DEMO_SEED:-false}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: production
       TZ: ${TZ:-Europe/Samara}
       # 4 GB server: cap the JVM heap so that postgres + caddy + OS fit as well.
       JAVA_TOOL_OPTIONS: "-Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+    volumes:
+      - flounder_files:${FILES_STORAGE_DIR:-/data/files}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
       interval: 15s
@@ -104,6 +107,7 @@ services:
     logging: *default-logging
 
 volumes:
+  flounder_files:
   postgres_data:
   caddy_data:
   caddy_config:
