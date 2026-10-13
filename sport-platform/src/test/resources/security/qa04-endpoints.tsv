@@ -122,3 +122,7 @@ GET	/api/v1/events/{eventId}/registrations	manage	true	200
 GET	/api/v1/organizations/{id}/notification-settings	owner	true	200
 PUT	/api/v1/organizations/{id}/notification-settings	owner	true	200		[{"templateCode":"registration_confirmed","enabled":false}]
 GET	/api/v1/events/{eventId}/notifications	manage	true	200
+GET	/api/v1/events/{eventId}/analytics	organize	true	200
+GET	/api/v1/events/{eventId}/analytics/export.xlsx	organize	true	200
+GET	/api/v1/organizations/{id}/analytics	owner	true	200
+GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
