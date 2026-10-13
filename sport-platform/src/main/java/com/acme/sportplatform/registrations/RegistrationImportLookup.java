@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-public interface ImportedRegistrationLookup {
+public interface RegistrationImportLookup {
     boolean upsert(UUID eventId, UUID disciplineId, ProfileLookupResult profile, Long seedTimeMs, BigDecimal fee);
     List<ExportRow> findByEventId(UUID eventId);
 

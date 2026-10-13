@@ -32,19 +32,6 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
-    public boolean isCreatedBy(UUID eventId, UUID userId) {
-        return eventRepository.findById(eventId)
-                .map(event -> userId.equals(event.getCreatedByUserId())).orElse(false);
-    }
-
-    @Override
-    public String getPublicSlug(UUID eventId) {
-        return eventRepository.findById(eventId)
-                .map(EventEntity::getPublicSlug)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + eventId));
-    }
-
-    @Override
     public EventLookupResult getById(UUID eventId) {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -54,7 +41,9 @@ public class EventLookupService implements EventLookup {
         return new EventLookupResult(
                 event.getId(),
                 event.getSportId(),
-                event.getStatus(), event.getRegistrationOpenAt(), event.getRegistrationCloseAt(), sessions.views(eventId), event.getVenueId(), event.getCreatedByUserId(), event.getSettingsJson()
+                event.getStatus(), event.getRegistrationOpenAt(), event.getRegistrationCloseAt(),
+                sessions.views(eventId), event.getVenueId(), event.getCreatedByUserId(), event.getSettingsJson(),
+                event.getPublicSlug()
         );
     }
 }

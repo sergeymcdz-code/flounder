@@ -9,10 +9,20 @@ public record EventLookupResult(
         java.time.OffsetDateTime registrationOpenAt,
         java.time.OffsetDateTime registrationCloseAt,
         java.util.List<EventSessionView> sessions,
-        UUID venueId, UUID createdByUserId, String settingsJson) {
+        UUID venueId,
+        UUID createdByUserId,
+        String settingsJson,
+        String publicSlug) {
+    public EventLookupResult(UUID id, UUID sportId, String status,
+            java.time.OffsetDateTime registrationOpenAt, java.time.OffsetDateTime registrationCloseAt,
+            java.util.List<EventSessionView> sessions, UUID venueId, UUID createdByUserId, String settingsJson) {
+        this(id, sportId, status, registrationOpenAt, registrationCloseAt, sessions,
+                venueId, createdByUserId, settingsJson, null);
+    }
+
     public EventLookupResult(UUID id, UUID sportId, String status,
             java.time.OffsetDateTime registrationOpenAt, java.time.OffsetDateTime registrationCloseAt,
             java.util.List<EventSessionView> sessions) {
-        this(id,sportId,status,registrationOpenAt,registrationCloseAt,sessions,null,null,"{}");
+        this(id, sportId, status, registrationOpenAt, registrationCloseAt, sessions, null, null, "{}");
     }
 }

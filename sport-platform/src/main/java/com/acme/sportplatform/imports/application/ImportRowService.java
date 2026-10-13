@@ -1,9 +1,9 @@
 package com.acme.sportplatform.imports.application;
 
-import com.acme.sportplatform.competition.ImportDisciplineLookup.Discipline;
-import com.acme.sportplatform.identity.ImportedProfileLookup;
+import com.acme.sportplatform.competition.EventDisciplineSummary;
+import com.acme.sportplatform.identity.ProfileLookup;
 import com.acme.sportplatform.imports.domain.ImportRow;
-import com.acme.sportplatform.registrations.ImportedRegistrationLookup;
+import com.acme.sportplatform.registrations.RegistrationImportLookup;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,18 +11,18 @@ import java.util.UUID;
 
 @Service
 public class ImportRowService {
-    private final ImportedProfileLookup profiles;
-    private final ImportedRegistrationLookup registrations;
+    private final ProfileLookup profiles;
+    private final RegistrationImportLookup registrations;
 
-    public ImportRowService(ImportedProfileLookup profiles, ImportedRegistrationLookup registrations) {
+    public ImportRowService(ProfileLookup profiles, RegistrationImportLookup registrations) {
         this.profiles = profiles;
         this.registrations = registrations;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Result execute(UUID eventId, ImportRow row, Discipline discipline) {
-        ImportedProfileLookup.Result profile = profiles.findOrCreateByExternalKey(row.profile());
-        boolean created = registrations.upsert(eventId, discipline.id(), profile.profile(), row.seedTimeMs(), discipline.entryFee());
+    public Result execute(UUID eventId, ImportRow row, EventDisciplineSummary discipline) {
+        var profile = profiles.findOrCreateByExternalKey(row.externalKey(), row.profile());
+        boolean created = registrations.upsert(eventId, discipline.id(), profile, row.seedTimeMs(), discipline.entryFeeAmount());
         return new Result(created, profile.created());
     }
 

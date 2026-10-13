@@ -1,7 +1,7 @@
 package com.acme.sportplatform.registrations.application;
 
 import com.acme.sportplatform.identity.ProfileLookupResult;
-import com.acme.sportplatform.registrations.ImportedRegistrationLookup;
+import com.acme.sportplatform.registrations.RegistrationImportLookup;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntity;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,11 +15,11 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-public class ImportedRegistrationLookupService implements ImportedRegistrationLookup {
+public class RegistrationImportLookupService implements RegistrationImportLookup {
     private final RegistrationRepository registrations;
     private final ObjectMapper mapper;
 
-    public ImportedRegistrationLookupService(RegistrationRepository registrations, ObjectMapper mapper) {
+    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper) {
         this.registrations = registrations;
         this.mapper = mapper;
     }

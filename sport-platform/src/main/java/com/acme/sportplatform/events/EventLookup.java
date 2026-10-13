@@ -8,8 +8,4 @@ public interface EventLookup {
     Set<UUID> accessibleEventIds(UUID userId);
 
     EventLookupResult getById(UUID eventId);
-
-    boolean isCreatedBy(UUID eventId, UUID userId);
-
-    String getPublicSlug(UUID eventId);
 }

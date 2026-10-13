@@ -2,10 +2,10 @@ package com.acme.sportplatform.imports.application;
 
 import com.acme.sportplatform.common.TimeParser;
 import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.competition.ImportDisciplineLookup;
-import com.acme.sportplatform.competition.ImportDisciplineLookup.Discipline;
+import com.acme.sportplatform.competition.EventDisciplineLookup;
+import com.acme.sportplatform.competition.EventDisciplineSummary;
 import com.acme.sportplatform.imports.domain.ExcelRowParser;
-import com.acme.sportplatform.registrations.ImportedRegistrationLookup;
+import com.acme.sportplatform.registrations.RegistrationImportLookup;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.Row;
@@ -24,18 +24,18 @@ import java.util.stream.Collectors;
 
 @Service
 public class ExcelWorkbookService {
-    private final ImportDisciplineLookup disciplines;
-    private final ImportedRegistrationLookup registrations;
+    private final EventDisciplineLookup disciplines;
+    private final RegistrationImportLookup registrations;
     private final ObjectMapper mapper;
 
-    public ExcelWorkbookService(ImportDisciplineLookup disciplines, ImportedRegistrationLookup registrations, ObjectMapper mapper) {
+    public ExcelWorkbookService(EventDisciplineLookup disciplines, RegistrationImportLookup registrations, ObjectMapper mapper) {
         this.disciplines = disciplines;
         this.registrations = registrations;
         this.mapper = mapper;
     }
 
     public byte[] template(UUID eventId) {
-        List<Discipline> items = disciplines.findByEventId(eventId);
+        List<EventDisciplineSummary> items = disciplines.findByEventId(eventId);
         try (var workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Заявки");
             row(sheet, 0, ExcelRowParser.HEADERS);
@@ -58,8 +58,8 @@ public class ExcelWorkbookService {
     }
 
     public byte[] export(UUID eventId) {
-        Map<UUID, Discipline> byId = disciplines.findByEventId(eventId).stream()
-                .collect(Collectors.toMap(Discipline::id, Function.identity()));
+        Map<UUID, EventDisciplineSummary> byId = disciplines.findByEventId(eventId).stream()
+                .collect(Collectors.toMap(EventDisciplineSummary::id, Function.identity()));
         try (var workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Заявки");
             var headers = new java.util.ArrayList<>(ExcelRowParser.HEADERS);
@@ -76,10 +76,10 @@ public class ExcelWorkbookService {
                 };
                 String birth = p.path("birthDate").asText("");
                 if (!birth.isEmpty()) birth = LocalDate.parse(birth).format(DateTimeFormatter.ofPattern("dd.MM.uuuu"));
-                Discipline discipline = byId.get(entry.disciplineId());
+                EventDisciplineSummary discipline = byId.get(entry.disciplineId());
                 row(sheet, index++, List.of(p.path("lastName").asText(""), p.path("firstName").asText(""),
                         p.path("middleName").asText(""), birth, gender, p.path("clubName").asText(""),
-                        discipline == null ? "" : discipline.code(), TimeParser.format(entry.seedTimeMs()),
+                        discipline == null ? "" : discipline.code(), entry.seedTimeMs() == null ? "" : TimeParser.format(entry.seedTimeMs()),
                         statusLabel(entry.status()), paymentLabel(entry.paymentStatus())));
             }
             textColumns(sheet);

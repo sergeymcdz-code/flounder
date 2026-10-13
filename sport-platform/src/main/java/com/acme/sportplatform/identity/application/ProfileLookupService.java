@@ -16,9 +16,11 @@ import java.util.UUID;
 public class ProfileLookupService implements ProfileLookup {
 
     private final ProfileRepository profileRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
-    public ProfileLookupService(ProfileRepository profileRepository) {
+    public ProfileLookupService(ProfileRepository profileRepository, jakarta.persistence.EntityManager entityManager) {
         this.profileRepository = profileRepository;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -53,14 +55,22 @@ public class ProfileLookupService implements ProfileLookup {
     public ProfileLookupResult findOrCreateByExternalKey(
             String externalKey, com.acme.sportplatform.identity.ProfileData data) {
         String key = normalizeKey(externalKey);
+        // Hold the athlete lock until the surrounding row transaction commits.
+        entityManager.createNativeQuery("select pg_advisory_xact_lock(hashtextextended(:key, 0))")
+                .setParameter("key", key).getSingleResult();
         var profile = profileRepository.findByExternalKey(key).orElse(null);
-        if (profile == null) {
+        boolean created = profile == null;
+        if (created) {
             profile = new ProfileEntity();
             profile.setExternalKey(key);
             apply(profile, data);
             profile = profileRepository.save(profile);
         }
-        return toResult(profile);
+        if ((profile.getClubName() == null || profile.getClubName().isBlank())
+                && data != null && data.club() != null && !data.club().isBlank()) {
+            profile.setClubName(data.club());
+        }
+        return toResult(profile).withCreated(created);
     }
 
     @Transactional

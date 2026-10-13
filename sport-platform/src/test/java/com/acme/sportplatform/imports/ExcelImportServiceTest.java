@@ -1,12 +1,12 @@
 package com.acme.sportplatform.imports;
 
-import com.acme.sportplatform.competition.ImportDisciplineLookup;
-import com.acme.sportplatform.competition.ImportDisciplineLookup.Discipline;
+import com.acme.sportplatform.competition.EventDisciplineLookup;
+import com.acme.sportplatform.competition.EventDisciplineSummary;
+import com.acme.sportplatform.competition.AgeGroup;
 import com.acme.sportplatform.imports.application.ExcelImportService;
 import com.acme.sportplatform.imports.application.ImportRowService;
 import com.acme.sportplatform.imports.application.ImportRowValidator;
 import com.acme.sportplatform.imports.domain.ExcelRowParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,16 +24,17 @@ import static org.mockito.Mockito.*;
 
 class ExcelImportServiceTest {
     private final UUID eventId = UUID.randomUUID();
-    private final ImportDisciplineLookup disciplines = mock(ImportDisciplineLookup.class);
+    private final EventDisciplineLookup disciplines = mock(EventDisciplineLookup.class);
     private final ImportRowService rows = mock(ImportRowService.class);
     private final ExcelImportService service = new ExcelImportService(disciplines, rows,
-            new ImportRowValidator(new ObjectMapper()));
-    private final Discipline published = discipline("M-50-FREE", "PUBLISHED");
+            new ImportRowValidator());
+    private final EventDisciplineSummary published = discipline("M-50-FREE");
 
     @ParameterizedTest
     @MethodSource("rowFailures")
     void reportsRuntimeAndCommitFailuresAndRetriesNextDuplicateRow(RuntimeException failure) throws Exception {
         when(disciplines.findByEventId(eventId)).thenReturn(List.of(published));
+        when(disciplines.findPublishedByEventId(eventId)).thenReturn(List.of(published));
         when(rows.execute(eq(eventId), any(), eq(published))).thenThrow(failure)
                 .thenReturn(new ImportRowService.Result(true, true));
         var report = service.execute(eventId, UUID.randomUUID(), file(List.of(
@@ -59,7 +60,8 @@ class ExcelImportServiceTest {
 
     @Test
     void doesNotInvokeTransactionalPersistenceForInvalidDisciplinesOrGroups() throws Exception {
-        when(disciplines.findByEventId(eventId)).thenReturn(List.of(published, discipline("DRAFT", "DRAFT")));
+        when(disciplines.findByEventId(eventId)).thenReturn(List.of(published, discipline("DRAFT")));
+        when(disciplines.findPublishedByEventId(eventId)).thenReturn(List.of(published));
         when(rows.execute(eq(eventId), any(), eq(published))).thenReturn(new ImportRowService.Result(true, true));
         var report = service.execute(eventId, UUID.randomUUID(), file(List.of(
                 List.of("Код", "10.05.2014", "М", "X-999"),
@@ -75,9 +77,10 @@ class ExcelImportServiceTest {
         verifyNoMoreInteractions(rows);
     }
 
-    private static Discipline discipline(String code, String status) {
-        return new Discipline(UUID.randomUUID(), code, code, status, "M",
-                "[{\"gender\":\"M\",\"birthYearFrom\":2010,\"birthYearTo\":2015}]", BigDecimal.ZERO);
+    private static EventDisciplineSummary discipline(String code) {
+        return new EventDisciplineSummary(UUID.randomUUID(), UUID.randomUUID(), code, code, "INDIVIDUAL", "HEAT",
+                "TIME", "ASC", null, BigDecimal.ZERO, "RUB", "{}", 50, "FREE", "M",
+                List.of(new AgeGroup("young", "Мальчики", "M", 2010, 2015)), "BY_AGE_GROUP", null, null, null);
     }
 
     private static MockMultipartFile file(List<List<String>> entries) throws Exception {

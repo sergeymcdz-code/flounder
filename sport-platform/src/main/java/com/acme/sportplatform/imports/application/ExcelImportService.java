@@ -1,8 +1,8 @@
 package com.acme.sportplatform.imports.application;
 
 import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.competition.ImportDisciplineLookup;
-import com.acme.sportplatform.competition.ImportDisciplineLookup.Discipline;
+import com.acme.sportplatform.competition.EventDisciplineLookup;
+import com.acme.sportplatform.competition.EventDisciplineSummary;
 import com.acme.sportplatform.imports.api.ImportReport;
 import com.acme.sportplatform.imports.api.ImportReport.RowError;
 import com.acme.sportplatform.imports.domain.ExcelRowParser;
@@ -29,11 +29,11 @@ public class ExcelImportService {
     public static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
     public static final int MAX_ROWS = 5000;
     private static final Logger log = LoggerFactory.getLogger(ExcelImportService.class);
-    private final ImportDisciplineLookup disciplines;
+    private final EventDisciplineLookup disciplines;
     private final ImportRowService rowService;
     private final ImportRowValidator validator;
 
-    public ExcelImportService(ImportDisciplineLookup disciplines, ImportRowService rowService, ImportRowValidator validator) {
+    public ExcelImportService(EventDisciplineLookup disciplines, ImportRowService rowService, ImportRowValidator validator) {
         this.disciplines = disciplines;
         this.rowService = rowService;
         this.validator = validator;
@@ -44,7 +44,7 @@ public class ExcelImportService {
         if (name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
             throw new BusinessException("imports.invalid_file_type", "Поддерживаются только файлы .xlsx");
         }
-        if (file.getSize() > MAX_FILE_SIZE) throw new BusinessException("imports.file_too_large", "Размер файла превышает 5 МБ");
+        if (file.getSize() > MAX_FILE_SIZE) throw new org.springframework.web.multipart.MaxUploadSizeExceededException(MAX_FILE_SIZE);
         if (file.isEmpty()) throw new BusinessException("imports.empty_file", "Файл пуст");
         ExcelRowParser parser = new ExcelRowParser();
         // Validate the entire file structure before committing any rows.
@@ -57,8 +57,10 @@ public class ExcelImportService {
                 if (row.getRowNum() > 0 && !parser.isEmpty(row, columns)) total++;
             }
             if (total > MAX_ROWS) throw new BusinessException("imports.too_many_rows", "В файле больше 5 000 строк заявок");
-            Map<String, Discipline> byCode = disciplines.findByEventId(eventId).stream()
-                    .collect(Collectors.toMap(Discipline::code, Function.identity()));
+            Set<String> eventCodes = disciplines.findByEventId(eventId).stream()
+                    .map(EventDisciplineSummary::code).collect(Collectors.toSet());
+            Map<String, EventDisciplineSummary> byCode = disciplines.findPublishedByEventId(eventId).stream()
+                    .collect(Collectors.toMap(EventDisciplineSummary::code, Function.identity()));
             var errors = new ArrayList<RowError>();
             Set<String> imported = new HashSet<>();
             int created = 0, updated = 0, skipped = 0, createdProfiles = 0;
@@ -66,7 +68,10 @@ public class ExcelImportService {
                 if (row.getRowNum() == 0 || parser.isEmpty(row, columns)) continue;
                 try {
                     ImportRow parsed = parser.parse(row, columns);
-                    Discipline discipline = byCode.get(parsed.disciplineCode());
+                    EventDisciplineSummary discipline = byCode.get(parsed.disciplineCode());
+                    if (discipline == null && eventCodes.contains(parsed.disciplineCode())) {
+                        throw new ImportRowException("Дисциплина (код)", "дисциплина не опубликована");
+                    }
                     validator.validate(parsed, discipline);
                     if (imported.contains(parsed.key())) { skipped++; continue; }
                     ImportRowService.Result result = rowService.execute(eventId, parsed, discipline);

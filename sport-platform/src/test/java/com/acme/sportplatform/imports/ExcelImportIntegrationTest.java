@@ -8,7 +8,12 @@ import com.acme.sportplatform.identity.infrastructure.persistence.repository.Pro
 import com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal;
 import com.acme.sportplatform.imports.api.ImportReport;
 import com.acme.sportplatform.imports.application.ImportRowValidator;
-import com.acme.sportplatform.competition.ImportDisciplineLookup.Discipline;
+import com.acme.sportplatform.competition.EventDisciplineSummary;
+import com.acme.sportplatform.competition.AgeGroup;
+import com.acme.sportplatform.identity.ProfileLookup;
+import com.acme.sportplatform.identity.ProfileData;
+import com.acme.sportplatform.identity.ProfileExternalKey;
+import java.time.ZoneId;
 import com.acme.sportplatform.imports.domain.ExcelRowParser;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntity;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
@@ -53,6 +58,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired DisciplineTemplateRepository templates;
     @Autowired RegistrationRepository registrations;
     @Autowired ProfileRepository profiles;
+    @Autowired ProfileLookup profileLookup;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockitoSpyBean ImportRowValidator validator;
 
@@ -162,7 +168,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             return invocation.callRealMethod();
-        }).when(validator).validate(any(), nullable(Discipline.class));
+        }).when(validator).validate(any(), nullable(EventDisciplineSummary.class));
         UUID event = event();
         var draft = disciplines.findByEventId(event).getFirst();
         draft.setStatus("DRAFT");
@@ -182,7 +188,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(report.errors().get(1).message()).isEqualTo("не подходит под возрастные группы вида");
         assertThat(report.errors().get(2).message()).contains("не опубликована");
         assertThat(registrations.findByEventId(event)).hasSize(1);
-        verify(validator, times(4)).validate(any(), any());
+        verify(validator, times(3)).validate(any(), any());
     }
 
     @Test
@@ -226,7 +232,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         UUID event = event();
         byte[] file = file(List.of(
                 List.of("Даты", "Валид", "10.05.2014", "М", "M-50-FREE", "32.15"),
-                List.of("Даты", "Будущее", LocalDate.now().plusDays(1).toString(), "М", "M-50-FREE", ""),
+                List.of("Даты", "Будущее", LocalDate.now(ZoneId.of("Europe/Moscow")).plusDays(1).toString(), "М", "M-50-FREE", ""),
                 List.of("Даты", "Прошлое", "31.12.1899", "М", "M-50-FREE", ""),
                 List.of("Даты", "Пусто", "", "М", "M-50-FREE", ""),
                 List.of("Время", "Число", "10.05.2014", "М", "M-50-FREE", "")));
@@ -311,7 +317,8 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
             assertThat(report.created()).isEqualTo(1);
             assertThat(report.createdProfiles()).isEqualTo(1);
             assertThat(report.errors()).extracting(ImportReport.RowError::row).containsExactly(2);
-            assertThat(profiles.findByExternalKey("откат|сбой|2014-05-10|m")).isEmpty();
+            assertThat(jdbc.queryForObject("select count(*) from profiles where external_key = ?", Long.class,
+                    "откат|сбой|2014-05-10|m")).isZero();
             assertThat(registrations.findByEventId(event)).hasSize(1);
         } finally {
             jdbc.execute("alter table registrations drop constraint test_import_failure");
@@ -332,6 +339,45 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(first.errors()).isEmpty();
         assertThat(second.errors()).isEmpty();
         assertThat(registrations.findByEventId(event)).hasSize(1);
+    }
+
+    @Test
+    void managesImportsForOrganizationMemberWhoDidNotCreateTheEvent() throws Exception {
+        UUID event = event();
+        UUID organizationId = events.findById(event).orElseThrow().getOrganizationId();
+        UUID member = UUID.randomUUID();
+        jdbc.update("insert into users (id,email,password_hash,status) values (?,?,'test','active')",
+                member, "member-" + member + "@example.com");
+        jdbc.update("insert into organizations (id,type,name,created_at,updated_at) values (?,'SPORT_CLUB','Import club',now(),now())",
+                organizationId);
+        jdbc.update("insert into organization_members (id,organization_id,user_id,member_role,created_at) values (?,?,?,'OPERATOR',now())",
+                UUID.randomUUID(), organizationId, member);
+        var operator = principal(member, "OPERATOR");
+        for (String endpoint : List.of("/import-template", "/export")) {
+            mvc.perform(get(base(event) + endpoint).with(user(operator))).andExpect(status().isOk());
+        }
+        byte[] file = file(List.of(List.of("Член", "Клуба", "10.05.2014", "М", "M-50-FREE", "32.15")));
+        mvc.perform(multipart(base(event) + "/import").file(part("rows.xlsx", file)).with(user(operator)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.created").value(1));
+    }
+
+    @Test
+    void sharedProfileLookupSerializesCreationAndFillsOnlyMissingClub() throws Exception {
+        var data = new ProfileData("Общий", "Профиль", null, LocalDate.of(2014, 5, 10), "M", null);
+        String key = ProfileExternalKey.build(data.lastName(), data.firstName(), data.birthDate(), data.gender());
+        var a = CompletableFuture.supplyAsync(() -> profileLookup.findOrCreateByExternalKey(key, data));
+        var b = CompletableFuture.supplyAsync(() -> profileLookup.findOrCreateByExternalKey(key, data));
+        var first = a.get();
+        var second = b.get();
+        assertThat(first.id()).isEqualTo(second.id());
+        assertThat(first.created()).isNotEqualTo(second.created());
+        var filled = profileLookup.findOrCreateByExternalKey(key,
+                new ProfileData(data.lastName(), data.firstName(), null, data.birthDate(), "M", "Первый клуб"));
+        assertThat(filled.created()).isFalse();
+        assertThat(filled.clubName()).isEqualTo("Первый клуб");
+        var retained = profileLookup.findOrCreateByExternalKey(key,
+                new ProfileData(data.lastName(), data.firstName(), null, data.birthDate(), "M", "Другой клуб"));
+        assertThat(retained.clubName()).isEqualTo("Первый клуб");
     }
 
     @Test
@@ -431,11 +477,10 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
             d.setRankingStrategy("ASC");
             d.setStatus("PUBLISHED");
             d.setGender(code.substring(0, 1));
-            d.setAgeGroupsJson("""
-                    [{"code":"young","gender":"X","birthYearFrom":2014,"birthYearTo":2015},
-                     {"code":"middle","gender":"X","birthYearFrom":2012,"birthYearTo":2013},
-                     {"code":"old","gender":"X","birthYearFrom":2010,"birthYearTo":2011}]
-                    """);
+            d.setAgeGroups(List.of(
+                    new AgeGroup("young", "Младшие", "X", 2014, 2015),
+                    new AgeGroup("middle", "Средние", "X", 2012, 2013),
+                    new AgeGroup("old", "Старшие", "X", 2010, 2011)));
             d.setEntryFeeAmount(code.equals("M-100-FREE") ? new BigDecimal("100.00") : BigDecimal.ZERO);
             d.setSettingsJson("{}");
             d.setCreatedAt(now);

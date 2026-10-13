@@ -5,7 +5,8 @@ import com.acme.sportplatform.events.EventLookup;
 import com.acme.sportplatform.imports.api.ImportReport;
 import com.acme.sportplatform.imports.application.ExcelImportService;
 import com.acme.sportplatform.imports.application.ExcelWorkbookService;
-import com.acme.sportplatform.imports.application.ImportAccessService;
+import com.acme.sportplatform.events.EventAccessService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -16,7 +17,6 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,12 +32,12 @@ import java.nio.charset.StandardCharsets;
 @PreAuthorize("hasAnyRole('ORGANIZER', 'OPERATOR', 'PLATFORM_ADMIN')")
 public class ExcelImportController {
     private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    private final ImportAccessService access;
+    private final EventAccessService access;
     private final ExcelImportService imports;
     private final ExcelWorkbookService workbooks;
     private final EventLookup events;
 
-    public ExcelImportController(ImportAccessService access, ExcelImportService imports, ExcelWorkbookService workbooks,
+    public ExcelImportController(EventAccessService access, ExcelImportService imports, ExcelWorkbookService workbooks,
                                  EventLookup events) {
         this.access = access;
         this.imports = imports;
@@ -47,7 +47,7 @@ public class ExcelImportController {
 
     @GetMapping(value = "/import-template", produces = XLSX)
     @Operation(summary = "Скачать шаблон импорта заявок")
-    public ResponseEntity<byte[]> template(@PathVariable UUID eventId, Authentication principal) {
+    public ResponseEntity<byte[]> template(@PathVariable UUID eventId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         access.assertCanManage(eventId, principal);
         return download(workbooks.template(eventId), "registration-import-template.xlsx");
     }
@@ -64,17 +64,17 @@ public class ExcelImportController {
                                      "errors":[{"row":17,"column":"Дата рождения","message":"неверный формат, ожидается ДД.ММ.ГГГГ"}],
                                      "createdProfiles":180}
                                     """))))
-    public ImportReport upload(@PathVariable UUID eventId, Authentication principal, @RequestPart("file") MultipartFile file) {
+    public ImportReport upload(@PathVariable UUID eventId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal, @RequestPart("file") MultipartFile file) {
         access.assertCanManage(eventId, principal);
-        UUID actorId = principal.getPrincipal() instanceof AuthenticatedUserPrincipal user ? user.getUserId() : null;
+        UUID actorId = principal.getUserId();
         return imports.execute(eventId, actorId, file);
     }
 
     @GetMapping(value = "/export", produces = XLSX)
     @Operation(summary = "Выгрузить все заявки события в Excel")
-    public ResponseEntity<byte[]> export(@PathVariable UUID eventId, Authentication principal) {
+    public ResponseEntity<byte[]> export(@PathVariable UUID eventId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         access.assertCanManage(eventId, principal);
-        return download(workbooks.export(eventId), "registrations-" + events.getPublicSlug(eventId) + ".xlsx");
+        return download(workbooks.export(eventId), "registrations-" + events.getById(eventId).publicSlug() + ".xlsx");
     }
 
     private static ResponseEntity<byte[]> download(byte[] bytes, String filename) {

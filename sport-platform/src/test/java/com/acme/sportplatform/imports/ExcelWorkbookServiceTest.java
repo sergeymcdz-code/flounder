@@ -1,8 +1,8 @@
 package com.acme.sportplatform.imports;
 
-import com.acme.sportplatform.competition.ImportDisciplineLookup;
+import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.imports.application.ExcelWorkbookService;
-import com.acme.sportplatform.registrations.ImportedRegistrationLookup;
+import com.acme.sportplatform.registrations.RegistrationImportLookup;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
@@ -17,9 +17,9 @@ class ExcelWorkbookServiceTest {
     @Test
     void exportsEveryRegistrationAndPaymentStatusInRussian() throws Exception {
         UUID eventId = UUID.randomUUID();
-        var disciplines = mock(ImportDisciplineLookup.class);
-        var registrations = mock(ImportedRegistrationLookup.class);
-        var entries = new ArrayList<ImportedRegistrationLookup.ExportRow>();
+        var disciplines = mock(EventDisciplineLookup.class);
+        var registrations = mock(RegistrationImportLookup.class);
+        var entries = new ArrayList<RegistrationImportLookup.ExportRow>();
         List<String> statuses = List.of("DRAFT", "SUBMITTED", "UNDER_REVIEW", "CONFIRMED", "NEEDS_CORRECTION",
                 "REJECTED", "PAID", "ADMITTED", "WITHDRAWN");
         List<String> labels = List.of("Черновик", "Подана", "На рассмотрении", "Подтверждена", "Требует уточнения",
@@ -27,7 +27,7 @@ class ExcelWorkbookServiceTest {
         List<String> payments = List.of("NOT_REQUIRED", "PENDING", "PAID", "REFUNDED");
         List<String> paymentLabels = List.of("Не требуется", "Ожидает оплаты", "Оплачено", "Возвращено");
         for (int i = 0; i < statuses.size(); i++) {
-            entries.add(new ImportedRegistrationLookup.ExportRow(UUID.randomUUID(), "{}", null,
+            entries.add(new RegistrationImportLookup.ExportRow(UUID.randomUUID(), "{}", null,
                     statuses.get(i), payments.get(i % payments.size())));
         }
         when(disciplines.findByEventId(eventId)).thenReturn(List.of());

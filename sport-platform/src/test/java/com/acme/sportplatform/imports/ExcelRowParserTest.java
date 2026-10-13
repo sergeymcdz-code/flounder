@@ -2,7 +2,9 @@ package com.acme.sportplatform.imports;
 
 import com.acme.sportplatform.common.TimeParser;
 import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.identity.ImportedProfileRequest;
+import com.acme.sportplatform.identity.ProfileData;
+import com.acme.sportplatform.identity.ProfileExternalKey;
+import java.time.ZoneId;
 import com.acme.sportplatform.imports.domain.ExcelRowParser;
 import com.acme.sportplatform.imports.domain.ImportRowException;
 import org.apache.poi.ss.usermodel.Row;
@@ -70,14 +72,14 @@ class ExcelRowParserTest {
             assertThatThrownBy(() -> parser.birthDate(cell)).hasMessage("дата рождения не может быть раньше 1900 года");
             cell.setCellValue("01.01.1900");
             assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(1900, 1, 1));
-            cell.setCellValue(LocalDate.now().toString());
-            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.now());
-            cell.setCellValue(LocalDate.now().plusDays(1).toString());
+            cell.setCellValue(LocalDate.now(ZoneId.of("Europe/Moscow")).toString());
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.now(ZoneId.of("Europe/Moscow")));
+            cell.setCellValue(LocalDate.now(ZoneId.of("Europe/Moscow")).plusDays(1).toString());
             assertThatThrownBy(() -> parser.birthDate(cell)).hasMessage("дата рождения не может быть в будущем");
             var style = workbook.createCellStyle();
             style.setDataFormat(workbook.createDataFormat().getFormat("dd.mm.yyyy"));
             cell.setCellStyle(style);
-            cell.setCellValue(LocalDate.now().plusDays(1));
+            cell.setCellValue(LocalDate.now(ZoneId.of("Europe/Moscow")).plusDays(1));
             assertThatThrownBy(() -> parser.birthDate(cell)).hasMessage("дата рождения не может быть в будущем");
             cell.setCellValue(LocalDate.of(1900, 1, 1));
             assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(1900, 1, 1));
@@ -116,12 +118,12 @@ class ExcelRowParserTest {
     void rejectsOtherGender(String input) { assertThatThrownBy(() -> parser.gender(input)).isInstanceOf(ImportRowException.class); }
 
     @ParameterizedTest
-    @CsvSource({"32.15,32150", "0:32.15,32150", "00:32.15,32150", "1:02:30.50,3750500", "02:08.00,128000"})
+    @CsvSource({"32.15,32150", "0:32.15,32150", "00:32.15,32150", "1:02:30.50,3750500", "02:08.00,128000", "0:32,32000", "32,32000", "32.1,32100", "32.123,32123"})
     void parsesSwimmingTime(String input, long expected) { assertThat(TimeParser.parse(input)).isEqualTo(expected); }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "-1.00", "00:60.00", "1:60:00.00", "00:00.00", "NT", "0:32", "32,15", "999999999999999999999:01:01.00"})
-    void rejectsInvalidTime(String input) { assertThatThrownBy(() -> TimeParser.parse(input)).isInstanceOf(IllegalArgumentException.class); }
+    @ValueSource(strings = {"", "-1.00", "00:60.00", "1:60:00.00", "00:00.00", "NT", "32,15", "32.1234", "999999999999999999999:01:01.00"})
+    void rejectsInvalidTime(String input) { assertThatThrownBy(() -> TimeParser.parse(input)).isInstanceOf(BusinessException.class); }
 
     @Test
     void normalizesHeadersAndIgnoresUnknownOptionalColumns() throws Exception {
@@ -139,13 +141,31 @@ class ExcelRowParserTest {
             row.createCell(4).setCellValue("М");
             row.createCell(6).setCellValue("M-50-FREE");
             var parsed = parser.parse(row, columns);
-            assertThat(parsed.profile().externalKey()).isEqualTo("киселев|иван|2014-05-10|m");
+            assertThat(parsed.externalKey()).isEqualTo("киселев|иван|2014-05-10|m");
             assertThat(parsed.profile().middleName()).isNull();
             assertThat(parsed.profile().club()).isNull();
             assertThat(parsed.seedTimeMs()).isNull();
             assertThat(parser.isEmpty(headers.getSheet().createRow(2), columns)).isTrue();
             row.getCell(0).setCellValue("  ");
             assertThatThrownBy(() -> parser.parse(row, columns)).hasMessageContaining("фамилия");
+        }
+    }
+
+    @Test
+    void mapsSharedTimeParserBusinessExceptionToTimeColumn() throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            var sheet = workbook.createSheet();
+            var header = sheet.createRow(0);
+            String[] values = {"Иванов", "Иван", "", "10.05.2014", "М", "", "M-50-FREE", "00:60.00"};
+            var row = sheet.createRow(1);
+            for (int i = 0; i < 8; i++) {
+                header.createCell(i).setCellValue(ExcelRowParser.HEADERS.get(i));
+                row.createCell(i).setCellValue(values[i]);
+            }
+            assertThatThrownBy(() -> parser.parse(row, parser.headers(header)))
+                    .isInstanceOfSatisfying(ImportRowException.class,
+                            ex -> assertThat(ex.column()).isEqualTo(ExcelRowParser.HEADERS.get(7)))
+                    .hasMessage("Неверное время: используйте сс.сс, мм:сс.сс или ч:мм:сс.сс");
         }
     }
 
@@ -165,11 +185,11 @@ class ExcelRowParserTest {
 
     @Test
     void normalizesWhitespaceCaseAndYoInIdentityAndFormatsTime() {
-        var profile = new ImportedProfileRequest("  КИСЕЛЁВ\u00a0 Петров  ", " Иван   Семён ", null,
+        var profile = new ProfileData("  КИСЕЛЁВ\u00a0 Петров  ", " Иван   Семён ", null,
                 LocalDate.of(2014, 5, 10), "M", null);
-        assertThat(profile.externalKey()).isEqualTo("киселев петров|иван семен|2014-05-10|m");
+        assertThat(ProfileExternalKey.build(profile.lastName(), profile.firstName(), profile.birthDate(), profile.gender())).isEqualTo("киселев петров|иван семен|2014-05-10|m");
         assertThat(TimeParser.format(32150L)).isEqualTo("00:32.15");
         assertThat(TimeParser.format(3750500L)).isEqualTo("62:30.50");
-        assertThat(TimeParser.format(null)).isEmpty();
+        assertThat(TimeParser.format(null)).isNull();
     }
 }

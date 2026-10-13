@@ -2,7 +2,9 @@ package com.acme.sportplatform.imports.domain;
 
 import com.acme.sportplatform.common.TimeParser;
 import com.acme.sportplatform.common.exception.BusinessException;
-import com.acme.sportplatform.identity.ImportedProfileRequest;
+import com.acme.sportplatform.identity.ProfileData;
+import com.acme.sportplatform.identity.ProfileExternalKey;
+import java.time.ZoneId;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -72,11 +74,12 @@ public class ExcelRowParser {
         Long seedTimeMs = null;
         if (!time.isEmpty()) {
             try { seedTimeMs = TimeParser.parse(time); }
-            catch (IllegalArgumentException ex) { throw error(7, ex.getMessage()); }
+            catch (BusinessException ex) { throw error(7, ex.getMessage()); }
         }
-        ImportedProfileRequest profile = new ImportedProfileRequest(lastName, firstName, nullable(middleName),
+        ProfileData profile = new ProfileData(lastName, firstName, nullable(middleName),
                 birthDate, gender, nullable(club));
-        if (profile.externalKey().length() > 255) throw error(0, "фамилия и имя слишком длинные для ключа участника");
+        try { ProfileExternalKey.build(lastName, firstName, birthDate, gender); }
+        catch (BusinessException ex) { throw error(0, ex.getMessage()); }
         return new ImportRow(profile, code, seedTimeMs);
     }
 
@@ -96,7 +99,7 @@ public class ExcelRowParser {
                 throw error(3, "неверный формат, ожидается ДД.ММ.ГГГГ");
             }
             if (date.getYear() < 1900) throw error(3, "дата рождения не может быть раньше 1900 года");
-            if (date.isAfter(LocalDate.now())) throw error(3, "дата рождения не может быть в будущем");
+            if (date.isAfter(LocalDate.now(ZoneId.of("Europe/Moscow")))) throw error(3, "дата рождения не может быть в будущем");
             return date;
         } catch (java.time.DateTimeException | IllegalStateException ex) {
             throw error(3, "неверный формат, ожидается ДД.ММ.ГГГГ");
