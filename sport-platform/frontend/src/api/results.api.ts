@@ -214,7 +214,7 @@ export function recalculatePlaces(
 }
 
 /**
- * Публикует результаты либо возвращает unit в DRAFT.
+ * Publishes results: heat → FINISHED; unpublishes results: FINISHED → PUBLISHED.
  * Backend: PLATFORM_ADMIN, OPERATOR, ORGANIZER или JUDGE.
  */
 export async function changeCompetitionUnitPublication(

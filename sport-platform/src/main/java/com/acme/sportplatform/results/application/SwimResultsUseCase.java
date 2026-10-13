@@ -91,8 +91,8 @@ public class SwimResultsUseCase {
                                 java.util.stream.Collectors.toMap(
                                         r -> r.getCompetitionUnitEntryId(), r -> r));
         boolean correcting =
-                !existing.isEmpty() && Set.of("PUBLISHED", "FINISHED").contains(unit.getStatus());
-        if (correcting && Set.of("PUBLISHED", "FINISHED").contains(unit.getStatus())) {
+                !existing.isEmpty() && Set.of("FINISHED", "COMPLETED").contains(unit.getStatus());
+        if (correcting) {
             var auth =
                     org.springframework.security.core.context.SecurityContextHolder.getContext()
                             .getAuthentication();

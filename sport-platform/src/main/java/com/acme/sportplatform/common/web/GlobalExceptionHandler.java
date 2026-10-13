@@ -102,6 +102,11 @@ public class GlobalExceptionHandler {
             case "registrations.discipline_limit_reached" ->
                     HttpStatus.CONFLICT;
 
+            case "results.unit_already_published", "results.start_list_not_published",
+                    "results.unit_not_published", "results.unit_has_no_entries",
+                    "results.unit_has_missing_results", "results.unit_has_unvalidated_results",
+                    "results.unit_has_unranked_results" -> HttpStatus.CONFLICT;
+
             case "results.concurrent_update" ->
                     HttpStatus.CONFLICT;
 

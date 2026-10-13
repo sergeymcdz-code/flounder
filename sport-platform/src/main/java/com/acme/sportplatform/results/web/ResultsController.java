@@ -333,7 +333,8 @@ public class ResultsController {
     }
 
     /**
-     * Публикует результаты либо возвращает unit в статус DRAFT.
+     * Publishes complete results: PUBLISHED/IN_PROGRESS → FINISHED, without moving live.
+     * Unpublishes results: FINISHED → PUBLISHED; only organizer/operator/admin may do this.
      */
     @PostMapping("/competition-units/{unitId}/publication")
     @PreAuthorize(
@@ -345,6 +346,13 @@ public class ResultsController {
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         resultsAccessService.assertUnitAccess(unitId, principal);
+
+        if (!request.published() && principal.getAuthorities().stream().noneMatch(a ->
+                java.util.Set.of("ROLE_ORGANIZER", "ROLE_OPERATOR", "ROLE_PLATFORM_ADMIN")
+                        .contains(a.getAuthority()))) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Снятие опубликованных результатов недоступно судье");
+        }
 
         publishCompetitionUnitUseCase.execute(
                 unitId,

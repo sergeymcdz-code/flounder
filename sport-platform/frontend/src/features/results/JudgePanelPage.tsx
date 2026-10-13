@@ -38,8 +38,9 @@ export function JudgePanelPage() {
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
   const saveButton = useRef<HTMLButtonElement | null>(null)
   const eventId = unit?.eventId ?? params.get('eventId')
-  const published = unit?.status === 'PUBLISHED'
-  const canEdit = !published || hasAnyRole(['operator', 'organizer', 'platform_admin', 'platformadmin'])
+  const resultsPublished = ['FINISHED', 'COMPLETED'].includes(unit?.status ?? '')
+  const canCorrect = hasAnyRole(['operator', 'organizer', 'platform_admin', 'platformadmin'])
+  const canEdit = !resultsPublished || canCorrect
   const loadedUnitId = unit?.id
   const disciplineId = unit?.eventDisciplineId
   const navigationWarning = (location.state as { liveWarning?: string } | null)?.liveWarning
@@ -145,12 +146,14 @@ export function JudgePanelPage() {
     {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
     {unit && !loading && <>
       <div className={styles.toolbarControls}>
-        <button className={styles.saveButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{published ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
-        <button className={styles.publishButton} disabled={busy || (!published && (dirty || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? ''])))} onClick={() => void run(async () => {
-          applyUnit(await changeCompetitionUnitPublication(unit.id, !published, token!))
-          setNotice(published ? 'Публикация снята.' : 'Результаты опубликованы.')
-        })}>{published ? 'Снять с публикации' : 'Опубликовать'}</button>
-        {(['start', 'finish'] as const).map(action => <button key={action} className={styles.unpublishButton} disabled={busy || dirty} onClick={() => void run(async () => {
+        <button className={styles.saveButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
+        {(!resultsPublished || canCorrect) && <button className={styles.publishButton} disabled={busy || dirty || (resultsPublished
+          ? unit.status !== 'FINISHED'
+          : !['PUBLISHED', 'IN_PROGRESS'].includes(unit.status) || !entries.length || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? '']))} onClick={() => void run(async () => {
+          applyUnit(await changeCompetitionUnitPublication(unit.id, !resultsPublished, token!))
+          setNotice(resultsPublished ? 'Публикация результатов снята.' : 'Результаты опубликованы.')
+        })}>{resultsPublished ? 'Снять результаты с публикации' : 'Опубликовать результаты'}</button>}
+        {(['start', 'finish'] as const).map(action => <button key={action} className={styles.unpublishButton} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
           await changeHeatState(unit.id, action, token!)
           const data = await getCompetitionUnitDetails(unit.id, token!)
           applyUnit(data); setNotice(action === 'start' ? 'Заплыв начат.' : 'Заплыв завершён.')

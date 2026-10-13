@@ -362,7 +362,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         const responsePromise = sec.waitForResponse(r => r.url().endsWith(`/${unit.id}/results`) && r.request().method() === 'POST')
         await sec.getByRole('button', { name: 'Сохранить и пересчитать', exact: true }).click()
         expect.soft((await responsePromise).status()).toBe(200)
-        await sec.getByRole('button', { name: 'Опубликовать', exact: true }).click()
+        await sec.getByRole('button', { name: 'Опубликовать результаты', exact: true }).click()
         await expect.soft(sec.getByRole('status').filter({ hasText: 'Результаты опубликованы' })).toBeVisible()
         await expect.soft(sec.getByRole('alert')).toHaveCount(0)
         await screenshots(sec, `07-results-published-${index + 1}`)
@@ -396,21 +396,13 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       }, { timeout: 25_000, message: 'QA05-07: public corrected result is updated' }).toContain('00:48.10')
       await screenshots(sec, '07-secretary-correction')
       await screenshots(spectator, '07-public-corrected')
-      // Explicit continuation to inspect the final PDF despite the publication bug.
+      // Finish after publication closes the heat and advances live.
       for (const unit of selected) {
         await sec.goto(`/operator/competition-units/${unit.id}?eventId=${seed.eventId}`)
         const finishPromise = sec.waitForResponse(r => r.url().endsWith(`/${unit.id}/finish`) && r.request().method() === 'POST')
         await sec.getByRole('button', { name: 'Финиш', exact: true }).click()
         const response = await finishPromise
         expect.soft(response.status(), 'QA05-09: finish after publication').toBe(200)
-        if (!response.ok()) {
-          await screenshots(sec, `07-finish-error-${unit.sequenceNumber}`)
-          await test.step('Continue via UI start/finish after publication reset the heat state', async () => {
-            await sec.getByRole('button', { name: 'Старт', exact: true }).click()
-            await expect(sec.getByRole('status').filter({ hasText: 'Заплыв начат' })).toBeVisible()
-            await sec.getByRole('button', { name: 'Финиш', exact: true }).click()
-          })
-        }
         await expect(sec.getByRole('status').filter({ hasText: 'Заплыв завершён' })).toBeVisible()
       }
       await expect.poll(async () => {

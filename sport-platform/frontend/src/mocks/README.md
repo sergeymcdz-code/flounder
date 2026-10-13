@@ -16,7 +16,7 @@ API contracts and integration notes:
 - The event generation summary is `{disciplines: [{eventDisciplineId, result: GenerationResult}], durationMs}; the previous flat form is also accepted`.
 - `GET /age-group-presets` returns `[{code, name, groups}]`.
 - Pool data comes from numeric `venueMeta.lanes` and `venueMeta.courseLength` in the existing venues list. Missing pool dimensions are shown as unknown; lane choices fall back to the largest assigned lane in the event, or eight when no lanes are assigned.
-- There is no separate results-publication flag: recorded results and the existing heat publication status are used. Publishing a discipline uses the existing per-unit `/publication` operation sequentially; the operation can partially succeed and retry safely.
+- There is no separate results-publication flag: PUBLISHED means the start list is published; publishing complete results changes PUBLISHED/IN_PROGRESS to FINISHED, and unpublishing changes FINISHED to PUBLISHED. FINISHED/COMPLETED results are public. Publishing a discipline uses the existing per-unit `/publication` operation sequentially; the operation can partially succeed and retry safely.
 - The organizer registration DTO adds camelCase `seedTimeMs`, `paymentStatus`, `source`. Age group year bounds can be `null`.
 
 Browser verification:

@@ -85,6 +85,12 @@ export async function publishDisciplineResults(
   heats: Heat[],
   accessToken: string,
 ) {
-  for (const heat of heats)
-    await changeCompetitionUnitPublication(heat.id, true, accessToken)
+  for (const heat of heats) {
+    if (['FINISHED', 'COMPLETED'].includes(heat.status)) continue
+    try {
+      await changeCompetitionUnitPublication(heat.id, true, accessToken)
+    } catch (error) {
+      throw new Error(`Заплыв ${heat.sequenceNumber ?? heat.label} не опубликован. ${error instanceof Error ? error.message : 'Повторите попытку.'}`)
+    }
+  }
 }
