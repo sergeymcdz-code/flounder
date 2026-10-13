@@ -43,7 +43,7 @@ test('all public pages fit 375px, with screenshots and printable protocols', asy
         await page
           .locator('[class*=heatNumber]')
           .evaluate((element) => getComputedStyle(element).fontSize),
-      ).toBe('48px')
+      ).toBe('64px')
     }
     if (route === '/start-list')
       await expect(page.getByRole('table')).toHaveCount(6)
@@ -194,7 +194,7 @@ test('production PWA caches shell and live API and reloads offline', async ({
     name: 'Flounder',
     lang: 'ru',
     display: 'standalone',
-    theme_color: '#0b5b7b',
+    theme_color: '#182126',
   })
   expect(
     manifest.icons.filter((icon: { sizes: string }) =>

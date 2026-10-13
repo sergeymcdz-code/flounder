@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
           lang: 'ru',
           description:
             'Расписание, заплывы и результаты соревнований по плаванию',
-          theme_color: '#0b5b7b',
+          theme_color: '#182126',
           background_color: '#ffffff',
           display: 'standalone',
           start_url: '/',

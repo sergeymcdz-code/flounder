@@ -50,8 +50,8 @@
 .description code {
   padding: 2px 5px;
   border-radius: 4px;
-  background: #edf0f3;
-  color: #405169;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.88em;
 }
@@ -63,25 +63,25 @@
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-weight: 750;
   white-space: nowrap;
 }
 
 .unitStatusDraft {
-  background: #fff4d7;
-  color: #8c5a05;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .unitStatusPublished {
-  background: #e5f7ec;
-  color: #17613c;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .unitStatusNeutral {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .summaryCard,
@@ -126,7 +126,7 @@
 }
 
 .disciplineSummary code {
-  color: #465770;
+  color: var(--color-text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.76rem;
   line-height: 1.45;
@@ -140,20 +140,20 @@
   gap: 24px;
   margin-top: 16px;
   padding: 18px 20px;
-  border: 1px solid #a7dfc0;
-  border-left: 4px solid #17613c;
+  border: 1px solid var(--color-success);
+  border-left: 4px solid var(--color-success);
   border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  background: #edf9f1;
+  background: var(--color-success-soft);
 }
 
 .publishedNotice strong {
-  color: #17613c;
+  color: var(--color-success);
   font-size: 0.98rem;
 }
 
 .publishedNotice p {
   margin: 5px 0 0;
-  color: #365b46;
+  color: var(--color-success);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -195,7 +195,7 @@
 }
 
 .field > span {
-  color: #33435c;
+  color: var(--color-text);
   font-size: 0.87rem;
   font-weight: 750;
 }
@@ -204,9 +204,9 @@
 .resultInput,
 .statusSelect {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 12px;
-  border: 1px solid #bfcddd;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   outline: none;
   background: var(--color-surface);
@@ -217,7 +217,7 @@
 .resultInput:focus,
 .statusSelect:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgb(11 91 123 / 0.14);
+  box-shadow: 0 0 0 2px var(--color-focus);
 }
 
 .field select:disabled,
@@ -234,7 +234,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 16px;
   border: 0;
   border-radius: var(--radius-sm);
@@ -247,7 +247,7 @@
 .publishButton,
 .saveButton {
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-on-primary);
 }
 
 .recalculateButton:hover:not(:disabled),
@@ -259,13 +259,13 @@
 
 .unpublishButton {
   flex: 0 0 auto;
-  border: 1px solid #d6a62c;
-  background: #fff9e9;
-  color: #805100;
+  border: 1px solid var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .unpublishButton:hover:not(:disabled) {
-  background: #fff0bf;
+  background: var(--color-warning-soft);
 }
 
 .recalculateButton:disabled,
@@ -279,10 +279,10 @@
 .recalculateHint {
   margin: 16px 0 0;
   padding: 11px 13px;
-  border-left: 3px solid #d6a62c;
+  border-left: 3px solid var(--color-warning);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: #fff9e9;
-  color: #765420 !important;
+  background: var(--color-warning-soft);
+  color: var(--color-warning) !important;
   font-size: 0.9rem;
 }
 
@@ -322,8 +322,8 @@
 }
 
 .resultsTable th {
-  color: #65748c;
-  background: #f7fafc;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.055em;
@@ -335,7 +335,7 @@
 }
 
 .resultsTable tbody tr:hover {
-  background: #fbfdfe;
+  background: var(--color-surface-muted);
 }
 
 .placeCell {
@@ -346,7 +346,7 @@
 }
 
 .laneCell {
-  color: #465770;
+  color: var(--color-text-muted);
   font-weight: 750;
   text-align: center !important;
 }
@@ -377,33 +377,33 @@
 }
 
 .resultStatusPending {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .resultStatusValid {
-  background: #e5f7ec;
-  color: #17613c;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .resultStatusWarning {
-  background: #fff4d7;
-  color: #8c5a05;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .resultStatusDanger {
-  background: #fee9e7;
-  color: #a12747;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .resultStatusCorrected {
-  background: #e8f0ff;
-  color: #2d5c9a;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .resultStatusNeutral {
-  background: #f0ecff;
-  color: #65489e;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .stateCard {
@@ -421,15 +421,15 @@
 }
 
 .errorMessage {
-  border: 1px solid #fecaca;
-  background: #fff7f7;
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
 .successMessage {
-  border: 1px solid #a7dfc0;
-  background: #edf9f1;
-  color: #17613c;
+  border: 1px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .visuallyHidden {
@@ -486,5 +486,24 @@
 .fieldError { color: var(--color-danger); margin: 6px 0 0; font-size: 0.8rem; }
 .statusButtons { display: flex; gap: 4px; }
 .statusButtons button { padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; }
-.statusButtons button[aria-pressed='true'] { background: var(--color-primary); color: white; }
+.statusButtons button[aria-pressed='true'] { background: var(--color-surface-muted); color: var(--color-text); border-color: var(--color-border-strong); }
 .statusButtons button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.resultInput { min-height: 56px; min-width: 152px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.resultsTable { font-variant-numeric: tabular-nums; }
+.resultsTable tbody tr:nth-child(even) { background: var(--color-surface-muted); }
+.resultsTable th { position: sticky; top: 0; z-index: 1; }
+.statusButtons button { min-height: 44px; min-width: 48px; color: var(--color-text); font-weight: 700; }
+.statusButtons .resultStatusPending { color: var(--color-text-muted); }
+.statusButtons .resultStatusDanger { background: var(--color-surface); color: var(--color-danger); border-color: var(--color-danger); }
+.statusButtons .resultStatusDanger[aria-pressed='true'] { background: var(--color-danger-soft); color: var(--color-danger); }
+
+@media screen and (max-width: 480px) {
+  .resultsTable th:first-child,
+  .resultsTable td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--color-surface);
+    z-index: 1;
+  }
+}

@@ -1,7 +1,7 @@
 .layout {
   display: grid;
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-  gap: 2rem;
+  grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
@@ -11,10 +11,10 @@
   display: grid;
   gap: 1.5rem;
   padding: 1.25rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 1rem;
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .sidebarHeader {
@@ -24,7 +24,7 @@
 
 .eyebrow {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -33,7 +33,7 @@
 
 .sidebarTitle {
   margin: 0;
-  color: #111827;
+  color: var(--color-text);
   font-size: 1.35rem;
 }
 
@@ -47,8 +47,8 @@
   align-items: center;
   min-height: 2.75rem;
   padding: 0.7rem 0.85rem;
-  border-radius: 0.75rem;
-  color: #374151;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
   font-weight: 700;
   text-decoration: none;
   transition:
@@ -57,24 +57,24 @@
 }
 
 .navigationLink:hover {
-  color: #0d6178;
-  background: #f0f9fa;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .navigationLinkActive {
-  color: #ffffff;
-  background: #0d6178;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
 }
 
 .navigationLinkActive:hover {
-  color: #ffffff;
-  background: #084b5d;
+  color: var(--color-on-primary);
+  background: var(--color-primary-hover);
 }
 
 .publicLink {
   padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
-  color: #0d6178;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-primary);
   font-size: 0.9rem;
   font-weight: 700;
   text-decoration: none;

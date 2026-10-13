@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { usePublicEvent } from './publicContext'
 import { date, localTimeLabel, time } from './format'
 import styles from './Public.module.css'
+import eventStyles from './EventPage.module.css'
 
 export function PublicEventPage() {
   const event = usePublicEvent()
@@ -11,8 +12,8 @@ export function PublicEventPage() {
   return (
     <>
       <p className={styles.eyebrow}>Соревнования по плаванию</p>
-      <h1>{event.title}</h1>
-      <section className={styles.card}>
+      <h1 className={eventStyles.hero}>{event.title}</h1>
+      <section className={`${styles.card} ${eventStyles.overview}`}>
         <h2>О соревновании</h2>
         <p>
           {startDate}
@@ -33,7 +34,7 @@ export function PublicEventPage() {
         )}
         {event.description && <p>{event.description}</p>}
         {event.registrationOpen && (
-          <Link className={styles.button} to={`${base}/register`}>
+          <Link className={`${styles.button} fl-button-primary`} to={`${base}/register`}>
             Подать заявку
           </Link>
         )}
@@ -55,7 +56,7 @@ export function PublicEventPage() {
           </Link>
         ))}
       </div>
-      <section className={styles.card}>
+      <section className={`${styles.card} ${eventStyles.sessions}`}>
         <h2>Сессии и виды программы</h2>
         <p className={styles.muted}>
           {localTimeLabel(event.eventStartAt, event.venue?.timezone)}
