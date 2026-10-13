@@ -1,8 +1,6 @@
 package com.acme.sportplatform.identity.application;
 
 import com.acme.sportplatform.common.web.GlobalExceptionHandler;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
-import com.acme.sportplatform.identity.infrastructure.security.JwtService;
 import com.acme.sportplatform.identity.infrastructure.security.PlatformUserDetailsService;
 import com.acme.sportplatform.identity.web.AuthController;
 import java.util.stream.Stream;
@@ -13,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.MediaType;
@@ -28,17 +27,32 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 class LoginUseCaseTest {
     private final AuthenticationManager manager = mock(AuthenticationManager.class);
     private final PlatformUserDetailsService users = mock(PlatformUserDetailsService.class);
-    private final UserRoleAssignmentRepository roles = mock(UserRoleAssignmentRepository.class);
-    private final JwtService jwt = mock(JwtService.class);
+    private final AuthSessionService sessions = mock(AuthSessionService.class);
+    private final LoginAttemptLimiter limiter = mock(LoginAttemptLimiter.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
     private MockMvc mvc;
 
     @BeforeEach
     void setup() {
-        var login = new LoginUseCase(manager, users, roles, jwt, encoder);
-        mvc = standaloneSetup(new AuthController(login, mock(GetCurrentUserUseCase.class), mock(CreateUserUseCase.class)))
+        var login = new LoginUseCase(manager, users, sessions, limiter, encoder);
+        mvc = standaloneSetup(new AuthController(login, mock(GetCurrentUserUseCase.class), mock(CreateUserUseCase.class), mock(PasswordService.class), mock(AuthSessionService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
+    @Test
+    void successfulAuthenticationClearsEmailFailuresBeforeIssuingTheSession() throws Exception {
+        var principal = new PlatformUserPrincipal(UUID.randomUUID(), "user@qa04.example", "test-hash", "active", List.of());
+        when(users.loadUserByUsername("user@qa04.example")).thenReturn(principal);
+        when(sessions.issue(principal, null)).thenReturn(new com.acme.sportplatform.identity.api.AuthTokenResponse("access", "Bearer", 7200, "refresh"));
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"user@qa04.example\",\"password\":\"test-password\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").value("refresh"));
+        var order = inOrder(manager, limiter, sessions);
+        order.verify(manager).authenticate(any());
+        order.verify(limiter).succeeded("user@qa04.example");
+        order.verify(sessions).issue(principal, null);
+        verify(limiter, never()).failed(anyString(), anyString());
+    }
+
     static Stream<AuthenticationException> infrastructureFailures() {
         return Stream.of(new InternalAuthenticationServiceException("Storage unavailable"),
                 new AuthenticationServiceException("Provider unavailable"));
@@ -51,7 +65,9 @@ class LoginUseCaseTest {
                 .content("{\"email\":\"user@qa04.example\",\"password\":\"test-password\"}"))
                 .andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("internal_error"))
                 .andExpect(jsonPath("$.message").value("Непредвиденная внутренняя ошибка сервера"));
-        verifyNoInteractions(users, roles, jwt, encoder);
+        verifyNoInteractions(users, sessions, encoder);
+        verify(limiter, never()).succeeded(anyString());
+        verify(limiter, never()).failed(anyString(), anyString());
     }
     static Stream<AuthenticationException> credentialFailures() {
         return Stream.of(new BadCredentialsException("Wrong password"), new UsernameNotFoundException("Unknown user"),
@@ -64,7 +80,9 @@ class LoginUseCaseTest {
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"user@qa04.example\",\"password\":\"test-password\"}"))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.invalid_credentials"));
-        verifyNoInteractions(users, roles, jwt, encoder);
+        verifyNoInteractions(users, sessions, encoder);
+        verify(limiter, never()).succeeded(anyString());
+        verify(limiter).failed("user@qa04.example", "127.0.0.1");
     }
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
@@ -78,6 +96,8 @@ class LoginUseCaseTest {
                 .andExpect(status().is(correctPassword ? 403 : 401))
                 .andExpect(jsonPath("$.code").value(correctPassword ? "identity.user_blocked" : "identity.invalid_credentials"));
         verify(encoder).matches("test-password", "test-hash");
-        verifyNoInteractions(roles, jwt);
+        verifyNoInteractions(sessions);
+        verify(limiter, never()).succeeded(anyString());
+        verify(limiter, correctPassword ? never() : times(1)).failed("user@qa04.example", "127.0.0.1");
     }
 }

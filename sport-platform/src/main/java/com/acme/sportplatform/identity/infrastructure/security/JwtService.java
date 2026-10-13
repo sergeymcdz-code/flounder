@@ -29,6 +29,8 @@ public class JwtService {
         this.jwtProperties = jwtProperties;
     }
 
+    public long accessTokenTtlSeconds() { return jwtProperties.accessTokenTtl().toSeconds(); }
+
     public String generateAccessToken(PlatformUserPrincipal principal, List<String> roles) {
         Instant now = Instant.now();
         Instant expiresAt = now.plus(jwtProperties.accessTokenTtl());

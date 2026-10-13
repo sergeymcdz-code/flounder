@@ -103,3 +103,9 @@ GET	/api/v1/roles	admin	false	200
 PATCH	/api/v1/organizations/{id}/members/{userId}	owner	true	200	org-member	{"memberRole":"operator"}
 DELETE	/api/v1/organizations/{id}/members/{userId}	owner	true	204	org-member	
 GET	/api/v1/organization-registration-requests	admin	false	200		
+POST	/api/v1/auth/change-password	authenticated	false	204		{"currentPassword":"Qa04-test-password!","newPassword":"Qa04-new-password!"}
+POST	/api/v1/auth/password-reset/request	public	false	202		{"email":"$participantEmail"}
+POST	/api/v1/auth/password-reset/confirm	public	false	204	reset-token	{"token":"qa04-reset-token","newPassword":"Qa04-new-password!"}
+POST	/api/v1/auth/refresh	public	false	200	refresh-token	{"refreshToken":"qa04-refresh-token"}
+POST	/api/v1/auth/logout	public	false	204	refresh-token	{"refreshToken":"qa04-refresh-token"}
+POST	/api/v1/auth/logout-all	authenticated	false	204

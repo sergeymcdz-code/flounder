@@ -1,5 +1,6 @@
 @org.springframework.modulith.ApplicationModule(
         allowedDependencies = {
+                "common",
                 "common::exception",
                 "common::web"
         }

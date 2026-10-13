@@ -336,3 +336,61 @@ registrations.payment_not_applicable. Результаты считаются о
 FINISHED. Исправления CORRECTED и аудит RANKING применяются к PUBLISHED/FINISHED;
 в DRAFT/SCHEDULED/IN_PROGRESS выполняется обычная перезапись результата.
 До интеграции T02 ранжирование остаётся с TODO. T03 добавляет только V021–V026.
+
+
+### M02: пароли и сессии
+
+Вход `/api/v1/auth/login` возвращает `accessToken`, `tokenType`, `expiresIn`, `refreshToken`.
+Все POST ниже принимают JSON:
+
+| Эндпоинт | Тело | Доступ / успех |
+| --- | --- | --- |
+| `/api/v1/auth/change-password` | `{currentPassword, newPassword}` | Bearer access, 204 |
+| `/api/v1/auth/password-reset/request` | `{email}` | без Bearer, 202 для существующего/неизвестного email |
+| `/api/v1/auth/password-reset/confirm` | `{token, newPassword}` | без Bearer, 204 |
+| `/api/v1/auth/refresh` | `{refreshToken}` | владение refresh, 200 с новой парой |
+| `/api/v1/auth/logout` | `{refreshToken}` | владение refresh, 204 (повтор безопасен) |
+| `/api/v1/auth/logout-all` | без тела | Bearer access, 204 |
+
+Ссылки «Забыли пароль?» и «Сменить пароль» ведут на `/forgot-password`,
+`/reset-password?token=…` и `/account/password`. Пока нет notifications/SMTP,
+`LoggingMailSender` пишет письмо и ссылку в INFO с пометкой DEV; открывать ссылку из
+лога нужно на адресе `APP_PUBLIC_URL` (по умолчанию `http://localhost:5173`).
+Reset-ссылки действуют час и используются один раз; новый запрос заменяет прежнюю ссылку.
+Новый пароль: минимум 8 символов, буквы и цифры, максимум 72 UTF-8 байта (bcrypt).
+
+Refresh живёт 30 дней и ротируется при каждом обновлении. Повторное предъявление
+уже отозванного refresh возвращает 401 и отзывает все refresh-токены пользователя,
+включая новую пару после ротации. Смена/сброс пароля
+отзывают refresh и reset-токены всех устройств. После самостоятельной смены
+пароля фронт завершает текущую сессию и предлагает войти заново с новым паролем. Logout/logout-all отзывают refresh;
+access JWT продолжает действовать до exp. Фронт сохраняет пару в sessionStorage,
+при 401 обновляет её и повторяет запрос один раз; при отказе показывает
+«Сессия истекла, войдите снова».
+
+Срок access по умолчанию **остаётся 2 часа** для демо 15.10.2026. После обновления
+фронта можно включить `APP_JWT_ACCESS_TTL=PT1H` или `--app.jwt.access-ttl=PT1H`.
+`expiresIn` берётся из настройки. Ранее существовавшее
+`app.security.jwt.access-token-ttl` продолжает работать как прямое переопределение.
+
+По умолчанию после 5 неудачных входов за скользящие 15 минут по email или IP
+следующий login отклоняется 429 `identity.too_many_attempts` с `Retry-After` в секундах.
+Настройки API: `app.auth.login.max-failures` / `APP_AUTH_LOGIN_MAX_FAILURES`
+(default 5), `app.auth.login.window` / `APP_AUTH_LOGIN_WINDOW` (default `PT15M`).
+Передавайте переменные в окружение процесса/контейнера API; например, порог 20
+можно включить без пересборки, сохранив окно `PT15M`. Оба значения должны быть положительными.
+Успешная аутентификация сбрасывает только счётчик email; счётчик IP сохраняется.
+На странице входа время ожидания из `Retry-After` показывается в минутах с округлением вверх.
+Остальные endpoints (включая live и импорт) не ограничиваются. Caffeine рассчитан
+на один сервер, очищается при рестарте, максимум 100 000 ключей; для нескольких
+серверов нужен Redis.
+
+На стенде профиль `prod` уже включает `server.forward-headers-strategy: native`:
+Tomcat `RemoteIpValve` получает IP клиента из `X-Forwarded-For`, который добавляет
+Caddy (docker-сеть входит в `internal-proxies`); `getRemoteAddr()` возвращает IP клиента.
+Без этой настройки (локально и в тестах) используется прямой `remoteAddr`,
+присланный клиентом заголовок не доверяется. Код обработки IP не менялся.
+
+В `infra/compose.prod.yaml` API получает `APP_PUBLIC_URL` из окружения с fallback
+`https://${DOMAIN}`. В примере production env указано `APP_PUBLIC_URL=https://sportgate.pro`.
+Изменения M02 предназначены для слияния и деплоя после демо 15.10.2026 (с 16.10).

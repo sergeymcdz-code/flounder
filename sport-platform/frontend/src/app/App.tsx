@@ -27,6 +27,7 @@ const SportsAdminPage = lazy(() =>
 const LoginPage = lazy(() =>
   import('../features/auth/LoginPage').then(module => ({ default: module.LoginPage })),
 )
+const PasswordPage = lazy(() => import('../features/auth/PasswordPage').then(module => ({ default: module.PasswordPage })))
 const RegisterPage = lazy(() =>
   import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })),
 )
@@ -127,6 +128,9 @@ export default function App() {
 
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
+        <Route path="forgot-password" element={<PasswordPage mode="forgot" />} />
+        <Route path="reset-password" element={<PasswordPage mode="reset" />} />
+        <Route path="account/password" element={<PasswordPage mode="change" />} />
 
         <Route element={<RequireRole roles={['participant']} />}>
           <Route
