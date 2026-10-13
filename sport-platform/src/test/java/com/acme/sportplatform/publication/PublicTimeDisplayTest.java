@@ -14,5 +14,6 @@ class PublicTimeDisplayTest {
         assertThat(PublicPublicationService.display(32150L,"DISQUALIFIED")).isEqualTo("DSQ");
         assertThat(PublicPublicationService.display(null,null)).isNull();
         assertThat(PublicPublicationService.publicStatus("CORRECTED")).isEqualTo("VALID");
+        assertThat(PublicPublicationService.publicStatus("EXHIBITION")).isEqualTo("VALID");
     }
 }

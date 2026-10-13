@@ -91,7 +91,9 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
         assertEquals("events.session_in_use", conflict.path("code").asText());
         mvc.perform(get("/api/v1/public/events/{slug}", event.getPublicSlug()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sessions[0].name").value("Вечер"));
+                .andExpect(jsonPath("$.sessions[0].name").value("Вечер"))
+                .andExpect(jsonPath("$.disciplines[0].sessionId").value(id))
+                .andExpect(jsonPath("$.disciplines[0].unitsPublished").value(false));
         call(
                 delete("/api/v1/event-disciplines/{id}", d.getId()),
                 owner("ORGANIZER", owner),

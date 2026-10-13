@@ -35,7 +35,7 @@ public final class PublicResponses {
     public sealed interface Lane permits EmptyLane, OccupiedLane {}
     public record EmptyLane(int lane, boolean empty) implements Lane {}
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record OccupiedLane(int lane, Boolean empty, Boolean withdrawn, UUID registrationId,
+    public record OccupiedLane(int lane, Boolean withdrawn, UUID registrationId,
             Athlete athlete, @JsonInclude(JsonInclude.Include.ALWAYS) Long seedTimeMs,
             @JsonInclude(JsonInclude.Include.ALWAYS) String display) implements Lane {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -64,5 +64,4 @@ public final class PublicResponses {
             OffsetDateTime scheduledAt, SwimResult result) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record SwimResult(String display, String status, Integer place, Integer placeInAgeGroup) {}
-    public record SetLiveRequest(UUID currentUnitId) {}
 }

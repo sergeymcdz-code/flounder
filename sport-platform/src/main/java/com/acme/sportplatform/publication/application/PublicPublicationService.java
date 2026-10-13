@@ -21,13 +21,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Transactional(readOnly = true)
 public class PublicPublicationService {
     private final PublicationReadRepository reads;
-    private final EventSessionReadRepository sessions;
-    private final EventLiveStateRepository liveStates;
     private final ObjectMapper mapper;
     private final Clock clock;
-    public PublicPublicationService(PublicationReadRepository reads, EventSessionReadRepository sessions,
-            EventLiveStateRepository liveStates, ObjectMapper mapper, @Qualifier("publicationClock") Clock clock) {
-        this.reads = reads; this.sessions = sessions; this.liveStates = liveStates;
+    public PublicPublicationService(PublicationReadRepository reads, ObjectMapper mapper,
+            @Qualifier("publicationClock") Clock clock) {
+        this.reads = reads;
         this.mapper = mapper; this.clock = clock;
     }
 
@@ -79,7 +77,7 @@ public class PublicPublicationService {
         for (int lane = 1; lane <= laneCount; lane++) {
             var entry = byLane.get(lane);
             lanes.add(entry == null ? new EmptyLane(lane,true)
-                    : new OccupiedLane(lane,null,entry.withdrawn() ? true : null,entry.registrationId(),
+                    : new OccupiedLane(lane,entry.withdrawn() ? true : null,entry.registrationId(),
                         new Athlete(entry.lastName(),entry.firstName(),entry.birthYear(),entry.club()),
                         entry.seedTimeMs(),display(entry.seedTimeMs(),null)));
         }
@@ -101,9 +99,9 @@ public class PublicPublicationService {
     public Live live(String slug) {
         var event = requireEvent(slug);
         var units = reads.units(event.id());
-        var state = liveStates.findById(event.id());
+        var state = reads.liveState(event.id());
         var now = OffsetDateTime.now(clock);
-        var current = state.isPresent() ? units.stream().filter(u -> u.id().equals(state.get().getCurrentUnitId())).findFirst().orElse(null)
+        var current = state.isPresent() ? units.stream().filter(u -> u.id().equals(state.get().currentUnitId())).findFirst().orElse(null)
                 : units.stream().filter(u -> upcoming(u,now)).findFirst().orElse(null);
         var disciplines = disciplineMap(event.id());
         var entries = reads.entries(event.id()).stream().collect(Collectors.groupingBy(ReadModels.Entry::unitId));
@@ -114,7 +112,7 @@ public class PublicPublicationService {
                 .map(u -> liveUnit(u,disciplines.get(u.disciplineId()),entries.getOrDefault(u.id(),List.of()),laneCount)).toList();
         return new Live(current == null ? null : liveUnit(current,disciplines.get(current.disciplineId()),
                 entries.getOrDefault(current.id(),List.of()),laneCount),next,
-                state.map(EventLiveStateEntity::getUpdatedAt).orElse(now));
+                state.map(ReadModels.LiveState::updatedAt).orElse(now));
     }
     private boolean upcoming(ReadModels.Unit unit, OffsetDateTime now) {
         return "PUBLISHED".equals(unit.status()) && unit.scheduledAt() != null && !unit.scheduledAt().isBefore(now);
@@ -203,7 +201,8 @@ public class PublicPublicationService {
         return reads.disciplines(eventId).stream().collect(Collectors.toMap(ReadModels.Discipline::id,Function.identity()));
     }
     private List<Session> sessionViews(UUID eventId) {
-        return sessions.findByEventIdOrderByOrderNo(eventId).stream().map(EventSessionReadEntity::toResponse).toList();
+        return reads.sessions(eventId).stream().map(s -> new Session(s.id(),s.name(),s.orderNo(),
+                s.startsAt(),s.breakBetweenEventsSec())).toList();
     }
     private JsonNode json(String value) {
         try { return mapper.readTree(value == null ? "{}" : value); }
@@ -213,7 +212,7 @@ public class PublicPublicationService {
     public static String publicStatus(String status) {
         if (status == null) return null;
         return switch (status) {
-            case "DID_NOT_START" -> "DNS"; case "DID_NOT_FINISH" -> "DNF"; case "DISQUALIFIED" -> "DSQ"; case "CORRECTED" -> "VALID"; default -> status;
+            case "DID_NOT_START" -> "DNS"; case "DID_NOT_FINISH" -> "DNF"; case "DISQUALIFIED" -> "DSQ"; case "CORRECTED", "EXHIBITION" -> "VALID"; default -> status;
         };
     }
     private static boolean hasPlace(String status) { return "VALID".equals(status) || "CORRECTED".equals(status); }

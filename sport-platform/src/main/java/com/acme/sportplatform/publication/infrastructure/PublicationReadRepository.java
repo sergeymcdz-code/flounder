@@ -37,6 +37,19 @@ public class PublicationReadRepository {
                 str(t,"status"), str(t,"public_slug"), str(t,"venue_name"), str(t,"venue_city"),
                 str(t,"venue_meta_text"))).findFirst();
     }
+    public List<Session> sessions(UUID eventId) {
+        return rows("""
+                select id, name, order_no, starts_at, break_between_events_sec
+                from event_sessions where event_id = :eventId order by order_no
+                """,Map.of("eventId",eventId)).stream().map(t -> new Session(uuid(t,"id"),str(t,"name"),
+                        integer(t,"order_no"),date(t,"starts_at"),integer(t,"break_between_events_sec"))).toList();
+    }
+    public Optional<LiveState> liveState(UUID eventId) {
+        return rows("""
+                select current_unit_id, updated_at from event_live_state where event_id = :eventId
+                """,Map.of("eventId",eventId)).stream().map(t -> new LiveState(uuid(t,"current_unit_id"),
+                        date(t,"updated_at"))).findFirst();
+    }
     public List<Discipline> disciplines(UUID eventId) {
         return rows("""
                 select d.*, cast(d.age_groups_json as text) as age_groups_text,

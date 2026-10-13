@@ -9,6 +9,9 @@ public final class ReadModels {
             OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
             OffsetDateTime eventStartAt, OffsetDateTime eventEndAt, String status,
             String slug, String venueName, String venueCity, String venueMeta) {}
+    public record Session(UUID id, String name, int orderNo, OffsetDateTime startsAt,
+            int breakBetweenEventsSec) {}
+    public record LiveState(UUID currentUnitId, OffsetDateTime updatedAt) {}
     public record Discipline(UUID id, int number, String name, Integer distanceM,
             String stroke, String gender, UUID sessionId, Integer orderInSession,
             String ageGroups, String seedingMode) {}

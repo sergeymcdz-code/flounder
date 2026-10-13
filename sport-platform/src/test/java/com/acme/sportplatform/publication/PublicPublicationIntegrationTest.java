@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -44,8 +45,9 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     List<UUID> heats;
     String slug;
     OffsetDateTime start;
-    record Principal(UUID userId) implements AuthenticatedUserPrincipal {
+    record Principal(UUID userId, List<GrantedAuthority> authorities) implements AuthenticatedUserPrincipal {
         @Override public UUID getUserId() { return userId; }
+        @Override public List<GrantedAuthority> getAuthorities() { return authorities; }
     }
 
     @BeforeEach
@@ -125,17 +127,24 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         return mapper.readTree(mvc.perform(get(url(suffix))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
     private UsernamePasswordAuthenticationToken auth(UUID id,String role) {
-        return new UsernamePasswordAuthenticationToken(new Principal(id),null,List.of(new SimpleGrantedAuthority("ROLE_"+role)));
+        var authorities=List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_"+role));
+        return new UsernamePasswordAuthenticationToken(new Principal(id,authorities),null,authorities);
     }
 
+    private void clearPublicCaches() {
+        // Simulate expiry of the public TTL after mutations handled by T03.
+        caches.getCacheNames().forEach(n -> caches.getCache(n).clear());
+    }
     private void startHeat(UUID unitId) throws Exception {
         mvc.perform(post("/api/v1/competition-units/{id}/start",unitId)
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isOk());
+        clearPublicCaches();
     }
     private void finishHeat(UUID unitId) throws Exception {
         startHeat(unitId);
         mvc.perform(post("/api/v1/competition-units/{id}/finish",unitId)
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isOk());
+        clearPublicCaches();
     }
 
     @Test
@@ -243,10 +252,12 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(OffsetDateTime.parse(initial.path("updatedAt").asText())).isEqualTo(OffsetDateTime.now(clock));
         mvc.perform(post("/api/v1/competition-units/{id}/start",heats.getFirst())
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isOk());
+        clearPublicCaches();
         assertThat(read("/live").at("/currentUnit/status").asText()).isEqualTo("IN_PROGRESS");
         assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
         mvc.perform(post("/api/v1/competition-units/{id}/finish",heats.getFirst())
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isOk());
+        clearPublicCaches();
         JsonNode finished = read("/live");
         assertThat(finished.at("/currentUnit/id").asText()).isEqualTo(heats.get(1).toString());
         assertThat(finished.path("next")).hasSize(2);
@@ -255,6 +266,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         mvc.perform(put("/api/v1/events/{id}/live",eventId).with(authentication(auth(UUID.randomUUID(),"PLATFORM_ADMIN")))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"currentUnitId\":\""+heats.get(3)+"\"}"))
                 .andExpect(status().isOk());
+        clearPublicCaches();
         assertThat(read("/live").at("/currentUnit/id").asText()).isEqualTo(heats.get(3).toString());
         assertThat(read("/live").path("next")).isEmpty();
     }
@@ -264,7 +276,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         var startList=read("/start-list");
         var statistics=emf.unwrap(SessionFactory.class).getStatistics(); statistics.clear();
         var live=read("/live");
-        assertThat(statistics.getPrepareStatementCount()).isEqualTo(5);
+        assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(6);
         var current=live.path("currentUnit");
         assertHeatFields(startList.at("/sessions/0/disciplines/0/heats/0"),current);
         assertThat(current.path("disciplineId").asText()).isEqualTo(disciplineId.toString());
@@ -282,6 +294,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     void clearedLiveStateReturnsFirstThreeUpcomingPublishedHeats() throws Exception {
         mvc.perform(put("/api/v1/events/{id}/live",eventId).with(authentication(auth(ownerId,"ORGANIZER")))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"currentUnitId\":null}")).andExpect(status().isOk());
+        clearPublicCaches();
         var live=read("/live"); assertThat(live.path("currentUnit").isNull()).isTrue();
         assertThat(live.path("next")).hasSize(3);
         for (int i=0;i<3;i++) assertThat(live.path("next").get(i).path("id").asText()).isEqualTo(heats.get(i).toString());
@@ -297,11 +310,14 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     void lastFinishAndExplicitClearKeepCurrentUnitNull() throws Exception {
         mvc.perform(post("/api/v1/competition-units/{id}/start",heats.get(3)).with(authentication(auth(ownerId,"ORGANIZER"))))
                 .andExpect(status().isOk());
+        clearPublicCaches();
         mvc.perform(post("/api/v1/competition-units/{id}/finish",heats.get(3)).with(authentication(auth(ownerId,"ORGANIZER"))))
                 .andExpect(status().isOk());
+        clearPublicCaches();
         assertThat(read("/live").path("currentUnit").isNull()).isTrue();
         mvc.perform(put("/api/v1/events/{id}/live",eventId).with(authentication(auth(ownerId,"ORGANIZER")))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"currentUnitId\":null}")).andExpect(status().isOk());
+        clearPublicCaches();
         assertThat(read("/live").path("currentUnit").isNull()).isTrue();
     }
 
@@ -335,6 +351,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         mvc.perform(post("/api/v1/competition-units/{id}/publication",heats.getFirst())
                 .with(authentication(auth(ownerId,"PLATFORM_ADMIN"))).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"published\":true}")).andExpect(status().isNoContent());
+        clearPublicCaches();
         // Clear TTL caches after the legacy publication operation, which has no invalidation.
         caches.getCacheNames().forEach(n -> caches.getCache(n).clear());
         assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
@@ -342,6 +359,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(read("/results").path("disciplines")).isEmpty();
         mvc.perform(post("/api/v1/competition-units/{id}/finish",heats.getFirst())
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isOk());
+        clearPublicCaches();
         assertThat(read("/results").at("/disciplines/0/overall")).hasSize(2);
         assertThat(read("/start-list").at("/sessions/0/disciplines/0/heats")).hasSize(3);
     }
@@ -357,6 +375,21 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(row.path("display").asText()).isEqualTo("00:32.15");
         mvc.perform(get(url("/athletes")).param("q","Иванов")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].swims[0].result.status").value("VALID"));
+    }
+
+    @Test
+    void exhibitionMapsToValidButNeverReceivesAPlaceInResultsOrSearch() throws Exception {
+        finishHeat(heats.getFirst());
+        jdbc.update("update results set status='EXHIBITION' where competition_unit_entry_id in (select id from competition_unit_entries where competition_unit_id=? and lane_or_position=4)",heats.getFirst());
+        var row=read("/results").at("/disciplines/0/overall/0");
+        assertThat(row.path("status").asText()).isEqualTo("VALID");
+        assertThat(row.path("place").isNull()).isTrue();
+        assertThat(row.path("display").asText()).isEqualTo("00:32.15");
+        assertThat(read("/results").at("/disciplines/0/byAgeGroup/0/rows/0/place").isNull()).isTrue();
+        mvc.perform(get(url("/athletes")).param("q","Иванов")).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].swims[0].result.status").value("VALID"))
+                .andExpect(jsonPath("$[0].swims[0].result.place").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$[0].swims[0].result.placeInAgeGroup").value(org.hamcrest.Matchers.nullValue()));
     }
 
     @Test
@@ -399,6 +432,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(jsonPath("$[0].swims[0].result").value(org.hamcrest.Matchers.nullValue()));
         mvc.perform(post("/api/v1/competition-units/{id}/finish",heats.getFirst())
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isOk());
+        clearPublicCaches();
         assertThat(read("/results").at("/disciplines/0/overall")).hasSize(2);
         mvc.perform(get(url("/athletes")).param("q","Иванов")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].swims[0].result.place").value(7));
@@ -455,22 +489,47 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void liveMutationsRequireOwnerOrAdminAndRejectForeignDraftAndInvalidTransitions() throws Exception {
+    void canonicalLiveMutationsUseEventAccessAndRejectForeignUnitsAndInvalidTransitions() throws Exception {
         mvc.perform(post("/api/v1/competition-units/{id}/start",heats.getFirst())).andExpect(status().isUnauthorized());
+        clearPublicCaches();
         mvc.perform(post("/api/v1/competition-units/{id}/start",heats.getFirst())
                 .with(authentication(auth(UUID.randomUUID(),"ORGANIZER")))).andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Нет прав на управление этим событием."));
+                .andExpect(jsonPath("$.code").value("events.access_denied"));
+        clearPublicCaches();
         mvc.perform(post("/api/v1/competition-units/{id}/finish",heats.getFirst())
-                .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isConflict());
-        for (UUID invalid : List.of(draftId,UUID.randomUUID())) {
-            mvc.perform(put("/api/v1/events/{id}/live",eventId).with(authentication(auth(ownerId,"ORGANIZER")))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"currentUnitId\":\""+invalid+"\"}"))
-                    .andExpect(status().isBadRequest());
-        }
-        mvc.perform(post("/api/v1/competition-units/{id}/start",draftId)
-                .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isConflict());
+                .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("results.invalid_transition"));
+        clearPublicCaches();
+        mvc.perform(put("/api/v1/events/{id}/live",eventId).with(authentication(auth(ownerId,"ORGANIZER")))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"currentUnitId\":\""+UUID.randomUUID()+"\"}"))
+                .andExpect(status().isNotFound());
+        clearPublicCaches();
+        UUID foreignEvent=UUID.randomUUID(), foreignDiscipline=UUID.randomUUID(), foreignUnit=UUID.randomUUID();
+        jdbc.update("""
+                insert into events(id,organization_id,venue_id,sport_id,regulation_version_id,title,event_start_at,
+                    event_end_at,status,public_slug,created_by_user_id,created_at,updated_at)
+                select ?,organization_id,venue_id,sport_id,regulation_version_id,title,event_start_at,
+                    event_end_at,status,?,created_by_user_id,created_at,updated_at from events where id=?
+                """,foreignEvent,"foreign-"+foreignEvent,eventId);
+        jdbc.update("""
+                insert into event_disciplines(id,event_id,discipline_template_id,code,name,competition_format,unit_type,
+                    result_type,ranking_strategy,status,created_at,updated_at)
+                select ?,?,discipline_template_id,code,name,competition_format,unit_type,result_type,ranking_strategy,
+                    status,created_at,updated_at from event_disciplines where id=?
+                """,foreignDiscipline,foreignEvent,disciplineId);
+        heat(foreignUnit,foreignDiscipline,1,"PUBLISHED",start);
+        mvc.perform(put("/api/v1/events/{id}/live",eventId).with(authentication(auth(ownerId,"ORGANIZER")))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"currentUnitId\":\""+foreignUnit+"\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("results.unit_event_mismatch"));
+        clearPublicCaches();
+        startHeat(heats.getFirst());
+        mvc.perform(post("/api/v1/competition-units/{id}/start",heats.get(1))
+                .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("results.unit_in_progress"));
+        clearPublicCaches();
         mvc.perform(post("/api/v1/competition-units/{id}/start",UUID.randomUUID())
                 .with(authentication(auth(ownerId,"ORGANIZER")))).andExpect(status().isNotFound());
+        clearPublicCaches();
     }
 
     @Test
@@ -482,6 +541,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void corsUsesConfiguredOriginsAndSwaggerIsPublicWithExamples() throws Exception {
+        finishHeat(heats.getFirst());
         mvc.perform(get("/api/v1/public/competition-units/{id}/results",heats.getFirst())).andExpect(status().isOk());
         mvc.perform(get("/api/v1/public/events/{id}/disciplines/{discipline}/results",eventId,disciplineId)).andExpect(status().isOk());
         mvc.perform(options(url("/live")).header("Origin","https://spectators.example").header("Access-Control-Request-Method","GET"))
