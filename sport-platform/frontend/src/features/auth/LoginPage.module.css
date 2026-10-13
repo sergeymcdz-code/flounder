@@ -143,4 +143,3 @@
 .registerPrompt a:hover {
   text-decoration: underline;
 }
-.submitButton:disabled { background: var(--color-border-strong); opacity: 1; }

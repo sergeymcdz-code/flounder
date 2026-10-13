@@ -92,8 +92,8 @@
 
 @media screen {
   [data-theme="dark"],
-  :root:has(.fl-live-page),
-  :root:has(.fl-results-page) {
+  :root:not([data-theme]):has(.fl-live-page),
+  :root:not([data-theme]):has(.fl-results-page) {
     color-scheme: dark;
     --color-page: #11181d;
     --color-surface: #182126;

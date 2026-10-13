@@ -190,5 +190,4 @@
     grid-template-columns: 1fr;
   }
 }
-.submitButton:disabled { background: var(--color-border-strong); opacity: 1; }
 .card { border-top: 3px solid var(--color-text); }

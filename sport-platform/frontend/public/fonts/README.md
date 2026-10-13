@@ -25,7 +25,7 @@ Brotli 1.2.0 (SIL OFL notices remain unchanged):
 python scripts/subset-d02-fonts.py
 ```
 
-The source commit is pinned in the script; `--source-ref` can select another
+The source commit is the merged D01 `e76f3a8` (reachable from main), pinned in the script; `--source-ref` can select another
 commit containing the original full files. Coverage: `U+0000-00FF`,
 `U+0400-04FF`, `U+2000-206F`, `U+20BD`, `U+2116`, `U+2190-21FF`, `U+2212`.
 All available layout features and variable weight axes are retained.

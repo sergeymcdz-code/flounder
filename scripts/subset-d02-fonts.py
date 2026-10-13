@@ -8,7 +8,7 @@ from fontTools import subset
 from fontTools.ttLib import TTFont
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--source-ref', default='03d5fadcdacbdc127fb6e421e1af880f1a9d9fc6')
+parser.add_argument('--source-ref', default='e76f3a853aecdbb8db8b880d0c5d25f31238b95a')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 font_dir = 'sport-platform/frontend/public/fonts'
