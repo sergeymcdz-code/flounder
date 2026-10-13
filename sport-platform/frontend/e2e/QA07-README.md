@@ -6,12 +6,12 @@
 cd scripts/demo && npm ci
 cd ../../sport-platform/frontend && npm ci
 npx playwright install chromium
-npm run test:qa07
-# При установленном системном браузере:
-PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:qa07
-# Повтор семи шагов выполнить ДО QA07/429:
+# Сначала семь шагов (QA05-03 пока даёт exit 1), затем отдельной командой QA07:
 DEMO_DATE=2026-10-24 npm run test:demo
+npm run test:qa07
 ```
+
+Для установленного системного Chromium перед обеими командами задайте `export PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium` вместо `playwright install`. Не повторяйте QA07 сразу после 429: ограничения ниже.
 
 `QA07_API_URL` (по умолчанию `http://localhost:8080`) принимает только localhost/127.0.0.1. Адрес должен быть разрешён в CORS. `QA07_PASSWORD` задаёт пароль демо-аккаунтов; `DEMO_DATE` по умолчанию `2026-10-24`. При каждом запуске создаётся событие с уникальным суффиксом « · QA07 …» и импортируется M. Тесты создают отдельных пользователей и две организации; существующие демо-аккаунты не блокирует и их пароли не меняет. Удаление/SQL-сброс отсутствуют. Запуски QA05/QA07 последовательны: оба используют порт 5173.
 
