@@ -486,6 +486,18 @@
   .liveDescription { font-size: 16px; }
   .live .heatNumber { font-size: 64px; }
   .nav a { font-size: 12px; }
+  .header > div { flex-basis: calc(100% - 110px); }
+}
+
+@media screen {
+  :global(html[data-theme='light']) .live {
+    --color-board: #ffffff;
+    --color-board-surface: #f3f5f3;
+    --color-board-text: #182126;
+    --color-board-muted: #52616a;
+    --color-board-border: #cbd2d3;
+    --color-board-accent: #815400;
+  }
 }
 
 @media screen and (min-width: 641px) {
