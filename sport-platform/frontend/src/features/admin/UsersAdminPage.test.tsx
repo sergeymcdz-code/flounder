@@ -88,3 +88,14 @@ it('keeps scoped assignments separate from editable global roles', async () => {
   expect(within(dialog).getByLabelText('Участник')).toBeChecked()
   expect(within(dialog).getByLabelText('Судья')).not.toBeChecked()
 })
+it('shows deleted users without an unblock action', async () => {
+  server.use(http.get('*/api/v1/users', () => HttpResponse.json({ items: [{
+    id: 'deleted', email: 'deleted@test.example', firstName: 'Удалённый', lastName: 'Пользователь',
+    status: 'INACTIVE', roles: ['participant'], createdAt: '2026-10-13T10:00:00Z',
+  }], page: 0, size: 20, total: 1 })))
+  render(<UsersAdminPage />)
+  const row = (await screen.findByText('deleted@test.example')).closest('tr')!
+  expect(within(row).getByRole('cell', { name: /^Удалён/ })).toBeInTheDocument()
+  expect(within(row).queryByRole('button', { name: 'Разблокировать' })).not.toBeInTheDocument()
+  expect(within(row).queryByRole('button', { name: 'Заблокировать' })).not.toBeInTheDocument()
+})

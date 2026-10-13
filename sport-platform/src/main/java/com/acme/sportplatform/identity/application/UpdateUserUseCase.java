@@ -42,7 +42,7 @@ public class UpdateUserUseCase {
             if (!Set.of("ACTIVE", "BLOCKED").contains(status))
                 throw new BusinessException("identity.invalid_status", "Допустимые статусы: ACTIVE и BLOCKED");
             if ("BLOCKED".equals(status)) AdminSelfProtection.assertNotSelf(userId);
-            user.setStatus(status);
+            user.setStatus(status.toLowerCase(Locale.ROOT));
         }
 
         if (request.getFirstName() != null) profile.setFirstName(request.getFirstName());

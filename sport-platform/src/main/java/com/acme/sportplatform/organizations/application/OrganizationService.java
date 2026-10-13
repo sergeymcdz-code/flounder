@@ -2,8 +2,10 @@ package com.acme.sportplatform.organizations.application;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -27,9 +29,13 @@ import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationRepos
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toMap;
+
 @Service
 public class OrganizationService implements OrganizationLookup, OrganizationManagementAccess, UserMembershipLookup {
 
+    private final ObjectMapper objectMapper;
     private final UserRoleLookup userRoleLookup;
     private final UserLookup userLookup;
     private final OrganizationRepository organizationRepository;
@@ -38,8 +44,9 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public OrganizationService(
             OrganizationRepository organizationRepository,
             OrganizationMemberRepository organizationMemberRepository,
-            UserRoleLookup userRoleLookup, UserLookup userLookup
+            UserRoleLookup userRoleLookup, UserLookup userLookup, ObjectMapper objectMapper
     ) {
+        this.objectMapper = objectMapper;
         this.organizationRepository = organizationRepository;
         this.userRoleLookup = userRoleLookup;
         this.userLookup = userLookup;
@@ -63,7 +70,7 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
         entity.setInn(request.inn());
         entity.setContactEmail(request.contactEmail());
         entity.setContactPhone(request.contactPhone());
-        var meta = new ObjectMapper().createObjectNode();
+        var meta = objectMapper.createObjectNode();
         if (request.city() != null) meta.put("city", request.city());
         entity.setMeta(meta.toString());
         entity.setCreatedAt(now);
@@ -108,8 +115,14 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
             organizations = organizationRepository.findAllByMemberUserId(currentUserId);
         }
 
+        if (organizations.isEmpty()) return List.of();
+        var organizationIds = organizations.stream().map(OrganizationEntity::getId).toList();
+        var members = organizationMemberRepository.findAllByOrganizationIdIn(organizationIds);
+        var membersByOrganization = members.stream().collect(groupingBy(OrganizationMemberEntity::getOrganizationId));
+        var ownersById = userMap(members.stream().filter(m -> "owner".equalsIgnoreCase(m.getMemberRole()))
+                .map(OrganizationMemberEntity::getUserId).distinct().toList());
         return organizations.stream()
-                .map(this::mapToResponse)
+                .map(organization -> mapToResponse(organization, membersByOrganization.getOrDefault(organization.getId(), List.of()), ownersById))
                 .toList();
     }
 
@@ -147,8 +160,9 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public List<OrganizationMemberResponse> members(
             UUID organizationId, UUID userId, boolean admin) {
         assertOwner(organizationId, userId, admin);
-        return organizationMemberRepository.findAllByOrganizationId(organizationId).stream()
-                .map(this::memberResponse).toList();
+        var members = organizationMemberRepository.findAllByOrganizationId(organizationId);
+        var usersById = userMap(members.stream().map(OrganizationMemberEntity::getUserId).distinct().toList());
+        return members.stream().map(member -> memberResponse(member, usersById.get(member.getUserId()))).toList();
     }
 
     @Transactional
@@ -183,9 +197,16 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     @Override
     @Transactional(readOnly = true)
     public List<Membership> membershipsOf(UUID userId) {
-        return organizationMemberRepository.findAllByUserId(userId).stream().map(m -> new Membership(
-                m.getOrganizationId(), organizationRepository.findById(m.getOrganizationId()).orElseThrow(this::organizationNotFound).getName(),
-                m.getMemberRole())).toList();
+        var members = organizationMemberRepository.findAllByUserId(userId);
+        if (members.isEmpty()) return List.of();
+        var organizationsById = organizationRepository.findAllById(members.stream()
+                .map(OrganizationMemberEntity::getOrganizationId).distinct().toList()).stream()
+                .collect(toMap(OrganizationEntity::getId, organization -> organization));
+        return members.stream().map(member -> {
+            var organization = organizationsById.get(member.getOrganizationId());
+            if (organization == null) throw organizationNotFound();
+            return new Membership(member.getOrganizationId(), organization.getName(), member.getMemberRole());
+        }).toList();
     }
 
     @Transactional
@@ -209,6 +230,11 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     private OrganizationMemberResponse memberResponse(
             OrganizationMemberEntity m) {
         var user = userLookup.findById(m.getUserId()).orElseThrow(() -> new BusinessException("organizations.user_not_found", "Пользователь не найден"));
+        return memberResponse(m, user);
+    }
+
+    private OrganizationMemberResponse memberResponse(OrganizationMemberEntity m, UserLookup.User user) {
+        if (user == null) throw new BusinessException("organizations.user_not_found", "Пользователь не найден");
         return new OrganizationMemberResponse(
                 m.getId(), m.getOrganizationId(), m.getUserId(), m.getMemberRole(), m.getCreatedAt(),
                 user.email(), user.firstName(), user.lastName());
@@ -221,13 +247,25 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
         );
     }
 
+    private Map<UUID, UserLookup.User> userMap(Collection<UUID> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return userLookup.findAllByIds(ids).stream().collect(toMap(UserLookup.User::id, user -> user));
+    }
+
     private OrganizationResponse mapToResponse(OrganizationEntity entity) {
-        String city = null;
-        try { city = new ObjectMapper().readTree(entity.getMeta()).path("city").asText(null); }
-        catch (JsonProcessingException ignored) { }
         var members = organizationMemberRepository.findAllByOrganizationId(entity.getId());
+        var ownersById = userMap(members.stream().filter(m -> "owner".equalsIgnoreCase(m.getMemberRole()))
+                .map(OrganizationMemberEntity::getUserId).distinct().toList());
+        return mapToResponse(entity, members, ownersById);
+    }
+
+    private OrganizationResponse mapToResponse(OrganizationEntity entity, List<OrganizationMemberEntity> members,
+                                               Map<UUID, UserLookup.User> ownersById) {
+        String city = null;
+        try { city = objectMapper.readTree(entity.getMeta()).path("city").asText(null); }
+        catch (JsonProcessingException ignored) { }
         String owner = members.stream().filter(m -> "owner".equalsIgnoreCase(m.getMemberRole()))
-                .map(m -> userLookup.findById(m.getUserId()).map(u -> u.email()).orElse("—"))
+                .map(m -> ownersById.containsKey(m.getUserId()) ? ownersById.get(m.getUserId()).email() : "—")
                 .collect(java.util.stream.Collectors.joining(", "));
 
         return new OrganizationResponse(

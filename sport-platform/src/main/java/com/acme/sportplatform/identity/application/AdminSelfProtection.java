@@ -11,7 +11,7 @@ final class AdminSelfProtection {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUserPrincipal principal
                 && userId.equals(principal.getUserId())) {
-            throw new BusinessException("identity.cannot_modify_self", "Нельзя заблокировать себя или снять у себя роль администратора платформы");
+            throw new BusinessException("identity.cannot_modify_self", "Нельзя заблокировать или удалить себя либо снять у себя роль администратора платформы");
         }
     }
 }

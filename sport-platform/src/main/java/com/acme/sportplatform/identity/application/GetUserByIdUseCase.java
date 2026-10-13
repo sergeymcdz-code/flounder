@@ -1,5 +1,6 @@
 package com.acme.sportplatform.identity.application;
 
+import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -45,7 +46,7 @@ public class GetUserByIdUseCase {
                 user.getId(),
                 user.getEmail(),
                 user.getPhone(),
-                user.getStatus(),
+                user.getStatus().toUpperCase(Locale.ROOT),
                 user.getCreatedAt(),
                 new UserDetailsResponse.Profile(
                         profile.getFirstName(),

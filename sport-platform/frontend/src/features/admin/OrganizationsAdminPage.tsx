@@ -40,8 +40,8 @@ export function OrganizationsAdminPage() {
     const text = (name: string) => String(values.get(name) ?? '').trim()
     setBusy(true); setFormError('')
     try {
-      await createOrganization(token, { type: text('type'), name: text('name'), city: text('city'), legalName: text('legalName'),
-        inn: text('inn'), contactEmail: text('contactEmail') || undefined, contactPhone: text('contactPhone') })
+      await createOrganization(token, { type: text('type'), name: text('name'), city: text('city') || undefined, legalName: text('legalName') || undefined,
+        inn: text('inn') || undefined, contactEmail: text('contactEmail') || undefined, contactPhone: text('contactPhone') || undefined })
       setOpen(false); setReload(value => value + 1)
     } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
   }

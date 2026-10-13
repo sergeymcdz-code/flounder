@@ -2,6 +2,7 @@ package com.acme.sportplatform.identity.application;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.PageRequest;
@@ -12,10 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.api.UserPageResponse;
+import com.acme.sportplatform.identity.infrastructure.persistence.entity.ProfileEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.ProfileRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.RoleRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
+
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 @Service
 public class AdminUserService {
@@ -35,13 +42,20 @@ public class AdminUserService {
         String r = role == null ? "" : role.trim();
         String pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
         var result = users.search(q, pattern, r, PageRequest.of(page, size));
-        var items = result.getContent().stream().map(u -> {
-            var p = profiles.findByUserId(u.getId()).orElse(null);
+        // Count the complete filtered result in the page query. Empty later pages need a separate count.
+        long total = result.isEmpty() ? (page == 0 ? 0 : users.countSearch(q, pattern, r)) : result.getFirst().getTotal();
+        var userIds = result.stream().map(u -> u.getId()).toList();
+        Map<UUID, ProfileEntity> profilesByUser = userIds.isEmpty() ? Map.of() : profiles.findAllByUserIdIn(userIds).stream()
+                .collect(toMap(ProfileEntity::getUserId, p -> p));
+        Map<UUID, List<String>> rolesByUser = userIds.isEmpty() ? Map.of() : assignments.findRoleCodesByUserIds(userIds).stream()
+                .collect(groupingBy(row -> (UUID) row[0], mapping(row -> (String) row[1], toList())));
+        var items = result.stream().map(u -> {
+            var p = profilesByUser.get(u.getId());
             return new UserPageResponse.Item(u.getId(), u.getEmail(), p == null ? null : p.getFirstName(),
                     p == null ? null : p.getLastName(), u.getStatus().toUpperCase(Locale.ROOT),
-                    assignments.findRoleCodesByUserId(u.getId()).stream().distinct().sorted().toList(), u.getCreatedAt());
+                    rolesByUser.getOrDefault(u.getId(), List.of()).stream().distinct().sorted().toList(), u.getCreatedAt().atOffset(java.time.ZoneOffset.UTC));
         }).toList();
-        return new UserPageResponse(items, page, size, result.getTotalElements());
+        return new UserPageResponse(items, page, size, total);
     }
     @Transactional
     public void changePassword(UUID id, String password) {

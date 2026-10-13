@@ -31,7 +31,6 @@ class JwtAuthenticationFilterTest {
     void rejectsTokenWithoutRolesClaim() throws ServletException, IOException {
         JwtService jwtService = mock(JwtService.class);
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository.class),
-                mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository.class),
                 mock(com.acme.sportplatform.common.web.RestAuthenticationEntryPoint.class));
 
         HttpServletRequest request = mock(HttpServletRequest.class);
@@ -61,5 +60,28 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication())
                 .isNull();
+    }
+
+    @Test
+    void missingUserGetsOrdinaryAuthenticationErrorWithoutContinuingTheRequest() throws ServletException, IOException {
+        var jwtService = mock(JwtService.class);
+        var users = mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository.class);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        var filter = new JwtAuthenticationFilter(jwtService, users, new com.acme.sportplatform.common.web.RestAuthenticationEntryPoint(mapper));
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/v1/auth/me");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        var chain = mock(FilterChain.class);
+        var id = UUID.randomUUID();
+        request.addHeader("Authorization", "Bearer missing-user-token");
+        when(jwtService.parse("missing-user-token")).thenReturn(io.jsonwebtoken.Jwts.claims()
+                .subject("missing@test.example").add("uid", id.toString()).add("roles", java.util.List.of("participant")).build());
+        when(users.findAuthenticationById(id)).thenReturn(java.util.List.of());
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(mapper.readTree(response.getContentAsByteArray()).get("code").asText()).isEqualTo("authentication_required");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(chain);
     }
 }

@@ -1,5 +1,6 @@
 package com.acme.sportplatform.identity.application;
 
+import java.util.Locale;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -23,7 +24,7 @@ public class GetCurrentUserUseCase {
         return new CurrentUserResponse(
                 principal.getUserId(),
                 principal.getUsername(),
-                principal.getStatus(),
+                principal.getStatus().toUpperCase(Locale.ROOT),
                 roles
         );
     }

@@ -128,9 +128,9 @@ export function UsersAdminPage() {
         <tbody>{data.items.map(user => <tr key={user.id}>
           <td>{user.email}</td><td>{user.lastName} {user.firstName}</td>
           <td>{user.roles.map(code => <span className={styles.badge} key={code}>{roleLabel(code, roles.find(item => item.code === code)?.name)}</span>)}</td>
-          <td>{user.status === 'ACTIVE' ? 'Активен' : 'Заблокирован'}<br />{new Date(user.createdAt).toLocaleDateString('ru-RU')}</td>
+          <td>{user.status === 'ACTIVE' ? 'Активен' : user.status === 'INACTIVE' ? 'Удалён' : 'Заблокирован'}<br />{new Date(user.createdAt).toLocaleDateString('ru-RU')}</td>
           <td><div className={styles.actions}><button onClick={() => open({ type: 'roles', user })}>Роли</button>
-            <button onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</button>
+            {user.status !== 'INACTIVE' && <button onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</button>}
             <button onClick={() => open({ type: 'password', user })}>Сменить пароль</button></div></td>
         </tr>)}</tbody></table>}
       <div className={styles.pagination}><button disabled={page === 0} onClick={() => setPage(value => value - 1)}>Назад</button>

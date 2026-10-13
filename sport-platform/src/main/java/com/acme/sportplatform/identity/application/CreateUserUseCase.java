@@ -1,5 +1,6 @@
 package com.acme.sportplatform.identity.application;
 
+import java.util.Locale;
 import java.util.List;
 
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -97,7 +98,7 @@ public class CreateUserUseCase {
                 savedUser.getId(),
                 savedUser.getEmail(),
                 savedUser.getPhone(),
-                savedUser.getStatus(),
+                savedUser.getStatus().toUpperCase(Locale.ROOT),
                 savedUser.getCreatedAt()
         );
     }

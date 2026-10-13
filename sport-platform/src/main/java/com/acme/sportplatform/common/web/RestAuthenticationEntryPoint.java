@@ -32,9 +32,14 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
+        String code = "authentication_required";
+        String message = "Для доступа требуется авторизация";
+        if (authException instanceof UserBlockedException blocked) {
+            code = blocked.getCode();
+            message = blocked.getMessage();
+        }
         SecurityErrorResponse body = new SecurityErrorResponse(
-                "identity.user_blocked".equals(authException.getMessage()) ? "identity.user_blocked" : "authentication_required",
-                "identity.user_blocked".equals(authException.getMessage()) ? "Пользователь заблокирован. Обратитесь к администратору" : "Для доступа требуется авторизация",
+                code, message,
                 OffsetDateTime.now(),
                 request.getRequestURI()
         );

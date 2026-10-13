@@ -1,6 +1,7 @@
 package com.acme.sportplatform.identity.infrastructure.persistence.repository;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,9 @@ public interface UserRoleAssignmentRepository extends JpaRepository<UserRoleAssi
             order by r.code
             """)
     List<com.acme.sportplatform.identity.api.UserDetailsResponse.Role> findRolesByUserId(UUID userId);
+
+    @Query("select a.userId, r.code from UserRoleAssignmentEntity a, RoleEntity r where a.roleId = r.id and a.userId in :userIds")
+    List<Object[]> findRoleCodesByUserIds(Collection<UUID> userIds);
 
     boolean existsByUserIdAndRoleIdAndEventIdIsNullAndOrganizationIdIsNull(UUID userId, UUID roleId);
 

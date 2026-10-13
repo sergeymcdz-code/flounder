@@ -21,8 +21,9 @@ public class DeleteUserUseCase {
 
     @Transactional
     public void execute(UUID userId) {
+        AdminSelfProtection.assertNotSelf(userId);
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("identity.user_not_found", "User not found"));
+                .orElseThrow(() -> new BusinessException("identity.user_not_found", "Пользователь не найден"));
         
         user.setStatus("inactive");
         userRepository.save(user);
