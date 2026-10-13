@@ -1,0 +1,7 @@
+{
+  "maxFailures": 5,
+  "rejectedPasswords": 5,
+  "status": 429,
+  "retryAfterSeconds": 899,
+  "sourceIp": "127.0.0.2"
+}

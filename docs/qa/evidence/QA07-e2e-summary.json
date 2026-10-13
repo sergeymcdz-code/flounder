@@ -1,0 +1,41 @@
+{
+  "baseMain": "028dc5e",
+  "seed": {
+    "eventId": "72ae7829-d461-40b9-9be9-339bcfaba29d",
+    "date": "2026-10-24",
+    "slug": "otkrytyy-kubok-samary-po-plavaniyu-demo-qa07-2026-10-13t20-43-39-532z",
+    "suffix": " · QA07 2026-10-13T20:43:39.532Z"
+  },
+  "tests": [
+    {
+      "test": "M01: admin manages a new user, revokes blocked JWT, creates and approves organizations",
+      "project": "core",
+      "status": "passed",
+      "durationMs": 7063
+    },
+    {
+      "test": "M10: judge publishes two heats, operator corrects, finish is idempotent and advances live",
+      "project": "core",
+      "status": "passed",
+      "durationMs": 50667
+    },
+    {
+      "test": "M02: user changes their own password through the password page",
+      "project": "auth",
+      "status": "passed",
+      "durationMs": 2597
+    },
+    {
+      "test": "M02: a real access 401 transparently refreshes and rotates the session",
+      "project": "auth",
+      "status": "passed",
+      "durationMs": 1970
+    },
+    {
+      "test": "M02: login returns 429 and Retry-After after N failures @rate-limit",
+      "project": "rate-limit-last",
+      "status": "passed",
+      "durationMs": 2882
+    }
+  ]
+}
