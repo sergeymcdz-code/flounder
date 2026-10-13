@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publishDisciplineResults } from '../../api/scheduling.api'
 import {
   formatDate,
@@ -28,6 +29,12 @@ export function OrganizerResultsPage() {
         >
           Печать итогового протокола
         </a>
+        <PdfDownloadButton
+          path={`/api/v1/events/${event.id}/documents/results.pdf`}
+          filename="Итоговый-протокол.pdf"
+          accessToken={accessToken}
+          disabled={busy || !heats.some((heat) => hasResults(heat.id))}
+        />
       </div>
       {event.disciplines.map((d, index) => {
         const units = heats.filter((h) => h.eventDisciplineId === d.id)

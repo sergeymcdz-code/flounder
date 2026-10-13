@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publicApi } from '../../api/public.api'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
@@ -19,6 +20,11 @@ export function StartListPage() {
       <div className={styles.titleRow}>
         <h1>Стартовый протокол</h1>
         <PrintButton ready={!!state.data} />
+        <PdfDownloadButton
+          path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/start-list.pdf`}
+          filename="Стартовый-протокол.pdf"
+          disabled={!state.data?.sessions.length}
+        />
       </div>
       <DataState {...state} />
       {state.data &&

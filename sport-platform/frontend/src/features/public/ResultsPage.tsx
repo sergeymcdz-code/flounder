@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publicApi } from '../../api/public.api'
 import { PrintButton, PrintHeader, ResultsTable } from './Protocol'
 import { DataState } from './PublicLayout'
@@ -20,6 +21,11 @@ export function ResultsPage() {
       <div className={`${styles.titleRow} fl-results-page`}>
         <h1>Результаты</h1>
         <PrintButton ready={!!state.data} />
+        <PdfDownloadButton
+          path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/results.pdf`}
+          filename="Итоговый-протокол.pdf"
+          disabled={!state.data?.disciplines.length}
+        />
       </div>
       <div
         className={`${styles.segment} ${styles.noPrint}`}

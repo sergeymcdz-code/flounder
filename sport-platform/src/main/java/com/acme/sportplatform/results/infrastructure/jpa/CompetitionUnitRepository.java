@@ -7,6 +7,8 @@ import java.util.UUID;
 
 public interface CompetitionUnitRepository
         extends JpaRepository<CompetitionUnitEntity, UUID> {
+    List<CompetitionUnitEntity> findByEventDisciplineIdInOrderBySequenceNumberAsc(List<UUID> ids);
+
     boolean existsByEventDisciplineId(UUID id);
 
     interface SessionSummary {

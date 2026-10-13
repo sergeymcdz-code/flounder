@@ -89,6 +89,19 @@ it('refreshes authenticated downloads too', async () => {
   expect((await apiDownload('/file', 'old-access')).size).toBe(4)
 })
 
+it('does not refresh an anonymous download and uses the generic file error message', async () => {
+  let refreshes = 0
+  server.use(
+    http.get('*/public-file', ({ request }) => {
+      expect(request.headers.has('Authorization')).toBe(false)
+      return new HttpResponse(null, { status: 401 })
+    }),
+    http.post('*/api/v1/auth/refresh', () => { refreshes++; return HttpResponse.json(pair) }),
+  )
+  await expect(apiDownload('/public-file')).rejects.toMatchObject({ status: 401, message: 'Не удалось скачать файл.' })
+  expect(refreshes).toBe(0)
+})
+
 it('does not restore a logged-out session when an in-flight refresh completes and revokes the rotated token', async () => {
   let finish!: () => void, started!: () => void
   const running = new Promise<void>(resolve => { started = resolve })

@@ -23,4 +23,5 @@ public record EventDisciplineSummary(
         String seedingMode,
         UUID sessionId,
         Integer orderInSession,
-        Integer heatDurationSec) {}
+        Integer heatDurationSec,
+        java.time.OffsetDateTime createdAt) {}

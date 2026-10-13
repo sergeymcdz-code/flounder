@@ -140,6 +140,7 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                 entity.getSeedingMode(),
                 entity.getSessionId(),
                 entity.getOrderInSession(),
-                entity.getHeatDurationSec());
+                entity.getHeatDurationSec(),
+                entity.getCreatedAt());
     }
 }

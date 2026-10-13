@@ -8,4 +8,6 @@ public interface EventLookup {
     Set<UUID> accessibleEventIds(UUID userId);
 
     EventLookupResult getById(UUID eventId);
+
+    EventProtocolHeader protocolHeader(UUID eventId);
 }

@@ -17,6 +17,15 @@ public class VenueLookupService implements VenueLookup {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ProtocolVenue protocolVenue(UUID venueId) {
+        var venue = venueRepository.findById(venueId).orElseThrow(() ->
+                new com.acme.sportplatform.common.exception.BusinessException(
+                        "organizations.venue_not_found", "Площадка не найдена"));
+        return new ProtocolVenue(venue.getName(), venue.getCity(), venue.getTimezone(), venue.getVenueMeta());
+    }
+
+    @Override
     public String getMetadata(UUID venueId) {
         return venueRepository.findById(venueId).orElseThrow(() -> new com.acme.sportplatform.common.exception.BusinessException(
                 "organizations.venue_not_found", "Площадка не найдена")).getVenueMeta();

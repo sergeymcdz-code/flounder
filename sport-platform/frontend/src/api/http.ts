@@ -156,15 +156,15 @@ async function authenticatedFetch(path: string, options: RequestInit, accessToke
   return retried
 }
 
-export async function apiDownload(path: string, accessToken: string): Promise<Blob> {
+export async function apiDownload(path: string, accessToken?: string): Promise<Blob> {
   if (!API_BASE_URL) throw new Error('Не задан адрес API (VITE_API_BASE_URL).')
   const response = await authenticatedFetch(path, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   }, accessToken)
   if (!response.ok) {
     const payload = await response.json().catch(() => ({})) as ApiErrorResponse
     throw new ApiError(
-      response.status, payload.message ?? 'Не удалось скачать шаблон.', payload.code, payload.violations, retryAfterSeconds(response),
+      response.status, payload.message ?? 'Не удалось скачать файл.', payload.code, payload.violations, retryAfterSeconds(response),
     )
   }
   return response.blob()

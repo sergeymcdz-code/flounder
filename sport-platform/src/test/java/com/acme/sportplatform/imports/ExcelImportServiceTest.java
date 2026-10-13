@@ -80,7 +80,7 @@ class ExcelImportServiceTest {
     private static EventDisciplineSummary discipline(String code) {
         return new EventDisciplineSummary(UUID.randomUUID(), UUID.randomUUID(), code, code, "INDIVIDUAL", "HEAT",
                 "TIME", "ASC", null, BigDecimal.ZERO, "RUB", "{}", 50, "FREE", "M",
-                List.of(new AgeGroup("young", "Мальчики", "M", 2010, 2015)), "BY_AGE_GROUP", null, null, null);
+                List.of(new AgeGroup("young", "Мальчики", "M", 2010, 2015)), "BY_AGE_GROUP", null, null, null, java.time.OffsetDateTime.parse("2026-10-13T10:00:00Z"));
     }
 
     private static MockMultipartFile file(List<List<String>> entries) throws Exception {
