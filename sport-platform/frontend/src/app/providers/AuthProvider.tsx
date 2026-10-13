@@ -2,7 +2,7 @@ import {
   createContext,
   useContext,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type PropsWithChildren,
 } from 'react'
 import { login as loginRequest } from '../../api/auth.api'
@@ -11,7 +11,8 @@ import type {
   LoginRequest,
 } from '../../features/auth/auth.types'
 
-const SESSION_STORAGE_KEY = 'flounder.auth-session'
+import { getAuthState, setAuthSession, subscribeAuth } from '../../api/auth-session'
+import { apiFetch } from '../../api/http'
 
 export const ROLE_PLATFORM_ADMIN = 'platform_admin'
 export const ROLE_ORGANIZER = 'organizer'
@@ -34,7 +35,8 @@ type AuthContextValue = {
   isParticipant: boolean
   isAdmin: boolean
   login: (request: LoginRequest) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
+  sessionMessage: string | null
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -77,49 +79,30 @@ function getRoles(accessToken: string | null): string[] {
     : []
 }
 
-function readStoredSession(): AuthSession | null {
-  const rawSession = sessionStorage.getItem(SESSION_STORAGE_KEY)
-
-  if (!rawSession) {
-    return null
-  }
-
-  try {
-    const session = JSON.parse(rawSession) as AuthSession
-
-    if (!session.accessToken || session.expiresAt <= Date.now()) {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY)
-      return null
-    }
-
-    return session
-  } catch {
-    sessionStorage.removeItem(SESSION_STORAGE_KEY)
-    return null
-  }
-}
-
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [session, setSession] = useState<AuthSession | null>(() =>
-    readStoredSession(),
-  )
+  const { session, message: sessionMessage } = useSyncExternalStore(subscribeAuth, getAuthState)
 
   async function login(request: LoginRequest): Promise<void> {
     const response = await loginRequest(request)
 
     const nextSession: AuthSession = {
       accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
       tokenType: response.tokenType,
       expiresAt: Date.now() + response.expiresIn * 1000,
     }
 
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
-    setSession(nextSession)
+    setAuthSession(nextSession)
   }
 
-  function logout() {
-    sessionStorage.removeItem(SESSION_STORAGE_KEY)
-    setSession(null)
+  async function logout() {
+    const current = getAuthState().session
+    setAuthSession(null)
+    if (current?.refreshToken) {
+      await apiFetch('/api/v1/auth/logout', {
+        method: 'POST', body: JSON.stringify({ refreshToken: current.refreshToken }), skipRefresh: true,
+      })
+    }
   }
 
   const roles = getRoles(session?.accessToken ?? null)
@@ -152,9 +135,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAdmin,
       login,
       logout,
+      sessionMessage,
     }),
     [
       session,
+      sessionMessage,
       roles,
       isPlatformAdmin,
       isOrganizer,

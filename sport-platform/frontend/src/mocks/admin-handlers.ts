@@ -1,3 +1,4 @@
+import { mockAuthSession, mockPassword } from './auth-handlers'
 import { http, HttpResponse } from 'msw'
 import type { AdminUser, CreateUser, Role } from '../api/admin.api'
 import type { OrganizationMember, OrganizationRegistrationResponse, OrganizationResponse } from '../api/organizations.api'
@@ -36,9 +37,9 @@ export const adminHandlers = [
   http.post('*/api/v1/auth/login', async ({ request }) => {
     const body = await request.clone().json() as { email: string; password: string }
     if (body.email.toLowerCase() !== adminFixture.email) return
-    if (body.password !== 'Demo2026!') return failure(401, 'identity.invalid_credentials', 'Неверный email или пароль')
+    if (body.password !== mockPassword(body.email)) return failure(401, 'identity.invalid_credentials', 'Неверный email или пароль')
     const accessToken = `demo.${btoa(JSON.stringify({ uid: adminFixture.id, roles: ['platform_admin'] }))}.demo`
-    return HttpResponse.json({ accessToken, tokenType: 'Bearer', expiresIn: 7200 })
+    return HttpResponse.json(mockAuthSession(accessToken, body.email))
   }),
   http.get('*/api/v1/roles', ({ request }) => guard(request) ?? HttpResponse.json(adminRoles)),
   http.get('*/api/v1/users', ({ request }) => {

@@ -109,6 +109,7 @@ export function LoginPage() {
             {isSubmitting ? 'Входим…' : 'Войти'}
           </button>
         </form>
+        <p><Link to="/forgot-password">Забыли пароль?</Link></p>
         <p className={styles.registerPrompt}>
           Ещё нет аккаунта?{' '}
           <Link to="/register" state={{ from: returnTo }}>

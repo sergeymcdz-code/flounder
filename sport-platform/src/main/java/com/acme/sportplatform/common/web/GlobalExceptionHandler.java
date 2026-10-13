@@ -42,6 +42,14 @@ public class GlobalExceptionHandler {
                 "imports.missing_file", "Не передан файл в поле file", OffsetDateTime.now(), List.of()));
     }
 
+    @ExceptionHandler(com.acme.sportplatform.common.exception.TooManyRequestsException.class)
+    public ResponseEntity<ApiErrorResponse> handleLoginLimit(
+            com.acme.sportplatform.common.exception.TooManyRequestsException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(ex.getRetryAfter()))
+                .body(new ApiErrorResponse(ex.getCode(), ex.getMessage(), OffsetDateTime.now(), List.of()));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiErrorResponse> handleBusiness(
             BusinessException ex
@@ -62,7 +70,7 @@ public class GlobalExceptionHandler {
             case "identity.role_not_found" ->
                     HttpStatus.NOT_FOUND;
 
-            case "identity.invalid_credentials" ->
+            case "identity.invalid_credentials", "identity.refresh_token_invalid" ->
                     HttpStatus.UNAUTHORIZED;
 
             case "sports.sport_not_found" ->

@@ -11,12 +11,13 @@ export function AppLayout() {
     isParticipant,
     hasRole,
     logout,
+    sessionMessage,
   } = useAuth()
 
   const navigate = useNavigate()
 
   function handleLogout() {
-    logout()
+    void logout().catch(() => { /* The local session is already cleared. */ })
     navigate('/', { replace: true })
   }
 
@@ -89,6 +90,7 @@ export function AppLayout() {
             </NavLink>
           ) : null}
 
+          {isAuthenticated ? <NavLink className={navLinkClassName} to="/account/password">Сменить пароль</NavLink> : null}
           {isAuthenticated ? (
             <button
               className={`${styles.navLink} ${styles.navButton}`}
@@ -106,6 +108,7 @@ export function AppLayout() {
       </header>
 
       <main className={styles.content}>
+        {sessionMessage ? <p role="alert">{sessionMessage}</p> : null}
         <Outlet />
       </main>
     </div>

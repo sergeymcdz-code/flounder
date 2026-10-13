@@ -7,7 +7,6 @@ import java.util.UUID;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +29,10 @@ public class AdminUserService {
     private final ProfileRepository profiles;
     private final UserRoleAssignmentRepository assignments;
     private final RoleRepository roles;
-    private final PasswordEncoder encoder;
+    private final PasswordService passwords;
     public AdminUserService(UserRepository users, ProfileRepository profiles, UserRoleAssignmentRepository assignments,
-                            RoleRepository roles, PasswordEncoder encoder) {
-        this.users = users; this.profiles = profiles; this.assignments = assignments; this.roles = roles; this.encoder = encoder;
+                            RoleRepository roles, PasswordService passwords) {
+        this.users = users; this.profiles = profiles; this.assignments = assignments; this.roles = roles; this.passwords = passwords;
     }
     @Transactional(readOnly = true)
     public UserPageResponse search(String query, String role, int page, int size) {
@@ -59,10 +58,7 @@ public class AdminUserService {
     }
     @Transactional
     public void changePassword(UUID id, String password) {
-        if (password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
-            throw new BusinessException("identity.invalid_password", "Пароль не должен превышать 72 байта в UTF-8");
-        var user = users.findById(id).orElseThrow(() -> new BusinessException("identity.user_not_found", "Пользователь не найден"));
-        user.setPasswordHash(encoder.encode(password));
+        passwords.changeByAdministrator(id, password);
     }
     @Transactional(readOnly = true)
     public List<Role> roles() {

@@ -1,5 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
-import { isDemoParticipant } from './auth-handlers'
+import { isDemoParticipant, mockAuthSession, mockPassword } from './auth-handlers'
 import { createFixtures } from './fixtures'
 import type {
   DisciplineInput,
@@ -175,15 +175,13 @@ function generate(disciplineId: string, force: boolean): GenerationResult {
 }
 export const handlers = [
   http.post(path('/auth/login'), async ({ request }) => {
-    const body = (await request.clone().json()) as { email?: string }
+    const body = (await request.clone().json()) as { email?: string; password?: string }
     if (isDemoParticipant(body.email ?? '')) return
+    const password = mockPassword(body.email ?? '')
+    if (password && body.password !== password) return error(401, 'identity.invalid_credentials', 'Неверный email или пароль')
     await delay(100)
     const token = `demo.${btoa(JSON.stringify({ roles: ['organizer', 'operator'], exp: Math.floor(Date.now() / 1000) + 3600 }))}.demo`
-    return HttpResponse.json({
-      accessToken: token,
-      tokenType: 'Bearer',
-      expiresIn: 3600,
-    })
+    return HttpResponse.json(mockAuthSession(token, body.email ?? 'org@flounder.demo', 3600))
   }),
   // Guard the mocked organizer API so missing credentials behave like production.
   http.all(path('/*'), ({ request }) => {

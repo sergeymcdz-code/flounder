@@ -13,6 +13,10 @@ import com.acme.sportplatform.identity.infrastructure.persistence.projection.Use
 import com.acme.sportplatform.identity.infrastructure.persistence.projection.UserSearchRow;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UserEntity u where u.id = :id")
+    Optional<UserEntity> findByIdForUpdate(UUID id);
+
     Optional<UserEntity> findByEmail(String email);
     @Query("select u from UserEntity u where lower(u.email) = lower(:email)")
     Optional<UserEntity> findByEmailIgnoreCase(String email);

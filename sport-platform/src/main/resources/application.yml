@@ -90,13 +90,14 @@ logging:
     org.hibernate.SQL: WARN
 
 app:
+  public-url: ${APP_PUBLIC_URL:http://localhost:5173}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   security:
     jwt:
       secret: ${JWT_SECRET}
       issuer: "sport-platform"
-      access-token-ttl: PT2H
+      access-token-ttl: ${app.jwt.access-ttl:PT2H}
   payments:
     provider: ${APP_PAYMENTS_PROVIDER:MANUAL}
     yookassa:

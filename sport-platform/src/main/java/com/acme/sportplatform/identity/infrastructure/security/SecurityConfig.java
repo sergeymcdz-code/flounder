@@ -37,6 +37,8 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/register").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/password-reset/request",
+                            "/api/v1/auth/password-reset/confirm", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/users/*").hasRole("PLATFORM_ADMIN")
                     .requestMatchers(HttpMethod.PATCH, "/api/v1/users/*").hasRole("PLATFORM_ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/users/*").hasRole("PLATFORM_ADMIN")

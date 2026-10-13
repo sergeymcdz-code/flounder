@@ -129,6 +129,10 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     }
     void prepare(Endpoint e, String actor) {
         switch (e.state()) {
+            case "reset-token" -> jdbc.update("insert into password_reset_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '1 hour')",
+                    UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-reset-token"));
+            case "refresh-token" -> jdbc.update("insert into refresh_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '30 days')",
+                    UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-refresh-token"));
             case "org-member" -> member("org", "target", "member");
             case "event-draft" -> jdbc.update("update events set status='DRAFT' where id=?", id("event"));
             case "event-published" -> jdbc.update("update events set status='PUBLISHED' where id=?", id("event"));
