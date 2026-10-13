@@ -132,6 +132,11 @@ test('anonymous registration returns after login; authenticated form validates p
   await page.getByLabel('Пароль', { exact: true }).fill('Demo2026!')
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await expect(page).toHaveURL(/\/e\/demo\/register$/)
+  const roles = await page.evaluate(() => {
+    const session = JSON.parse(sessionStorage.getItem('flounder.auth-session')!)
+    return JSON.parse(atob(session.accessToken.split('.')[1])).roles
+  })
+  expect(roles).toContain('participant')
   await page.getByLabel('Фамилия', { exact: true }).fill('Ошибка')
   await page.getByLabel('Имя', { exact: true }).fill('Иван')
   await page.getByLabel('Дата рождения').fill('2012-06-15')

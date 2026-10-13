@@ -50,4 +50,10 @@ npm run test:e2e
 
 The production build always excludes MSW. Development mocks use only `npm run dev:demo` or `VITE_API_MOCK=true npm run dev`. Public API requests default to the current origin; configure
 `VITE_API_BASE_URL` for a separate backend. The development mock modes register
-MSW; production registers the PWA worker. Both workers share the root scope.
+MSW and disable PWA through the same `VITE_API_MOCK` flag. Production registers
+the PWA worker when that flag is disabled. Both workers share the root scope.
+
+The combined mock worker preserves T04 organizer handlers and adds public and
+participant authentication handlers. `npm run test` runs both the existing Node
+tests and public Vitest tests; `npm run test:organizer` runs the organizer browser
+suite separately from `npm run test:e2e`.

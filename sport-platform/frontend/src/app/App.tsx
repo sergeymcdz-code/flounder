@@ -4,40 +4,6 @@ import { Navigate, Route, Routes } from 'react-router'
 import { AppLayout } from '../components/AppLayout'
 import { RequireRole } from '../components/RequireRole'
 
-const RegistrationReviewPage = lazy(() => import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })))
-const SportsAdminPage = lazy(() => import('../features/admin/SportsAdminPage').then(module => ({ default: module.SportsAdminPage })))
-
-const LoginPage = lazy(() => import('../features/auth/LoginPage').then(module => ({ default: module.LoginPage })))
-const RegisterPage = lazy(() => import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })))
-
-
-const EventsPage = lazy(() => import('../features/events/EventsPage').then(module => ({ default: module.EventsPage })))
-
-const CreateEventPage = lazy(() => import('../features/organizer/CreateEventPage').then(module => ({ default: module.CreateEventPage })))
-const OrganizerDashboardPage = lazy(() => import('../features/organizer/OrganizerDashboardPage').then(module => ({ default: module.OrganizerDashboardPage })))
-const OrganizerEventsPage = lazy(() => import('../features/organizer/OrganizerEventsPage').then(module => ({ default: module.OrganizerEventsPage })))
-const OrganizerLayout = lazy(() => import('../features/organizer/OrganizerLayout').then(module => ({ default: module.OrganizerLayout })))
-const OrganizerRegistrationsPage = lazy(() => import('../features/organizer/OrganizerRegistrationsPage').then(module => ({ default: module.OrganizerRegistrationsPage })))
-const OrganizerEventLayout = lazy(() => import('../features/organizer/OrganizerEventLayout').then(module => ({ default: module.OrganizerEventLayout })))
-const OrganizerOverviewPage = lazy(() => import('../features/organizer/OrganizerOverviewPage').then(module => ({ default: module.OrganizerOverviewPage })))
-const OrganizerProgramPage = lazy(() => import('../features/organizer/OrganizerProgramPage').then(module => ({ default: module.OrganizerProgramPage })))
-const OrganizerEntriesPage = lazy(() => import('../features/organizer/OrganizerEntriesPage').then(module => ({ default: module.OrganizerEntriesPage })))
-const OrganizerHeatsPage = lazy(() => import('../features/organizer/OrganizerHeatsPage').then(module => ({ default: module.OrganizerHeatsPage })))
-const OrganizerResultsPage = lazy(() => import('../features/organizer/OrganizerResultsPage').then(module => ({ default: module.OrganizerResultsPage })))
-
-const OperatorPaymentsPage = lazy(() => import('../features/payments/OperatorPaymentsPage').then(module => ({ default: module.OperatorPaymentsPage })))
-const OperatorRegistrationPage = lazy(() => import('../features/payments/OperatorRegistrationPage').then(module => ({ default: module.OperatorRegistrationPage })))
-const PaymentPage = lazy(() => import('../features/payments/PaymentPage').then(module => ({ default: module.PaymentPage })))
-
-const MyRegistrationsPage = lazy(() => import('../features/registrations/MyRegistrationsPage').then(module => ({ default: module.MyRegistrationsPage })))
-const RegistrationPage = lazy(() => import('../features/registrations/RegistrationPage').then(module => ({ default: module.RegistrationPage })))
-
-const CreateRegulationPage = lazy(() => import('../features/regulations/CreateRegulationPage').then(module => ({ default: module.CreateRegulationPage })))
-
-const CompetitionUnitsPage = lazy(() => import('../features/results/CompetitionUnitsPage').then(module => ({ default: module.CompetitionUnitsPage })))
-const JudgePanelPage = lazy(() => import('../features/results/JudgePanelPage').then(module => ({ default: module.JudgePanelPage })))
-const PublicDisciplineResultsPage = lazy(() => import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })))
-
 import { LegacyEventRedirect, PublicLayout } from '../features/public/PublicLayout'
 import { PublicEventPage } from '../features/public/EventPage'
 import { StartListPage } from '../features/public/StartListPage'
@@ -46,6 +12,89 @@ import { LivePage } from '../features/public/LivePage'
 import { ResultsPage } from '../features/public/ResultsPage'
 import { PublicRegistrationPage } from '../features/public/RegistrationPage'
 import { HeatPage } from '../features/public/HeatPage'
+
+const RegistrationReviewPage = lazy(() =>
+  import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })),
+)
+const SportsAdminPage = lazy(() =>
+  import('../features/admin/SportsAdminPage').then(module => ({ default: module.SportsAdminPage })),
+)
+
+const LoginPage = lazy(() =>
+  import('../features/auth/LoginPage').then(module => ({ default: module.LoginPage })),
+)
+const RegisterPage = lazy(() =>
+  import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })),
+)
+
+const EventsPage = lazy(() =>
+  import('../features/events/EventsPage').then(module => ({ default: module.EventsPage })),
+)
+
+const CreateEventPage = lazy(() =>
+  import('../features/organizer/CreateEventPage').then(module => ({ default: module.CreateEventPage })),
+)
+const OrganizerDashboardPage = lazy(() =>
+  import('../features/organizer/OrganizerDashboardPage').then(module => ({ default: module.OrganizerDashboardPage })),
+)
+const OrganizerEventsPage = lazy(() =>
+  import('../features/organizer/OrganizerEventsPage').then(module => ({ default: module.OrganizerEventsPage })),
+)
+const OrganizerLayout = lazy(() =>
+  import('../features/organizer/OrganizerLayout').then(module => ({ default: module.OrganizerLayout })),
+)
+const OrganizerRegistrationsPage = lazy(() =>
+  import('../features/organizer/OrganizerRegistrationsPage').then(module => ({ default: module.OrganizerRegistrationsPage })),
+)
+const OrganizerEventLayout = lazy(() =>
+  import('../features/organizer/OrganizerEventLayout').then(module => ({ default: module.OrganizerEventLayout })),
+)
+const OrganizerOverviewPage = lazy(() =>
+  import('../features/organizer/OrganizerOverviewPage').then(module => ({ default: module.OrganizerOverviewPage })),
+)
+const OrganizerProgramPage = lazy(() =>
+  import('../features/organizer/OrganizerProgramPage').then(module => ({ default: module.OrganizerProgramPage })),
+)
+const OrganizerEntriesPage = lazy(() =>
+  import('../features/organizer/OrganizerEntriesPage').then(module => ({ default: module.OrganizerEntriesPage })),
+)
+const OrganizerHeatsPage = lazy(() =>
+  import('../features/organizer/OrganizerHeatsPage').then(module => ({ default: module.OrganizerHeatsPage })),
+)
+const OrganizerResultsPage = lazy(() =>
+  import('../features/organizer/OrganizerResultsPage').then(module => ({ default: module.OrganizerResultsPage })),
+)
+
+const OperatorPaymentsPage = lazy(() =>
+  import('../features/payments/OperatorPaymentsPage').then(module => ({ default: module.OperatorPaymentsPage })),
+)
+const OperatorRegistrationPage = lazy(() =>
+  import('../features/payments/OperatorRegistrationPage').then(module => ({ default: module.OperatorRegistrationPage })),
+)
+const PaymentPage = lazy(() =>
+  import('../features/payments/PaymentPage').then(module => ({ default: module.PaymentPage })),
+)
+
+const MyRegistrationsPage = lazy(() =>
+  import('../features/registrations/MyRegistrationsPage').then(module => ({ default: module.MyRegistrationsPage })),
+)
+const RegistrationPage = lazy(() =>
+  import('../features/registrations/RegistrationPage').then(module => ({ default: module.RegistrationPage })),
+)
+
+const CreateRegulationPage = lazy(() =>
+  import('../features/regulations/CreateRegulationPage').then(module => ({ default: module.CreateRegulationPage })),
+)
+
+const CompetitionUnitsPage = lazy(() =>
+  import('../features/results/CompetitionUnitsPage').then(module => ({ default: module.CompetitionUnitsPage })),
+)
+const JudgePanelPage = lazy(() =>
+  import('../features/results/JudgePanelPage').then(module => ({ default: module.JudgePanelPage })),
+)
+const PublicDisciplineResultsPage = lazy(() =>
+  import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })),
+)
 
 export default function App() {
   const routes = (

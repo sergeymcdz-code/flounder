@@ -8,10 +8,14 @@ import type {
 
 // Development only: the published demo account from the specification.
 const demoAccounts = new Map([['parent@flounder.demo', 'Demo2026!']])
+export function isDemoParticipant(email: string): boolean {
+  return demoAccounts.has(email.trim().toLowerCase())
+}
+
 export const authHandlers = [
   http.post('*/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequest
-    if (demoAccounts.get(body.email) !== body.password) {
+    if (demoAccounts.get(body.email.trim().toLowerCase()) !== body.password) {
       return HttpResponse.json(
         {
           code: 'auth.invalid_credentials',
