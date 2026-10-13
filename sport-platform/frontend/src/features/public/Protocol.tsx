@@ -17,7 +17,7 @@ export function PrintHeader({
         {event.title} · {title}
       </strong>
       <div>
-        {date(event.eventStartAt)} ·{' '}
+        {date(event.eventStartAt, event.venue?.timezone)} ·{' '}
         {event.venue
           ? `${event.venue.name}, ${event.venue.city}`
           : 'Площадка не указана'}
@@ -121,10 +121,12 @@ export function HeatProtocol({
   heat,
   lanes,
   slug,
+  timeZone,
 }: {
   heat: Heat
   lanes: number
   slug?: string
+  timeZone?: string
 }) {
   return (
     <article className={styles.heat}>
@@ -133,11 +135,11 @@ export function HeatProtocol({
           <Link
             to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(heat.id)}`}
           >
-            Заплыв {heat.number} — {time(heat.scheduledAt)}
+            Заплыв {heat.number} — {time(heat.scheduledAt, timeZone)}
           </Link>
         ) : (
           <>
-            Заплыв {heat.number} — {time(heat.scheduledAt)}
+            Заплыв {heat.number} — {time(heat.scheduledAt, timeZone)}
           </>
         )}
       </h4>

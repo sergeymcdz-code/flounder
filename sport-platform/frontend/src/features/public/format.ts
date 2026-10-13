@@ -1,20 +1,33 @@
 import type { ResultStatus, StartList } from './public.types'
 
-export function time(value: string | null) {
+export function time(value: string | null, timeZone?: string) {
   return value
     ? new Intl.DateTimeFormat('ru-RU', {
+        timeZone: timeZone?.trim() || undefined,
         hour: '2-digit',
         minute: '2-digit',
       }).format(new Date(value))
     : 'Время уточняется'
 }
-export function date(value: string) {
+export function date(value: string, timeZone?: string) {
   return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: timeZone?.trim() || undefined,
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(new Date(value))
 }
+export function localTimeLabel(value: string, timeZone?: string) {
+  const offset = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: timeZone?.trim() || undefined,
+    timeZoneName: 'longOffset',
+  })
+    .formatToParts(new Date(value))
+    .find((part) => part.type === 'timeZoneName')!.value
+  const utcOffset = offset.replace('GMT', 'UTC').replace(/:00$/, '')
+  return `время местное (${utcOffset === 'UTC' ? 'UTC+00' : utcOffset})`
+}
+
 export function seedTime(ms: number | null) {
   if (ms === null) return 'NT'
   const hundredths = Math.floor(ms / 10)

@@ -23,6 +23,7 @@ export function LiveBoard({
   slug,
   schedule = [],
   disciplines = [],
+  timeZone,
 }: {
   live: Live
   list?: StartList
@@ -30,6 +31,7 @@ export function LiveBoard({
   slug: string
   schedule?: ScheduleItem[]
   disciplines?: Discipline[]
+  timeZone?: string
 }) {
   function metadata(unit: LiveUnit) {
     const found = findHeat(list, unit.id)
@@ -96,7 +98,7 @@ export function LiveBoard({
             <p>
               Заплыв {live.currentUnit.number}
               {current?.total ? ` из ${current.total}` : ''} · Старт{' '}
-              {time(live.currentUnit.scheduledAt)}
+              {time(live.currentUnit.scheduledAt, timeZone)}
             </p>
             <LaneTable heat={live.currentUnit} lanes={lanes} />
             <Link
@@ -126,7 +128,7 @@ export function LiveBoard({
                     to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(unit.id)}`}
                   >
                     <strong>
-                      {time(unit.scheduledAt)} · Заплыв {unit.number}
+                      {time(unit.scheduledAt, timeZone)} · Заплыв {unit.number}
                     </strong>
                     <span>{found.name ?? 'Следующий заплыв'}</span>
                   </Link>
@@ -139,13 +141,19 @@ export function LiveBoard({
         )}
       </section>
       <p className={styles.muted}>
-        Обновлено: {time(live.updatedAt)} · каждые 5 секунд
+        Обновлено: {time(live.updatedAt, timeZone)} · каждые 5 секунд
       </p>
     </>
   )
 }
 
-export function AthleteSearch({ slug }: { slug: string }) {
+export function AthleteSearch({
+  slug,
+  timeZone,
+}: {
+  slug: string
+  timeZone?: string
+}) {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
   const [state, setState] = useState<{
@@ -221,7 +229,7 @@ export function AthleteSearch({ slug }: { slug: string }) {
                     <strong>{swim.disciplineName}</strong>
                     <p>
                       Заплыв {swim.heatNumber} · дорожка {swim.lane ?? '—'} ·{' '}
-                      {time(swim.scheduledAt)}
+                      {time(swim.scheduledAt, timeZone)}
                     </p>
                     {swim.result ? (
                       <p>
@@ -286,9 +294,12 @@ export function LivePage() {
           disciplines={event.disciplines}
           lanes={event.venue?.lanes ?? 8}
           slug={event.publicSlug}
+          timeZone={event.venue?.timezone}
         />
       )}
-      {!live.loading && <AthleteSearch slug={event.publicSlug} />}
+      {!live.loading && (
+        <AthleteSearch slug={event.publicSlug} timeZone={event.venue?.timezone} />
+      )}
     </>
   )
 }

@@ -16,7 +16,7 @@ public final class PublicResponses {
             String publicSlug, boolean registrationOpen, Venue venue,
             List<Session> sessions, List<Discipline> disciplines) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
-    public record Venue(String name, String city, Integer lanes, Integer courseLength) {}
+    public record Venue(String name, String city, Integer lanes, Integer courseLength, String timezone) {}
     public record Session(UUID id, String name, int orderNo, OffsetDateTime startsAt,
             int breakBetweenEventsSec) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
