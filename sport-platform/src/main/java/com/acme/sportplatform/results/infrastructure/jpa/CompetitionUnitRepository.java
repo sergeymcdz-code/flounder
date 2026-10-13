@@ -33,16 +33,22 @@ public interface CompetitionUnitRepository
 
     @org.springframework.data.jpa.repository.Query(
             value =
-                    "select u.* from competition_units u join event_disciplines d on"
-                        + " d.id=u.event_discipline_id where d.event_id=:eventId and u.status in"
-                        + " ('DRAFT','SCHEDULED','PUBLISHED') and (u.scheduled_at >"
-                        + " cast(:scheduledAt as timestamptz) or (u.scheduled_at ="
-                        + " cast(:scheduledAt as timestamptz) and (u.sequence_number > :sequence or"
-                        + " (u.sequence_number=:sequence and u.id > :id))) or (u.scheduled_at is"
-                        + " null and (cast(:scheduledAt as timestamptz) is not null or"
-                        + " u.sequence_number > :sequence or (u.sequence_number=:sequence and u.id"
-                        + " > :id)))) order by u.scheduled_at asc nulls last,u.sequence_number,u.id"
-                        + " limit 1",
+                    """
+                    with program as (
+                        select u.*, row_number() over (partition by d.session_id
+                            order by u.scheduled_at nulls last, d.order_in_session,
+                                u.sequence_number, u.id) as sequence_in_session
+                        from competition_units u join event_disciplines d on d.id=u.event_discipline_id
+                        where d.event_id=:eventId
+                    )
+                    select u.* from program u where u.status in ('DRAFT','SCHEDULED','PUBLISHED')
+                        and (u.scheduled_at > cast(:scheduledAt as timestamptz)
+                            or (u.scheduled_at is null and cast(:scheduledAt as timestamptz) is not null)
+                            or (u.scheduled_at is not distinct from cast(:scheduledAt as timestamptz)
+                                and (u.sequence_in_session,u.id) >
+                                    (coalesce((select sequence_in_session from program where id=:id),:sequence),:id)))
+                    order by u.scheduled_at nulls last,u.sequence_in_session,u.id limit 1
+                    """,
             nativeQuery = true)
     java.util.Optional<CompetitionUnitEntity> nextScheduled(
             UUID eventId, java.time.OffsetDateTime scheduledAt, int sequence,UUID id);
@@ -51,6 +57,9 @@ public interface CompetitionUnitRepository
     findByEventDisciplineIdOrderBySequenceNumberAsc(
             UUID eventDisciplineId
     );
+
+    List<CompetitionUnitEntity>
+    findByEventDisciplineIdAndStatusInOrderBySequenceNumberAsc(UUID eventDisciplineId, List<String> statuses);
 
     List<CompetitionUnitEntity>
     findByEventDisciplineIdAndStatusOrderBySequenceNumberAsc(

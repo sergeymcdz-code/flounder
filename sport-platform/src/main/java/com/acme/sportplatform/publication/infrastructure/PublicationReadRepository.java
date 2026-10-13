@@ -88,7 +88,10 @@ public class PublicationReadRepository {
                        ce.lane_or_position, ce.entry_status, r.status as registration_status,
                        coalesce(ce.seed_time_ms,r.seed_time_ms) as seed_time_ms,
                        p.last_name, p.first_name, cast(extract(year from p.birth_date) as integer) as birth_year,
-                       p.gender, p.club_name, res.time_ms, res.status as result_status,
+                       p.gender, p.club_name, res.time_ms,
+                       case when res.status = 'CORRECTED' and res.time_ms is null
+                           and res.raw_value in ('DID_NOT_START','DID_NOT_FINISH','DISQUALIFIED')
+                           then res.raw_value else res.status end as result_status,
                        res.final_place, res.place_in_age_group
                 from competition_unit_entries ce
                 join competition_units u on u.id = ce.competition_unit_id

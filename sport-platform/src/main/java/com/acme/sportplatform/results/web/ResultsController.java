@@ -55,6 +55,7 @@ public class ResultsController {
     private final GetPublicDisciplineResultsUseCase
             getPublicDisciplineResultsUseCase;
     private final EventDisciplineLookup eventDisciplineLookup;
+    private final com.acme.sportplatform.events.EventLookup eventLookup;
 
     private final ResultsAccessService resultsAccessService;
     private final com.acme.sportplatform.results.application.SwimResultsUseCase swim;
@@ -75,6 +76,7 @@ public class ResultsController {
             GetPublicDisciplineResultsUseCase
                     getPublicDisciplineResultsUseCase,
             EventDisciplineLookup eventDisciplineLookup,
+            com.acme.sportplatform.events.EventLookup eventLookup,
             ResultsAccessService resultsAccessService,
             com.acme.sportplatform.results.application.SwimResultsUseCase swim,
             com.fasterxml.jackson.databind.ObjectMapper json, jakarta.validation.Validator validator
@@ -94,6 +96,7 @@ public class ResultsController {
         this.getPublicDisciplineResultsUseCase =
                 getPublicDisciplineResultsUseCase;
         this.eventDisciplineLookup = eventDisciplineLookup;
+        this.eventLookup = eventLookup;
     }
 
     /**
@@ -154,6 +157,10 @@ public class ResultsController {
     public PublicCompetitionUnitResultsResponse getPublicResults(
             @PathVariable UUID unitId
     ) {
+        var unit = competitionUnitRepository.findById(unitId).orElseThrow(this::publicResultsNotFound);
+        var discipline = eventDisciplineLookup.findById(unit.getEventDisciplineId())
+                .orElseThrow(this::publicResultsNotFound);
+        assertPublicDiscipline(discipline);
         return getPublicCompetitionUnitResultsUseCase.execute(unitId);
     }
 
@@ -177,6 +184,7 @@ public class ResultsController {
         if (!eventId.equals(discipline.eventId())) {
             throw publicResultsNotFound();
         }
+        assertPublicDiscipline(discipline);
 
         return getPublicDisciplineResultsUseCase.execute(
                 eventId,
@@ -369,6 +377,14 @@ public class ResultsController {
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         updateEntry.execute(id, request.laneOrPosition(), principal);
         return ResponseEntity.noContent().build();
+    }
+
+    private void assertPublicDiscipline(EventDisciplineSummary discipline) {
+        var event = eventLookup.getById(discipline.eventId());
+        if (!java.util.Set.of("PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "LIVE", "COMPLETED")
+                .contains(event.status())) throw publicResultsNotFound();
+        if (eventDisciplineLookup.findPublishedByEventId(event.id()).stream()
+                .noneMatch(d -> d.id().equals(discipline.id()))) throw publicResultsNotFound();
     }
 
     private BusinessException publicResultsNotFound() {
