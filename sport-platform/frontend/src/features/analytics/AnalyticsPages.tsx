@@ -105,9 +105,8 @@ export function OrganizationAnalyticsPage() {
 }
 const loadOrganizations = (_id: string, token: string) => getOrganizations(token)
 export function OrganizationsAnalyticsListPage() {
-  const { isPlatformAdmin } = useAuth()
   const state = useAnalytics<OrganizationResponse[]>('list', loadOrganizations)
   if (state.loading) return <LoadingState message="Загружаем организации…" />
   if (!state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить организации.'} onRetry={state.refresh} />
-  return <div className={styles.page}><h1>Аналитика организаций</h1><p>Доступна владельцам и администраторам организации, а также администратору платформы.</p>{state.data.length === 0 && <p>Организаций пока нет</p>}{state.data.map(o => <section key={o.id} className={styles.panel}><h2>{o.name}</h2><p>{organizationAccessMessage}</p>{isPlatformAdmin && <Link to={`/organizer/organizations/${o.id}/analytics`}>Открыть аналитику</Link>}</section>)}</div>
+  return <div className={styles.page}><h1>Аналитика организаций</h1><p>Доступна владельцам и администраторам организации, а также администратору платформы.</p>{state.data.length === 0 && <p>Организаций пока нет</p>}{state.data.map(o => <section key={o.id} className={styles.panel}><h2>{o.name}</h2><p>{organizationAccessMessage}</p><Link to={`/organizer/organizations/${o.id}/analytics`}>Открыть аналитику</Link></section>)}</div>
 }

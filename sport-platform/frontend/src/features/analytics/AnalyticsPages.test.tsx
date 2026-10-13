@@ -86,12 +86,15 @@ it('provides organization analytics links to platform administrators', async () 
   expect(await screen.findByRole('link', { name: 'Открыть аналитику' })).toHaveAttribute('href', '/organizer/organizations/org/analytics')
 })
 
-it('explains access without offering links when membership roles are unavailable', async () => {
+it('offers links with an access explanation on each card when membership roles are unavailable', async () => {
   server.use(http.get('*/api/v1/organizations', () => HttpResponse.json([{ id: 'org', name: 'Волна' }, { id: 'other', name: 'Чайка' }])))
   render(<MemoryRouter><OrganizationsAnalyticsListPage /></MemoryRouter>)
   await screen.findByRole('heading', { name: 'Волна' })
-  expect(screen.getAllByText('Доступно владельцам и администраторам организации')).toHaveLength(2)
-  expect(screen.queryByRole('link', { name: 'Открыть аналитику' })).not.toBeInTheDocument()
+  for (const [name, id] of [['Волна', 'org'], ['Чайка', 'other']]) {
+    const card = screen.getByRole('heading', { name }).closest('section')!
+    expect(within(card).getByText('Доступно владельцам и администраторам организации')).toBeInTheDocument()
+    expect(within(card).getByRole('link', { name: 'Открыть аналитику' })).toHaveAttribute('href', `/organizer/organizations/${id}/analytics`)
+  }
 })
 it('uses the membership access explanation for a forbidden organization', async () => {
   server.use(http.get('*/api/v1/organizations/org/analytics', () => HttpResponse.json({ message: 'Нет доступа' }, { status: 403 })))
