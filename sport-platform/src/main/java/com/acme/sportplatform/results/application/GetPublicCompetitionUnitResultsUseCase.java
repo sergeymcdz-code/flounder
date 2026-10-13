@@ -142,7 +142,7 @@ public class GetPublicCompetitionUnitResultsUseCase {
     private BusinessException publicNotFound() {
         return new BusinessException(
                 "results.public_not_found",
-                "Published results were not found."
+                "Опубликованные результаты не найдены"
         );
     }
 

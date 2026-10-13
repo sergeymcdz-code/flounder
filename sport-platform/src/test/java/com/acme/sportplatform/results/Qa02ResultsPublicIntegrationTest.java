@@ -99,8 +99,12 @@ class Qa02ResultsPublicIntegrationTest extends Qa02ResultsFixture {
         UUID boy2 = entry(second, 3, 2015), girl2 = entry(second, 4, 2015);
         for (UUID id : List.of(girl1, girl2)) {
             jdbc.update("""
-                    update registrations set participant_snapshot=jsonb_set(participant_snapshot,'{gender}','\"Ж\"')
+                    update registrations set participant_snapshot=jsonb_set(participant_snapshot,'{gender}','\"F\"')
                     where id=(select registration_id from competition_unit_entries where id=?)
+                    """, id);
+            jdbc.update("""
+                    update profiles set gender='F' where id=(select r.participant_profile_id from registrations r
+                        join competition_unit_entries ce on ce.registration_id=r.id where ce.id=?)
                     """, id);
         }
         save(first, "JUDGE", List.of(timed(boy1, "46.20"), timed(girl1, "46.20")), 200);
@@ -301,5 +305,15 @@ class Qa02ResultsPublicIntegrationTest extends Qa02ResultsFixture {
                 () -> mvc.perform(get("/api/v1/public/competition-units/{id}/results", first)).andExpect(status().isNotFound()),
                 () -> mvc.perform(get("/api/v1/public/events/{event}/disciplines/{discipline}/results", event, discipline))
                         .andExpect(status().isNotFound()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DRAFT", "PUBLISHED", "IN_PROGRESS"})
+    void qa02_10_hiddenLegacyResultsReturnRussianError(String unitStatus) throws Exception {
+        state(first, unitStatus);
+        mvc.perform(get("/api/v1/public/competition-units/{id}/results", first))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("results.public_not_found"))
+                .andExpect(jsonPath("$.message").value("Опубликованные результаты не найдены"));
     }
 }
