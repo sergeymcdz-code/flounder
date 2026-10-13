@@ -14,10 +14,12 @@ import java.util.*;
 public class PublishUnitsUseCase {
     private final SchedulingData data;
     private final ValidateUnitsUseCase validate;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
-    public PublishUnitsUseCase(SchedulingData data, ValidateUnitsUseCase validate) {
+    public PublishUnitsUseCase(SchedulingData data, ValidateUnitsUseCase validate, org.springframework.context.ApplicationEventPublisher publisher) {
         this.data = data;
         this.validate = validate;
+        this.publisher = publisher;
     }
 
     @Transactional(noRollbackFor = ValidationFailedException.class)
@@ -28,7 +30,10 @@ public class PublishUnitsUseCase {
         data.locks.lockForUpdate(discipline.eventId());
         var result = validate.execute(disciplineId, principal);
         assertValid(result.violations());
+        boolean changed = data.units.findByDisciplineId(disciplineId).stream().anyMatch(u -> "DRAFT".equals(u.status()));
         data.units.publishDrafts(disciplineId);
+        if (changed) publisher.publishEvent(new com.acme.sportplatform.scheduling.StartListPublishedEvent(
+                UUID.randomUUID(), discipline.eventId(), disciplineId));
         return result;
     }
 
@@ -41,7 +46,11 @@ public class PublishUnitsUseCase {
         for (var discipline : disciplines)
             violations.addAll(validate.execute(discipline.id(), principal).violations());
         assertValid(violations);
+        boolean changed = disciplines.stream().anyMatch(d -> data.units.findByDisciplineId(d.id()).stream()
+                .anyMatch(u -> "DRAFT".equals(u.status())));
         for (var discipline : disciplines) data.units.publishDrafts(discipline.id());
+        if (changed) publisher.publishEvent(new com.acme.sportplatform.scheduling.StartListPublishedEvent(
+                UUID.randomUUID(), eventId, null));
         return new ValidationResponse(List.copyOf(violations));
     }
 

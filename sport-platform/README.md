@@ -399,3 +399,13 @@ Caddy (docker-сеть входит в `internal-proxies`); `getRemoteAddr()` в
 В `infra/compose.prod.yaml` API получает `APP_PUBLIC_URL` из окружения с fallback
 `https://${DOMAIN}`. В примере production env указано `APP_PUBLIC_URL=https://sportgate.pro`.
 Изменения M02 предназначены для слияния и деплоя после демо 15.10.2026 (с 16.10).
+
+### E-mail уведомления (M05)
+
+По умолчанию MAIL_ENABLED=false: письма сохраняются в notification_outbox и
+доставляются в лог (адресат/тема INFO, тело только DEBUG). SMTP включается через
+MAIL_ENABLED, MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM.
+APP_PUBLIC_URL задаёт базовый URL ссылок. Настройки в кабинете организатора:
+`/organizer/notification-settings`; журнал — вкладка «Уведомления» события.
+Контракты, транзакции, V032, интеграция M02/M06 и ручная проверка описаны в
+[docs/M05-notifications.md](../docs/M05-notifications.md).
