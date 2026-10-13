@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, useEffectEvent, type FormEvent } from 'react'
 import { ApiError, type FieldViolation } from '../../api/http'
 import {
   saveSession,
@@ -9,6 +9,7 @@ import {
   saveDiscipline,
   deleteDiscipline,
   publishDiscipline,
+  getDisciplineTemplates,
 } from '../../api/organizer.api'
 import type {
   Session,
@@ -16,10 +17,12 @@ import type {
   DisciplineInput,
   SwimDiscipline,
   AgeGroupPreset,
+  DisciplineTemplate,
 } from '../../api/organizer.types'
 import { OrganizerDialog, OrganizerConfirm } from './OrganizerDialog'
 import {
   formatDate,
+  sessionSummary,
   statusLabels,
   useOrganizerEvent,
 } from './organizer-event-context'
@@ -44,7 +47,7 @@ function localDateTime(value: string) {
 }
 export function OrganizerProgramPage() {
   const ctx = useOrganizerEvent()
-  const { event, sessions, registrations, accessToken, busy, run } = ctx
+  const { event, sessions, heats, registrations, accessToken, busy, run } = ctx
   const [sessionEdit, setSessionEdit] = useState<Session | 'new' | null>(null)
   const [disciplineEdit, setDisciplineEdit] = useState<
     SwimDiscipline | 'new' | null
@@ -72,7 +75,7 @@ export function OrganizerProgramPage() {
               <tr>
                 <th>Порядок</th>
                 <th>Название</th>
-                <th>Дата и время старта</th>
+                <th>Старт — расч. окончание · заплывы</th>
                 <th>Пауза между видами</th>
                 <th>Действия</th>
               </tr>
@@ -84,7 +87,15 @@ export function OrganizerProgramPage() {
                   <tr key={s.id}>
                     <td>{s.orderNo}</td>
                     <td>{s.name}</td>
-                    <td>{formatDate(s.startsAt)}</td>
+                    <td>
+                      {formatDate(s.startsAt)} —{' '}
+                      {formatDate(
+                        sessionSummary(s, event.disciplines, heats)
+                          .estimatedEndsAt,
+                      )}{' '}
+                      · {sessionSummary(s, event.disciplines, heats).heatsCount}{' '}
+                      заплывов
+                    </td>
                     <td>{s.breakBetweenEventsSec} с</td>
                     <td>
                       <div className={styles.actions}>
@@ -229,7 +240,7 @@ export function OrganizerProgramPage() {
       {remove && (
         <OrganizerConfirm
           title={remove.title}
-          message="Действие удалит запись. Сервер проверит связанные виды и заявки."
+          message="Запись будет удалена из программы соревнования. Если она используется в других разделах, сначала уберите связанные записи."
           busy={busy}
           onClose={() => setRemove(null)}
           onConfirm={() => {
@@ -356,6 +367,7 @@ function DisciplineEditor({
     discipline ?? {
       code: '',
       name: '',
+      disciplineTemplateId: '',
       distanceM: 50,
       stroke: 'FREE',
       gender: 'F',
@@ -370,7 +382,33 @@ function DisciplineEditor({
   const [presets, setPresets] = useState<AgeGroupPreset[]>([])
   const [preset, setPreset] = useState('')
   const [presetBusy, setPresetBusy] = useState(false)
-  const [presetError, setPresetError] = useState('')
+  const [templates, setTemplates] = useState<DisciplineTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const onTemplatesLoaded = useEffectEvent((items: DisciplineTemplate[]) => {
+    setTemplates(items)
+    setForm((previous) => ({
+      ...previous,
+      disciplineTemplateId: previous.disciplineTemplateId || items[0]?.id || '',
+    }))
+    setTemplatesLoading(false)
+  })
+  const onTemplatesError = useEffectEvent((cause: unknown) => {
+    void run(() => Promise.reject(cause), 'none')
+    setTemplatesLoading(false)
+  })
+  useEffect(() => {
+    let active = true
+    getDisciplineTemplates(event.sportId, accessToken)
+      .then((items) => {
+        if (active) onTemplatesLoaded(items)
+      })
+      .catch((cause) => {
+        if (active) onTemplatesError(cause)
+      })
+    return () => {
+      active = false
+    }
+  }, [event.sportId, accessToken])
   const error = (field: string) =>
     violations
       .filter((v) => v.field === field)
@@ -382,22 +420,12 @@ function DisciplineEditor({
   ) => setForm((f) => ({ ...f, [key]: value }))
   async function loadPresets() {
     setPresetBusy(true)
-    setPresetError('')
-    try {
+    await run(async () => {
       const items = await getAgeGroupPresets(accessToken)
       setPresets(items)
-      setPreset(items[0]?.id ?? '')
-    } catch (cause) {
-      setPresetError(
-        cause instanceof Error
-          ? cause.message
-          : 'Не удалось загрузить пресеты.',
-      )
-      if (cause instanceof ApiError && [401, 403].includes(cause.status))
-        await run(() => Promise.reject(cause))
-    } finally {
-      setPresetBusy(false)
-    }
+      setPreset(items[0]?.code ?? '')
+    }, 'none')
+    setPresetBusy(false)
   }
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -425,10 +453,29 @@ function DisciplineEditor({
     >
       <form className={styles.form} onSubmit={submit}>
         <label className={styles.field}>
-          Код вида
-          <input
+          Шаблон
+          <select
+            aria-label="Шаблон"
             required
-            value={form.code}
+            disabled={templatesLoading}
+            value={form.disciplineTemplateId ?? ''}
+            onChange={(e) => patch('disciplineTemplateId', e.target.value)}
+          >
+            <option value="" disabled>
+              {templatesLoading ? 'Загрузка шаблонов…' : 'Выберите шаблон'}
+            </option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <span className={styles.error}>{error('disciplineTemplateId')}</span>
+        </label>
+        <label className={styles.field}>
+          Код вида (необязательно)
+          <input
+            value={form.code ?? ''}
             onChange={(e) => patch('code', e.target.value)}
             placeholder="F-50-FREE"
           />
@@ -550,11 +597,6 @@ function DisciplineEditor({
             {presetBusy ? 'Загружаем…' : 'Добавить пресет'}
           </button>
         </div>
-        {presetError && (
-          <p role="alert" className={styles.error}>
-            {presetError}
-          </p>
-        )}
         {presets.length > 0 && (
           <div className={styles.actions}>
             <label className={styles.field}>
@@ -564,7 +606,7 @@ function DisciplineEditor({
                 onChange={(e) => setPreset(e.target.value)}
               >
                 {presets.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.code} value={p.code}>
                     {p.name}
                   </option>
                 ))}
@@ -574,7 +616,7 @@ function DisciplineEditor({
               type="button"
               onClick={() => {
                 const groups =
-                  presets.find((p) => p.id === preset)?.ageGroups ?? []
+                  presets.find((p) => p.code === preset)?.groups ?? []
                 patch('ageGroups', [
                   ...form.ageGroups,
                   ...groups.filter(
@@ -675,7 +717,10 @@ function DisciplineEditor({
         >
           Добавить группу вручную
         </button>
-        <button className={styles.primary} disabled={busy}>
+        <button
+          className={styles.primary}
+          disabled={busy || templatesLoading || !form.disciplineTemplateId}
+        >
           Сохранить вид
         </button>
       </form>

@@ -11,20 +11,24 @@ import { OrganizerConfirm } from './OrganizerDialog'
 import {
   formatDate,
   isHeatPublished,
+  normalizeGeneration,
   formatSeed,
   statusLabels,
   useOrganizerEvent,
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
 export function OrganizerHeatsPage() {
-  const { event, heats, registrations, accessToken, busy, run } =
-    useOrganizerEvent()
+  const {
+    event,
+    heats,
+    registrations,
+    accessToken,
+    busy,
+    run,
+    lastGeneration: last,
+    saveGeneration,
+  } = useOrganizerEvent()
   const [confirm, setConfirm] = useState<{ disciplineId?: string } | null>(null)
-  const [last, setLast] = useState<{
-    durationMs: number
-    violations: Violation[]
-    excludedCount: number
-  } | null>(null)
   const [violations, setViolations] = useState<
     (Violation & { disciplineId: string })[] | null
   >(null)
@@ -38,11 +42,10 @@ export function OrganizerHeatsPage() {
           force,
           accessToken,
         )
-        setLast({
-          durationMs: result.durationMs,
-          violations: result.violations,
-          excludedCount: result.excludedRegistrationIds.length,
-        })
+        saveGeneration(
+          [{ eventDisciplineId: disciplineId, result }],
+          result.durationMs,
+        )
       } else {
         const result = await generateHeats(
           event.id,
@@ -50,17 +53,11 @@ export function OrganizerHeatsPage() {
           force,
           accessToken,
         )
-        setLast({
-          durationMs: result.durationMs,
-          violations: [
-            ...(result.violations ?? []),
-            ...result.disciplines.flatMap((d) => d.violations),
-          ],
-          excludedCount: result.disciplines.reduce(
-            (n, d) => n + d.excludedRegistrationIds.length,
-            0,
-          ),
-        })
+        saveGeneration(
+          normalizeGeneration(result),
+          result.durationMs,
+          result.violations,
+        )
       }
       setViolations(null)
     })
@@ -87,10 +84,14 @@ export function OrganizerHeatsPage() {
       )
       setViolations(
         result.flatMap((d) =>
-          d.violations.map((v) => ({ ...v, disciplineId: d.id })),
+          d.violations.map((v) => ({
+            ...v,
+            eventDisciplineId: v.eventDisciplineId ?? d.id,
+            disciplineId: d.id,
+          })),
         ),
       )
-    })
+    }, 'none')
   }
   return (
     <div className={styles.stack}>
@@ -133,7 +134,7 @@ export function OrganizerHeatsPage() {
             <h2>Последнее формирование</h2>
             <p>
               Длительность: {last.durationMs} мс · Исключено заявок:{' '}
-              {last.excludedCount}
+              {last.excludedRegistrationIds.length}
             </p>
             {last.violations.map((v, i) => (
               <p
@@ -183,10 +184,14 @@ export function OrganizerHeatsPage() {
                 <button
                   onClick={() => {
                     const id =
+                      heats.find(
+                        (h) =>
+                          h.eventDisciplineId ===
+                            (v.eventDisciplineId ?? v.disciplineId) &&
+                          h.sequenceNumber === v.heatNumber,
+                      )?.id ??
                       v.unitId ??
-                      v.competitionUnitId ??
-                      heats.find((h) => h.eventDisciplineId === v.disciplineId)
-                        ?.id
+                      v.competitionUnitId
                     if (id) {
                       setHighlight(id)
                       document.getElementById(`heat-${id}`)?.scrollIntoView({
@@ -259,7 +264,7 @@ export function OrganizerHeatsPage() {
                               <td>
                                 <select
                                   aria-label={`Дорожка ${entry.participantName}`}
-                                  disabled={busy || !event.venue?.lanes}
+                                  disabled={busy}
                                   title={
                                     !event.venue?.lanes
                                       ? 'Число дорожек площадки не указано'
@@ -267,12 +272,14 @@ export function OrganizerHeatsPage() {
                                   }
                                   value={entry.laneOrPosition ?? ''}
                                   onChange={(e) => {
-                                    void run(() =>
-                                      changeLane(
-                                        entry.entryId,
-                                        Number(e.target.value),
-                                        accessToken,
-                                      ),
+                                    void run(
+                                      () =>
+                                        changeLane(
+                                          entry.entryId,
+                                          Number(e.target.value),
+                                          accessToken,
+                                        ),
+                                      { heatId: h.id },
                                     )
                                   }}
                                 >
@@ -283,8 +290,16 @@ export function OrganizerHeatsPage() {
                                     {
                                       length:
                                         event.venue?.lanes ??
-                                        entry.laneOrPosition ??
-                                        0,
+                                        (Math.max(
+                                          0,
+                                          ...heats.flatMap((heat) =>
+                                            heat.entries.map(
+                                              (entry) =>
+                                                entry.laneOrPosition ?? 0,
+                                            ),
+                                          ),
+                                        ) ||
+                                          8),
                                     },
                                     (_, i) => (
                                       <option value={i + 1} key={i}>

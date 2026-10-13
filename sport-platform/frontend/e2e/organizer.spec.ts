@@ -33,7 +33,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Код вида', { exact: true }).fill('F-200-FREE')
+  await dialog.getByRole('textbox', { name: /^Код вида/ }).fill('F-200-FREE')
   await dialog.getByRole('combobox', { name: /^Дистанция/ }).selectOption('200')
   await dialog
     .getByRole('combobox', { name: /^Сессия/ })
@@ -192,6 +192,8 @@ test('backend field errors stay beside inputs; event and result publication refr
   await expect(
     dialog.getByText('Код вида уже используется.', { exact: true }),
   ).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(1)
+  await expect(dialog.getByRole('alert')).toBeVisible()
   await expect(dialog.getByRole('textbox', { name: /^Код вида/ })).toHaveValue(
     'F-50-FREE',
   )
@@ -287,7 +289,11 @@ for (const width of [1280, 1024]) {
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width)
-      if (process.env.ORGANIZER_SCREENSHOT_DIR) {
+      if (
+        process.env.ORGANIZER_SCREENSHOT_DIR &&
+        (!process.env.ORGANIZER_SCREENSHOT_TABS ||
+          process.env.ORGANIZER_SCREENSHOT_TABS.split(',').includes(name))
+      ) {
         const directory = resolve(process.env.ORGANIZER_SCREENSHOT_DIR)
         await mkdir(directory, { recursive: true })
         await page.screenshot({
@@ -400,4 +406,351 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   await expect(page.locator('article[id^="heat-"]').first()).toHaveClass(
     /highlight/,
   )
+})
+
+test('template selection, optional code, explicit payloads and registration refresh scope', async ({
+  page,
+}) => {
+  await login(page)
+  const bodies: Record<string, unknown>[] = []
+  const gets: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && request.url().includes('/api/v1/'))
+      gets.push(new URL(request.url()).pathname)
+    if (
+      ['POST', 'PATCH'].includes(request.method()) &&
+      /\/disciplines$|\/event-disciplines\//.test(request.url())
+    )
+      bodies.push(request.postDataJSON() as Record<string, unknown>)
+  })
+  await page
+    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .click()
+  await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
+  let dialog = page.getByRole('dialog')
+  await expect(dialog.getByLabel('Шаблон', { exact: true })).toHaveValue(
+    '00000012-1111-4111-8111-000000000001',
+  )
+  await dialog.getByRole('textbox', { name: /^Название/ }).fill('Без кода')
+  await dialog.getByRole('button', { name: 'Сохранить вид' }).click()
+  await expect(dialog).not.toBeVisible()
+  expect(bodies[0]).toHaveProperty(
+    'disciplineTemplateId',
+    '00000012-1111-4111-8111-000000000001',
+  )
+  expect(bodies[0]).not.toHaveProperty('code')
+  const row = page.getByRole('row').filter({ hasText: 'Без кода' })
+  await row.getByRole('button', { name: 'Изменить', exact: true }).click()
+  dialog = page.getByRole('dialog')
+  await dialog
+    .getByLabel('Шаблон', { exact: true })
+    .selectOption('00000012-1111-4111-8111-000000000002')
+  await dialog.getByRole('button', { name: 'Сохранить вид' }).click()
+  await expect(dialog).not.toBeVisible()
+  expect(bodies[1]).toHaveProperty(
+    'disciplineTemplateId',
+    '00000012-1111-4111-8111-000000000002',
+  )
+  for (const body of bodies) {
+    for (const key of [
+      'id',
+      'eventId',
+      'status',
+      'settingsJson',
+      'competitionFormat',
+      'unitType',
+      'resultType',
+      'rankingStrategy',
+    ])
+      expect(body).not.toHaveProperty(key)
+  }
+  await page
+    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('link', { name: 'Заявки', exact: true })
+    .click()
+  const entry = page.getByRole('row').nth(1)
+  for (const [input, display] of [
+    ['31.25', '00:31.25'],
+    ['1:03.45', '01:03.45'],
+  ]) {
+    await entry.getByRole('button', { name: /^(00:32.15|00:31.25)$/ }).click()
+    await entry.getByRole('textbox').fill(input)
+    gets.length = 0
+    await entry.getByRole('button', { name: 'Сохранить', exact: true }).click()
+    await expect(
+      entry.getByRole('button', { name: display, exact: true }),
+    ).toBeVisible()
+    expect(gets).toEqual(['/api/v1/registrations'])
+  }
+  await entry.getByRole('button', { name: 'Снять', exact: true }).click()
+  gets.length = 0
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Подтвердить', exact: true })
+    .click()
+  await expect(
+    page.getByText('Пересчитайте заплывы', { exact: false }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Заплывы', exact: true }).last(),
+  ).toHaveAttribute('href', `${base}/heats`)
+  expect(gets).toEqual(['/api/v1/registrations'])
+})
+
+test('generation admission persists across tabs with nested and flat summaries', async ({
+  page,
+}) => {
+  await login(page)
+  await page.evaluate(async () => {
+    // Use the same MSW worker as the app to emulate both supported server contracts.
+    const resources = performance
+      .getEntriesByType('resource')
+      .map((entry) => entry.name)
+    const modules = [
+      resources.find(
+        (url) => new URL(url).pathname === '/src/mocks/browser.ts',
+      )!,
+      resources.find((url) => new URL(url).pathname.endsWith('/msw.js'))!,
+    ]
+    if (modules.some((url) => !url))
+      throw new Error('MSW modules were not loaded')
+    const { worker } = await import(modules[0])
+    const { http, HttpResponse } = await import(modules[1])
+    const { accessToken } = JSON.parse(
+      sessionStorage.getItem('flounder.auth-session')!,
+    ) as { accessToken: string }
+    const headers = { Authorization: `Bearer ${accessToken}` }
+    const registrations = (await (
+      await fetch('/api/v1/registrations', { headers })
+    ).json()) as { id: string; eventDisciplineId: string }[]
+    let calls = 0
+    worker.use(
+      http.post('*/api/v1/events/:id/generate-competition-units', () => {
+        calls++
+        const result = {
+          runId: 'review-run',
+          heats: [],
+          durationMs: 19,
+          excludedRegistrationIds: registrations.slice(0, 3).map((r) => r.id),
+          violations: [
+            'GENDER_MISMATCH',
+            'AGE_GROUP_MISMATCH',
+            'DUPLICATE_ENTRY',
+          ].map((code, i) => ({
+            code,
+            message: 'Не допущена',
+            severity: 'ERROR',
+            registrationId: registrations[i].id,
+            eventDisciplineId: registrations[i].eventDisciplineId,
+          })),
+        }
+        const ids = [...new Set(registrations.map((r) => r.eventDisciplineId))]
+        return HttpResponse.json({
+          durationMs: 19,
+          disciplines: ids.map((eventDisciplineId) =>
+            calls === 1
+              ? { eventDisciplineId, result }
+              : { eventDisciplineId, ...result },
+          ),
+        })
+      }),
+    )
+  })
+  for (let call = 0; call < 2; call++) {
+    await page
+      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('link', { name: 'Заплывы', exact: true })
+      .click()
+    await page
+      .getByRole('button', { name: 'Сформировать заплывы (всё событие)' })
+      .click()
+    await expect(
+      page.getByRole('heading', { name: 'Последнее формирование' }),
+    ).toBeVisible()
+    await page
+      .getByRole('status')
+      .filter({ hasText: 'Выполняем действие' })
+      .waitFor({ state: 'hidden' })
+    await page
+      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('link', { name: 'Заявки', exact: true })
+      .click()
+    for (const code of [
+      'GENDER_MISMATCH',
+      'AGE_GROUP_MISMATCH',
+      'DUPLICATE_ENTRY',
+    ])
+      await expect(page.getByText(code, { exact: true })).toHaveAttribute(
+        'title',
+        /[А-Яа-я]/,
+      )
+    await page
+      .getByRole('combobox', { name: /^Статус/ })
+      .selectOption('EXCLUDED')
+    await expect(page.getByRole('row')).toHaveCount(4)
+    await page.getByRole('combobox', { name: /^Статус/ }).selectOption('')
+    await expect(page.getByText('✓', { exact: true }).first()).toBeVisible()
+  }
+})
+
+test('missing pool dimensions retain lane editing and refresh only the changed heat', async ({
+  page,
+}) => {
+  await login(page)
+  await page.evaluate(async () => {
+    const resources = performance
+      .getEntriesByType('resource')
+      .map((entry) => entry.name)
+    const modules = [
+      resources.find(
+        (url) => new URL(url).pathname === '/src/mocks/browser.ts',
+      )!,
+      resources.find((url) => new URL(url).pathname.endsWith('/msw.js'))!,
+    ]
+    if (modules.some((url) => !url))
+      throw new Error('MSW modules were not loaded')
+    const { worker } = await import(modules[0])
+    const { http, HttpResponse } = await import(modules[1])
+    const { accessToken } = JSON.parse(
+      sessionStorage.getItem('flounder.auth-session')!,
+    ) as { accessToken: string }
+    const headers = { Authorization: `Bearer ${accessToken}` }
+    const event = (await (
+      await fetch('/api/v1/events/11111111-1111-4111-8111-111111111111', {
+        headers,
+      })
+    ).json()) as { venue: { lanes: number | null } }
+    event.venue.lanes = null
+    worker.use(http.get('*/api/v1/events/:id', () => HttpResponse.json(event)))
+  })
+  await page.getByRole('link', { name: '← Мои события', exact: true }).click()
+  await page
+    .getByRole('link', { name: 'Управлять событием', exact: true })
+    .click()
+  await page
+    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('link', { name: 'Заплывы', exact: true })
+    .click()
+  const lane = page.getByRole('combobox').first()
+  await expect(lane).toBeEnabled()
+  await expect(lane).toHaveAttribute(
+    'title',
+    'Число дорожек площадки не указано',
+  )
+  expect(await lane.getByRole('option').count()).toBe(8) // Empty option plus inferred lanes 1..7.
+  const gets: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && request.url().includes('/api/v1/'))
+      gets.push(new URL(request.url()).pathname)
+  })
+  const laneName = await lane.getAttribute('aria-label')
+  await lane.selectOption('7')
+  await page
+    .getByRole('status')
+    .filter({ hasText: 'Выполняем действие' })
+    .waitFor({ state: 'hidden' })
+  expect(gets).toEqual([
+    '/api/v1/competition-units/00000010-1111-4111-8111-000000000001',
+  ])
+  await expect(
+    page.getByRole('combobox', { name: laneName!, exact: true }),
+  ).toHaveValue('7')
+})
+
+test('session estimates honor server values and browser timezone; violations target the numbered heat', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    baseURL: 'http://127.0.0.1:5173',
+    timezoneId: 'America/New_York',
+  })
+  const page = await context.newPage()
+  try {
+    await login(page)
+    await page
+      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .click()
+    await expect(
+      page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
+    ).toContainText(/03:00.*03:16.*4 заплывов/)
+    await page.evaluate(async () => {
+      const resources = performance
+        .getEntriesByType('resource')
+        .map((entry) => entry.name)
+      const { worker } = await import(
+        resources.find(
+          (url) => new URL(url).pathname === '/src/mocks/browser.ts',
+        )!
+      )
+      const { http, HttpResponse } = await import(
+        resources.find((url) => new URL(url).pathname.endsWith('/msw.js'))!
+      )
+      const { accessToken } = JSON.parse(
+        sessionStorage.getItem('flounder.auth-session')!,
+      ) as { accessToken: string }
+      const sessions = (await (
+        await fetch(
+          '/api/v1/events/11111111-1111-4111-8111-111111111111/sessions',
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        )
+      ).json()) as { heatsCount?: number; estimatedEndsAt?: string }[]
+      sessions[0].heatsCount = 99
+      sessions[0].estimatedEndsAt = '2026-10-14T15:26:00Z'
+      worker.use(
+        http.get('*/api/v1/events/:id/sessions', () =>
+          HttpResponse.json(sessions),
+        ),
+        http.get(
+          '*/api/v1/event-disciplines/00000003-1111-4111-8111-000000000001/competition-units/validate',
+          () =>
+            HttpResponse.json({
+              violations: [
+                {
+                  code: 'REVIEW_CHECK',
+                  severity: 'WARNING',
+                  message: 'Проверить второй заплыв',
+                  eventDisciplineId: '00000003-1111-4111-8111-000000000001',
+                  heatNumber: 2,
+                  unitId: '00000010-1111-4111-8111-000000000001',
+                },
+              ],
+            }),
+        ),
+      )
+    })
+    await page.getByRole('link', { name: '← Мои события', exact: true }).click()
+    await page
+      .getByRole('link', { name: 'Управлять событием', exact: true })
+      .click()
+    await page
+      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .click()
+    await expect(
+      page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
+    ).toContainText(/03:00.*11:26.*99 заплывов/)
+    await page
+      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('link', { name: 'Заплывы', exact: true })
+      .click()
+    await page
+      .getByRole('button', { name: 'Проверить заплывы', exact: true })
+      .click()
+    await page
+      .getByRole('button', {
+        name: 'Предупреждение: Проверить второй заплыв',
+        exact: true,
+      })
+      .click()
+    await expect(
+      page.locator('#heat-00000010-1111-4111-8111-000000000002'),
+    ).toHaveClass(/highlight/)
+    await expect(
+      page.locator('#heat-00000010-1111-4111-8111-000000000001'),
+    ).not.toHaveClass(/highlight/)
+  } finally {
+    await context.close()
+  }
 })

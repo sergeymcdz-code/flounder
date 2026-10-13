@@ -27,9 +27,38 @@ function generate(disciplineId: string, force: boolean): GenerationResult {
   const registrations = state.registrations.filter(
     (r) => r.eventDisciplineId === disciplineId,
   )
-  const admitted = registrations.filter((r) =>
-    ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status),
-  )
+  const eligibilityViolations: Violation[] = []
+  const seen = new Set<string>()
+  const admitted = registrations.filter((r) => {
+    if (!['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status)) return false
+    const year = Number(r.participantSnapshot.birthDate?.slice(0, 4))
+    let code = ''
+    if (d.gender !== 'X' && d.gender !== r.participantSnapshot.gender)
+      code = 'GENDER_MISMATCH'
+    else if (
+      d.ageGroups.length &&
+      !d.ageGroups.some(
+        (g) =>
+          year >= (g.birthYearFrom ?? 1900) &&
+          year <= (g.birthYearTo ?? 2100) &&
+          (g.gender === 'X' || g.gender === r.participantSnapshot.gender),
+      )
+    )
+      code = 'AGE_GROUP_MISMATCH'
+    else if (seen.has(r.participantProfileId)) code = 'DUPLICATE_ENTRY'
+    if (code) {
+      eligibilityViolations.push({
+        code,
+        severity: 'ERROR',
+        message: 'Заявка не соответствует условиям допуска.',
+        eventDisciplineId: d.id,
+        registrationId: r.id,
+      })
+      return false
+    }
+    seen.add(r.participantProfileId)
+    return true
+  })
   state.heats = state.heats.filter((h) => h.eventDisciplineId !== disciplineId)
   const created: Heat[] = []
   const groups =
@@ -76,7 +105,6 @@ function generate(disciplineId: string, force: boolean): GenerationResult {
         status: 'DRAFT',
         scheduledAt: null,
         ageGroupCode: group.code || null,
-        resultsPublished: false,
         entries: rows
           .slice(start, start + size)
           .reverse()
@@ -99,8 +127,10 @@ function generate(disciplineId: string, force: boolean): GenerationResult {
       code: 'SMALL_GROUP',
       severity: 'WARNING',
       message: `В заплыве ${h.sequenceNumber} меньше трёх участников.`,
-      unitId: h.id,
+      eventDisciplineId: h.eventDisciplineId,
+      heatNumber: h.sequenceNumber ?? undefined,
     }))
+  violations.push(...eligibilityViolations)
   if (force)
     violations.push({
       code: 'REGENERATED_PUBLISHED',
@@ -185,7 +215,7 @@ export const handlers = [
       {
         id: state.event.venueId,
         ...state.event.venue,
-        timezone: 'Europe/Moscow',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         countryCode: 'RU',
         address: 'Демо-площадка',
       },
@@ -252,6 +282,9 @@ export const handlers = [
     state.sessions = state.sessions.filter((s) => s.id !== params.id)
     return new HttpResponse(null, { status: 204 })
   }),
+  http.get(path('/sports/:id/discipline-templates'), () =>
+    HttpResponse.json(state.templates),
+  ),
   http.get(path('/age-group-presets'), () => HttpResponse.json(state.presets)),
   http.post(path('/events/:id/disciplines'), async ({ params, request }) => {
     if (params.id !== state.event.id) return notFound()
@@ -261,6 +294,7 @@ export const handlers = [
       return error(400, 'disciplines.invalid', 'Проверьте поля вида.', invalid)
     const d = {
       ...body,
+      code: body.code || `SWIM-${state.event.disciplines.length + 1}`,
       id: crypto.randomUUID(),
       name:
         body.name ||
@@ -449,7 +483,7 @@ export const handlers = [
         )
       const disciplines = state.event.disciplines.map((d) => ({
         eventDisciplineId: d.id,
-        ...generate(d.id, body.force),
+        result: generate(d.id, body.force),
       }))
       return HttpResponse.json({
         disciplines,
@@ -492,7 +526,8 @@ export const handlers = [
                 code: 'SMALL_GROUP',
                 severity: 'WARNING',
                 message: `В заплыве ${h.sequenceNumber} меньше трёх участников.`,
-                unitId: h.id,
+                eventDisciplineId: h.eventDisciplineId,
+                heatNumber: h.sequenceNumber ?? undefined,
               })
             if (
               h.entries.some(
@@ -505,7 +540,8 @@ export const handlers = [
                 code: 'WITHDRAWN_ENTRY',
                 severity: 'ERROR',
                 message: `В заплыве ${h.sequenceNumber} есть снятая заявка. Сформируйте заплывы заново.`,
-                unitId: h.id,
+                eventDisciplineId: h.eventDisciplineId,
+                heatNumber: h.sequenceNumber ?? undefined,
               })
             return list
           }),
@@ -548,14 +584,35 @@ export const handlers = [
       const h = state.heats.find((h) => h.id === params.id)
       if (!h) return notFound()
       const body = (await request.json()) as { published: boolean }
-      h.resultsPublished = body.published
+      h.status = body.published ? 'PUBLISHED' : 'DRAFT'
       return new HttpResponse(null, { status: 204 })
     },
   ),
 ]
 function disciplineErrors(body: DisciplineInput, id?: string) {
   const errors: { field: string; message: string }[] = []
-  if (state.event.disciplines.some((d) => d.code === body.code && d.id !== id))
+  if (!state.templates.some((t) => t.id === body.disciplineTemplateId))
+    errors.push({
+      field: 'disciplineTemplateId',
+      message: 'Выберите шаблон вида.',
+    })
+  const forbidden = [
+    'id',
+    'eventId',
+    'status',
+    'settingsJson',
+    'competitionFormat',
+    'unitType',
+    'resultType',
+    'rankingStrategy',
+  ]
+  for (const field of forbidden)
+    if (field in body)
+      errors.push({ field, message: 'Служебное поле не принимается.' })
+  if (
+    body.code &&
+    state.event.disciplines.some((d) => d.code === body.code && d.id !== id)
+  )
     errors.push({ field: 'code', message: 'Код вида уже используется.' })
   if (!state.sessions.some((s) => s.id === body.sessionId))
     errors.push({

@@ -8,8 +8,21 @@ import {
   getOrganizerRegistrations,
 } from '../../api/organizer.api'
 import { getSessions } from '../../api/sessions.api'
+import { getCompetitionUnitDetails } from '../../api/results.api'
+import type {
+  OrganizerEventDetails,
+  OrganizerRegistration,
+  Session,
+  Heat,
+  GenerationResult,
+  GenerationSummary,
+} from '../../api/organizer.types'
 import { getHeats } from '../../api/scheduling.api'
-import { formatDate, type EventContext } from './organizer-event-context'
+import {
+  formatDate,
+  type EventContext,
+  type RefreshTarget,
+} from './organizer-event-context'
 import { LoadingState } from '../../components/LoadingState'
 import { ErrorState } from '../../components/ErrorState'
 import styles from './OrganizerEventPage.module.css'
@@ -25,10 +38,49 @@ function OrganizerEventContent() {
   const token = session?.accessToken ?? ''
   const navigate = useNavigate()
   const location = useLocation()
-  const [data, setData] = useState<Omit<
-    EventContext,
-    'accessToken' | 'busy' | 'refresh' | 'run' | 'error'
-  > | null>(null)
+  const [data, setData] = useState<{
+    event: OrganizerEventDetails
+    registrations: OrganizerRegistration[]
+    sessions: Session[]
+    heats: Heat[]
+  } | null>(null)
+  const [generationResults, setGenerationResults] = useState<
+    Record<string, GenerationResult>
+  >({})
+  const [lastGeneration, setLastGeneration] =
+    useState<GenerationSummary | null>(null)
+  const [dialogCount, setDialogCount] = useState(0)
+  const registerDialog = useCallback(() => {
+    setDialogCount((count) => count + 1)
+    return () => setDialogCount((count) => count - 1)
+  }, [])
+  function saveGeneration(
+    results: { eventDisciplineId: string; result: GenerationResult }[],
+    durationMs: number,
+    violations: GenerationSummary['violations'] = [],
+  ) {
+    setGenerationResults((previous) => ({
+      ...previous,
+      ...Object.fromEntries(
+        results.map((d) => [d.eventDisciplineId, d.result]),
+      ),
+    }))
+    setLastGeneration({
+      durationMs,
+      violations: [
+        ...violations,
+        ...results.flatMap((d) =>
+          d.result.violations.map((v) => ({
+            ...v,
+            eventDisciplineId: v.eventDisciplineId ?? d.eventDisciplineId,
+          })),
+        ),
+      ],
+      excludedRegistrationIds: results.flatMap(
+        (d) => d.result.excludedRegistrationIds,
+      ),
+    })
+  }
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -83,12 +135,33 @@ function OrganizerEventContent() {
       active = false
     }
   }, [load])
-  async function run(action: () => Promise<unknown>) {
+  async function run(
+    action: () => Promise<unknown>,
+    target: RefreshTarget = 'event',
+  ) {
     setBusy(true)
     setError('')
     try {
       await action()
-      await refresh()
+      if (target === 'event') await refresh()
+      else if (target === 'registrations') {
+        const registrations = await getOrganizerRegistrations(eventId, token)
+        setData((previous) =>
+          previous ? { ...previous, registrations } : previous,
+        )
+      } else if (typeof target === 'object') {
+        const heat = await getCompetitionUnitDetails(target.heatId, token)
+        setData((previous) =>
+          previous
+            ? {
+                ...previous,
+                heats: previous.heats.map((h) =>
+                  h.id === target.heatId ? { ...h, ...heat } : h,
+                ),
+              }
+            : previous,
+        )
+      }
       return true
     } catch (cause) {
       reportError(cause)
@@ -142,7 +215,9 @@ function OrganizerEventContent() {
           </NavLink>
         ))}
       </nav>
-      {error && <ErrorState title="Ошибка" message={error} />}
+      {error && dialogCount === 0 && (
+        <ErrorState title="Ошибка" message={error} />
+      )}
       {busy && <LoadingState message="Выполняем действие…" />}
       <Outlet
         context={
@@ -151,6 +226,10 @@ function OrganizerEventContent() {
             accessToken: token,
             busy,
             error,
+            generationResults,
+            lastGeneration,
+            saveGeneration,
+            registerDialog,
             refresh,
             run,
           } satisfies EventContext

@@ -8,18 +8,24 @@ export type AgeGroup = {
   birthYearFrom: number | null
   birthYearTo: number | null
 }
-export type AgeGroupPreset = { id: string; name: string; ageGroups: AgeGroup[] }
+export type AgeGroupPreset = { code: string; name: string; groups: AgeGroup[] }
 export type Session = {
   id: string
   name: string
   orderNo: number
   startsAt: string
   breakBetweenEventsSec: number
+  heatsCount?: number
+  estimatedEndsAt?: string | null
 }
-export type SessionInput = Omit<Session, 'id'>
+export type SessionInput = Pick<
+  Session,
+  'name' | 'orderNo' | 'startsAt' | 'breakBetweenEventsSec'
+>
 export type DisciplineInput = {
-  code: string
+  code?: string
   name?: string
+  disciplineTemplateId: string
   distanceM: number
   stroke: string
   gender: string
@@ -51,6 +57,8 @@ export type Violation = {
   code: string
   severity: 'ERROR' | 'WARNING'
   message: string
+  eventDisciplineId?: string
+  registrationId?: string
   heatNumber?: number
   unitId?: string
   competitionUnitId?: string
@@ -64,7 +72,6 @@ export type Heat = {
   scheduledAt: string | null
   ageGroupCode?: string | null
   entries: HeatEntry[]
-  resultsPublished?: boolean
 }
 export type HeatEntry = {
   entryId: string
@@ -98,7 +105,10 @@ export type GenerationResult = {
   durationMs: number
 }
 export type EventGenerationResult = {
-  disciplines: (GenerationResult & { eventDisciplineId: string })[]
+  disciplines: (
+    | { eventDisciplineId: string; result: GenerationResult }
+    | (GenerationResult & { eventDisciplineId: string })
+  )[]
   durationMs: number
   violations?: Violation[]
 }
@@ -109,4 +119,11 @@ export type ImportReport = {
   skipped: number
   createdProfiles: number
   errors: { row: number; column: string; message: string }[]
+}
+
+export type DisciplineTemplate = { id: string; name: string }
+export type GenerationSummary = {
+  durationMs: number
+  violations: Violation[]
+  excludedRegistrationIds: string[]
 }

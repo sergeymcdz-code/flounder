@@ -27,9 +27,9 @@ export function createFixtures() {
   ]
   const presets: AgeGroupPreset[] = [
     {
-      id: 'children-two-years',
+      code: 'children-two-years',
       name: 'Детские группы · 2 года',
-      ageGroups: ['F', 'M'].flatMap((gender) =>
+      groups: ['F', 'M'].flatMap((gender) =>
         [2012, 2014].map((year) => ({
           code: `${gender}-${year}-${year + 1}`,
           name: `${gender === 'F' ? 'Девушки' : 'Юноши'} ${year}–${year + 1}`,
@@ -63,6 +63,7 @@ export function createFixtures() {
       const gender = i % 2 === 0 ? 'F' : 'M'
       return {
         id: id(3, i + 1),
+        disciplineTemplateId: id(12, 1),
         code: `${gender}-${i < 2 ? 50 : 100}-FREE`,
         name: `${i < 2 ? 50 : 100} м вольный стиль, ${gender === 'F' ? 'девушки' : 'юноши'}`,
         competitionFormat: 'INDIVIDUAL',
@@ -80,7 +81,7 @@ export function createFixtures() {
         sessionId: sessions[i < 2 ? 0 : 1].id,
         orderInSession: (i % 2) + 1,
         heatDurationSec: null,
-        ageGroups: presets[0].ageGroups.filter((g) => g.gender === gender),
+        ageGroups: presets[0].groups.filter((g) => g.gender === gender),
         status: 'DRAFT',
         number: i + 1,
       }
@@ -133,7 +134,7 @@ export function createFixtures() {
         status: 'CONFIRMED',
         seedTimeMs: 32150 + i * 580 + (i % 4 >= 2 ? 30000 : 0),
         paymentStatus: i % 3 === 0 ? 'PAID' : 'PENDING',
-        source: i % 3 === 0 ? 'IMPORT' : 'WEB',
+        source: i % 3 === 0 ? 'IMPORT' : 'FORM',
         reviewNote: null,
         reviewedByUserId: null,
         reviewedAt: null,
@@ -154,7 +155,6 @@ export function createFixtures() {
       status: 'DRAFT',
       scheduledAt: `2026-10-14T${i < 2 ? '07' : '11'}:${String((i % 2) * 10 + j * 3).padStart(2, '0')}:00Z`,
       ageGroupCode: d.ageGroups[i < 2 ? 0 : 1].code,
-      resultsPublished: false,
       entries: chunk.map((r, k) => ({
         entryId: id(11, i * 100 + j * 10 + k + 1),
         registrationId: r.id,
@@ -165,5 +165,9 @@ export function createFixtures() {
       })),
     }))
   })
-  return { event, sessions, registrations, heats, presets }
+  const templates = [
+    { id: id(12, 1), name: 'Плавание: индивидуальный заплыв' },
+    { id: id(12, 2), name: 'Плавание: комплекс' },
+  ]
+  return { event, sessions, registrations, heats, presets, templates }
 }

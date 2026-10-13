@@ -13,15 +13,17 @@ export function OrganizerDialog({
   onClose: () => void
   side?: boolean
 }) {
-  const { error } = useOrganizerEvent()
+  const { error, registerDialog } = useOrganizerEvent()
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
     dialog?.showModal()
+    const unregister = registerDialog()
     return () => {
       dialog?.close()
+      unregister()
     }
-  }, [])
+  }, [registerDialog])
   return (
     <dialog
       ref={ref}

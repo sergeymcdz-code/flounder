@@ -4,7 +4,13 @@ import type {
   OrganizerRegistration,
   Session,
   Heat,
+  GenerationResult,
+  GenerationSummary,
+  EventGenerationResult,
 } from '../../api/organizer.types'
+
+export type RefreshTarget =
+  'event' | 'registrations' | 'none' | { heatId: string }
 
 export type EventContext = {
   event: OrganizerEventDetails
@@ -14,8 +20,19 @@ export type EventContext = {
   accessToken: string
   error: string
   busy: boolean
+  generationResults: Record<string, GenerationResult>
+  lastGeneration: GenerationSummary | null
+  saveGeneration: (
+    results: { eventDisciplineId: string; result: GenerationResult }[],
+    durationMs: number,
+    violations?: GenerationSummary['violations'],
+  ) => void
+  registerDialog: () => () => void
   refresh: () => Promise<void>
-  run: (action: () => Promise<unknown>) => Promise<boolean>
+  run: (
+    action: () => Promise<unknown>,
+    target?: RefreshTarget,
+  ) => Promise<boolean>
 }
 export const useOrganizerEvent = () => useOutletContext<EventContext>()
 export function formatDate(value: string | null) {
@@ -23,7 +40,6 @@ export function formatDate(value: string | null) {
     ? new Intl.DateTimeFormat('ru-RU', {
         dateStyle: 'medium',
         timeStyle: 'short',
-        timeZone: 'Europe/Moscow',
       }).format(new Date(value))
     : 'Не назначено'
 }
@@ -58,9 +74,41 @@ export const statusLabels: Record<string, string> = {
   SCHEDULED: 'В расписании',
   REFUNDED: 'Возврат оплаты',
   IMPORT: 'Импорт',
-  WEB: 'Сайт',
-  MANUAL: 'Вручную',
+  FORM: 'Форма',
 }
 
 export const isHeatPublished = (status: string) =>
   ['PUBLISHED', 'IN_PROGRESS', 'FINISHED', 'COMPLETED'].includes(status)
+
+export function normalizeGeneration(result: EventGenerationResult) {
+  return result.disciplines.map((d) => ({
+    eventDisciplineId: d.eventDisciplineId,
+    result: 'result' in d ? d.result : d,
+  }))
+}
+export function sessionSummary(
+  session: Session,
+  disciplines: OrganizerEventDetails['disciplines'],
+  heats: Heat[],
+) {
+  const sessionHeats = heats.filter((h) =>
+    disciplines.some(
+      (d) => d.id === h.eventDisciplineId && d.sessionId === session.id,
+    ),
+  )
+  const ends = sessionHeats
+    .flatMap((h) => {
+      if (!h.scheduledAt) return []
+      const duration =
+        disciplines.find((d) => d.id === h.eventDisciplineId)
+          ?.heatDurationSec ?? 180
+      return [new Date(h.scheduledAt).getTime() + duration * 1000]
+    })
+    .filter(Number.isFinite)
+  return {
+    heatsCount: session.heatsCount ?? sessionHeats.length,
+    estimatedEndsAt:
+      session.estimatedEndsAt ??
+      (ends.length ? new Date(Math.max(...ends)).toISOString() : null),
+  }
+}

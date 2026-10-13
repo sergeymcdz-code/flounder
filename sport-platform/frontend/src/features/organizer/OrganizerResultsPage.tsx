@@ -83,7 +83,7 @@ export function OrganizerResultsPage() {
                       <td>
                         {!hasResults(h.id)
                           ? 'Нет'
-                          : (h.resultsPublished ?? h.status === 'PUBLISHED')
+                          : h.status === 'PUBLISHED'
                             ? 'Опубликованы'
                             : 'Внесены'}
                       </td>

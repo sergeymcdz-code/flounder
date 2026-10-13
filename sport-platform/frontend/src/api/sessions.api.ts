@@ -15,7 +15,16 @@ export const saveSession = (
     id
       ? `/api/v1/event-sessions/${encodeURIComponent(id)}`
       : `/api/v1/events/${encodeURIComponent(eventId)}/sessions`,
-    { accessToken, method: id ? 'PATCH' : 'POST', body: JSON.stringify(input) },
+    {
+      accessToken,
+      method: id ? 'PATCH' : 'POST',
+      body: JSON.stringify({
+        name: input.name,
+        orderNo: input.orderNo,
+        startsAt: input.startsAt,
+        breakBetweenEventsSec: input.breakBetweenEventsSec,
+      }),
+    },
   )
 export const deleteSession = (id: string, accessToken: string) =>
   apiFetch<void>(`/api/v1/event-sessions/${encodeURIComponent(id)}`, {

@@ -5,6 +5,7 @@ import type {
   OrganizerRegistration,
   DisciplineInput,
   SwimDiscipline,
+  DisciplineTemplate,
 } from './organizer.types'
 export async function getOrganizerEvent(
   id: string,
@@ -59,11 +60,23 @@ export const saveDiscipline = (
       accessToken,
       method: id ? 'PATCH' : 'POST',
       body: JSON.stringify({
-        ...input,
-        competitionFormat: 'INDIVIDUAL',
-        unitType: 'HEAT',
-        resultType: 'TIME',
-        rankingStrategy: 'ASC',
+        code: input.code?.trim() || undefined,
+        name: input.name?.trim() || undefined,
+        distanceM: input.distanceM,
+        stroke: input.stroke,
+        gender: input.gender,
+        seedingMode: input.seedingMode,
+        sessionId: input.sessionId,
+        orderInSession: input.orderInSession,
+        heatDurationSec: input.heatDurationSec,
+        ageGroups: input.ageGroups.map((g) => ({
+          code: g.code,
+          name: g.name,
+          gender: g.gender,
+          birthYearFrom: g.birthYearFrom,
+          birthYearTo: g.birthYearTo,
+        })),
+        disciplineTemplateId: input.disciplineTemplateId,
       }),
     },
   )
@@ -98,4 +111,10 @@ export const updateSeedTime = (
   apiFetch<OrganizerRegistration>(
     `/api/v1/registrations/${encodeURIComponent(id)}`,
     { accessToken, method: 'PATCH', body: JSON.stringify({ seedTimeMs }) },
+  )
+
+export const getDisciplineTemplates = (sportId: string, accessToken: string) =>
+  apiFetch<DisciplineTemplate[]>(
+    `/api/v1/sports/${encodeURIComponent(sportId)}/discipline-templates`,
+    { accessToken },
   )

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import {
   reviewRegistration,
   type RegistrationReviewDecision,
@@ -20,7 +21,47 @@ import {
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
 export function OrganizerEntriesPage() {
-  const { event, registrations, accessToken, busy, run } = useOrganizerEvent()
+  const {
+    event,
+    registrations,
+    heats,
+    generationResults,
+    accessToken,
+    busy,
+    run,
+  } = useOrganizerEvent()
+  const [withdrawNotice, setWithdrawNotice] = useState(false)
+  function admission(r: OrganizerRegistration) {
+    const result = generationResults[r.eventDisciplineId]
+    if (!result)
+      return {
+        excluded: false,
+        label: '—',
+        title: 'Сформируйте заплывы, чтобы проверить допуск.',
+      }
+    const violation = result.violations.find(
+      (v) =>
+        v.registrationId === r.id &&
+        ['GENDER_MISMATCH', 'AGE_GROUP_MISMATCH', 'DUPLICATE_ENTRY'].includes(
+          v.code,
+        ),
+    )
+    const excluded =
+      result.excludedRegistrationIds.includes(r.id) || Boolean(violation)
+    const reasons: Record<string, string> = {
+      GENDER_MISMATCH: 'Пол участника не соответствует виду программы.',
+      AGE_GROUP_MISMATCH: 'Год рождения не соответствует возрастным группам.',
+      DUPLICATE_ENTRY: 'Участник уже заявлен на этот вид программы.',
+    }
+    return {
+      excluded,
+      label: excluded ? (violation?.code ?? 'Не допущена') : '✓',
+      title: excluded
+        ? (reasons[violation?.code ?? ''] ??
+          'Заявка исключена из последнего формирования.')
+        : 'Заявка допущена по последнему результату формирования.',
+    }
+  }
   const [status, setStatus] = useState('')
   const [discipline, setDiscipline] = useState('')
   const [search, setSearch] = useState('')
@@ -33,7 +74,10 @@ export function OrganizerEntriesPage() {
   const [withdraw, setWithdraw] = useState<OrganizerRegistration | null>(null)
   const visible = registrations.filter(
     (r) =>
-      (!status || r.status === status) &&
+      (!status ||
+        (status === 'EXCLUDED'
+          ? admission(r).excluded
+          : r.status === status)) &&
       (!discipline || r.eventDisciplineId === discipline) &&
       `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''} ${r.participantSnapshot.clubName ?? ''}`
         .toLocaleLowerCase('ru')
@@ -55,6 +99,17 @@ export function OrganizerEntriesPage() {
           Импорт из Excel
         </button>
       </div>
+      {withdrawNotice && (
+        <p role="status">
+          Пересчитайте заплывы ·{' '}
+          <Link
+            className={styles.link}
+            to={`/organizer/events/${event.id}/heats`}
+          >
+            Заплывы
+          </Link>
+        </p>
+      )}
       <div className={styles.filters}>
         <label className={styles.field}>
           Поиск
@@ -68,6 +123,7 @@ export function OrganizerEntriesPage() {
           Статус
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Все статусы</option>
+            <option value="EXCLUDED">Не допущены</option>
             {[
               'SUBMITTED',
               'CONFIRMED',
@@ -111,6 +167,7 @@ export function OrganizerEntriesPage() {
                 'Пол',
                 'Клуб',
                 'Вид',
+                'Допуск',
                 'Заявочное время',
                 'Статус',
                 'Оплата',
@@ -142,6 +199,9 @@ export function OrganizerEntriesPage() {
                 <td>
                   {event.disciplines.find((d) => d.id === r.eventDisciplineId)
                     ?.name ?? '—'}
+                </td>
+                <td>
+                  <span title={admission(r).title}>{admission(r).label}</span>
                 </td>
                 <td>
                   <SeedTimeEditor registration={r} />
@@ -184,12 +244,14 @@ export function OrganizerEntriesPage() {
                             <button
                               disabled={busy}
                               onClick={() => {
-                                void run(() =>
-                                  registrationAction(
-                                    r.id,
-                                    'mark-paid',
-                                    accessToken,
-                                  ),
+                                void run(
+                                  () =>
+                                    registrationAction(
+                                      r.id,
+                                      'mark-paid',
+                                      accessToken,
+                                    ),
+                                  'registrations',
                                 )
                               }}
                             >
@@ -228,12 +290,14 @@ export function OrganizerEntriesPage() {
             className={styles.form}
             onSubmit={(e) => {
               e.preventDefault()
-              void run(() =>
-                reviewRegistration(
-                  review.id,
-                  { decision: review.decision, reviewNote: note },
-                  accessToken,
-                ),
+              void run(
+                () =>
+                  reviewRegistration(
+                    review.id,
+                    { decision: review.decision, reviewNote: note },
+                    accessToken,
+                  ),
+                'registrations',
               ).then((ok) => {
                 if (ok) setReview(null)
               })
@@ -260,10 +324,18 @@ export function OrganizerEntriesPage() {
           busy={busy}
           onClose={() => setWithdraw(null)}
           onConfirm={() => {
-            void run(() =>
-              registrationAction(withdraw.id, 'withdraw', accessToken),
+            void run(
+              () => registrationAction(withdraw.id, 'withdraw', accessToken),
+              'registrations',
             ).then((ok) => {
-              if (ok) setWithdraw(null)
+              if (ok) {
+                setWithdrawNotice(
+                  heats.some(
+                    (h) => h.eventDisciplineId === withdraw.eventDisciplineId,
+                  ),
+                )
+                setWithdraw(null)
+              }
             })
           }}
         />
@@ -283,18 +355,22 @@ function SeedTimeEditor({
   const [error, setError] = useState('')
   async function submit(e: FormEvent) {
     e.preventDefault()
-    const match = /^(\d{2}):([0-5]\d)\.(\d{2})$/.exec(value)
-    if (value && !match) {
-      setError('Введите мм:сс.сс или оставьте пустым.')
+    const match = /^(?:(\d+):)?(\d+)\.(\d{2})$/.exec(value.trim())
+    if (
+      value.trim() &&
+      (!match || (match[1] != null && Number(match[2]) >= 60))
+    ) {
+      setError('Введите сс.сс или м:сс.сс либо оставьте пустым.')
       return
     }
     const seed = match
-      ? Number(match[1]) * 60000 +
+      ? Number(match[1] ?? 0) * 60000 +
         Number(match[2]) * 1000 +
         Number(match[3]) * 10
       : null
-    const ok = await run(() =>
-      updateSeedTime(registration.id, seed, accessToken),
+    const ok = await run(
+      () => updateSeedTime(registration.id, seed, accessToken),
+      'registrations',
     )
     if (ok) setEditing(false)
   }
@@ -354,7 +430,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
       link.download = 'flounder-registrations.xlsx'
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-    })
+    }, 'none')
   }
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -368,7 +444,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
     await run(async () => {
       const result = await importRegistrations(event.id, file, accessToken)
       setReport(result)
-    })
+    }, 'registrations')
     setUploading(false)
   }
   return (
@@ -449,7 +525,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
         <button
           disabled={busy}
           onClick={() => {
-            void run(async () => undefined).then((ok) => {
+            void run(async () => undefined, 'registrations').then((ok) => {
               if (ok) onClose()
             })
           }}
