@@ -17,11 +17,10 @@ describe('request bodies: existing API and specification §5', () => {
     }
     expect(loginBody('test@example.invalid', 'unit-test-password')).toEqual({ email: 'test@example.invalid', password: 'unit-test-password' });
   });
-  it('uses the current venue DTO and opts into metadata for updated T01', () => {
+  it('always includes metadata supported by T01', () => {
     expect(organizationBody()).toMatchObject({ type: 'federation', contactEmail: 'org@flounder.demo' });
     expect(venueBody()).toMatchObject({ timezone: 'Europe/Samara' });
-    expect(venueBody()).not.toHaveProperty('venueMeta');
-    expect(venueBody(true)).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
+    expect(venueBody()).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
   });
   it('uses a Saturday in Samara regardless of host timezone', () => {
     expect(samaraDate('2026-10-16T22:00:00Z')).toBe('2026-10-17');

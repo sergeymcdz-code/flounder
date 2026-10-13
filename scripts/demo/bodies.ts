@@ -18,9 +18,9 @@ export const userBody = (account: Account, password: string) => ({
 export const roleBody = (roleCode: string) => ({ roleCode });
 export const memberBody = (userId: string, memberRole: string) => ({ userId, memberRole });
 export const organizationBody = () => ({ type: 'federation', name: ORGANIZATION_NAME, contactEmail: 'org@flounder.demo' });
-export const venueBody = (requireVenueMeta = false) => ({
+export const venueBody = () => ({
   name: VENUE_NAME, countryCode: 'RU', city: 'Самара', timezone: 'Europe/Samara',
-  ...(requireVenueMeta ? { venueMeta: { lanes: 8, courseLength: 25 } } : {}),
+  venueMeta: { lanes: 8, courseLength: 25 },
 });
 
 export function demoEventTitle(suffix = ''): string {

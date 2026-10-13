@@ -13,14 +13,14 @@ class FakeApi implements Api {
   missingImport = false;
   missingSessions = false;
   supportsVenueMeta = false;
-  venueMeta: unknown = undefined;
   private serial = 0;
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     this.calls.push({ method, path, body, token });
-    const data = body as Record<string, unknown>;
+    let data = body as Record<string, unknown>;
     if (method === 'POST' && path === '/venues') {
       const allowed = ['name', 'countryCode', 'city', 'address', 'timezone', ...(this.supportsVenueMeta ? ['venueMeta'] : [])];
-      if (Object.keys(data).some(key => !allowed.includes(key))) throw new ApiError(400, 'request.unknown_field', method, path);
+      // Spring Boot ignores unknown fields on both DTO versions.
+      data = Object.fromEntries(Object.entries(data).filter(([key]) => allowed.includes(key)));
     }
     if (method === 'POST' && /^\/organizations\/[^/]+\/members$/.test(path)) {
       if (!['owner', 'admin', 'member', 'organizer', 'operator', 'judge'].includes(String(data.memberRole))) {
@@ -66,8 +66,8 @@ class FakeApi implements Api {
     if (method === 'GET' && /^\/(venues|organizations)\/[^/]+$/.test(path)) {
       const row = this.lists.get(`/${path.split('/')[1]}`)!.find(row => row.id === path.split('/')[2])!;
       if (path.startsWith('/venues/')) {
-        const { venueMeta: _storedMeta, ...response } = row;
-        return { ...response, ...(this.venueMeta === undefined ? {} : { venueMeta: this.venueMeta }) } as T;
+        const { venueMeta, ...response } = row;
+        return { ...response, ...(this.supportsVenueMeta && venueMeta !== undefined ? { venueMeta } : {}) } as T;
       }
       return row as T;
     }
@@ -133,30 +133,38 @@ describe('seed and reset orchestration without network', () => {
     expect(api.imports).toBe(1);
     expect(messages.join()).toContain('WARNING');
     expect(messages.join()).toContain('8 дорожек по умолчанию');
-    expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body).not.toHaveProperty('venueMeta');
+    expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
     expect(api.calls.filter(call => call.method === 'POST' && call.path.endsWith('/members')).map(call => (call.body as Row).memberRole))
       .toEqual(['owner', 'operator', 'judge']);
   });
   it('checks venue metadata strictly only when requested', async () => {
     const api = new FakeApi();
     await seed(api, options, quiet);
-    await expect(seed(api, { ...options, requireVenueMeta: true }, quiet)).rejects.toThrow('REQUIRE_VENUE_META=true');
+    await expect(seed(api, { ...options, requireVenueMeta: true }, quiet)).rejects.toThrow('площадка сохранена без venueMeta; API обновления площадки нет — задайте параметры в БД или создайте площадку заново');
     expect(api.imports).toBe(1);
-    api.venueMeta = { lanes: 8, courseLength: 25 };
+    api.supportsVenueMeta = true;
+    api.lists.get('/venues')![0].venueMeta = { lanes: 8, courseLength: 25 };
     await seed(api, { ...options, requireVenueMeta: true }, quiet);
     expect(api.imports).toBe(2);
   });
-  it('sends metadata in strict mode to the updated T01 venue DTO', async () => {
+  it.each([false, true])('saves metadata with updated T01, strict=%s', async requireVenueMeta => {
     const api = new FakeApi();
     api.supportsVenueMeta = true;
-    api.venueMeta = { lanes: 8, courseLength: 25 };
-    await seed(api, { ...options, requireVenueMeta: true }, quiet);
+    const messages: string[] = [];
+    await seed(api, { ...options, requireVenueMeta }, message => messages.push(message));
+    expect(api.imports).toBe(1);
+    expect(messages.join()).not.toContain('WARNING');
+    const venue = api.lists.get('/venues')![0];
+    expect(await api.request('GET', `/venues/${venue.id}`)).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
     expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body)
       .toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
   });
-  it('rejects unknown venue fields, unsupported member roles and closed discipline creation', async () => {
+  it('ignores unknown venue fields but rejects unsupported roles and closed discipline creation', async () => {
     const api = new FakeApi();
-    await expect(api.request('POST', '/venues', { name: 'test', lanes: 8 })).rejects.toMatchObject({ code: 'request.unknown_field' });
+    const venue = await api.request<Row>('POST', '/venues', { name: 'test', lanes: 8, venueMeta: { lanes: 8, courseLength: 25 } });
+    expect(venue).not.toHaveProperty('lanes');
+    expect(venue).not.toHaveProperty('venueMeta');
+    expect(await api.request('GET', `/venues/${venue.id}`)).not.toHaveProperty('venueMeta');
     await expect(api.request('POST', '/organizations/org/members', { userId: 'user', memberRole: 'staff' }))
       .rejects.toMatchObject({ code: 'organizations.invalid_member_role' });
     for (const status of ['REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'COMPLETED']) {

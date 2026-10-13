@@ -51,7 +51,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     if (account.key === 'ORG') organizerToken = await login(api, account.email, password);
     log(`Пользователь готов: ${account.email} (${account.role}).`);
   }
-  const venue = await ensure(api, adminToken, '/venues', row => row.name === VENUE_NAME, venueBody(options.requireVenueMeta), VENUE_NAME);
+  const venue = await ensure(api, adminToken, '/venues', row => row.name === VENUE_NAME, venueBody(), VENUE_NAME);
   const venueDetails = await api.request<Row>('GET', `/venues/${venue.id}`, undefined, adminToken);
   let meta: unknown = venueDetails.venueMeta;
   if (typeof meta === 'string') {
@@ -60,9 +60,9 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   const pool = meta as { lanes?: number; courseLength?: number } | undefined;
   if (pool?.lanes !== 8 || pool.courseLength !== 25) {
     if (options.requireVenueMeta) {
-      throw new Error('REQUIRE_VENUE_META=true: API площадки не вернул venueMeta {lanes:8, courseLength:25}. Требуется доработка T01.');
+      throw new Error('площадка сохранена без venueMeta; API обновления площадки нет — задайте параметры в БД или создайте площадку заново');
     }
-    log('WARNING: площадка сохранена без подтверждённых venueMeta {lanes:8, courseLength:25}; без метаданных бэкенд использует 8 дорожек по умолчанию, длина бассейна на публичной карточке не отобразится. Поле появится после доработки T01.');
+    log('WARNING: площадка сохранена без подтверждённых venueMeta {lanes:8, courseLength:25}; без метаданных бэкенд использует 8 дорожек по умолчанию, длина бассейна на публичной карточке не отобразится. T01 уже поддерживает venueMeta; API обновления площадки нет — задайте параметры в БД или создайте площадку заново.');
   }
   const sport = unique(await api.request<Row[]>('GET', '/sports', undefined, adminToken), row => row.code === 'swim', 'swim');
   if (!sport) throw new Error('Не найден спорт swim. Примените штатные миграции backend.');
