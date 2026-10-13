@@ -64,6 +64,10 @@ public class ExcelRowParser {
         String club = text(row, columns, 5, 255);
         String code = text(row, columns, 6, 64);
         if (code.isEmpty()) throw error(6, "код дисциплины не заполнен");
+        Cell timeCell = cell(row, columns, 7);
+        if (timeCell != null && timeCell.getCellType() == CellType.NUMERIC) {
+            throw error(7, "введите время текстом мм:сс.сс");
+        }
         String time = text(row, columns, 7, 32);
         Long seedTimeMs = null;
         if (!time.isEmpty()) {
@@ -77,18 +81,26 @@ public class ExcelRowParser {
     }
 
     public LocalDate birthDate(Cell cell) {
+        String value = formatted(cell, 3);
+        if (value.isEmpty()) throw error(3, "дата рождения не заполнена");
         try {
+            LocalDate date;
             if (cell != null && cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)
                     && DateUtil.isValidExcelDate(cell.getNumericCellValue())) {
-                return cell.getLocalDateTimeCellValue().toLocalDate();
+                date = cell.getLocalDateTimeCellValue().toLocalDate();
+            } else if (value.matches("[0-9]{2}\\.[0-9]{2}\\.[0-9]{4}")) {
+                date = LocalDate.parse(value, DATE);
+            } else if (value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+                date = LocalDate.parse(value);
+            } else {
+                throw error(3, "неверный формат, ожидается ДД.ММ.ГГГГ");
             }
-            String value = formatted(cell, 3);
-            if (value.matches("[0-9]{2}\\.[0-9]{2}\\.[0-9]{4}")) return LocalDate.parse(value, DATE);
-            if (value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) return LocalDate.parse(value);
+            if (date.getYear() < 1900) throw error(3, "дата рождения не может быть раньше 1900 года");
+            if (date.isAfter(LocalDate.now())) throw error(3, "дата рождения не может быть в будущем");
+            return date;
         } catch (java.time.DateTimeException | IllegalStateException ex) {
             throw error(3, "неверный формат, ожидается ДД.ММ.ГГГГ");
         }
-        throw error(3, "неверный формат, ожидается ДД.ММ.ГГГГ");
     }
 
     public String gender(String value) {

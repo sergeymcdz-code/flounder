@@ -7,6 +7,8 @@ import com.acme.sportplatform.events.infrastructure.persistence.repository.Event
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.ProfileRepository;
 import com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal;
 import com.acme.sportplatform.imports.api.ImportReport;
+import com.acme.sportplatform.imports.application.ImportRowValidator;
+import com.acme.sportplatform.competition.ImportDisciplineLookup.Discipline;
 import com.acme.sportplatform.imports.domain.ExcelRowParser;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntity;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
@@ -22,16 +24,19 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -49,11 +54,12 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired RegistrationRepository registrations;
     @Autowired ProfileRepository profiles;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @MockitoSpyBean ImportRowValidator validator;
 
     @Test
     void importsDemoMInTenSecondsAndReportsExactlyThreeErrorsOnReload() throws Exception {
         UUID event = event();
-        byte[] file = Files.readAllBytes(Path.of("../docs/scripts/demo/out/set-M.xlsx"));
+        byte[] file = demoFile("set-M.xlsx");
         long started = System.nanoTime();
         ImportReport first = upload(event, file);
         long elapsedMs = (System.nanoTime() - started) / 1_000_000;
@@ -73,7 +79,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         });
         assertThat(rows.stream().filter(r -> r.getSeedTimeMs() == null)).hasSize(20);
         assertThat(rows.stream().filter(r -> r.getPaymentStatus().equals("PENDING"))).hasSize(53);
-        ImportReport second = upload(event, Files.readAllBytes(Path.of("../docs/scripts/demo/out/set-M-with-errors.xlsx")));
+        ImportReport second = upload(event, demoFile("set-M-with-errors.xlsx"));
         assertThat(second.total()).isEqualTo(203);
         assertThat(second.created()).isZero();
         assertThat(second.updated()).isEqualTo(200);
@@ -103,6 +109,17 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
             for (int i = 0; i < 8; i++) assertThat(workbook.getSheetAt(0).getRow(0).getCell(i).getStringCellValue())
                     .isEqualTo(ExcelRowParser.HEADERS.get(i));
             var sheet = workbook.getSheetAt(0);
+            for (int column : List.of(3, 7)) {
+                assertThat(sheet.getColumnStyle(column).getDataFormatString()).isEqualTo("@");
+                assertThat(sheet.getRow(1).getCell(column).getCellStyle().getDataFormatString()).isEqualTo("@");
+            }
+            for (var tab : workbook) {
+                for (var cell : tab.getRow(0)) {
+                    assertThat(workbook.getFontAt(cell.getCellStyle().getFontIndex()).getBold()).isTrue();
+                }
+                assertThat(tab.getPaneInformation().isFreezePane()).isTrue();
+                assertThat(tab.getPaneInformation().getHorizontalSplitPosition()).isEqualTo((short) 1);
+            }
             fill(sheet.createRow(1), "Проверкин", "Иван", "10.05.2014", "М", "M-50-FREE", "00:32.15");
             fill(sheet.createRow(2), "Проверкина", "Анна", "2014-05-10", "F", "F-50-FREE", "");
             fill(sheet.createRow(3), "Ошибкин", "Иван", "10.05.2014", "М", "X-999", "");
@@ -122,14 +139,18 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(repeated.skipped()).isEqualTo(1);
         assertThat(repeated.errors()).hasSize(2);
         byte[] exported = mvc.perform(get(base(event) + "/export").with(user(PRINCIPAL)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("registrations-import-test-" + event + ".xlsx")))
+                .andReturn().getResponse().getContentAsByteArray();
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(exported))) {
             var sheet = workbook.getSheetAt(0);
             assertThat(sheet.getLastRowNum()).isEqualTo(2);
             assertThat(sheet.getRow(0).getCell(8).getStringCellValue()).isEqualTo("Статус");
             assertThat(sheet.getRow(0).getCell(9).getStringCellValue()).isEqualTo("Оплата");
             assertThat(sheet.getRow(1).getCell(7).getStringCellValue()).isEqualTo("00:32.15");
-            assertThat(sheet.getRow(1).getCell(8).getStringCellValue()).isEqualTo("CONFIRMED");
+            assertThat(sheet.getRow(1).getCell(8).getStringCellValue()).isEqualTo("Подтверждена");
+            assertThat(sheet.getRow(1).getCell(9).getStringCellValue()).isEqualTo("Не требуется");
+            assertThat(workbook.getFontAt(sheet.getRow(0).getCell(8).getCellStyle().getFontIndex()).getBold()).isTrue();
         }
         var roundTrip = upload(event, exported);
         assertThat(roundTrip.updated()).isEqualTo(2);
@@ -138,6 +159,10 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void validatesGroupsPublicationAndRollsBackOnlyFailingRows() throws Exception {
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(validator).validate(any(), nullable(Discipline.class));
         UUID event = event();
         var draft = disciplines.findByEventId(event).getFirst();
         draft.setStatus("DRAFT");
@@ -157,6 +182,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(report.errors().get(1).message()).isEqualTo("не подходит под возрастные группы вида");
         assertThat(report.errors().get(2).message()).contains("не опубликована");
         assertThat(registrations.findByEventId(event)).hasSize(1);
+        verify(validator, times(4)).validate(any(), any());
     }
 
     @Test
@@ -191,8 +217,34 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(export))) {
             assertThat(workbook.getSheetAt(0).getLastRowNum()).isEqualTo(2);
-            assertThat(workbook.getSheetAt(0).getRow(1).getCell(8).getStringCellValue()).isEqualTo("WITHDRAWN");
+            assertThat(workbook.getSheetAt(0).getRow(1).getCell(8).getStringCellValue()).isEqualTo("Снята");
         }
+    }
+
+    @Test
+    void rejectsNumericTimesAndInvalidBirthDateBoundsPerRow() throws Exception {
+        UUID event = event();
+        byte[] file = file(List.of(
+                List.of("Даты", "Валид", "10.05.2014", "М", "M-50-FREE", "32.15"),
+                List.of("Даты", "Будущее", LocalDate.now().plusDays(1).toString(), "М", "M-50-FREE", ""),
+                List.of("Даты", "Прошлое", "31.12.1899", "М", "M-50-FREE", ""),
+                List.of("Даты", "Пусто", "", "М", "M-50-FREE", ""),
+                List.of("Время", "Число", "10.05.2014", "М", "M-50-FREE", "")));
+        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+            workbook.getSheetAt(0).getRow(5).getCell(7).setCellValue(32.15);
+            file = bytes(workbook);
+        }
+        var report = upload(event, file);
+        assertThat(report.created()).isEqualTo(1);
+        assertThat(report.createdProfiles()).isEqualTo(1);
+        assertThat(report.errors()).extracting(ImportReport.RowError::row).containsExactly(3, 4, 5, 6);
+        assertThat(report.errors()).extracting(ImportReport.RowError::message).containsExactly(
+                "дата рождения не может быть в будущем", "дата рождения не может быть раньше 1900 года",
+                "дата рождения не заполнена", "введите время текстом мм:сс.сс");
+        assertThat(report.errors()).extracting(ImportReport.RowError::column).containsExactly(
+                ExcelRowParser.HEADERS.get(3), ExcelRowParser.HEADERS.get(3), ExcelRowParser.HEADERS.get(3),
+                ExcelRowParser.HEADERS.get(7));
+        assertThat(registrations.findByEventId(event)).hasSize(1);
     }
 
     @Test
@@ -301,6 +353,12 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static MockMultipartFile part(String name, byte[] bytes) {
         return new MockMultipartFile("file", name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+    }
+
+    private static byte[] demoFile(String name) throws Exception {
+        try (var stream = new ClassPathResource("demo/" + name).getInputStream()) {
+            return stream.readAllBytes();
+        }
     }
 
     private static String base(UUID event) { return "/api/v1/events/" + event + "/registrations"; }

@@ -10,4 +10,6 @@ public interface EventLookup {
     EventLookupResult getById(UUID eventId);
 
     boolean isCreatedBy(UUID eventId, UUID userId);
+
+    String getPublicSlug(UUID eventId);
 }

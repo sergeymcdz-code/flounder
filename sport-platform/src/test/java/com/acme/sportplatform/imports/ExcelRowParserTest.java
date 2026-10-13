@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,7 @@ class ExcelRowParserTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"31.02.2013", "29.02.2013", "2013-02-31", "2014/05/10", "1.5.2014", "", "01.01.14"})
+    @ValueSource(strings = {"31.02.2013", "29.02.2013", "2013-02-31", "2014/05/10", "1.5.2014", "01.01.14"})
     void rejectsInvalidDatesWithColumn(String value) throws Exception {
         try (var workbook = new XSSFWorkbook()) {
             var cell = workbook.createSheet().createRow(0).createCell(0);
@@ -45,6 +46,64 @@ class ExcelRowParserTest {
             assertThatThrownBy(() -> parser.birthDate(cell)).isInstanceOfSatisfying(ImportRowException.class,
                     ex -> assertThat(ex.column()).isEqualTo(ExcelRowParser.HEADERS.get(3)))
                     .hasMessageContaining("ДД.ММ.ГГГГ");
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"  ", "\t"})
+    void reportsMissingBirthDate(String value) throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            var cell = value == null ? null : workbook.createSheet().createRow(0).createCell(0);
+            if (cell != null) cell.setCellValue(value);
+            assertThatThrownBy(() -> parser.birthDate(cell)).isInstanceOfSatisfying(ImportRowException.class,
+                    ex -> assertThat(ex.column()).isEqualTo(ExcelRowParser.HEADERS.get(3)))
+                    .hasMessage("дата рождения не заполнена");
+        }
+    }
+
+    @Test
+    void validatesBirthDateBoundsForTextAndExcelDates() throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            var cell = workbook.createSheet().createRow(0).createCell(0);
+            cell.setCellValue("1899-12-31");
+            assertThatThrownBy(() -> parser.birthDate(cell)).hasMessage("дата рождения не может быть раньше 1900 года");
+            cell.setCellValue("01.01.1900");
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(1900, 1, 1));
+            cell.setCellValue(LocalDate.now().toString());
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.now());
+            cell.setCellValue(LocalDate.now().plusDays(1).toString());
+            assertThatThrownBy(() -> parser.birthDate(cell)).hasMessage("дата рождения не может быть в будущем");
+            var style = workbook.createCellStyle();
+            style.setDataFormat(workbook.createDataFormat().getFormat("dd.mm.yyyy"));
+            cell.setCellStyle(style);
+            cell.setCellValue(LocalDate.now().plusDays(1));
+            assertThatThrownBy(() -> parser.birthDate(cell)).hasMessage("дата рождения не может быть в будущем");
+            cell.setCellValue(LocalDate.of(1900, 1, 1));
+            assertThat(parser.birthDate(cell)).isEqualTo(LocalDate.of(1900, 1, 1));
+        }
+    }
+
+    @Test
+    void rejectsNumericSeedTimesRegardlessOfDisplayFormat() throws Exception {
+        try (var workbook = new XSSFWorkbook()) {
+            var sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            for (int i = 0; i < 8; i++) header.createCell(i).setCellValue(ExcelRowParser.HEADERS.get(i));
+            Row row = sheet.createRow(1);
+            String[] values = {"Иванов", "Иван", "", "10.05.2014", "М", "", "M-50-FREE", ""};
+            for (int i = 0; i < 8; i++) row.createCell(i).setCellValue(values[i]);
+            var time = row.getCell(7);
+            for (String format : List.of("General", "@", "mm:ss.00")) {
+                var style = workbook.createCellStyle();
+                style.setDataFormat(workbook.createDataFormat().getFormat(format));
+                time.setCellStyle(style);
+                time.setCellValue(32.15 / 86400);
+                assertThatThrownBy(() -> parser.parse(row, parser.headers(header)))
+                        .isInstanceOfSatisfying(ImportRowException.class,
+                                ex -> assertThat(ex.column()).isEqualTo(ExcelRowParser.HEADERS.get(7)))
+                        .hasMessage("введите время текстом мм:сс.сс");
+            }
         }
     }
 

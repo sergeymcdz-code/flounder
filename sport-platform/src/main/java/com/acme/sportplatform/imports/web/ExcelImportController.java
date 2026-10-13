@@ -1,6 +1,7 @@
 package com.acme.sportplatform.imports.web;
 
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
+import com.acme.sportplatform.events.EventLookup;
 import com.acme.sportplatform.imports.api.ImportReport;
 import com.acme.sportplatform.imports.application.ExcelImportService;
 import com.acme.sportplatform.imports.application.ExcelWorkbookService;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/v1/events/{eventId}/registrations")
@@ -32,11 +35,14 @@ public class ExcelImportController {
     private final ImportAccessService access;
     private final ExcelImportService imports;
     private final ExcelWorkbookService workbooks;
+    private final EventLookup events;
 
-    public ExcelImportController(ImportAccessService access, ExcelImportService imports, ExcelWorkbookService workbooks) {
+    public ExcelImportController(ImportAccessService access, ExcelImportService imports, ExcelWorkbookService workbooks,
+                                 EventLookup events) {
         this.access = access;
         this.imports = imports;
         this.workbooks = workbooks;
+        this.events = events;
     }
 
     @GetMapping(value = "/import-template", produces = XLSX)
@@ -68,12 +74,14 @@ public class ExcelImportController {
     @Operation(summary = "Выгрузить все заявки события в Excel")
     public ResponseEntity<byte[]> export(@PathVariable UUID eventId, Authentication principal) {
         access.assertCanManage(eventId, principal);
-        return download(workbooks.export(eventId), "registrations.xlsx");
+        return download(workbooks.export(eventId), "registrations-" + events.getPublicSlug(eventId) + ".xlsx");
     }
 
     private static ResponseEntity<byte[]> download(byte[] bytes, String filename) {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(XLSX))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"").body(bytes);
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build().toString())
+                .body(bytes);
     }
 
     public record Upload(@Schema(type = "string", format = "binary", description = "Файл .xlsx, не более 5 МБ") String file) {}

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
@@ -40,6 +41,7 @@ public class ExcelWorkbookService {
             row(sheet, 0, ExcelRowParser.HEADERS);
             row(sheet, 1, List.of("Иванов", "Иван", "Иванович", "10.05.2014", "М", "Дельфин / Самара",
                     items.isEmpty() ? "M-50-FREE" : items.getFirst().code(), "00:32.15"));
+            textColumns(sheet);
             Sheet instructions = workbook.createSheet("Инструкция");
             row(instructions, 0, List.of("Одна строка — одна заявка. Первый лист загружается при импорте."));
             row(instructions, 1, List.of("Удалите строку-пример. Используйте коды с листа «Коды дисциплин»."));
@@ -78,8 +80,9 @@ public class ExcelWorkbookService {
                 row(sheet, index++, List.of(p.path("lastName").asText(""), p.path("firstName").asText(""),
                         p.path("middleName").asText(""), birth, gender, p.path("clubName").asText(""),
                         discipline == null ? "" : discipline.code(), TimeParser.format(entry.seedTimeMs()),
-                        entry.status(), entry.paymentStatus()));
+                        statusLabel(entry.status()), paymentLabel(entry.paymentStatus())));
             }
+            textColumns(sheet);
             return bytes(workbook);
         } catch (java.io.IOException ex) {
             throw new BusinessException("imports.export_failed", "Не удалось выгрузить заявки в Excel");
@@ -90,13 +93,73 @@ public class ExcelWorkbookService {
         Row row = sheet.createRow(number);
         for (int i = 0; i < values.size(); i++) {
             row.createCell(i).setCellValue(values.get(i));
-            sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i),
-                    Math.min(60, Math.max(18, values.get(i).length() + 2)) * 256));
         }
-        sheet.createFreezePane(0, 1);
+    }
+
+    private static void textColumns(Sheet sheet) {
+        var style = sheet.getWorkbook().createCellStyle();
+        style.setDataFormat(sheet.getWorkbook().createDataFormat().getFormat("@"));
+        for (int column : List.of(3, 7)) {
+            sheet.setDefaultColumnStyle(column, style);
+            for (Row row : sheet) {
+                var cell = row.getCell(column);
+                if (cell != null) cell.setCellStyle(style);
+            }
+        }
+    }
+
+    private static void formatSheets(XSSFWorkbook workbook) {
+        var font = workbook.createFont();
+        font.setBold(true);
+        var headerStyle = workbook.createCellStyle();
+        headerStyle.setFont(font);
+        var textHeaderStyle = workbook.createCellStyle();
+        textHeaderStyle.cloneStyleFrom(headerStyle);
+        textHeaderStyle.setDataFormat(workbook.createDataFormat().getFormat("@"));
+        var formatter = new DataFormatter();
+        for (Sheet sheet : workbook) {
+            Row header = sheet.getRow(0);
+            for (var cell : header) {
+                cell.setCellStyle("@".equals(cell.getCellStyle().getDataFormatString()) ? textHeaderStyle : headerStyle);
+            }
+            for (int column = 0; column < header.getLastCellNum(); column++) {
+                int width = 18;
+                for (Row row : sheet) {
+                    width = Math.max(width, formatter.formatCellValue(row.getCell(column)).length() + 2);
+                }
+                sheet.setColumnWidth(column, Math.min(60, width) * 256);
+            }
+            sheet.createFreezePane(0, 1);
+        }
+    }
+
+    private static String statusLabel(String status) {
+        return switch (status) {
+            case "DRAFT" -> "Черновик";
+            case "SUBMITTED" -> "Подана";
+            case "UNDER_REVIEW" -> "На рассмотрении";
+            case "CONFIRMED" -> "Подтверждена";
+            case "NEEDS_CORRECTION" -> "Требует уточнения";
+            case "REJECTED" -> "Отклонена";
+            case "PAID" -> "Оплачена";
+            case "ADMITTED" -> "Допущена";
+            case "WITHDRAWN" -> "Снята";
+            default -> "Неизвестный статус";
+        };
+    }
+
+    private static String paymentLabel(String status) {
+        return switch (status) {
+            case "NOT_REQUIRED" -> "Не требуется";
+            case "PENDING" -> "Ожидает оплаты";
+            case "PAID" -> "Оплачено";
+            case "REFUNDED" -> "Возвращено";
+            default -> "Неизвестный статус оплаты";
+        };
     }
 
     private static byte[] bytes(XSSFWorkbook workbook) throws java.io.IOException {
+        formatSheets(workbook);
         var output = new ByteArrayOutputStream();
         workbook.write(output);
         return output.toByteArray();

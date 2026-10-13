@@ -38,6 +38,13 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
+    public String getPublicSlug(UUID eventId) {
+        return eventRepository.findById(eventId)
+                .map(EventEntity::getPublicSlug)
+                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + eventId));
+    }
+
+    @Override
     public EventLookupResult getById(UUID eventId) {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException(

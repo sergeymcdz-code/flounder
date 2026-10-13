@@ -31,10 +31,12 @@ public class ExcelImportService {
     private static final Logger log = LoggerFactory.getLogger(ExcelImportService.class);
     private final ImportDisciplineLookup disciplines;
     private final ImportRowService rowService;
+    private final ImportRowValidator validator;
 
-    public ExcelImportService(ImportDisciplineLookup disciplines, ImportRowService rowService) {
+    public ExcelImportService(ImportDisciplineLookup disciplines, ImportRowService rowService, ImportRowValidator validator) {
         this.disciplines = disciplines;
         this.rowService = rowService;
+        this.validator = validator;
     }
 
     public ImportReport execute(UUID eventId, UUID actorId, MultipartFile file) {
@@ -64,14 +66,16 @@ public class ExcelImportService {
                 if (row.getRowNum() == 0 || parser.isEmpty(row, columns)) continue;
                 try {
                     ImportRow parsed = parser.parse(row, columns);
+                    Discipline discipline = byCode.get(parsed.disciplineCode());
+                    validator.validate(parsed, discipline);
                     if (imported.contains(parsed.key())) { skipped++; continue; }
-                    ImportRowService.Result result = rowService.execute(eventId, parsed, byCode.get(parsed.disciplineCode()));
+                    ImportRowService.Result result = rowService.execute(eventId, parsed, discipline);
                     imported.add(parsed.key());
                     if (result.created()) created++; else updated++;
                     if (result.createdProfile()) createdProfiles++;
                 } catch (ImportRowException ex) {
                     errors.add(new RowError(row.getRowNum() + 1, ex.column(), ex.getMessage()));
-                } catch (org.springframework.dao.DataAccessException ex) {
+                } catch (RuntimeException ex) {
                     log.warn("Import row failed: event={}, row={}", eventId, row.getRowNum() + 1, ex);
                     errors.add(new RowError(row.getRowNum() + 1, "Строка", "не удалось сохранить заявку, проверьте данные и повторите импорт"));
                 }
