@@ -486,7 +486,9 @@
   .liveDescription { font-size: 16px; }
   .live .heatNumber { font-size: 64px; }
   .nav a { font-size: 12px; }
-  .header > div { flex-basis: calc(100% - 110px); }
+  .header { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .header > div { grid-column: 1 / -1; min-width: 0; }
+  .header > button { grid-column: 2; grid-row: 1; }
 }
 
 @media screen {
