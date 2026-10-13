@@ -24,7 +24,6 @@ public class ValidateUnitsUseCase {
     public ValidationResponse execute(UUID disciplineId, Authentication principal) {
         var discipline = data.discipline(disciplineId);
         data.access.assertCanManage(discipline.eventId(), principal);
-        data.events.lockForScheduling(discipline.eventId());
         long start = System.nanoTime();
         var spec = data.spec(discipline);
         var pool = data.pool(discipline.eventId());

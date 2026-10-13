@@ -1,7 +1,7 @@
 package com.acme.sportplatform.scheduling.application;
 
 import com.acme.sportplatform.competition.EventDisciplineLookup;
-import com.acme.sportplatform.events.EventLookup;
+import com.acme.sportplatform.events.EventLockService;
 import com.acme.sportplatform.registrations.RegistrationWithdrawn;
 import com.acme.sportplatform.results.CompetitionUnitStore;
 
@@ -12,18 +12,18 @@ import org.springframework.stereotype.Component;
 public class RegistrationWithdrawalListener {
     private final CompetitionUnitStore units;
     private final EventDisciplineLookup disciplines;
-    private final EventLookup events;
+    private final EventLockService locks;
 
     public RegistrationWithdrawalListener(
-            CompetitionUnitStore units, EventDisciplineLookup disciplines, EventLookup events) {
+            CompetitionUnitStore units, EventDisciplineLookup disciplines, EventLockService locks) {
         this.units = units;
         this.disciplines = disciplines;
-        this.events = events;
+        this.locks = locks;
     }
 
     @ApplicationModuleListener
     public void on(RegistrationWithdrawn event) {
-        events.lockForScheduling(disciplines.getForScheduling(event.eventDisciplineId()).eventId());
+        locks.lockForUpdate(disciplines.getForScheduling(event.eventDisciplineId()).eventId());
         units.withdraw(event.registrationId());
     }
 }

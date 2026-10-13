@@ -12,6 +12,8 @@ public interface EventDisciplineLookup {
 
     EventDisciplineLookupResult getForScheduling(UUID eventDisciplineId);
 
+    List<EventDisciplineLookupResult> findForSchedulingByEventId(UUID eventId);
+
     List<EventDisciplineSummary> findByEventId(UUID eventId);
 
     List<EventDisciplineSummary> findPublishedByEventId(UUID eventId);

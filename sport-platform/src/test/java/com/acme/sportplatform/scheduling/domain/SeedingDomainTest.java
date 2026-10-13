@@ -534,4 +534,104 @@ class SeedingDomainTest {
             assertNull(ranked.get(n).placeInAgeGroup());
         }
     }
+
+    @Test
+    void admissionMessagesIdentifyAthleteAndDisciplineInBothImplementations() {
+        var d = new DisciplineSpec(id(1000), 3, 50, "FREE", "M", groups, "BY_AGE_GROUP");
+        var wrongGender = new SeedEntry(id(1), id(101), "Иванова", "Анна", 2014, "F", null, 30000L);
+        var wrongAge = new SeedEntry(id(2), id(102), "Петров", "Иван", 2007, "M", null, 31000L);
+        var missing = new SeedEntry(id(3), null, "Сидоров", "Пётр", 2014, "M", null, null);
+        var valid = new SeedEntry(id(4), id(104), "Орлов", "Олег", 2014, "M", null, 32000L);
+        var duplicate =
+                new SeedEntry(
+                        id(5),
+                        valid.athleteId(),
+                        valid.lastName(),
+                        valid.firstName(),
+                        valid.birthYear(),
+                        valid.gender(),
+                        null,
+                        33000L);
+        var entries = List.of(wrongGender, wrongAge, missing, valid, duplicate);
+        var generated = seeder.seed(d, entries, pool, new SeedingOptions(false));
+        assertEquals(
+                "Иванова Анна (2014): пол не соответствует виду №3",
+                generated.violations().stream()
+                        .filter(v -> v.code().equals("GENDER_MISMATCH"))
+                        .findFirst()
+                        .orElseThrow()
+                        .message());
+        var heat =
+                new SeededHeat(
+                        1,
+                        groups.getFirst().code(),
+                        entries.stream()
+                                .map(
+                                        e ->
+                                                new SeededLane(
+                                                        (int)
+                                                                e.registrationId()
+                                                                        .getLeastSignificantBits(),
+                                                        e.registrationId(),
+                                                        e.athleteId(),
+                                                        e.seedTimeMs()))
+                                .toList());
+        var checked =
+                new SeedingValidator()
+                        .validate(
+                                d,
+                                pool,
+                                entries,
+                                List.of(heat),
+                                List.of(),
+                                SchedulingRules.defaults());
+        for (var violations : List.of(generated.violations(), checked)) {
+            for (Violation v : violations)
+                if (Set.of(
+                                "ATHLETE_NOT_FOUND",
+                                "DUPLICATE_ENTRY",
+                                "ATHLETE_IN_TWO_HEATS",
+                                "GENDER_MISMATCH",
+                                "AGE_GROUP_MISMATCH")
+                        .contains(v.code())) {
+                    var e =
+                            entries.stream()
+                                    .filter(x -> x.registrationId().equals(v.registrationId()))
+                                    .findFirst()
+                                    .orElseThrow();
+                    assertTrue(v.message().contains(e.athleteLabel()));
+                    assertTrue(v.message().contains("№3"));
+                }
+        }
+        var repeated =
+                new SeededHeat(
+                        1,
+                        groups.getFirst().code(),
+                        List.of(
+                                new SeededLane(
+                                        4,
+                                        valid.registrationId(),
+                                        valid.athleteId(),
+                                        valid.seedTimeMs()),
+                                new SeededLane(
+                                        5,
+                                        valid.registrationId(),
+                                        valid.athleteId(),
+                                        valid.seedTimeMs())));
+        var duplicateViolation =
+                new SeedingValidator()
+                                .validate(
+                                        d,
+                                        pool,
+                                        entries,
+                                        List.of(repeated),
+                                        List.of(),
+                                        SchedulingRules.defaults())
+                                .stream()
+                                .filter(v -> v.code().equals("DUPLICATE_ENTRY"))
+                                .findFirst()
+                                .orElseThrow();
+        assertTrue(duplicateViolation.message().contains("Орлов Олег (2014)"));
+        assertTrue(duplicateViolation.message().contains("№3"));
+    }
 }

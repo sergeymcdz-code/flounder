@@ -27,6 +27,17 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
     }
 
     @Override
+    public EventDisciplineLookupResult getForScheduling(UUID id) {
+        return toResult(eventDisciplineRepository.findById(id).orElseThrow(() -> new com.acme.sportplatform.common.exception.BusinessException(
+                "competition.discipline_not_found", "Дисциплина не найдена")));
+    }
+
+    @Override
+    public List<EventDisciplineLookupResult> findForSchedulingByEventId(UUID eventId) {
+        return eventDisciplineRepository.findByEventId(eventId).stream().map(this::toResult).toList();
+    }
+
+    @Override
     @Transactional
     public EventDisciplineLookupResult lockPublishedById(UUID id) {
         eventDisciplineRepository
@@ -50,6 +61,10 @@ public class EventDisciplineLookupService implements EventDisciplineLookup {
                                 + eventDisciplineId
                 ));
 
+        return toResult(entity);
+    }
+
+    private EventDisciplineLookupResult toResult(EventDisciplineEntity entity) {
         return new EventDisciplineLookupResult(
                 entity.getId(),
                 entity.getEventId(),

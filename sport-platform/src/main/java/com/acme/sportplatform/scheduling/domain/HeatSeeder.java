@@ -19,18 +19,28 @@ public final class HeatSeeder {
             String code = null, message = null;
             if (entry.athleteId() == null || entry.birthYear() == null || entry.gender() == null) {
                 code = "ATHLETE_NOT_FOUND";
-                message = "Заявка: спортсмен не найден";
+                message =
+                        entry.athleteLabel()
+                                + ": спортсмен не найден для вида №"
+                                + discipline.number();
             } else if (seen.contains(entry.athleteId())) {
                 code = "DUPLICATE_ENTRY";
-                message = "Повторная заявка спортсмена на вид";
+                message =
+                        entry.athleteLabel() + ": повторная заявка на вид №" + discipline.number();
             } else if (!"X".equals(discipline.gender())
                     && !discipline.gender().equals(entry.gender())) {
                 code = "GENDER_MISMATCH";
-                message = "Пол спортсмена не соответствует виду";
+                message =
+                        entry.athleteLabel()
+                                + ": пол не соответствует виду №"
+                                + discipline.number();
             } else if (!discipline.ageGroups().isEmpty()
                     && group(entry, discipline.ageGroups()) == null) {
                 code = "AGE_GROUP_MISMATCH";
-                message = "Спортсмен не подходит ни под одну возрастную группу вида";
+                message =
+                        entry.athleteLabel()
+                                + ": возраст не соответствует группам вида №"
+                                + discipline.number();
             }
             if (code != null) {
                 issues.add(

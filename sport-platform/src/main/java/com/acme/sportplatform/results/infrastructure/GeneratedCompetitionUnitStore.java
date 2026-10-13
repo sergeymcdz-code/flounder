@@ -22,9 +22,9 @@ public class GeneratedCompetitionUnitStore implements CompetitionUnitStore {
         Map<UUID, List<Entry>> entries = new HashMap<>();
         jdbc.query(
                 """
-                select e.* from competition_unit_entries e join competition_units u on u.id=e.competition_unit_id
-                where u.event_discipline_id=? order by e.lane_or_position, e.id
-                """,
+select e.* from competition_unit_entries e join competition_units u on u.id=e.competition_unit_id
+where u.event_discipline_id=? order by e.lane_or_position, e.id
+""",
                 rs -> {
                     UUID unit = rs.getObject("competition_unit_id", UUID.class);
                     entries.computeIfAbsent(unit, k -> new ArrayList<>())
@@ -39,7 +39,7 @@ public class GeneratedCompetitionUnitStore implements CompetitionUnitStore {
                 id);
         return jdbc.query(
                 "select * from competition_units where event_discipline_id=? order by"
-                    + " sequence_number,id",
+                        + " sequence_number,id",
                 (rs, n) -> {
                     UUID unit = rs.getObject("id", UUID.class);
                     Timestamp time = rs.getTimestamp("scheduled_at");
@@ -58,34 +58,38 @@ public class GeneratedCompetitionUnitStore implements CompetitionUnitStore {
 
     public void replace(UUID disciplineId, boolean force, List<Unit> units, UUID runId) {
         List<Unit> existing = findByDisciplineId(disciplineId);
+        boolean hasResults =
+                Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                """
+select exists(select 1 from results r
+    join competition_unit_entries e on e.id=r.competition_unit_entry_id
+    join competition_units u on u.id=e.competition_unit_id
+    where u.event_discipline_id=?)
+""",
+                                Boolean.class,
+                                disciplineId));
+        if (hasResults
+                || existing.stream()
+                        .anyMatch(u -> !Set.of("DRAFT", "PUBLISHED").contains(u.status())))
+            throw new BusinessException(
+                    "scheduling.active_units_exist",
+                    "Есть заплывы с результатами, пересоздание невозможно");
         if (!force && existing.stream().anyMatch(u -> "PUBLISHED".equals(u.status())))
             throw new BusinessException(
                     "scheduling.published_units_exist",
                     "Есть опубликованные заплывы. Для пересоздания укажите force=true");
-        if (!force
-                && existing.stream()
-                        .anyMatch(u -> !Set.of("DRAFT", "PUBLISHED").contains(u.status())))
-            throw new BusinessException(
-                    "scheduling.active_units_exist",
-                    "Есть заплывы, которые уже проводятся или завершены. Для пересоздания укажите"
-                        + " force=true");
-        jdbc.update(
-                """
-                delete from results where competition_unit_entry_id in
-                (select e.id from competition_unit_entries e join competition_units u on u.id=e.competition_unit_id where u.event_discipline_id=?)
-                """,
-                disciplineId);
         jdbc.update(
                 "delete from competition_unit_entries where competition_unit_id in (select id from"
-                    + " competition_units where event_discipline_id=?)",
+                        + " competition_units where event_discipline_id=?)",
                 disciplineId);
         jdbc.update("delete from competition_units where event_discipline_id=?", disciplineId);
         for (Unit unit : units) {
             jdbc.update(
                     """
-                insert into competition_units(id,event_discipline_id,label,sequence_number,status,age_group_code,heat_duration_sec,generation_run_id)
-                values(?,?,?,?,'DRAFT',?,?,?)
-                """,
+insert into competition_units(id,event_discipline_id,label,sequence_number,status,age_group_code,heat_duration_sec,generation_run_id)
+values(?,?,?,?,'DRAFT',?,?,?)
+""",
                     unit.id(),
                     disciplineId,
                     "Заплыв " + unit.number(),
@@ -96,9 +100,9 @@ public class GeneratedCompetitionUnitStore implements CompetitionUnitStore {
             for (Entry entry : unit.entries())
                 jdbc.update(
                         """
-                insert into competition_unit_entries(id,competition_unit_id,registration_id,lane_or_position,seed_time_ms,entry_status)
-                values(?,?,?,?,?,'ASSIGNED')
-                """,
+insert into competition_unit_entries(id,competition_unit_id,registration_id,lane_or_position,seed_time_ms,entry_status)
+values(?,?,?,?,?,'ASSIGNED')
+""",
                         entry.id(),
                         unit.id(),
                         entry.registrationId(),
@@ -110,7 +114,7 @@ public class GeneratedCompetitionUnitStore implements CompetitionUnitStore {
     public void schedule(UUID unitId, Instant time) {
         jdbc.update(
                 "update competition_units set scheduled_at=?, updated_at=now(), version=version+1"
-                    + " where id=?",
+                        + " where id=?",
                 time == null ? null : Timestamp.from(time),
                 unitId);
     }
@@ -118,22 +122,22 @@ public class GeneratedCompetitionUnitStore implements CompetitionUnitStore {
     public void publishDrafts(UUID disciplineId) {
         jdbc.update(
                 "update competition_units set status='PUBLISHED',updated_at=now(),version=version+1"
-                    + " where event_discipline_id=? and status='DRAFT'",
+                        + " where event_discipline_id=? and status='DRAFT'",
                 disciplineId);
     }
 
     public void withdraw(UUID registrationId) {
         jdbc.update(
                 """
-                update competition_unit_entries set entry_status='WITHDRAWN' where registration_id=? and competition_unit_id in
-                (select id from competition_units where status='PUBLISHED')
-                """,
+update competition_unit_entries set entry_status='WITHDRAWN' where registration_id=? and competition_unit_id in
+(select id from competition_units where status='PUBLISHED')
+""",
                 registrationId);
         jdbc.update(
                 """
-                delete from competition_unit_entries where registration_id=? and competition_unit_id in
-                (select id from competition_units where status='DRAFT')
-                """,
+delete from competition_unit_entries where registration_id=? and competition_unit_id in
+(select id from competition_units where status='DRAFT')
+""",
                 registrationId);
     }
 }

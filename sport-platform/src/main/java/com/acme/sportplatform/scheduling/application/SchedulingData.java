@@ -22,6 +22,7 @@ class SchedulingData {
     final CompetitionUnitStore units;
     final EventAccessService access;
     final EventLookup events;
+    final EventLockService locks;
     private final EventDisciplineLookup disciplines;
     private final RegistrationLookup registrations;
     private final EventSessionLookup sessions;
@@ -32,6 +33,7 @@ class SchedulingData {
             CompetitionUnitStore units,
             EventAccessService access,
             EventLookup events,
+            EventLockService locks,
             EventDisciplineLookup disciplines,
             RegistrationLookup registrations,
             EventSessionLookup sessions,
@@ -40,6 +42,7 @@ class SchedulingData {
         this.units = units;
         this.access = access;
         this.events = events;
+        this.locks = locks;
         this.disciplines = disciplines;
         this.registrations = registrations;
         this.sessions = sessions;
@@ -54,8 +57,7 @@ class SchedulingData {
     List<EventDisciplineLookupResult> disciplines(UUID eventId) {
         Map<UUID, Integer> order = new HashMap<>();
         sessions.findByEventId(eventId).forEach(s -> order.put(s.id(), s.orderNo()));
-        return disciplines.findByEventId(eventId).stream()
-                .map(d -> disciplines.getForScheduling(d.id()))
+        return disciplines.findForSchedulingByEventId(eventId).stream()
                 .sorted(
                         Comparator.comparingInt(
                                         (EventDisciplineLookupResult d) ->
@@ -71,8 +73,12 @@ class SchedulingData {
                 .toList();
     }
 
+    static boolean isConfigured(EventDisciplineLookupResult d) {
+        return d.distanceM() != null && d.gender() != null && d.stroke() != null;
+    }
+
     DisciplineSpec spec(EventDisciplineLookupResult d) {
-        if (d.distanceM() == null || d.gender() == null || d.stroke() == null)
+        if (!isConfigured(d))
             throw new BusinessException(
                     "scheduling.discipline_not_configured",
                     "Укажите дистанцию, стиль и пол дисциплины перед посевом");
@@ -176,7 +182,9 @@ class SchedulingData {
                 text(s, "firstName"),
                 year,
                 text(s, "gender"),
-                s.hasNonNull("club") ? text(s, "club") : text(s, "clubName"),
+                s.hasNonNull("club")
+                        ? text(s, "club")
+                        : s.hasNonNull("clubName") ? text(s, "clubName") : text(s, "city"),
                 r.seedTimeMs());
     }
 

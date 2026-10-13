@@ -56,6 +56,7 @@ public final class SeedingValidator {
                         null);
             Set<Integer> lanes = new HashSet<>();
             for (SeededLane lane : heat.lanes()) {
+                SeedEntry entry = byRegistration.get(lane.registrationId());
                 total++;
                 if (lane.seedTimeMs() == null) nt++;
                 if (!lanes.add(lane.lane()))
@@ -81,7 +82,8 @@ public final class SeedingValidator {
                             out,
                             "ATHLETE_IN_TWO_HEATS",
                             ERROR,
-                            "Спортсмен назначен повторно в одном виде",
+                            admissionMessage(
+                                    entry, lane, discipline, "спортсмен назначен повторно в виде"),
                             discipline,
                             heat,
                             lane);
@@ -90,11 +92,10 @@ public final class SeedingValidator {
                             out,
                             "DUPLICATE_ENTRY",
                             ERROR,
-                            "Заявка назначена повторно",
+                            admissionMessage(entry, lane, discipline, "повторная заявка на вид"),
                             discipline,
                             heat,
                             lane);
-                SeedEntry entry = byRegistration.get(lane.registrationId());
                 if (entry == null
                         || entry.athleteId() == null
                         || entry.birthYear() == null
@@ -104,7 +105,11 @@ public final class SeedingValidator {
                             out,
                             "ATHLETE_NOT_FOUND",
                             ERROR,
-                            "Спортсмен не найден среди допущенных заявок",
+                            admissionMessage(
+                                    entry,
+                                    lane,
+                                    discipline,
+                                    "спортсмен не найден среди допущенных заявок вида"),
                             discipline,
                             heat,
                             lane);
@@ -115,7 +120,7 @@ public final class SeedingValidator {
                             out,
                             "GENDER_MISMATCH",
                             ERROR,
-                            "Пол спортсмена не соответствует виду",
+                            admissionMessage(entry, lane, discipline, "пол не соответствует виду"),
                             discipline,
                             heat,
                             lane);
@@ -142,7 +147,11 @@ public final class SeedingValidator {
                             out,
                             "AGE_GROUP_MISMATCH",
                             ERROR,
-                            "Возрастная группа не соответствует спортсмену",
+                            admissionMessage(
+                                    entry,
+                                    lane,
+                                    discipline,
+                                    "возраст не соответствует группе вида"),
                             discipline,
                             heat,
                             lane);
@@ -188,6 +197,15 @@ public final class SeedingValidator {
             }
         }
         return List.copyOf(out);
+    }
+
+    private String admissionMessage(
+            SeedEntry entry, SeededLane lane, DisciplineSpec discipline, String reason) {
+        String label =
+                entry == null
+                        ? "Заявка " + lane.registrationId() + " (год неизвестен)"
+                        : entry.athleteLabel();
+        return label + ": " + reason + " №" + discipline.number();
     }
 
     private void add(

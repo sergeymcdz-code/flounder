@@ -10,4 +10,16 @@ public record SeedEntry(
         Integer birthYear,
         String gender,
         String club,
-        Long seedTimeMs) {}
+        Long seedTimeMs) {
+    public String athleteLabel() {
+        String name =
+                (java.util.Objects.toString(lastName, "")
+                                + " "
+                                + java.util.Objects.toString(firstName, ""))
+                        .trim();
+        return (name.isEmpty() ? "Спортсмен" : name)
+                + " ("
+                + (birthYear == null ? "год неизвестен" : birthYear)
+                + ")";
+    }
+}

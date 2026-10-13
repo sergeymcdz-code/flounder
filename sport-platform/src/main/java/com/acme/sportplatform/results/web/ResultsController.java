@@ -362,6 +362,7 @@ public class ResultsController {
         return swim.protocol(id,principal);
     }
 
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
     @org.springframework.web.bind.annotation.PatchMapping("/competition-unit-entries/{id}")
     public ResponseEntity<Void> updateEntry(@PathVariable UUID id,
             @Valid @RequestBody com.acme.sportplatform.results.api.UpdateCompetitionUnitEntryRequest request,

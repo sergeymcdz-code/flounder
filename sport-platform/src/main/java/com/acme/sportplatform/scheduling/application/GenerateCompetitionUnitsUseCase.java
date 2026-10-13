@@ -1,6 +1,6 @@
 package com.acme.sportplatform.scheduling.application;
 
-import com.acme.sportplatform.common.exception.BusinessException;
+import com.acme.sportplatform.competition.EventDisciplineLookupResult;
 import com.acme.sportplatform.results.CompetitionUnitStore;
 import com.acme.sportplatform.scheduling.api.*;
 import com.acme.sportplatform.scheduling.domain.*;
@@ -31,16 +31,32 @@ public class GenerateCompetitionUnitsUseCase {
             boolean force,
             boolean circleSeedTopHeats,
             Authentication principal) {
-        var discipline = data.discipline(disciplineId);
+        Draft draft = prepare(data.discipline(disciplineId), force, circleSeedTopHeats, principal);
+        var schedule = recalculate.execute(draft.eventId(), principal);
+        return complete(draft, schedule.violations());
+    }
+
+    record Draft(
+            UUID eventId,
+            UUID disciplineId,
+            UUID runId,
+            List<SeedEntry> entries,
+            List<Violation> violations,
+            List<UUID> excludedRegistrationIds,
+            long startedAtNanos) {}
+
+    // The caller owns the transaction and performs one schedule recalculation after all drafts.
+    Draft prepare(
+            EventDisciplineLookupResult discipline,
+            boolean force,
+            boolean circleSeedTopHeats,
+            Authentication principal) {
+        UUID disciplineId = discipline.id();
         data.access.assertCanManage(discipline.eventId(), principal);
-        data.events.lockForScheduling(discipline.eventId());
+        data.locks.lockForUpdate(discipline.eventId());
         long start = System.nanoTime();
         var previousUnits = data.units.findByDisciplineId(disciplineId);
-        boolean published = previousUnits.stream().anyMatch(u -> !"DRAFT".equals(u.status()));
-        if (published && !force)
-            throw new BusinessException(
-                    "scheduling.published_units_exist",
-                    "Есть опубликованные заплывы. Для пересоздания укажите force=true");
+        boolean published = previousUnits.stream().anyMatch(u -> "PUBLISHED".equals(u.status()));
         var spec = data.spec(discipline);
         var pool = data.pool(discipline.eventId());
         var entries = data.entries(disciplineId);
@@ -101,12 +117,23 @@ public class GenerateCompetitionUnitsUseCase {
                             lanes));
         }
         data.units.replace(disciplineId, force, units, runId);
-        var schedule = recalculate.execute(discipline.eventId(), principal);
-        violations.addAll(schedule.violations());
+        return new Draft(
+                discipline.eventId(),
+                disciplineId,
+                runId,
+                entries,
+                List.copyOf(violations),
+                seeded.excludedRegistrationIds(),
+                start);
+    }
+
+    GenerationResponse complete(Draft draft, List<Violation> scheduleViolations) {
+        List<Violation> violations = new ArrayList<>(draft.violations());
+        violations.addAll(scheduleViolations);
         Map<UUID, SeedEntry> indexed = new HashMap<>();
-        entries.forEach(e -> indexed.put(e.registrationId(), e));
+        draft.entries().forEach(e -> indexed.put(e.registrationId(), e));
         List<GenerationResponse.Heat> heats = new ArrayList<>();
-        for (var unit : data.units.findByDisciplineId(disciplineId)) {
+        for (var unit : data.units.findByDisciplineId(draft.disciplineId())) {
             List<GenerationResponse.Lane> lanes = new ArrayList<>();
             for (var lane : unit.entries()) {
                 SeedEntry entry = indexed.get(lane.registrationId());
@@ -128,15 +155,15 @@ public class GenerateCompetitionUnitsUseCase {
                             unit.scheduledAt(),
                             lanes));
         }
-        long duration = (System.nanoTime() - start) / 1_000_000;
+        long duration = (System.nanoTime() - draft.startedAtNanos()) / 1_000_000;
         var response =
                 new GenerationResponse(
-                        runId,
+                        draft.runId(),
                         heats,
                         List.copyOf(violations),
-                        seeded.excludedRegistrationIds(),
+                        draft.excludedRegistrationIds(),
                         duration);
-        logs.finish(runId, response, violations, duration);
+        logs.finish(draft.runId(), response, violations, duration);
         return response;
     }
 }

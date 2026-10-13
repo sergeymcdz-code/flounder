@@ -10,6 +10,8 @@ import java.util.UUID;
 
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Посев и расписание")
 @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+@org.springframework.security.access.prepost.PreAuthorize(
+        "hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
 @RestController
 @RequestMapping("/api/v1")
 public class SchedulingController {

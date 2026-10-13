@@ -24,7 +24,7 @@ public class PublishUnitsUseCase {
     public ValidationResponse forDiscipline(UUID disciplineId, Authentication principal) {
         var discipline = data.discipline(disciplineId);
         data.access.assertCanManage(discipline.eventId(), principal);
-        data.events.lockForScheduling(discipline.eventId());
+        data.locks.lockForUpdate(discipline.eventId());
         var result = validate.execute(disciplineId, principal);
         assertValid(result.violations());
         data.units.publishDrafts(disciplineId);
@@ -34,7 +34,7 @@ public class PublishUnitsUseCase {
     @Transactional(noRollbackFor = BusinessException.class)
     public ValidationResponse forEvent(UUID eventId, Authentication principal) {
         data.access.assertCanManage(eventId, principal);
-        data.events.lockForScheduling(eventId);
+        data.locks.lockForUpdate(eventId);
         var disciplines = data.disciplines(eventId);
         List<Violation> violations = new ArrayList<>();
         for (var discipline : disciplines)

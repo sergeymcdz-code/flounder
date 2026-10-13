@@ -24,13 +24,14 @@ public class RecalculateScheduleUseCase {
     @Transactional
     public ScheduleResponse execute(UUID eventId, Authentication principal) {
         data.access.assertCanManage(eventId, principal);
-        data.events.lockForScheduling(eventId);
+        data.locks.lockForUpdate(eventId);
         long start = System.nanoTime();
         var disciplines = data.disciplines(eventId);
         Map<UUID, List<SeededHeat>> heats = new LinkedHashMap<>();
         List<CompetitionUnitStore.Unit> stored = new ArrayList<>();
         List<DisciplineSpec> specs = new ArrayList<>();
         for (var discipline : disciplines) {
+            if (!SchedulingData.isConfigured(discipline)) continue;
             var units = data.units.findByDisciplineId(discipline.id());
             if (units.isEmpty()) continue;
             stored.addAll(units);
