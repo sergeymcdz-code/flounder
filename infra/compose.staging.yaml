@@ -1,0 +1,84 @@
+name: flounder-staging
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    mem_limit: 384m
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sport_platform_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-staging_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U ${POSTGRES_USER:-staging_user} -d ${POSTGRES_DB:-sport_platform_staging}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+  api:
+    build:
+      context: ../sport-platform
+    image: flounder-staging-api:latest
+    restart: unless-stopped
+    mem_limit: 768m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sport_platform_staging}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-staging_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?required}
+      APP_CORS_ALLOWED_ORIGINS: https://${DOMAIN:-staging.sportgate.pro}
+      APP_PAYMENTS_PROVIDER: MANUAL
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+      TZ: ${TZ:-Europe/Samara}
+      JAVA_TOOL_OPTIONS: '-Xmx384m -XX:+ExitOnOutOfMemoryError'
+    healthcheck:
+      test: [CMD, curl, -fsS, 'http://localhost:8080/actuator/health']
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
+    logging: *logging
+  web:
+    build:
+      context: ../sport-platform/frontend
+      args:
+        VITE_API_BASE_URL: https://${DOMAIN:-staging.sportgate.pro}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+    image: flounder-staging-web:latest
+    restart: unless-stopped
+    mem_limit: 96m
+    logging: *logging
+  gateway:
+    image: caddy:2
+    restart: unless-stopped
+    mem_limit: 96m
+    ports:
+      - '127.0.0.1:8081:80'
+    volumes:
+      - ${STAGING_CADDYFILE:-./Caddyfile.staging}:/etc/caddy/Caddyfile:ro
+    networks:
+      default:
+      edge:
+        aliases: [staging-gateway]
+    depends_on:
+      - api
+      - web
+    logging: *logging
+volumes:
+  postgres_data:
+
+networks:
+  edge:
+    external: true
+    name: flounder_edge

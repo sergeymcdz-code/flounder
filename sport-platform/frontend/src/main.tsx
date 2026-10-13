@@ -7,6 +7,14 @@ import { AuthProvider } from './app/providers/AuthProvider'
 import './styles/globals.css'
 
 async function bootstrap() {
+  if (import.meta.env.VITE_SENTRY_DSN) {
+    const Sentry = await import('@sentry/react')
+    Sentry.init({
+      dsn: import.meta.env.VITE_SENTRY_DSN,
+      sendDefaultPii: false,
+      tracesSampleRate: 0,
+    })
+  }
   if (import.meta.env.DEV && import.meta.env.VITE_API_MOCK === 'true') {
     const { worker } = await import('./mocks/browser')
     await worker.start({ onUnhandledFrame: 'bypass' })

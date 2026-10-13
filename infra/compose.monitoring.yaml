@@ -1,0 +1,20 @@
+name: flounder-monitoring
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.16
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - kuma_data:/app/data
+    # Kuma notifications are configured in the UI; these are also used by alert.sh.
+    environment:
+      TZ: Europe/Moscow
+    mem_limit: 384m
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+volumes:
+  kuma_data:

@@ -35,3 +35,6 @@
 		format console
 	}
 }
+
+# Optional extra sites, enabled manually after staging is healthy.
+import /etc/caddy/sites/*.caddy
