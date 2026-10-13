@@ -20,6 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @TestPropertySource(properties = {"APP_CORS_ALLOWED_ORIGINS=https://qa04.example"})
 abstract class Qa04SecurityFixture extends AbstractPostgresIntegrationTest {
+    static final java.nio.file.Path DOCUMENT_FILES;
+    static {
+        try { DOCUMENT_FILES = java.nio.file.Files.createTempDirectory("flounder-qa04-documents-"); }
+        catch (java.io.IOException ex) { throw new ExceptionInInitializerError(ex); }
+    }
+    @org.springframework.test.context.DynamicPropertySource
+    static void fileProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        registry.add("app.files.local-dir", DOCUMENT_FILES::toString);
+        registry.add("app.files.encryption-key", () -> "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+    }
     static final List<String> ACTORS = List.of("anonymous", "participant", "judge", "operator",
             "organizer", "foreign_organizer", "platform_admin");
     static final String PASSWORD = "Qa04-test-password!";

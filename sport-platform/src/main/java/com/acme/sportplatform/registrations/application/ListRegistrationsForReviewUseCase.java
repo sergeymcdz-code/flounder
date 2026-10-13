@@ -14,6 +14,7 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepos
 @Transactional(readOnly = true)
 public class ListRegistrationsForReviewUseCase {
 
+    private final DocumentSummaryService summaries;
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
     private final com.acme.sportplatform.events.EventLookup events;
@@ -21,11 +22,12 @@ public class ListRegistrationsForReviewUseCase {
     public ListRegistrationsForReviewUseCase(
             RegistrationRepository registrationRepository,
             RegistrationMapper registrationMapper,
-            com.acme.sportplatform.events.EventLookup events
+            com.acme.sportplatform.events.EventLookup events, DocumentSummaryService summaries
     ) {
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
         this.events = events;
+        this.summaries = summaries;
     }
 
     public List<RegistrationResponse> execute(UUID eventId, RegistrationStatus status,
@@ -47,8 +49,8 @@ public class ListRegistrationsForReviewUseCase {
             entities = registrationRepository.findAll();
         }
 
-        return entities.stream()
+        return summaries.enrich(entities.stream()
                 .map(registrationMapper::toResponse)
-                .toList();
+                .toList());
     }
 }

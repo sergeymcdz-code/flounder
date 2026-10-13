@@ -113,3 +113,9 @@ GET	/api/v1/events/{eventId}/documents/start-list.pdf	manage	true	200
 GET	/api/v1/events/{eventId}/documents/results.pdf	manage	true	200
 GET	/api/v1/public/events/{slug}/start-list.pdf	public	false	200
 GET	/api/v1/public/events/{slug}/results.pdf	public	false	200
+POST	/api/v1/profiles/{profileId}/documents	documents	true	201	document
+GET	/api/v1/profiles/{profileId}/documents	documents	true	200	document
+DELETE	/api/v1/profiles/{profileId}/documents/{id}	participant	false	204	document
+GET	/api/v1/documents/{id}/download	documents	true	200	document
+GET	/api/v1/public/documents/{id}/content	signed-document	true	200	document
+GET	/api/v1/events/{eventId}/registrations	manage	true	200
