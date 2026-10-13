@@ -42,9 +42,12 @@ export function OrganizerEntriesPage() {
     const violation = result.violations.find(
       (v) =>
         v.registrationId === r.id &&
-        ['GENDER_MISMATCH', 'AGE_GROUP_MISMATCH', 'DUPLICATE_ENTRY'].includes(
-          v.code,
-        ),
+        [
+          'GENDER_MISMATCH',
+          'AGE_GROUP_MISMATCH',
+          'DUPLICATE_ENTRY',
+          'ATHLETE_NOT_FOUND',
+        ].includes(v.code),
     )
     const excluded =
       result.excludedRegistrationIds.includes(r.id) || Boolean(violation)
@@ -52,6 +55,7 @@ export function OrganizerEntriesPage() {
       GENDER_MISMATCH: 'Пол участника не соответствует виду программы.',
       AGE_GROUP_MISMATCH: 'Год рождения не соответствует возрастным группам.',
       DUPLICATE_ENTRY: 'Участник уже заявлен на этот вид программы.',
+      ATHLETE_NOT_FOUND: 'Спортсмен не найден в справочнике.',
     }
     return {
       excluded,

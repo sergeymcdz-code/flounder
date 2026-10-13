@@ -13,6 +13,61 @@ async function login(page: Page) {
   ).toBeVisible()
 }
 
+async function mockTemplates(
+  page: Page,
+  mode: 'mixed' | 'empty' | 'failure' | 'forbidden' | 'unauthorized',
+) {
+  await page.evaluate(async (mode) => {
+    const resources = performance
+      .getEntriesByType('resource')
+      .map((entry) => entry.name)
+    const { worker } = await import(
+      resources.find(
+        (url) => new URL(url).pathname === '/src/mocks/browser.ts',
+      )!
+    )
+    const { http, HttpResponse } = await import(
+      resources.find((url) => new URL(url).pathname.endsWith('/msw.js'))!
+    )
+    const { accessToken } = JSON.parse(
+      sessionStorage.getItem('flounder.auth-session')!,
+    ) as { accessToken: string }
+    const templates = (await (
+      await fetch('/api/v1/discipline-templates', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    ).json()) as { id: string; sportId: string; code: string; name: string }[]
+    const foreign = {
+      id: 'foreign-template',
+      sportId: 'another-sport',
+      code: 'FOREIGN',
+      name: 'Шаблон другого спорта',
+    }
+    worker.use(
+      http.get('*/api/v1/discipline-templates', () => {
+        if (mode === 'failure')
+          return HttpResponse.json(
+            { message: 'Шаблоны временно недоступны.' },
+            { status: 500 },
+          )
+        if (mode === 'forbidden')
+          return HttpResponse.json(
+            { message: 'Запрещён доступ к шаблонам.' },
+            { status: 403 },
+          )
+        if (mode === 'unauthorized')
+          return HttpResponse.json(
+            { message: 'Сессия истекла.' },
+            { status: 401 },
+          )
+        return HttpResponse.json(
+          mode === 'empty' ? [foreign] : [foreign, ...templates],
+        )
+      }),
+    )
+  }, mode)
+}
+
 test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -412,6 +467,7 @@ test('template selection, optional code, explicit payloads and registration refr
   page,
 }) => {
   await login(page)
+  await mockTemplates(page, 'mixed')
   const bodies: Record<string, unknown>[] = []
   const gets: string[] = []
   page.on('request', (request) => {
@@ -432,6 +488,19 @@ test('template selection, optional code, explicit payloads and registration refr
   await expect(dialog.getByLabel('Шаблон', { exact: true })).toHaveValue(
     '00000012-1111-4111-8111-000000000001',
   )
+  expect(gets).toContain('/api/v1/discipline-templates')
+  expect(
+    gets.some(
+      (path) =>
+        path.includes('/sports/') && path.includes('discipline-templates'),
+    ),
+  ).toBe(false)
+  await expect(
+    dialog.getByLabel('Шаблон', { exact: true }).getByRole('option'),
+  ).toHaveCount(3)
+  await expect(
+    dialog.getByRole('option', { name: 'Шаблон другого спорта', exact: true }),
+  ).toHaveCount(0)
   await dialog.getByRole('textbox', { name: /^Название/ }).fill('Без кода')
   await dialog.getByRole('button', { name: 'Сохранить вид' }).click()
   await expect(dialog).not.toBeVisible()
@@ -532,11 +601,12 @@ test('generation admission persists across tabs with nested and flat summaries',
           runId: 'review-run',
           heats: [],
           durationMs: 19,
-          excludedRegistrationIds: registrations.slice(0, 3).map((r) => r.id),
+          excludedRegistrationIds: registrations.slice(0, 4).map((r) => r.id),
           violations: [
             'GENDER_MISMATCH',
             'AGE_GROUP_MISMATCH',
             'DUPLICATE_ENTRY',
+            'ATHLETE_NOT_FOUND',
           ].map((code, i) => ({
             code,
             message: 'Не допущена',
@@ -580,6 +650,7 @@ test('generation admission persists across tabs with nested and flat summaries',
       'GENDER_MISMATCH',
       'AGE_GROUP_MISMATCH',
       'DUPLICATE_ENTRY',
+      'ATHLETE_NOT_FOUND',
     ])
       await expect(page.getByText(code, { exact: true })).toHaveAttribute(
         'title',
@@ -588,10 +659,23 @@ test('generation admission persists across tabs with nested and flat summaries',
     await page
       .getByRole('combobox', { name: /^Статус/ })
       .selectOption('EXCLUDED')
-    await expect(page.getByRole('row')).toHaveCount(4)
+    await expect(page.getByRole('row')).toHaveCount(5)
     await page.getByRole('combobox', { name: /^Статус/ }).selectOption('')
     await expect(page.getByText('✓', { exact: true }).first()).toBeVisible()
   }
+  await expect(
+    page.getByText('ATHLETE_NOT_FOUND', { exact: true }),
+  ).toHaveAttribute('title', 'Спортсмен не найден в справочнике.')
+  await page.reload()
+  await expect(
+    page.getByRole('heading', { name: 'Заявки участников · 30', exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('ATHLETE_NOT_FOUND', { exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.locator('[title="Сформируйте заплывы, чтобы проверить допуск."]'),
+  ).toHaveCount(30)
 })
 
 test('missing pool dimensions retain lane editing and refresh only the changed heat', async ({
@@ -754,3 +838,66 @@ test('session estimates honor server values and browser timezone; violations tar
     await context.close()
   }
 })
+
+test('empty sport-filtered template list explains why saving is unavailable', async ({
+  page,
+}) => {
+  await login(page)
+  await mockTemplates(page, 'empty')
+  await page
+    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .click()
+  await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(
+    dialog.getByText('Для вида спорта события нет шаблонов дисциплин', {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    dialog.getByLabel('Шаблон', { exact: true }).getByRole('option'),
+  ).toHaveCount(1)
+  await expect(
+    dialog.getByRole('button', { name: 'Сохранить вид', exact: true }),
+  ).toBeDisabled()
+})
+
+for (const mode of ['failure', 'forbidden', 'unauthorized'] as const) {
+  test(`template loading ${mode} uses the appropriate error scope`, async ({
+    page,
+  }) => {
+    await login(page)
+    await mockTemplates(page, mode)
+    await page
+      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .click()
+    await page
+      .getByRole('button', { name: 'Добавить вид', exact: true })
+      .click()
+    if (mode === 'unauthorized') {
+      await expect(page).toHaveURL(/\/login$/)
+      return
+    }
+    const dialog = page.getByRole('dialog')
+    await expect(page.getByRole('alert')).toHaveCount(1)
+    if (mode === 'forbidden') {
+      await expect(dialog.getByRole('alert')).toContainText(
+        'Нет доступа к этому событию.',
+      )
+      await expect(
+        dialog.getByRole('heading', { name: 'Ошибка', exact: true }),
+      ).toBeVisible()
+    } else {
+      await expect(
+        dialog.getByLabel('Шаблон', { exact: true }).locator('..'),
+      ).toContainText('Шаблоны временно недоступны.')
+      await expect(
+        page.getByRole('heading', { name: 'Ошибка', exact: true }),
+      ).toHaveCount(0)
+      await dialog.getByRole('button', { name: 'Закрыть', exact: true }).click()
+      await expect(page.getByRole('alert')).toHaveCount(0)
+    }
+  })
+}

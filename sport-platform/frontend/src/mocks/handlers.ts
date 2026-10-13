@@ -282,7 +282,7 @@ export const handlers = [
     state.sessions = state.sessions.filter((s) => s.id !== params.id)
     return new HttpResponse(null, { status: 204 })
   }),
-  http.get(path('/sports/:id/discipline-templates'), () =>
+  http.get(path('/discipline-templates'), () =>
     HttpResponse.json(state.templates),
   ),
   http.get(path('/age-group-presets'), () => HttpResponse.json(state.presets)),

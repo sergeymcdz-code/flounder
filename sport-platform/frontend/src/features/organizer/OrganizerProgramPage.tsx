@@ -383,22 +383,41 @@ function DisciplineEditor({
   const [preset, setPreset] = useState('')
   const [presetBusy, setPresetBusy] = useState(false)
   const [templates, setTemplates] = useState<DisciplineTemplate[]>([])
-  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [templatesState, setTemplatesState] = useState<
+    'loading' | 'loaded' | 'failed'
+  >('loading')
+  const [templateError, setTemplateError] = useState('')
+  const templatesLoading = templatesState === 'loading'
   const onTemplatesLoaded = useEffectEvent((items: DisciplineTemplate[]) => {
-    setTemplates(items)
+    const matching = items.filter(
+      (template) => template.sportId === event.sportId,
+    )
+    setTemplates(matching)
     setForm((previous) => ({
       ...previous,
-      disciplineTemplateId: previous.disciplineTemplateId || items[0]?.id || '',
+      disciplineTemplateId: matching.some(
+        (template) => template.id === previous.disciplineTemplateId,
+      )
+        ? previous.disciplineTemplateId
+        : (matching[0]?.id ?? ''),
     }))
-    setTemplatesLoading(false)
+    setTemplateError('')
+    setTemplatesState('loaded')
   })
   const onTemplatesError = useEffectEvent((cause: unknown) => {
-    void run(() => Promise.reject(cause), 'none')
-    setTemplatesLoading(false)
+    if (cause instanceof ApiError && [401, 403].includes(cause.status))
+      void run(() => Promise.reject(cause), 'none')
+    else
+      setTemplateError(
+        cause instanceof Error
+          ? cause.message
+          : 'Не удалось загрузить шаблоны дисциплин.',
+      )
+    setTemplatesState('failed')
   })
   useEffect(() => {
     let active = true
-    getDisciplineTemplates(event.sportId, accessToken)
+    getDisciplineTemplates(accessToken)
       .then((items) => {
         if (active) onTemplatesLoaded(items)
       })
@@ -470,6 +489,16 @@ function DisciplineEditor({
               </option>
             ))}
           </select>
+          {templateError && (
+            <span className={styles.error} role="alert">
+              {templateError}
+            </span>
+          )}
+          {templatesState === 'loaded' && templates.length === 0 && (
+            <span className={styles.muted}>
+              Для вида спорта события нет шаблонов дисциплин
+            </span>
+          )}
           <span className={styles.error}>{error('disciplineTemplateId')}</span>
         </label>
         <label className={styles.field}>
@@ -719,7 +748,12 @@ function DisciplineEditor({
         </button>
         <button
           className={styles.primary}
-          disabled={busy || templatesLoading || !form.disciplineTemplateId}
+          disabled={
+            busy ||
+            templatesLoading ||
+            !templates.length ||
+            !form.disciplineTemplateId
+          }
         >
           Сохранить вид
         </button>

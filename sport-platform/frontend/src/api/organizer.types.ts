@@ -121,7 +121,12 @@ export type ImportReport = {
   errors: { row: number; column: string; message: string }[]
 }
 
-export type DisciplineTemplate = { id: string; name: string }
+export type DisciplineTemplate = {
+  id: string
+  sportId: string
+  code: string
+  name: string
+}
 export type GenerationSummary = {
   durationMs: number
   violations: Violation[]

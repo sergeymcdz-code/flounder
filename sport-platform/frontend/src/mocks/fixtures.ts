@@ -166,8 +166,18 @@ export function createFixtures() {
     }))
   })
   const templates = [
-    { id: id(12, 1), name: 'Плавание: индивидуальный заплыв' },
-    { id: id(12, 2), name: 'Плавание: комплекс' },
+    {
+      id: id(12, 1),
+      sportId: event.sportId,
+      code: 'SWIM-INDIVIDUAL',
+      name: 'Плавание: индивидуальный заплыв',
+    },
+    {
+      id: id(12, 2),
+      sportId: event.sportId,
+      code: 'SWIM-MEDLEY',
+      name: 'Плавание: комплекс',
+    },
   ]
   return { event, sessions, registrations, heats, presets, templates }
 }

@@ -113,8 +113,7 @@ export const updateSeedTime = (
     { accessToken, method: 'PATCH', body: JSON.stringify({ seedTimeMs }) },
   )
 
-export const getDisciplineTemplates = (sportId: string, accessToken: string) =>
-  apiFetch<DisciplineTemplate[]>(
-    `/api/v1/sports/${encodeURIComponent(sportId)}/discipline-templates`,
-    { accessToken },
-  )
+export const getDisciplineTemplates = (accessToken: string) =>
+  apiFetch<DisciplineTemplate[]>('/api/v1/discipline-templates', {
+    accessToken,
+  })
