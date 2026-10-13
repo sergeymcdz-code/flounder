@@ -2,9 +2,13 @@
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.prod.example
 **/target/
 **/node_modules/
 **/dist/
 *.log
 .DS_Store
 organizer-lk-dump.txt
+
+# server backups (infra/backup.sh)
+backups/

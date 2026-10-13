@@ -1,14 +1,23 @@
-# syntax=docker/dockerfile:1
-FROM node:22-bookworm-slim AS build
-WORKDIR /app
+# Frontend image: React + Vite static build served by Caddy.
+# Stage 1 builds dist/ with Node, stage 2 serves it on port 80 with SPA fallback.
+
+# ---------- build ----------
+FROM node:22-alpine AS build
+WORKDIR /build
+
+# VITE_* variables are inlined at build time, so the API base URL is a build arg
+# (passed from infra/compose.prod.yaml as https://${DOMAIN}).
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 COPY package.json package-lock.json ./
-RUN --mount=type=secret,id=proxy_ca \
-    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
-    npm ci
+RUN npm ci
+
 COPY . .
 RUN npm run build
 
+# ---------- runtime ----------
 FROM caddy:2-alpine
-COPY --from=build /app/dist /srv
 COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /build/dist /srv
 EXPOSE 80

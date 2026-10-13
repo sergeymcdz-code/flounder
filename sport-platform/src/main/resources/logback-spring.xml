@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- prod: structured JSON lines (format from logging.structured.format.console, see application-prod.yml) -->
+    <springProfile name="prod">
+        <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
+    </springProfile>
+
+    <!-- everything else: human-readable console output -->
+    <springProfile name="!prod">
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    </springProfile>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

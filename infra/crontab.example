@@ -1,0 +1,3 @@
+# Flounder demo stand — cron jobs for the deploy user. Install with: crontab -e (paste these lines).
+# Daily database backup at 03:00 server time into /opt/flounder/backups (kept 14 days).
+0 3 * * * /opt/flounder/infra/backup.sh >> /opt/flounder/backups/backup.log 2>&1

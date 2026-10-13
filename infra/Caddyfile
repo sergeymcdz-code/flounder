@@ -1,0 +1,37 @@
+# Edge reverse proxy for the demo stand.
+# DOMAIN and ACME_EMAIL come from infra/.env.prod (passed to the caddy container).
+# Caddy obtains and renews a Let's Encrypt certificate automatically for {$DOMAIN};
+# port 80 is used for the ACME challenge and HTTP -> HTTPS redirect.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	header {
+		# Basic security headers for the SPA and API.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Backend: REST API, OpenAPI/Swagger and the public health endpoint.
+	@api path /api/* /v3/api-docs* /swagger-ui* /actuator/health /actuator/health/*
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	# Everything else: SPA static files from the `web` image (SPA fallback is done there).
+	handle {
+		reverse_proxy web:80
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
