@@ -17,7 +17,7 @@ export function ResultsPage() {
   return (
     <>
       <PrintHeader event={event} title="Итоговый протокол" />
-      <div className={styles.titleRow}>
+      <div className={`${styles.titleRow} fl-results-page`}>
         <h1>Результаты</h1>
         <PrintButton ready={!!state.data} />
       </div>
@@ -26,10 +26,10 @@ export function ResultsPage() {
         role="group"
         aria-label="Вид результатов"
       >
-        <button aria-pressed={!grouped} onClick={() => setGrouped(false)}>
+        <button className="fl-button-ghost" aria-pressed={!grouped} onClick={() => setGrouped(false)}>
           Абсолют
         </button>
-        <button aria-pressed={grouped} onClick={() => setGrouped(true)}>
+        <button className="fl-button-ghost" aria-pressed={grouped} onClick={() => setGrouped(true)}>
           По группам
         </button>
       </div>

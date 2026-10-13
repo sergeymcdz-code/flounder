@@ -201,7 +201,7 @@ export function JudgePanelPage() {
               }} />
               {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
             </td>
-            <td><div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
+            <td><div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={status === 'DSQ' ? styles.resultStatusDanger : styles.resultStatusPending} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
               ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
               onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
             <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>

@@ -34,7 +34,7 @@ export function PublicEventPage() {
         )}
         {event.description && <p>{event.description}</p>}
         {event.registrationOpen && (
-          <Link className={styles.button} to={`${base}/register`}>
+          <Link className={`${styles.button} fl-button-primary`} to={`${base}/register`}>
             Подать заявку
           </Link>
         )}

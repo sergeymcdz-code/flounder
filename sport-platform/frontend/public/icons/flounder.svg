@@ -3,6 +3,6 @@
   <g fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round">
     <path d="M152 164h208M152 256h208M152 348h208"/>
   </g>
-  <path d="M152 144v224" stroke="#b52a26" stroke-width="40"/>
-  <path d="M256 144v40m0 52v40m0 52v40" stroke="#ffd166" stroke-width="20"/>
+  <path d="M152 144v224" stroke="#96a5ac" stroke-width="40"/>
+  <path d="M256 144v40m0 52v40m0 52v40" stroke="#cbd2d3" stroke-width="20"/>
 </svg>

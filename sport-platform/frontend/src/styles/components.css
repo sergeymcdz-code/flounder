@@ -38,16 +38,20 @@
     font-family: var(--font-heading);
     font-size: 22px;
     text-align: center;
-    border-inline-start: 4px solid var(--color-text-muted);
+    white-space: nowrap;
+    border-inline-start: 4px solid transparent;
   }
   .fl-lanes tbody tr:nth-child(4) th[scope='row'],
   .fl-lanes tbody tr:nth-child(5) th[scope='row'] {
-    border-inline-start-color: var(--color-primary);
-    color: var(--color-primary);
-    background: var(--color-primary-soft);
+    border-inline-start-color: var(--color-text);
+    color: var(--color-text);
+    font-weight: 700;
+    background: transparent;
   }
   .fl-heat select:has(option[value='4']:checked),
-  .fl-heat select:has(option[value='5']:checked) { color: var(--color-primary); background: var(--color-primary-soft); border-color: var(--color-primary); }
+  .fl-heat select:has(option[value='5']:checked) { border-inline-start: 4px solid var(--color-text); font-weight: 700; }
+  .fl-result-dsq { color: var(--color-danger); }
+  .fl-result-muted { color: var(--color-text-muted); }
   .fl-results td:last-child { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .fl-empty { border-inline-start: 3px solid var(--color-border-strong); padding: var(--space-4); background: var(--color-surface-muted); line-height: 1.5; }
   .fl-button-primary { background: var(--color-primary); color: var(--color-on-primary); border: 1px solid var(--color-primary); }
@@ -55,9 +59,17 @@
   .fl-button-danger { background: var(--color-danger-soft); color: var(--color-danger); border: 1px solid var(--color-danger); }
   .fl-button-ghost { background: transparent; color: var(--color-primary); border: 1px solid var(--color-border-strong); }
   .fl-button-primary, .fl-button-danger, .fl-button-ghost { padding: 10px 14px; border-radius: var(--radius-sm); font-weight: 700; }
+  /* Override opaque primary states consistently across existing CSS modules. */
+  body button:is(.fl-button-primary, [class*='primary'], [class*='submitButton'], [class*='saveButton'], [class*='publishButton'], [class*='recalculateButton']):disabled:not([class*='unpublishButton']),
+  body .admin-section button.button:disabled {
+    background: var(--color-border-strong);
+    color: var(--color-text-muted);
+    border-color: var(--color-border-strong);
+    opacity: 1;
+  }
 }
 
 @media screen and (max-width: 480px) {
-  .fl-lanes tbody th[scope='row'] { font-size: 20px; border-inline-start-width: 3px; }
+  .fl-lanes tbody th[scope='row'] { font-size: 18px; border-inline-start-width: 4px; }
   .fl-results td:last-child { font-size: 14px; }
 }

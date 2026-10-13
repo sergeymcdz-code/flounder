@@ -102,7 +102,7 @@ export function LiveBoard({
             </p>
             <LaneTable heat={live.currentUnit} lanes={lanes} />
             <Link
-              className={styles.button}
+              className={`${styles.button} fl-button-ghost`}
               to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(live.currentUnit.id)}`}
             >
               Открыть заплыв
@@ -276,7 +276,7 @@ export function LivePage() {
   const live = usePublicData(loadLive, LIVE_POLL_MS)
   return (
     <>
-      <h1>Табло</h1>
+      <h1 className="fl-live-page">Табло</h1>
       <DataState
         loading={live.loading}
         error={

@@ -48,14 +48,14 @@ export function PublicRegistrationPage() {
         <p>Для подачи заявки нужен аккаунт участника.</p>
         <div className={styles.actions}>
           <Link
-            className={styles.button}
+            className={`${styles.button} fl-button-primary`}
             to={`/login?next=${encodeURIComponent(returnTo)}`}
             state={{ from: returnTo }}
           >
             Войти
           </Link>
           <Link
-            className={styles.button}
+            className={`${styles.button} fl-button-ghost`}
             to={`/register?next=${encodeURIComponent(returnTo)}`}
             state={{ from: returnTo }}
           >
@@ -84,7 +84,7 @@ export function PublicRegistrationPage() {
             <li key={name}>{name} — отправлена</li>
           ))}
         </ul>
-        <Link className={styles.button} to="/my/registrations">
+        <Link className={`${styles.button} fl-button-ghost`} to="/my/registrations">
           Мои заявки
         </Link>
       </section>
@@ -313,7 +313,7 @@ export function PublicRegistrationPage() {
                 {message}
               </p>
             ))}
-          <button disabled={submitting} type="submit">
+          <button className="fl-button-primary" disabled={submitting} type="submit">
             {submitting ? 'Отправляем…' : 'Отправить заявку'}
           </button>
         </form>

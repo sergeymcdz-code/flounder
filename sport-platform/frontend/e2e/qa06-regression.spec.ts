@@ -175,6 +175,18 @@ test('QA06-15 print removes the page background', async ({ page }) => {
   await expect(page.getByRole('navigation')).toBeHidden()
   expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('light')
   expect(await page.locator('article').first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
+  const printTokens = await page.locator('html').evaluate(node => {
+    const css = getComputedStyle(node)
+    const statuses = ['draft', 'published', 'live', 'finished', 'withdrawn', 'dns', 'dnf', 'dsq']
+    return {
+      soft: ['primary', 'danger', 'success', 'warning', 'surface-muted'].map(name => css.getPropertyValue(name === 'surface-muted' ? '--color-surface-muted' : `--color-${name}-soft`).trim()),
+      ink: statuses.map(name => css.getPropertyValue(`--status-${name}`).trim()),
+      statusSoft: statuses.map(name => css.getPropertyValue(`--status-${name}-soft`).trim()),
+    }
+  })
+  expect(printTokens.soft.every(color => color === '#ffffff')).toBe(true)
+  expect(printTokens.statusSoft.every(color => color === '#ffffff')).toBe(true)
+  expect(printTokens.ink.every(color => color === '#000000')).toBe(true)
 })
 
 for (const target of ['organizer', 'participant']) {
@@ -253,3 +265,101 @@ for (const width of [1366, 375]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
   })
 }
+
+for (const route of ['start-list', 'live']) {
+  test(`D01 review 1: ${route} keeps years and times on one line at 375px`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openAuditPage(page, `/e/demo/${route}`)
+    const times = page.locator('.fl-lanes tbody td:last-child')
+    await expect(times.first()).toBeVisible()
+    await page.evaluate(() => document.fonts.ready)
+    const lines = await page.locator('.fl-lanes tbody td:nth-child(3), .fl-lanes tbody td:last-child').evaluateAll(cells =>
+      cells.map(cell => {
+        const range = document.createRange()
+        range.selectNodeContents(cell)
+        const tops = Array.from(range.getClientRects()).filter(rect => rect.height > 0).map(rect => Math.round(rect.top))
+        return { text: cell.textContent, lines: new Set(tops).size }
+      }),
+    )
+    expect(lines.length).toBeGreaterThanOrEqual(16)
+    expect(lines.filter(cell => cell.lines !== 1)).toEqual([])
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    const table = page.locator('.fl-lanes').first()
+    if (await table.evaluate(node => node.scrollWidth > node.clientWidth)) {
+      await table.evaluate(node => { node.scrollLeft = node.scrollWidth })
+      expect(await table.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
+    }
+  })
+}
+
+test('D01 review 1: all eight live lanes fit above navigation at 1366x768', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openAuditPage(page, '/e/demo/live')
+  const rows = page.locator('.fl-lanes tbody tr')
+  await expect(rows).toHaveCount(8)
+  await page.evaluate(() => document.fonts.ready)
+  const nav = await page.getByRole('navigation', { name: 'Разделы соревнования' }).boundingBox()
+  for (const row of await rows.all()) {
+    const box = await row.boundingBox()
+    expect(box!.y).toBeGreaterThanOrEqual(0)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(nav!.y)
+  }
+  const board = await page.locator('section').filter({ has: page.locator('.fl-lanes') }).first().boundingBox()
+  expect(board!.y + board!.height).toBeLessThanOrEqual(nav!.y)
+  expect(await page.evaluate(() => window.scrollY)).toBe(0)
+})
+
+test('D01 review 1: judge lane stays visible during horizontal scrolling at 375px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await openAuditPage(page, `/operator/competition-units/${unitId}?eventId=${eventId}`, 'judge')
+  const wrapper = page.locator('[class*=tableWrap]')
+  const lane = page.locator('[class*=resultsTable] tbody tr').first().locator('td').first()
+  const initial = await lane.boundingBox()
+  await wrapper.evaluate(node => { node.scrollLeft = node.scrollWidth })
+  expect(await wrapper.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
+  const scrolled = await lane.boundingBox()
+  expect(Math.abs(scrolled!.x - initial!.x)).toBeLessThanOrEqual(1)
+  expect(await lane.evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
+})
+
+test('D01 review 1: login card retains the four-pixel primary top border', async ({ page }) => {
+  await openAuditPage(page, '/login')
+  const card = page.locator('[class*=card]').filter({ has: page.getByRole('heading', { name: 'Войти', exact: true }) })
+  expect(await card.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('4px')
+})
+
+for (const route of ['live', 'results']) {
+  test(`D01 owner: ${route} uses dark tokens without a theme attribute and prints on white`, async ({ page }) => {
+    await openAuditPage(page, `/e/demo/${route}`)
+    await expect(page.locator(route === 'live' ? '.fl-lanes' : '.fl-results').first()).toBeVisible()
+    expect(await page.locator('html').getAttribute('data-theme')).toBeNull()
+    expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('dark')
+    if (route === 'results') {
+      await scenario(page, 'public/events/demo/results', { disciplines: [] })
+      await navigate(page, '/e/demo/live')
+      await navigate(page, '/e/demo/results')
+      await expect(page.getByText('Результаты ещё не опубликованы.', { exact: true })).toBeVisible()
+      expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('dark')
+    }
+    await page.emulateMedia({ media: 'print' })
+    expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('light')
+    expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
+  })
+}
+
+test('D01 owner: print is a ghost action and central lanes have no color fill', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await openAuditPage(page, '/e/demo/start-list')
+  await expect(page.locator('.fl-lanes').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Печать', exact: true })).toHaveClass(/fl-button-ghost/)
+  const lanes = await page.locator('.fl-lanes').first().locator('tbody th').evaluateAll(cells => cells.map(cell => {
+    const css = getComputedStyle(cell)
+    return { border: css.borderInlineStartColor, background: css.backgroundColor, weight: css.fontWeight }
+  }))
+  expect(lanes[0].border).toBe('rgba(0, 0, 0, 0)')
+  for (const index of [3, 4]) {
+    expect(lanes[index].border).toBe('rgb(24, 33, 38)')
+    expect(lanes[index].background).toBe('rgba(0, 0, 0, 0)')
+    expect(lanes[index].weight).toBe('700')
+  }
+})

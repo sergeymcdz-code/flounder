@@ -54,7 +54,7 @@ export function PrintButton({ ready }: { ready: boolean }) {
   }, [ready, search])
   return (
     <button
-      className={styles.noPrint}
+      className={`${styles.noPrint} fl-button-ghost`}
       onClick={() => window.print()}
       disabled={!ready}
     >
@@ -188,7 +188,7 @@ export function ResultsTable({
             </td>
             <td>{row.birthYear}</td>
             <td>{row.club ?? '—'}</td>
-            <td className="fl-stopwatch">
+            <td className={`fl-stopwatch ${row.status === 'DSQ' ? 'fl-result-dsq' : row.status === 'DNS' || row.status === 'DNF' ? 'fl-result-muted' : ''}`}>
               {isValidResult(row.status) ? (row.display ?? '—') : row.status}
             </td>
           </tr>

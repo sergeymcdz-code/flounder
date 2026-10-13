@@ -437,26 +437,28 @@
   .table { font-size: 14px; }
   .table th, .table td { padding: 8px; vertical-align: middle; }
   .table td:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .table th,
+  .table td:nth-child(3),
+  .table td:last-child { white-space: nowrap; }
+  .table td:nth-child(2) { overflow-wrap: normal; }
+  .main:has(> .live) > h1 { font-size: 32px; margin-bottom: 16px; }
   .live {
     --color-surface-muted: var(--color-board-surface);
     --color-text-muted: var(--color-board-muted);
-    --color-primary-soft: var(--color-board-surface);
     --color-border: var(--color-board-border);
-    --color-primary: var(--color-board-accent);
-    --color-focus: var(--color-board-accent);
+    --color-focus: var(--color-primary);
     background: var(--color-board);
     color: var(--color-board-text);
     border: 0;
-    border-top: 4px solid var(--color-board-accent);
+    border-top: 4px solid var(--status-live);
     padding: 24px;
   }
-  .live h2 { font-size: 32px; margin-block: 16px; }
-  .live .heatNumber { font-family: var(--font-heading); font-size: 80px; font-variant-numeric: tabular-nums; color: var(--color-board-accent); }
+  .live > .eyebrow { color: var(--status-live); }
+  .live h2 { font-size: 24px; margin-block: 12px; }
+  .live .heatNumber { font-family: var(--font-heading); font-size: 64px; font-variant-numeric: tabular-nums; color: var(--color-board-text); }
   .liveDescription { font-size: 20px; }
   .live .table { font-size: 16px; }
   .live .table td:nth-child(2) { font-weight: 700; font-size: 20px; }
-  .live .button { background: var(--color-board-accent); border-color: var(--color-board-accent); color: var(--color-board); }
-  .live .button:hover { background: var(--color-board-text); }
   .live .table tbody tr:hover { background: var(--color-board-surface); }
   .list li { padding: 12px 0; }
   .timelineLink { border-inline-start: 3px solid var(--color-border-strong); padding-inline-start: 16px; }
@@ -465,6 +467,10 @@
   .field input, .field select { border-color: var(--color-border-strong); background: var(--color-surface); }
   .form fieldset, .skip:focus { background: var(--color-surface); }
   .notice { color: var(--color-warning); background: var(--color-warning-soft); }
+  .root :global(.fl-button-ghost) { background: transparent; color: var(--color-primary); border-color: var(--color-border-strong); }
+  .root :global(.fl-button-ghost):hover { background: var(--color-surface-muted); }
+  .root :global(.fl-button-ghost):disabled { background: var(--color-surface-muted); color: var(--color-text-muted); border-color: var(--color-border); opacity: 1; }
+  .root .segment button[aria-pressed='true'] { background: var(--color-primary-soft); color: var(--color-primary); border-color: var(--color-primary); }
 }
 
 @media screen and (max-width: 640px) {
@@ -479,6 +485,32 @@
   .liveDescription { font-size: 16px; }
   .live .heatNumber { font-size: 64px; }
   .nav a { font-size: 12px; }
+}
+
+@media screen and (min-width: 641px) {
+  .live {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 16px;
+    padding: 10px 16px;
+  }
+  .live > .eyebrow { grid-column: 2; grid-row: 1; align-self: center; }
+  .live h2 { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 12px; }
+  .live > p, .live h2 { margin: 0; }
+  .liveDescription { grid-column: 1; grid-row: 2; font-size: 16px; white-space: nowrap; }
+  .live > p:not(.eyebrow):not(.liveDescription) { grid-column: 2; grid-row: 2; white-space: nowrap; }
+  .live .table, .live .button { grid-column: 1 / -1; min-width: 0; }
+  .live .table th, .live .table td { padding: 5px 8px; line-height: 1.2; }
+  .live .button { justify-self: start; margin-top: 0; }
+}
+
+@media screen and (min-width: 1600px) {
+  .live .heatNumber { font-size: 80px; }
+}
+
+@media screen and (max-width: 480px) {
+  .table { display: block; overflow-x: auto; table-layout: auto; }
+  .table th, .table td { padding: 6px 4px; }
 }
 
 @media print {

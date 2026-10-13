@@ -35,7 +35,7 @@ export function DataState({
         {data !== undefined &&
           ' Показаны последние данные. Обновление продолжится при подключении.'}
       </p>
-      {retry && <button onClick={retry}>Повторить</button>}
+      {retry && <button className="fl-button-ghost" onClick={retry}>Повторить</button>}
     </div>
   )
 }

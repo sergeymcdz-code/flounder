@@ -387,8 +387,8 @@
 }
 
 .resultStatusWarning {
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .resultStatusDanger {
@@ -397,8 +397,8 @@
 }
 
 .resultStatusCorrected {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .resultStatusNeutral {
@@ -486,7 +486,7 @@
 .fieldError { color: var(--color-danger); margin: 6px 0 0; font-size: 0.8rem; }
 .statusButtons { display: flex; gap: 4px; }
 .statusButtons button { padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; }
-.statusButtons button[aria-pressed='true'] { background: var(--color-primary); color: white; }
+.statusButtons button[aria-pressed='true'] { background: var(--color-surface-muted); color: var(--color-text); border-color: var(--color-border-strong); }
 .statusButtons button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .resultInput { min-height: 56px; min-width: 152px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -494,4 +494,16 @@
 .resultsTable tbody tr:nth-child(even) { background: var(--color-surface-muted); }
 .resultsTable th { position: sticky; top: 0; z-index: 1; }
 .statusButtons button { min-height: 44px; min-width: 48px; color: var(--color-text); font-weight: 700; }
-.statusButtons button[aria-pressed="true"] { color: var(--color-on-primary); }
+.statusButtons .resultStatusPending { color: var(--color-text-muted); }
+.statusButtons .resultStatusDanger { background: var(--color-surface); color: var(--color-danger); border-color: var(--color-danger); }
+.statusButtons .resultStatusDanger[aria-pressed='true'] { background: var(--color-danger-soft); color: var(--color-danger); }
+
+@media screen and (max-width: 480px) {
+  .resultsTable th:first-child,
+  .resultsTable td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--color-surface);
+    z-index: 1;
+  }
+}
