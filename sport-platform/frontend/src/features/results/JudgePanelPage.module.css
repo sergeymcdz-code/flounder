@@ -526,5 +526,5 @@
   .resultsTable th:first-child { font-size: 10px; letter-spacing: 0; }
   .resultsTable th:nth-child(-n+2) { z-index: 3; background: var(--color-surface-muted); }
   .resultsTable tbody tr:nth-child(even) td:nth-child(-n+2) { background: var(--color-surface-muted); }
-  .participantName { max-width: 108px; overflow-wrap: normal; }
+  .participantName { max-width: 108px; overflow-wrap: anywhere; }
 }

@@ -55,12 +55,12 @@ function mount() {
 
 it('keeps the explicit choice after remount and restores light in the cabinet', () => {
   const first = mount()
-  fireEvent.click(screen.getByRole('button', { name: 'Включить светлую тему' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Светлая тема' }))
   expect(localStorage.getItem(themeKey)).toBe('light')
   first.unmount()
   mount()
   expect(document.documentElement.dataset.theme).toBe('light')
-  fireEvent.click(screen.getByRole('button', { name: 'Включить тёмную тему' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Тёмная тема' }))
   fireEvent.click(screen.getByRole('link', { name: 'Кабинет' }))
   expect(document.documentElement.dataset.theme).toBe('light')
   fireEvent.click(screen.getByRole('link', { name: 'Событие' }))
@@ -70,9 +70,9 @@ it('keeps the explicit choice after remount and restores light in the cabinet', 
 it('keeps working for the session when writing storage fails', () => {
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
   mount()
-  fireEvent.click(screen.getByRole('button', { name: 'Включить светлую тему' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Светлая тема' }))
   expect(document.documentElement.dataset.theme).toBe('light')
-  fireEvent.click(screen.getByRole('button', { name: 'Включить тёмную тему' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Тёмная тема' }))
   expect(document.documentElement.dataset.theme).toBe('dark')
 })
 

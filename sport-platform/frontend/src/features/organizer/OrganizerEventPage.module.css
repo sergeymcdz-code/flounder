@@ -254,3 +254,16 @@
 .table th { position: sticky; top: 0; z-index: 1; }
 .table tbody tr:nth-child(even) { background: var(--color-surface-muted); }
 .table select { min-height: 44px; font-weight: 700; }
+
+.field input, .field select, .field textarea, .table input, .table select {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+.badge { background: var(--color-surface-muted); color: var(--color-text); font-weight: 700; }
+.dialog, .drawer { background: var(--color-surface); }
+.page .primary:disabled, .dialog .primary:disabled, .drawer .primary:disabled {
+  background: var(--color-border-strong);
+  border-color: var(--color-border-strong);
+  color: var(--color-on-primary);
+  opacity: 1;
+}

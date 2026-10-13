@@ -123,7 +123,7 @@ export function UsersAdminPage() {
     {success && <p role="status">{success}</p>}
     {error && <p className={styles.error} role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>}
     {loading ? <p role="status">Загружаем пользователей…</p> : !error && data && <>
-      {!data.items.length ? <p>Пользователи не найдены — измените запрос</p> : <table className={styles.table}>
+      {!data.items.length ? <p className="fl-empty">Пользователи не найдены — измените запрос</p> : <table className={styles.table}>
         <thead><tr><th>Email</th><th>ФИО</th><th>Роли</th><th>Статус / создан</th><th>Действия</th></tr></thead>
         <tbody>{data.items.map(user => <tr key={user.id}>
           <td>{user.email}</td><td>{user.lastName} {user.firstName}</td>
