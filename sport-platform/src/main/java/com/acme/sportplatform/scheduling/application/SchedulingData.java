@@ -145,6 +145,11 @@ class SchedulingData {
                 rules.path("minRestBetweenStartsSec").asInt(defaults.minRestBetweenStartsSec()));
     }
 
+    java.time.ZoneId timezone(UUID eventId) {
+        var venueId = events.getById(eventId).venueId();
+        return venueId == null ? java.time.ZoneOffset.UTC : java.time.ZoneId.of(venues.getTimezone(venueId));
+    }
+
     List<SessionSpec> sessions(UUID eventId) {
         return sessions.findByEventId(eventId).stream()
                 .map(

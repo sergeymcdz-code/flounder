@@ -10,5 +10,7 @@ public interface VenueLookup {
 
     ProtocolVenue protocolVenue(UUID venueId);
 
+    String getTimezone(UUID venueId);
+
     record ProtocolVenue(String name, String city, String timezone, String metadata) {}
 }

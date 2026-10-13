@@ -96,6 +96,7 @@ export type ScheduleItem = {
   sequenceInSession: number
   scheduledAt: string | null
   status: UnitStatus
+  scheduleShiftedAt?: string | null
 }
 export type LiveUnit = Heat & {
   disciplineId?: string
@@ -103,11 +104,14 @@ export type LiveUnit = Heat & {
   disciplineName?: string
   sequenceInSession?: number
   status?: UnitStatus
+  actualStartedAt?: string | null
+  estimatedStartAt?: string | null
 }
 export type Live = {
   currentUnit: LiveUnit | null
   next: LiveUnit[]
   updatedAt: string
+  delaySec?: number
 }
 export type SwimResult = {
   display: string | null

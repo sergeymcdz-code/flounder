@@ -103,8 +103,9 @@ public class PublishCompetitionUnitUseCase {
         }
 
         unit.setStatus(CompetitionUnitStatus.FINISHED.name());
-        unit.setUpdatedAt(OffsetDateTime.now());
-        // M07: set actual_finished_at here on the first transition to FINISHED.
+        var now = OffsetDateTime.now();
+        if (unit.getActualFinishedAt() == null) unit.setActualFinishedAt(now);
+        unit.setUpdatedAt(now);
     }
 
     private void validateResultForPublication(ResultEntity result) {

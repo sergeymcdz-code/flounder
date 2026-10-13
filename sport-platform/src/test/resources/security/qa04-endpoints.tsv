@@ -113,3 +113,5 @@ GET	/api/v1/events/{eventId}/documents/start-list.pdf	manage	true	200
 GET	/api/v1/events/{eventId}/documents/results.pdf	manage	true	200
 GET	/api/v1/public/events/{slug}/start-list.pdf	public	false	200
 GET	/api/v1/public/events/{slug}/results.pdf	public	false	200
+POST	/api/v1/events/{eventId}/schedule/shift	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
+POST	/api/v1/events/{eventId}/schedule/shift/preview	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}

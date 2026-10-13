@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
-/** Locks are held by the surrounding use-case transaction. */
+/** Locks are held by the surrounding use-case transaction; FK inserts remain compatible. */
 @Service
 public class EventLockService {
     private final JdbcTemplate jdbc;
@@ -18,6 +18,6 @@ public class EventLockService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void lockForUpdate(UUID eventId) {
-        jdbc.queryForObject("select id from events where id = ? for update", UUID.class, eventId);
+        jdbc.queryForObject("select id from events where id = ? for no key update", UUID.class, eventId);
     }
 }

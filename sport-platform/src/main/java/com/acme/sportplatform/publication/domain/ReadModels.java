@@ -16,7 +16,8 @@ public final class ReadModels {
             String stroke, String gender, UUID sessionId, Integer orderInSession,
             String ageGroups, String seedingMode) {}
     public record Unit(UUID id, UUID disciplineId, int number, String ageGroupCode,
-            OffsetDateTime scheduledAt, int sequenceInSession, String status) {}
+            OffsetDateTime scheduledAt, int sequenceInSession, String status,
+            OffsetDateTime actualStartedAt, OffsetDateTime scheduleShiftedAt) {}
     public record Entry(UUID unitId, UUID registrationId, UUID profileId, Integer lane,
             boolean withdrawn, Long seedTimeMs, String lastName, String firstName,
             int birthYear, String gender, String club, Long timeMs, String resultStatus,

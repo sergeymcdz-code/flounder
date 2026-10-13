@@ -42,13 +42,13 @@ public final class PublicResponses {
     public record Athlete(String lastName, String firstName, int birthYear, String club) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Schedule(String sessionName, String disciplineName, int heatNumber,
-            int sequenceInSession, OffsetDateTime scheduledAt, String status) {}
+            int sequenceInSession, OffsetDateTime scheduledAt, String status, OffsetDateTime scheduleShiftedAt) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record LiveUnit(UUID id, int number, String ageGroupCode, OffsetDateTime scheduledAt,
             int sequenceInSession, String status, List<Lane> lanes, UUID disciplineId,
-            int disciplineNumber, String disciplineName) {}
+            int disciplineNumber, String disciplineName, OffsetDateTime actualStartedAt, OffsetDateTime estimatedStartAt) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
-    public record Live(LiveUnit currentUnit, List<LiveUnit> next, OffsetDateTime updatedAt) {}
+    public record Live(LiveUnit currentUnit, List<LiveUnit> next, OffsetDateTime updatedAt, long delaySec) {}
     public record Results(List<DisciplineResults> disciplines) {}
     public record DisciplineResults(UUID id, int number, String name,
             List<ResultRow> overall, List<AgeGroupResults> byAgeGroup) {}

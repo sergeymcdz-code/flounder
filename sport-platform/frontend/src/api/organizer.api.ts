@@ -29,6 +29,7 @@ export async function getOrganizerEvent(
       ? {
           name: venue.name,
           city: venue.city,
+          timezone: venue.timezone,
           lanes:
             typeof venue.venueMeta.lanes === 'number'
               ? venue.venueMeta.lanes

@@ -94,3 +94,19 @@ export async function publishDisciplineResults(
     }
   }
 }
+
+export type ScheduleShift = {
+  units: { id: string; previousScheduledAt: string; scheduledAt: string }[]
+  shiftedAt: string | null
+}
+export const shiftSchedule = (
+  id: string,
+  fromUnitId: string,
+  deltaSec: number,
+  accessToken: string,
+  preview = false,
+  signal?: AbortSignal,
+) => apiFetch<ScheduleShift>(
+  `/api/v1/events/${encodeURIComponent(id)}/schedule/shift${preview ? '/preview' : ''}`,
+  { accessToken, method: 'POST', body: JSON.stringify({ fromUnitId, deltaSec }), signal },
+)

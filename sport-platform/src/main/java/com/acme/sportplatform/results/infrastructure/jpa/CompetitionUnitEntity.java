@@ -35,6 +35,17 @@ public class CompetitionUnitEntity {
     @Column(name = "scheduled_at")
     private OffsetDateTime scheduledAt;
 
+    @Column(name = "actual_started_at")
+    private OffsetDateTime actualStartedAt;
+
+    @Column(name = "actual_finished_at")
+    private OffsetDateTime actualFinishedAt;
+
+    public OffsetDateTime getActualStartedAt() { return actualStartedAt; }
+    public void setActualStartedAt(OffsetDateTime value) { actualStartedAt = value; }
+    public OffsetDateTime getActualFinishedAt() { return actualFinishedAt; }
+    public void setActualFinishedAt(OffsetDateTime value) { actualFinishedAt = value; }
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

@@ -69,6 +69,11 @@ export function LiveBoard({
   const current = live.currentUnit && metadata(live.currentUnit)
   return (
     <>
+      {(live.delaySec ?? 0) > 0 && (
+        <p role="status" className={styles.card}>
+          Соревнование идёт с задержкой {Math.ceil(live.delaySec! / 60)} мин, время рассчитано с учётом задержки
+        </p>
+      )}
       <section
         className={`${styles.card} ${styles.live}`}
         aria-live="polite"
@@ -128,9 +133,10 @@ export function LiveBoard({
                     to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(unit.id)}`}
                   >
                     <strong>
-                      {time(unit.scheduledAt, timeZone)} · Заплыв {unit.number}
+                      {time(unit.estimatedStartAt ?? unit.scheduledAt, timeZone)} · Заплыв {unit.number}
                     </strong>
                     <span>{found.name ?? 'Следующий заплыв'}</span>
+                    {unit.estimatedStartAt && <small>Расчётное время старта</small>}
                   </Link>
                 </li>
               )

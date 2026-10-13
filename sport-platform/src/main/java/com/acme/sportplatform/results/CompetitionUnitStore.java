@@ -28,6 +28,8 @@ public interface CompetitionUnitStore {
 
     void schedule(UUID unitId, Instant scheduledAt);
 
+    void lockForEvent(UUID eventId);
+
     void publishDrafts(UUID disciplineId);
 
     void withdraw(UUID registrationId);

@@ -20,16 +20,19 @@ public class EventLiveUseCase {
     private final CompetitionUnitRepository units;
     private final EventDisciplineLookup disciplines;
     private final EventAccessService access;
+    private final com.acme.sportplatform.events.EventLockService locks;
 
     public EventLiveUseCase(
             EventLiveStateRepository live,
             CompetitionUnitRepository units,
             EventDisciplineLookup disciplines,
-            EventAccessService access) {
+            EventAccessService access,
+            com.acme.sportplatform.events.EventLockService locks) {
         this.live = live;
         this.units = units;
         this.disciplines = disciplines;
         this.access = access;
+        this.locks = locks;
     }
 
     public LiveStateResponse set(
@@ -37,6 +40,7 @@ public class EventLiveUseCase {
             UUID currentUnitId,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         access.assertCanManage(eventId, principal);
+        locks.lockForUpdate(eventId);
         if (currentUnitId != null && !eventId.equals(eventId(require(currentUnitId))))
             throw new BusinessException(
                     "results.unit_event_mismatch", "Заплыв принадлежит другому событию");
@@ -48,9 +52,11 @@ public class EventLiveUseCase {
 
     public LiveStateResponse start(
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
-        var unit = require(id);
+        var unit = managedUnit(id, principal);
         UUID eventId = eventId(unit);
         access.assertCanManage(eventId, principal);
+        if ("IN_PROGRESS".equals(unit.getStatus()))
+            throw new BusinessException("results.unit_already_started", "Заплыв уже начат");
         if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED").contains(unit.getStatus()))
             throw new BusinessException(
                     "results.invalid_transition", "Заплыв нельзя начать из текущего статуса");
@@ -62,13 +68,16 @@ public class EventLiveUseCase {
             throw new BusinessException(
                     "results.unit_in_progress", "Другой заплыв ещё не завершён");
         unit.setStatus(CompetitionUnitStatus.IN_PROGRESS.name());
-        unit.setUpdatedAt(OffsetDateTime.now());
+        var now = OffsetDateTime.now();
+        unit.setActualStartedAt(now);
+        unit.setActualFinishedAt(null);
+        unit.setUpdatedAt(now);
         return set(eventId, id, principal);
     }
 
     public LiveStateResponse finish(
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
-        var unit = require(id);
+        var unit = managedUnit(id, principal);
         UUID eventId = eventId(unit);
         access.assertCanManage(eventId, principal);
         var state = lockState(eventId);
@@ -83,8 +92,9 @@ public class EventLiveUseCase {
         }
         if (CompetitionUnitStatus.IN_PROGRESS.name().equals(unit.getStatus())) {
             unit.setStatus(CompetitionUnitStatus.FINISHED.name());
-            unit.setUpdatedAt(OffsetDateTime.now());
-            // M07: set actual_finished_at only on this first transition to FINISHED.
+            var now = OffsetDateTime.now();
+            unit.setActualFinishedAt(now);
+            unit.setUpdatedAt(now);
         }
         UUID next =
                 units.nextScheduled(
@@ -95,6 +105,17 @@ public class EventLiveUseCase {
                         .map(CompetitionUnitEntity::getId)
                         .orElse(null);
         return set(eventId, next, principal);
+    }
+
+    private CompetitionUnitEntity managedUnit(UUID id,
+            com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
+        var eventId = units.eventIdByUnitId(id).orElseThrow(
+                () -> new BusinessException("results.unit_not_found", "Заплыв не найден"));
+        access.assertCanManage(eventId, principal);
+        // Share event -> unit -> live lock order with scheduling mutations.
+        locks.lockForUpdate(eventId);
+        return units.lockById(id).orElseThrow(
+                () -> new BusinessException("results.unit_not_found", "Заплыв не найден"));
     }
 
     private EventLiveStateEntity lockState(UUID eventId) {

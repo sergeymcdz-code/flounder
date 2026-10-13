@@ -100,3 +100,10 @@ npm run lint
 - Удалён неиспользуемый findByEventDisciplineIdAndStatusOrderBySequenceNumberAsc: git grep по src находил только объявление.
 - Терминальное исправление legacy unit endpoint теперь отдаёт resultStatus=rawValue (DID_NOT_START/DID_NOT_FINISH/DISQUALIFIED). Три regression-кейса проверяют статус/rawValue и отсутствие места; исправление времени сохраняет CORRECTED.
 - Ни новых эндпоинтов, ни миграций, ни изменений DTO. Полные test/verify и frontend build/lint прошли; в отдельном known-defect запуске остаются только QA02-04/06.
+
+
+## Закрытие QA02-04 в M07 (13.10.2026)
+
+QA02-04 перенесён из `Qa02KnownDefectsIT` в обычный `Qa02ResultsPublicIntegrationTest` с прежними assertions. Дополнительный `M07StartDelaysIntegrationTest` проверяет точную формулу delaySec/estimatedStartAt и сохранение scheduledAt в БД и `/schedule`, ранний/неназначенный старт, фактические времена, M10 publication → FINISHED → идемпотентный finish, снятие/повторную публикацию, сдвиг/предпросмотр/аудит/событие, каскад в локальном дне площадки через полночь UTC и изоляцию других событий. §5.7 приведён к M07 п.3 и ADR M10; V034 добавлена без изменения существующих миграций.
+
+Это дополнение к историческому отчёту и ревью выше: после M07 остаётся только QA02-06 (regulationUrl) в known-defect; прежние результаты двух красных тестов относятся к состоянию до M07. Матрица QA04 содержит обе новые команды shift/preview и проверяет 403 чужому организатору.
