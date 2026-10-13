@@ -1,6 +1,7 @@
 package com.acme.sportplatform.organizations.infrastructure.jpa;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,6 +11,8 @@ public interface OrganizationMemberRepository
         extends JpaRepository<OrganizationMemberEntity, UUID> {
 
     List<OrganizationMemberEntity> findAllByOrganizationId(UUID organizationId);
+
+    List<OrganizationMemberEntity> findAllByOrganizationIdIn(Collection<UUID> organizationIds);
 
     boolean existsByOrganizationIdAndUserId(
             UUID organizationId,

@@ -76,7 +76,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     row => row.title === title, title);
   if (!event) event = await api.request<Row>('POST', '/events', eventBody({
     organizationId: organization.id, venueId: venue.id, sportId: sport.id, regulationVersionId: version.id,
-  }, requestedDate, now, options.eventTitleSuffix), organizerToken);
+  }, requestedDate, now, options.eventTitleSuffix, log), organizerToken);
   if (event.organizationId !== organization.id || event.venueId !== venue.id) {
     throw new Error('Демо-событие с таким названием относится к другой организации/площадке.');
   }

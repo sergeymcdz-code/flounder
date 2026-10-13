@@ -29,7 +29,7 @@ public class PlatformUserDetailsService implements UserDetailsService {
         UserEntity user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        List<SimpleGrantedAuthority> authorities = userRoleAssignmentRepository.findRoleCodesByUserId(user.getId())
+        List<SimpleGrantedAuthority> authorities = userRoleAssignmentRepository.findGlobalRoleCodesByUserId(user.getId())
                 .stream()
                 .map(roleCode -> new SimpleGrantedAuthority("ROLE_" + roleCode.toUpperCase()))
                 .toList();

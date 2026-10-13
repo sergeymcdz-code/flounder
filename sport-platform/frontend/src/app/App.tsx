@@ -16,6 +16,10 @@ import { HeatPage } from '../features/public/HeatPage'
 const RegistrationReviewPage = lazy(() =>
   import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })),
 )
+const UsersAdminPage = lazy(() => import('../features/admin/UsersAdminPage').then(module => ({ default: module.UsersAdminPage })))
+const OrganizationsAdminPage = lazy(() => import('../features/admin/OrganizationsAdminPage').then(module => ({ default: module.OrganizationsAdminPage })))
+const OrganizationAdminPage = lazy(() => import('../features/admin/OrganizationsAdminPage').then(module => ({ default: module.OrganizationAdminPage })))
+const OrganizationRegistrationReviewPage = lazy(() => import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.OrganizationRegistrationReviewPage })))
 const SportsAdminPage = lazy(() =>
   import('../features/admin/SportsAdminPage').then(module => ({ default: module.SportsAdminPage })),
 )
@@ -183,7 +187,7 @@ export default function App() {
           </Route>
 
           <Route
-            path="admin/registrations/review"
+            path="organizer/registrations/review"
             element={<RegistrationReviewPage />}
           />
         </Route>
@@ -236,6 +240,11 @@ export default function App() {
             <RequireRole roles={['platform_admin']} />
           }
         >
+          <Route path="admin/users" element={<UsersAdminPage />} />
+          <Route path="admin/organizations" element={<OrganizationsAdminPage />} />
+          <Route path="admin/organizations/:id" element={<OrganizationAdminPage />} />
+          <Route path="admin/registration-requests" element={<OrganizationRegistrationReviewPage />} />
+          <Route path="admin/registrations/review" element={<RegistrationReviewPage />} />
           <Route
             path="admin/sports"
             element={<SportsAdminPage />}

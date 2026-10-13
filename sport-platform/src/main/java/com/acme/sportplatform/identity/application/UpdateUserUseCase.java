@@ -1,6 +1,7 @@
 package com.acme.sportplatform.identity.application;
 
-import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -19,8 +20,10 @@ public class UpdateUserUseCase {
 
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
+    private final GetUserByIdUseCase getUser;
 
-    public UpdateUserUseCase(UserRepository userRepository, ProfileRepository profileRepository) {
+    public UpdateUserUseCase(UserRepository userRepository, ProfileRepository profileRepository, GetUserByIdUseCase getUser) {
+        this.getUser = getUser;
         this.userRepository = userRepository;
         this.profileRepository = profileRepository;
     }
@@ -28,13 +31,19 @@ public class UpdateUserUseCase {
     @Transactional
     public UserDetailsResponse execute(UUID userId, UpdateUserRequest request) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("identity.user_not_found", "User not found"));
+                .orElseThrow(() -> new BusinessException("identity.user_not_found", "Пользователь не найден"));
         
         ProfileEntity profile = profileRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException("identity.user_not_found", "User profile not found"));
+                .orElseThrow(() -> new BusinessException("identity.user_not_found", "Профиль пользователя не найден"));
 
         if (request.getPhone() != null) user.setPhone(request.getPhone());
-        if (request.getStatus() != null) user.setStatus(request.getStatus());
+        if (request.getStatus() != null) {
+            String status = request.getStatus().toUpperCase(Locale.ROOT);
+            if (!Set.of("ACTIVE", "BLOCKED").contains(status))
+                throw new BusinessException("identity.invalid_status", "Допустимые статусы: ACTIVE и BLOCKED");
+            if ("BLOCKED".equals(status)) AdminSelfProtection.assertNotSelf(userId);
+            user.setStatus(status.toLowerCase(Locale.ROOT));
+        }
 
         if (request.getFirstName() != null) profile.setFirstName(request.getFirstName());
         if (request.getLastName() != null) profile.setLastName(request.getLastName());
@@ -48,23 +57,6 @@ public class UpdateUserUseCase {
         userRepository.save(user);
         profileRepository.save(profile);
 
-        return new UserDetailsResponse(
-            user.getId(),
-            user.getEmail(),
-            user.getPhone(),
-            user.getStatus(),
-            user.getCreatedAt(),
-                new UserDetailsResponse.Profile(
-                        profile.getFirstName(),
-                        profile.getLastName(),
-                        profile.getMiddleName(),
-                        profile.getBirthDate(),
-                        profile.getGender(),
-                        profile.getCity(),
-                        profile.getCountryCode(),
-                        profile.getClubName()
-                ),
-                List.of()
-        );
+        return getUser.execute(userId);
     }
 }

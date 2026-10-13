@@ -52,7 +52,7 @@ public class GetPublicCompetitionUnitResultsUseCase {
                 .findById(unitId)
                 .orElseThrow(this::publicNotFound);
 
-        if (!"FINISHED".equals(unit.getStatus())) {
+        if (!java.util.Set.of("FINISHED", "COMPLETED").contains(unit.getStatus())) {
             throw publicNotFound();
         }
 
@@ -142,7 +142,7 @@ public class GetPublicCompetitionUnitResultsUseCase {
     private BusinessException publicNotFound() {
         return new BusinessException(
                 "results.public_not_found",
-                "Published results were not found."
+                "Опубликованные результаты не найдены"
         );
     }
 

@@ -106,12 +106,16 @@ export function PublicRegistrationPage() {
       nextErrors.form = 'Необходимо согласие на обработку персональных данных.'
     if (!disciplines.length)
       nextErrors.form = 'Выберите хотя бы один вид программы.'
+    if (disciplines.length > 3)
+      nextErrors.form = 'Выберите не больше трёх видов программы.'
     for (const item of disciplines) {
       if (!eligible(item, profile))
         nextErrors[item.id] = 'Вид не подходит по полу или году рождения.'
+      else if (state.data.requiresSeedTime && parseSeedTime(selected[item.id]) === null)
+        nextErrors[item.id] = 'Укажите заявочное время в формате мм:сс.сс.'
       else if (parseSeedTime(selected[item.id]) === undefined)
         nextErrors[item.id] =
-          'Введите ненулевое время в формате мм:сс.сс (секунды 00–59) или оставьте пустым.'
+          'Введите ненулевое время в формате мм:сс.сс (секунды 00–59).'
     }
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
@@ -263,6 +267,7 @@ export function PublicRegistrationPage() {
                         <input
                           inputMode="numeric"
                           placeholder="мм:сс.сс"
+                          required={state.data?.requiresSeedTime}
                           maxLength={8}
                           aria-describedby={`hint-${item.id}`}
                           aria-invalid={!!errors[item.id]}
@@ -275,7 +280,7 @@ export function PublicRegistrationPage() {
                           }
                         />
                         <small id={`hint-${item.id}`}>
-                          Можно оставить пустым
+                          {state.data?.requiresSeedTime ? 'Укажите заявочное время' : 'Можно оставить пустым'}
                         </small>
                       </label>
                     )}

@@ -21,12 +21,23 @@ class Qa04InputIntegrationTest extends Qa04SecurityFixture {
     }
     @ParameterizedTest
     @ValueSource(strings = {"inactive", "blocked"})
-    void loginForDisabledAccountsReturns401WithoutLeakingAccountState(String state) throws Exception {
+    void loginForDisabledAccountsOnlyRevealsAccountStateWithTheCorrectPassword(String state) throws Exception {
         jdbc.update("update users set status=? where id=?", state, id("participant"));
-        var response = mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsBytes(Map.of("email", ids.get("participantEmail"), "password", PASSWORD))))
-                .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("identity.user_blocked"));
+        var response = mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(Map.of("email", ids.get("participantEmail"), "password", "wrong-password"))))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.invalid_credentials"))
+                .andReturn().getResponse().getContentAsString();
         assertThat(response).doesNotContain("DisabledException", "blocked", "inactive", PASSWORD);
+    }
+    @Test
+    void qa04_07_oneCharacterPasswordMustNotCreateAnAccount() throws Exception {
+        mvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(userBody("a")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("validation_error"))
+                .andExpect(jsonPath("$.violations[?(@.field == 'password')]").isNotEmpty());
+        assertThat(jdbc.queryForObject("select count(*) from users where email=?", Integer.class, ids.get("newEmail"))).isZero();
     }
     @ParameterizedTest
     @ValueSource(strings = {"ascii", "unicode"})

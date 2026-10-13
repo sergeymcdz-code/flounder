@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   accounts, disciplineBody, disciplineSpecs, eventBody, importBody, loginBody, memberBody,
   nextSaturday, samaraDate, demoEventTitle, organizationBody, regulationTemplateBody, regulationVersionBody, roleBody,
@@ -34,6 +34,25 @@ describe('request bodies: existing API and specification §5', () => {
     expect(eventBody(ids, '2026-10-17', new Date('2026-10-12T12:00:00Z'))).toMatchObject({ ...ids,
       registrationOpenAt: '2026-10-12T12:00:00.000Z', registrationCloseAt: '2026-10-17T09:30:00+04:00',
       eventStartAt: '2026-10-17T10:00:00+04:00', eventEndAt: '2026-10-17T18:00:00+04:00' });
+  });
+  it.each(['2026-10-18T12:00:00Z', '2026-10-17T05:31:00Z', '2026-10-17T05:30:00Z'])
+  ('opens a demo registration window when the Samara close time has passed (%s)', value => {
+    const now = new Date(value);
+    const log = vi.fn();
+    const body = eventBody(ids, '2026-10-17', now, '', log);
+    expect(Date.parse(body.registrationOpenAt)).toBe(now.getTime() - 60_000);
+    expect(Date.parse(body.registrationCloseAt)).toBe(now.getTime() + 60_000);
+    expect(body.eventStartAt).toBe('2026-10-17T10:00:00+04:00');
+    expect(body.eventEndAt).toBe('2026-10-17T18:00:00+04:00');
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('WARNING: плановое закрытие регистрации уже наступило'));
+  });
+  it('keeps the scheduled registration window before 09:30 in Samara', () => {
+    const log = vi.fn();
+    const body = eventBody(ids, '2026-10-17', new Date('2026-10-17T05:29:00Z'), '', log);
+    expect(body.registrationOpenAt).toBe('2026-10-17T05:29:00.000Z');
+    expect(body.registrationCloseAt).toBe('2026-10-17T09:30:00+04:00');
+    expect(log).not.toHaveBeenCalled();
   });
   it('creates two sessions and four disciplines in specification order', () => {
     expect(sessionBodies('2026-10-17')).toEqual([

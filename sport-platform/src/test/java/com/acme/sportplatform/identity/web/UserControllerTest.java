@@ -51,7 +51,7 @@ class UserControllerTest {
                         .content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("ivan@example.com"))
-                .andExpect(jsonPath("$.status").value("active"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test

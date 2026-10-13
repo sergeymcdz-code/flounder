@@ -12,6 +12,9 @@ public record OrganizationResponse(
         String contactEmail,
         String contactPhone,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        String city,
+        String owner,
+        long memberCount
 ) {
 }

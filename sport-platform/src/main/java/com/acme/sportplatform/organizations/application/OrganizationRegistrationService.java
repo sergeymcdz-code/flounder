@@ -1,5 +1,13 @@
 package com.acme.sportplatform.organizations.application;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.UserRoleLookup;
 import com.acme.sportplatform.organizations.api.CreateOrganizationRegistrationRequest;
@@ -7,11 +15,6 @@ import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
 import com.acme.sportplatform.organizations.api.OrganizationRegistrationResponse;
 import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationRegistrationEntity;
 import com.acme.sportplatform.organizations.infrastructure.jpa.OrganizationRegistrationRepository;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OrganizationRegistrationService {
@@ -30,6 +33,13 @@ public class OrganizationRegistrationService {
         this.registrationRepository = registrationRepository;
         this.organizationService = organizationService;
         this.userRoleLookup = userRoleLookup;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<OrganizationRegistrationResponse> list(String status) {
+        if (!Set.of("PENDING", "APPROVED", "REJECTED").contains(status))
+            throw new BusinessException("organizations.invalid_registration_status", "Неизвестный статус заявки организации");
+        return registrationRepository.findByStatusOrderByCreatedAtAsc(status).stream().map(this::mapToResponse).toList();
     }
 
     @Transactional
