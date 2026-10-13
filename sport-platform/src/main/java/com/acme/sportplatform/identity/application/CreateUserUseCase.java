@@ -57,6 +57,15 @@ public class CreateUserUseCase {
             throw new UserAlreadyExistsException(request.email());
         }
 
+        String externalKey =
+                com.acme.sportplatform.identity.ProfileExternalKey.build
+                (request.lastName(), request.firstName(), request.birthDate(),
+                        request.gender() == null ? "X" : request.gender());
+        ProfileEntity imported = profileRepository.findByExternalKey(externalKey).orElse(null);
+        if (imported != null && imported.getUserId() == null)
+            throw new BusinessException("identity.profile_already_attached",
+                    "Импортированный профиль требует подтверждения владения");
+
         UserEntity user = new UserEntity();
         user.setEmail(request.email());
         user.setPhone(request.phone());
@@ -65,11 +74,6 @@ public class CreateUserUseCase {
 
         UserEntity savedUser = userRepository.save(user);
 
-        String externalKey =
-                com.acme.sportplatform.identity.ProfileExternalKey.build
-                (request.lastName(), request.firstName(), request.birthDate(),
-                        request.gender() == null ? "X" : request.gender());
-        ProfileEntity imported = profileRepository.findByExternalKey(externalKey).orElse(null);
         ProfileEntity profile =
                 imported != null && imported.getUserId() == null ? imported : new ProfileEntity();
         if (imported == null || imported.getUserId() == null) profile.setExternalKey(externalKey);

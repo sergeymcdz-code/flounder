@@ -22,7 +22,8 @@ class Qa04KnownDefectsIT extends Qa04SecurityFixture {
                 .content(json.writeValueAsBytes(Map.of("email", "admin@flounder.demo", "password", "Demo2026!"))))
                 .andExpect(status().isUnauthorized());
     }
-    /** Owner: separate task "Подтверждение владения импортированным профилем". */
+    /** Resolved by round 2: reject signup claims until the ownership-confirmation task exists.
+     * The same scenario also runs in Qa04Round2AdminIntegrationTest in the default suite. */
     @Test
     void qa04_10_importedAthleteCannotBeClaimedByUnverifiedSelfRegistration() throws Exception {
         String key = com.acme.sportplatform.identity.ProfileExternalKey.build(
@@ -32,13 +33,12 @@ class Qa04KnownDefectsIT extends Qa04SecurityFixture {
         var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(userBody(PASSWORD));
         body.put("lastName", "Иванов").put("firstName", "Иван");
         mvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isConflict());
         em.flush(); em.clear();
-        var attacker = jdbc.queryForObject("select id from users where email=?", java.util.UUID.class, ids.get("newEmail"));
-        var p = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(attacker,
-                ids.get("newEmail"), "", "active", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_PARTICIPANT")));
+        assertThat(jdbc.queryForObject("select user_id from profiles where id=?", java.util.UUID.class, id("foreignProfile"))).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from users where email=?", Integer.class, ids.get("newEmail"))).isZero();
         mvc.perform(post(expand("/api/v1/registrations/$foreignRegistration/withdraw"))
-                .with(authentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()))))
+                .with(authentication(auth("participant"))))
                 .andExpect(status().isForbidden());
     }
 }
