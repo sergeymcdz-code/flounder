@@ -103,6 +103,10 @@ const PublicDisciplineResultsPage = lazy(() =>
   import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })),
 )
 
+const EventAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.EventAnalyticsPage })))
+const OrganizationAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationAnalyticsPage })))
+const OrganizationsAnalyticsListPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationsAnalyticsListPage })))
+
 export default function App() {
   const routes = (
     <Routes>
@@ -167,6 +171,10 @@ export default function App() {
           <Route path="organizer" element={<OrganizerLayout />}>
             <Route index element={<OrganizerDashboardPage />} />
             <Route path="notification-settings" element={<NotificationSettingsPage />} />
+            <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
+              <Route path="organizations" element={<OrganizationsAnalyticsListPage />} />
+              <Route path="organizations/:orgId/analytics" element={<OrganizationAnalyticsPage />} />
+            </Route>
 
             <Route
               path="events"
@@ -185,6 +193,9 @@ export default function App() {
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
               <Route path="notifications" element={<OrganizerNotificationsPage />} />
+              <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
+                <Route path="analytics" element={<EventAnalyticsPage />} />
+              </Route>
               <Route path="registrations" element={<OrganizerRegistrationsPage />} />
             </Route>
 

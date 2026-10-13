@@ -144,6 +144,15 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
 
     @Override
     @Transactional(readOnly = true)
+    public boolean isOwnerOrAdmin(UUID organizationId, UUID userId) {
+        return organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, userId)
+                .map(member -> Set.of("owner", "admin")
+                        .contains(member.getMemberRole().toLowerCase(Locale.ROOT)))
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Set<UUID> organizationIdsOf(UUID userId) {
         return organizationMemberRepository.findAllByUserId(userId).stream()
                 .map(OrganizationMemberEntity::getOrganizationId).collect(java.util.stream.Collectors.toSet());
