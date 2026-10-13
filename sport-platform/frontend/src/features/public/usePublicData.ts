@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export const LIVE_POLL_MS = 5_000
+export const SCHEDULE_POLL_MS = 30_000
+export const RESULTS_POLL_MS = 60_000
 
 export function usePublicData<T>(
   loader: (signal: AbortSignal) => Promise<T>,
@@ -10,6 +12,7 @@ export function usePublicData<T>(
     owner: typeof loader
     data?: T
     error?: string
+    errorStatus?: number
     loading: boolean
   }>({ owner: loader, loading: true })
   const [retryKey, setRetryKey] = useState(0)
@@ -29,6 +32,12 @@ export function usePublicData<T>(
           setState((previous) => ({
             ...(previous.owner === loader ? previous : { owner: loader }),
             loading: false,
+            errorStatus:
+              error instanceof Error &&
+              'status' in error &&
+              typeof error.status === 'number'
+                ? error.status
+                : undefined,
             error:
               error instanceof Error && error.name === 'PublicApiError'
                 ? error.message
@@ -62,6 +71,7 @@ export function usePublicData<T>(
   return {
     data: state.owner === loader ? state.data : undefined,
     error: state.owner === loader ? state.error : undefined,
+    errorStatus: state.owner === loader ? state.errorStatus : undefined,
     loading: state.owner !== loader || state.loading,
     retry,
   }

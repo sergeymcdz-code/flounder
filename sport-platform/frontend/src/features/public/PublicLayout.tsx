@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -11,21 +11,30 @@ import { publicApi } from '../../api/public.api'
 import { usePublicData } from './usePublicData'
 import { date } from './format'
 import styles from './Public.module.css'
+import { PublicConnectionContext } from './publicContext'
 
 export function DataState({
   loading,
   error,
   retry,
+  data,
 }: {
   loading?: boolean
   error?: string
+  data?: unknown
   retry?: () => void
 }) {
+  const disconnected = useContext(PublicConnectionContext)
+  if (data !== undefined && disconnected) return null
   if (loading) return <p role="status">Загружаем данные…</p>
   if (!error) return null
   return (
     <div className={styles.notice} role="alert">
-      <p>{error}</p>
+      <p>
+        {error}
+        {data !== undefined &&
+          ' Показаны последние данные. Обновление продолжится при подключении.'}
+      </p>
       {retry && <button onClick={retry}>Повторить</button>}
     </div>
   )
@@ -60,9 +69,11 @@ export function PublicLayout() {
     }
   }, [slug])
   useEffect(() => {
-    if (eventState.data)
+    if (eventState.errorStatus === 404)
+      document.title = 'Соревнование не найдено · Flounder'
+    else if (eventState.data)
       document.title = `${eventState.data?.title ?? 'Соревнование'} · Flounder`
-  }, [eventState.data])
+  }, [eventState.data, eventState.errorStatus])
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
     ['schedule', 'Расписание'],
@@ -70,70 +81,82 @@ export function PublicLayout() {
     ['results', 'Результаты'],
     ['live#find-me', 'Найти себя'],
   ]
-  return (
-    <div className={styles.root}>
-      <a className={styles.skip} href="#public-content">
-        К содержимому
-      </a>
-      <header className={styles.header}>
-        <Link className={styles.brand} to={base}>
-          <span className={styles.logo} aria-hidden="true">
-            F
-          </span>{' '}
-          Flounder
+  if (eventState.errorStatus === 404) {
+    return (
+      <main className={styles.main}>
+        <h1>Соревнование не найдено</h1>
+        <Link className={styles.button} to="/">
+          К событиям
         </Link>
-        <div>
-          <Link to={base}>
-            <strong>{eventState.data?.title ?? 'Соревнование'}</strong>
+      </main>
+    )
+  }
+  return (
+    <PublicConnectionContext value={offline || cached}>
+      <div className={styles.root}>
+        <a className={styles.skip} href="#public-content">
+          К содержимому
+        </a>
+        <header className={styles.header}>
+          <Link className={styles.brand} to={base}>
+            <span className={styles.logo} aria-hidden="true">
+              F
+            </span>{' '}
+            Flounder
           </Link>
-          <p>
-            {eventState.data
-              ? `${date(eventState.data.eventStartAt)} · ${eventState.data.venue.city}`
-              : 'Загружаем сведения…'}
-          </p>
-        </div>
-      </header>
-      {(offline || cached) && (
-        <div className={`${styles.notice} ${styles.noPrint}`} role="status">
-          Нет связи, показаны последние данные. Live обновится после
-          подключения.
-        </div>
-      )}
-      <table className={styles.printFrame} role="presentation">
-        <thead aria-hidden="true">
-          <tr>
-            <td>
-              <div className={styles.printSpacer} />
-            </td>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              <main id="public-content" className={styles.main}>
-                <DataState {...eventState} />
-                {eventState.data && (
-                  <Outlet key={slug} context={{ event: eventState.data }} />
-                )}
-              </main>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <nav className={styles.nav} aria-label="Разделы соревнования">
-        {links.map(([path, label]) =>
-          path.includes('#') ? (
-            <Link key={path} to={`${base}/${path}`}>
-              {label}
+          <div>
+            <Link to={base}>
+              <strong>{eventState.data?.title ?? 'Соревнование'}</strong>
             </Link>
-          ) : (
-            <NavLink key={path} to={`${base}/${path}`}>
-              {label}
-            </NavLink>
-          ),
+            <p>
+              {eventState.data
+                ? `${date(eventState.data.eventStartAt)} · ${eventState.data.venue.city}`
+                : 'Загружаем сведения…'}
+            </p>
+          </div>
+        </header>
+        {(offline || cached) && (
+          <div className={`${styles.notice} ${styles.noPrint}`} role="status">
+            Нет связи, показаны последние данные. Live обновится после
+            подключения.
+          </div>
         )}
-      </nav>
-    </div>
+        <table className={styles.printFrame} role="presentation">
+          <thead aria-hidden="true">
+            <tr>
+              <td>
+                <div className={styles.printSpacer} />
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <main id="public-content" className={styles.main}>
+                  <DataState {...eventState} />
+                  {eventState.data && (
+                    <Outlet key={slug} context={{ event: eventState.data }} />
+                  )}
+                </main>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <nav className={styles.nav} aria-label="Разделы соревнования">
+          {links.map(([path, label]) =>
+            path.includes('#') ? (
+              <Link key={path} to={`${base}/${path}`}>
+                {label}
+              </Link>
+            ) : (
+              <NavLink key={path} to={`${base}/${path}`}>
+                {label}
+              </NavLink>
+            ),
+          )}
+        </nav>
+      </div>
+    </PublicConnectionContext>
   )
 }
 

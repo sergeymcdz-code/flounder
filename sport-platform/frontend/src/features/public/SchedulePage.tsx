@@ -3,7 +3,7 @@ import { publicApi } from '../../api/public.api'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
 import { time } from './format'
-import { LIVE_POLL_MS, usePublicData } from './usePublicData'
+import { SCHEDULE_POLL_MS, usePublicData } from './usePublicData'
 import styles from './Public.module.css'
 
 export function SchedulePage() {
@@ -12,7 +12,7 @@ export function SchedulePage() {
     (signal: AbortSignal) => publicApi.schedule(event.publicSlug, signal),
     [event.publicSlug],
   )
-  const state = usePublicData(load, LIVE_POLL_MS)
+  const state = usePublicData(load, SCHEDULE_POLL_MS)
   const sessions = [...new Set(state.data?.map((item) => item.sessionName))]
   return (
     <>

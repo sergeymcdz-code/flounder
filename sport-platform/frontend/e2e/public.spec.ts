@@ -36,8 +36,15 @@ test('all public pages fit 375px, with screenshots and printable protocols', asy
     await page.goto(`/e/demo${route}`)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect(page.getByText('Загружаем данные…')).toHaveCount(0)
-    if (route === '/live')
+    if (route === '/live') {
       await expect(page.getByText(/Сейчас заплыв №/)).toBeVisible()
+      await expect(page.getByTitle('Дорожка', { exact: true })).toBeVisible()
+      expect(
+        await page
+          .locator('[class*=heatNumber]')
+          .evaluate((element) => getComputedStyle(element).fontSize),
+      ).toBe('48px')
+    }
     if (route === '/start-list')
       await expect(page.getByRole('table')).toHaveCount(6)
     if (route === '/results')
@@ -131,7 +138,8 @@ test('anonymous registration returns after login; authenticated form validates p
   await page
     .getByRole('checkbox', { name: /50 м вольный стиль, юноши/ })
     .check()
-  await page.getByLabel('Заявочное время').fill('003215')
+  await page.getByLabel('Заявочное время').fill('')
+  await page.getByLabel('Заявочное время').pressSequentially('32.15')
   await expect(page.getByLabel('Заявочное время')).toHaveValue('00:32.15')
   await page.getByRole('checkbox', { name: /Я даю согласие/ }).check()
   await page.getByRole('button', { name: 'Отправить заявку' }).click()
@@ -197,6 +205,8 @@ test('production PWA caches shell and live API and reloads offline', async ({
     page.getByText(/Нет связи, показаны последние данные/),
   ).toBeVisible()
   await context.setOffline(false)
-  await expect(page.getByText(/Нет связи, показаны последние данные/)).toHaveCount(0, { timeout: 8_000 })
+  await expect(
+    page.getByText(/Нет связи, показаны последние данные/),
+  ).toHaveCount(0, { timeout: 8_000 })
   await context.close()
 })

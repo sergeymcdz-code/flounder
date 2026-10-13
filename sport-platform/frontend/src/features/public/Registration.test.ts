@@ -42,6 +42,8 @@ describe('Public registration', () => {
   })
   it('masks times and rejects invalid seconds while supporting empty NT', () => {
     expect(maskSeedTime('003215')).toBe('00:32.15')
+    expect(maskSeedTime('32.15')).toBe('00:32.15')
+    expect(parseSeedTime('32.15')).toBe(32150)
     expect(parseSeedTime('00:32.15')).toBe(32150)
     expect(parseSeedTime('01:60.00')).toBeUndefined()
     expect(parseSeedTime('00:00.00')).toBeUndefined()

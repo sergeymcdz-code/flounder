@@ -60,7 +60,11 @@ export function PublicEventPage() {
               <ul className={styles.list}>
                 {event.disciplines
                   .filter((item) => item.sessionId === session.id)
-                  .sort((a, b) => a.orderInSession - b.orderInSession)
+                  .sort(
+                    (a, b) =>
+                      (a.orderInSession ?? Infinity) -
+                      (b.orderInSession ?? Infinity),
+                  )
                   .map((item) => (
                     <li key={item.id}>
                       Вид № {item.number} · {item.name}
@@ -72,6 +76,28 @@ export function PublicEventPage() {
               </ul>
             </div>
           ))}
+        {event.disciplines.some((item) => item.sessionId === null) && (
+          <div>
+            <h3>Без сессии</h3>
+            <ul className={styles.list}>
+              {event.disciplines
+                .filter((item) => item.sessionId === null)
+                .sort(
+                  (a, b) =>
+                    (a.orderInSession ?? Infinity) -
+                      (b.orderInSession ?? Infinity) || a.number - b.number,
+                )
+                .map((item) => (
+                  <li key={item.id}>
+                    Вид № {item.number} · {item.name}
+                    {!item.unitsPublished && (
+                      <small>Стартовый протокол ещё не опубликован</small>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
       </section>
     </>
   )

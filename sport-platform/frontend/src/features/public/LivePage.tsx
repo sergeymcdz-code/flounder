@@ -4,7 +4,7 @@ import { publicApi } from '../../api/public.api'
 import type {
   AthleteMatch,
   Discipline,
-  Heat,
+  LiveUnit,
   Live,
   ScheduleItem,
   StartList,
@@ -13,33 +13,45 @@ import { findHeat, isValidResult, time } from './format'
 import { LaneTable } from './Protocol'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
-import { LIVE_POLL_MS, usePublicData } from './usePublicData'
+import { LIVE_POLL_MS, SCHEDULE_POLL_MS, usePublicData } from './usePublicData'
 import styles from './Public.module.css'
 
 export function LiveBoard({
   live,
-  list,
+  list = { sessions: [] },
   lanes,
   slug,
   schedule = [],
   disciplines = [],
 }: {
   live: Live
-  list: StartList
+  list?: StartList
   lanes: number
   slug: string
   schedule?: ScheduleItem[]
   disciplines?: Discipline[]
 }) {
-  function metadata(unit: Heat) {
+  function metadata(unit: LiveUnit) {
     const found = findHeat(list, unit.id)
+    const discipline = disciplines.find((item) => item.id === unit.disciplineId)
+    const primaryName = unit.disciplineName ?? discipline?.name
     const scheduled = schedule.find(
       (item) =>
-        item.scheduledAt === unit.scheduledAt &&
-        item.heatNumber === unit.number,
+        (primaryName === undefined || item.disciplineName === primaryName) &&
+        (unit.sequenceInSession !== undefined
+          ? item.sequenceInSession === unit.sequenceInSession &&
+            (unit.scheduledAt === null || item.scheduledAt === unit.scheduledAt)
+          : item.scheduledAt === unit.scheduledAt &&
+            item.heatNumber === unit.number),
     )
-    const name = found?.discipline.name ?? scheduled?.disciplineName
+    const name =
+      unit.disciplineName ??
+      discipline?.name ??
+      found?.discipline.name ??
+      scheduled?.disciplineName
     const number =
+      unit.disciplineNumber ??
+      discipline?.number ??
       found?.discipline.number ??
       disciplines.find((item) => item.name === name)?.number
     const scheduledHeats = schedule.filter(
@@ -60,10 +72,22 @@ export function LiveBoard({
         aria-live="polite"
         aria-atomic="true"
       >
-        <p className={styles.eyebrow}>Сейчас в бассейне</p>
+        <p className={styles.eyebrow}>
+          {live.currentUnit?.status === 'COMPLETED' ||
+          live.currentUnit?.status === 'FINISHED'
+            ? 'Заплыв завершён'
+            : live.currentUnit?.status === 'CANCELLED'
+              ? 'Заплыв отменён'
+              : 'Сейчас в бассейне'}
+        </p>
         {live.currentUnit ? (
           <>
-            <h2>Сейчас заплыв №{live.currentUnit.number}</h2>
+            <h2>
+              Сейчас заплыв{' '}
+              <span className={styles.heatNumber}>
+                №{live.currentUnit.number}
+              </span>
+            </h2>
             <p className={styles.liveDescription}>
               {current?.name
                 ? `Вид № ${current.number ?? '—'} · ${current.name}`
@@ -239,21 +263,22 @@ export function LivePage() {
     (signal: AbortSignal) => publicApi.schedule(event.publicSlug, signal),
     [event.publicSlug],
   )
-  const schedule = usePublicData(loadSchedule)
+  const schedule = usePublicData(loadSchedule, SCHEDULE_POLL_MS)
   const list = usePublicData(loadList)
   const live = usePublicData(loadLive, LIVE_POLL_MS)
   return (
     <>
       <h1>Live</h1>
-      <DataState {...list} />
-      <DataState {...schedule} />
-      <DataState {...live} />
-      {live.error && live.data && (
-        <p role="status">
-          Показаны последние данные. Автообновление продолжится при подключении.
-        </p>
-      )}
-      {list.data && live.data && (
+      <DataState
+        loading={live.loading}
+        error={
+          live.error ??
+          (!live.data ? (list.error ?? schedule.error) : undefined)
+        }
+        data={live.data}
+        retry={live.retry}
+      />
+      {live.data && (
         <LiveBoard
           live={live.data}
           list={list.data}
@@ -263,9 +288,7 @@ export function LivePage() {
           slug={event.publicSlug}
         />
       )}
-      {!live.loading && !list.loading && !schedule.loading && (
-        <AthleteSearch slug={event.publicSlug} />
-      )}
+      {!live.loading && <AthleteSearch slug={event.publicSlug} />}
     </>
   )
 }

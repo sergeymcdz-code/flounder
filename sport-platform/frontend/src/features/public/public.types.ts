@@ -30,11 +30,11 @@ export type Discipline = {
   id: string
   number: number
   name: string
-  distanceM: number
+  distanceM: number | null
   stroke: Stroke
   gender: Gender
-  sessionId: string
-  orderInSession: number
+  sessionId: string | null
+  orderInSession: number | null
   unitsPublished: boolean
 }
 export type PublicEvent = {
@@ -91,9 +91,18 @@ export type ScheduleItem = {
   scheduledAt: string | null
   status: UnitStatus
 }
-// The spec leaves currentUnit/next expanded fields implicit. Reuse the heat DTO;
-// discipline metadata and the total heat count are resolved from start-list and schedule.
-export type Live = { currentUnit: Heat | null; next: Heat[]; updatedAt: string }
+export type LiveUnit = Heat & {
+  disciplineId?: string
+  disciplineNumber?: number
+  disciplineName?: string
+  sequenceInSession?: number
+  status?: UnitStatus
+}
+export type Live = {
+  currentUnit: LiveUnit | null
+  next: LiveUnit[]
+  updatedAt: string
+}
 export type SwimResult = {
   display: string | null
   status: ResultStatus
@@ -128,7 +137,7 @@ export type Results = {
 export type RegistrationDiscipline = {
   id: string
   name: string
-  distanceM: number
+  distanceM: number | null
   stroke: Stroke
   gender: Gender
   ageGroups: AgeGroup[]

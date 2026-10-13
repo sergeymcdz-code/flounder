@@ -107,13 +107,17 @@ describe('Public live', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const { unmount } = render(<PollingBoard />)
     await vi.waitFor(() =>
-      expect(screen.getByText('Сейчас заплыв №1')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+      ).toBeInTheDocument(),
     )
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5_000)
     })
     await vi.waitFor(() =>
-      expect(screen.getByText('Сейчас заплыв №2')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'Сейчас заплыв №2' }),
+      ).toBeInTheDocument(),
     )
     expect(calls).toBe(2)
     Object.defineProperty(document, 'hidden', {
@@ -155,7 +159,9 @@ describe('Public live', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<PollingBoard />)
     await vi.waitFor(() =>
-      expect(screen.getByText('Сейчас заплыв №1')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+      ).toBeInTheDocument(),
     )
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5_000)
@@ -163,7 +169,9 @@ describe('Public live', () => {
     await vi.waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Нет связи'),
     )
-    expect(screen.getByText('Сейчас заплыв №1')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+    ).toBeInTheDocument()
   })
 
   it('searches through the API and shows a swimmer with places and results', async () => {

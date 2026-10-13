@@ -1,10 +1,30 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
+import { rm } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { VitePWA } from 'vite-plugin-pwa'
+
+function excludeMockWorker(): Plugin {
+  let outputDirectory = ''
+  return {
+    name: 'exclude-production-mock-worker',
+    apply: 'build',
+    configResolved(config) {
+      outputDirectory = resolve(config.root, config.build.outDir)
+    },
+    async writeBundle() {
+      // The development worker is served from public/, but must not be deployed.
+      await rm(resolve(outputDirectory, 'mockServiceWorker.js'), {
+        force: true,
+      })
+    },
+  }
+}
 
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    excludeMockWorker(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: null,
@@ -58,9 +78,9 @@ export default defineConfig(({ mode }) => ({
             method: 'GET',
             options: {
               cacheName: 'flounder-public-api-v1',
-              networkTimeoutSeconds: 3,
+              networkTimeoutSeconds: 7,
               cacheableResponse: { statuses: [200] },
-              expiration: { maxEntries: 80, maxAgeSeconds: 86_400 },
+              expiration: { maxEntries: 80, maxAgeSeconds: 3600 },
               plugins: [
                 {
                   // Mark cached fallback data even when navigator.onLine is still true.

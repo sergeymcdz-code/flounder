@@ -68,7 +68,12 @@ export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
       </caption>
       <thead>
         <tr>
-          <th scope="col">Дорожка</th>
+          <th scope="col">
+            <span className={styles.laneFull}>Дорожка</span>
+            <abbr className={styles.laneShort} title="Дорожка">
+              Дор.
+            </abbr>
+          </th>
           <th scope="col">Фамилия Имя</th>
           <th scope="col">Год</th>
           <th scope="col">Клуб</th>

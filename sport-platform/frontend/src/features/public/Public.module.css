@@ -551,3 +551,21 @@
     color: black;
   }
 }
+
+.heatNumber {
+  display: block;
+  font-size: 48px;
+  line-height: 1.1;
+}
+.laneShort {
+  display: none;
+  text-decoration: none;
+}
+@media screen and (max-width: 480px) {
+  .laneFull {
+    display: none;
+  }
+  .laneShort {
+    display: inline;
+  }
+}

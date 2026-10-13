@@ -3,7 +3,7 @@ import { publicApi } from '../../api/public.api'
 import { PrintButton, PrintHeader, ResultsTable } from './Protocol'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
-import { LIVE_POLL_MS, usePublicData } from './usePublicData'
+import { RESULTS_POLL_MS, usePublicData } from './usePublicData'
 import styles from './Public.module.css'
 
 export function ResultsPage() {
@@ -13,7 +13,7 @@ export function ResultsPage() {
     (signal: AbortSignal) => publicApi.results(event.publicSlug, signal),
     [event.publicSlug],
   )
-  const state = usePublicData(load, LIVE_POLL_MS)
+  const state = usePublicData(load, RESULTS_POLL_MS)
   return (
     <>
       <PrintHeader event={event} title="Итоговый протокол" />

@@ -11,8 +11,21 @@ import {
   demoStartList,
 } from '../src/mocks/demo-data.ts'
 
-const units = demoStartList.sessions.flatMap((s) =>
-  s.disciplines.flatMap((d) => d.heats),
+const units = demoStartList.sessions.flatMap((session) =>
+  session.disciplines.flatMap((discipline) =>
+    discipline.heats.map((heat) => ({
+      ...heat,
+      disciplineId: discipline.id,
+      disciplineNumber: discipline.number,
+      disciplineName: discipline.name,
+      sequenceInSession: demoSchedule.find(
+        (item) =>
+          item.disciplineName === discipline.name &&
+          item.heatNumber === heat.number &&
+          item.scheduledAt === heat.scheduledAt,
+      )?.sequenceInSession,
+    })),
+  ),
 )
 const dist = resolve('dist')
 const types: Record<string, string> = {
@@ -36,7 +49,7 @@ const server = createServer(async (request, response) => {
       '': demoEvent,
       'start-list': demoStartList,
       live: {
-        currentUnit: units[0],
+        currentUnit: { ...units[0], status: 'IN_PROGRESS' },
         next: units.slice(1, 4),
         updatedAt: new Date().toISOString(),
       },

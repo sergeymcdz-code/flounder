@@ -21,6 +21,11 @@ export function eligible(
   )
 }
 export function maskSeedTime(input: string) {
+  const short = /^(\d{1,2})\.(\d{0,2})$/.exec(input)
+  if (short)
+    return short[2].length === 2
+      ? `00:${short[1].padStart(2, '0')}.${short[2]}`
+      : input
   const digits = input.replace(/\D/g, '').slice(0, 6)
   return (
     digits.slice(0, 2) +
@@ -30,7 +35,10 @@ export function maskSeedTime(input: string) {
 }
 export function parseSeedTime(input: string) {
   if (!input) return null
-  const match = /^(\d{2}):([0-5]\d)\.(\d{2})$/.exec(input)
+  const normalized = /^\d{1,2}\.\d{2}$/.test(input)
+    ? maskSeedTime(input)
+    : input
+  const match = /^(\d{2}):([0-5]\d)\.(\d{2})$/.exec(normalized)
   if (!match) return undefined
   const milliseconds =
     (Number(match[1]) * 60 + Number(match[2])) * 1000 + Number(match[3]) * 10

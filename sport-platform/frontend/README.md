@@ -33,8 +33,7 @@ See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rule
 
 ## T07: public pages, print and PWA
 
-See [the implementation and verification report](docs/T07.md) for routes,
-manual checks, API integration notes and captured mobile/PDF evidence.
+See [PR #8](https://github.com/sergeymcdz-code/flounder/pull/8) for the implementation report, manual checks and verification attachments.
 
 ```bash
 npm ci
@@ -47,7 +46,6 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The production build excludes MSW unless `VITE_PUBLIC_API_MOCKS=true` is set
-explicitly. Public API requests default to the current origin; configure
+The production build always excludes MSW. Development mocks use `npm run dev:demo` (or `VITE_API_MOCK=true` with the development server). Public API requests default to the current origin; configure
 `VITE_API_BASE_URL` for a separate backend. `--mode demo` uses MSW instead of
 the PWA worker because they share the root service-worker scope.
