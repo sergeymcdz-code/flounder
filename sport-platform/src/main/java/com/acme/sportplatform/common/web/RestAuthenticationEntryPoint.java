@@ -31,7 +31,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
         SecurityErrorResponse body = new SecurityErrorResponse(
                 "authentication_required",
-                "Authentication is required to access this resource",
+                "Для доступа требуется авторизация",
                 OffsetDateTime.now(),
                 request.getRequestURI()
         );

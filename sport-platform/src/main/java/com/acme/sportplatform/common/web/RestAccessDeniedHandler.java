@@ -31,7 +31,7 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
 
         SecurityErrorResponse body = new SecurityErrorResponse(
                 "access_denied",
-                "You do not have permission to access this resource",
+                "Доступ запрещён",
                 OffsetDateTime.now(),
                 request.getRequestURI()
         );
