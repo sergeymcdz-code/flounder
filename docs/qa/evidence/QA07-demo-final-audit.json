@@ -1,0 +1,52 @@
+{
+  "seed": {
+    "eventId": "6ae926da-6bde-45f1-9575-a3aa9f4bbc89",
+    "date": "2026-10-24",
+    "slug": "otkrytyy-kubok-samary-po-plavaniyu-demo-qa05-2026-10-13t18-26-34-729z",
+    "suffix": " · QA05 2026-10-13T18:26:34.729Z"
+  },
+  "steps": [
+    {
+      "name": "1. Anonymous overview, program, organizer QR and settings",
+      "durationMs": 4903,
+      "errors": 0
+    },
+    {
+      "name": "2. Excel download, 203/200/3 report and duplicate-free reimport",
+      "durationMs": 6774,
+      "errors": 0
+    },
+    {
+      "name": "3. Parent mobile submission, organizer confirmation and secretary payment",
+      "durationMs": 9252,
+      "errors": 0
+    },
+    {
+      "name": "4. Seeding, validator, schedule, draft PDF and anonymous publication",
+      "durationMs": 24827,
+      "errors": 3
+    },
+    {
+      "name": "5. Secretary live, three next heats, Demov search, polling and PWA",
+      "durationMs": 16163,
+      "errors": 0
+    },
+    {
+      "name": "6. Published withdrawal preserves neighbors, schedule and validator WARNING",
+      "durationMs": 13121,
+      "errors": 0
+    },
+    {
+      "name": "7. Times/DNS/DSQ, shared places 1,1,3, publication, correction and final PDF",
+      "durationMs": 24070,
+      "errors": 0
+    }
+  ],
+  "timings": {
+    "set-M-with-errors.xlsx": 891,
+    "set-M.xlsx": 853,
+    "seeding": 243,
+    "liveRefresh": 13983
+  },
+  "audit": []
+}

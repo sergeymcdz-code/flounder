@@ -1,0 +1,21 @@
+{
+  "baseMain": "63263d1",
+  "seed": {
+    "eventId": "def0ceb2-7f00-4346-b208-e934d3cadcdd",
+    "date": "2026-10-24",
+    "slug": "otkrytyy-kubok-samary-po-plavaniyu-demo-qa07-2026-10-13t18-23-12-061z",
+    "suffix": " · QA07 2026-10-13T18:23:12.061Z"
+  },
+  "tests": [
+    {
+      "test": "M01: admin manages a new user, revokes blocked JWT, creates and approves organizations",
+      "status": "passed",
+      "durationMs": 7010
+    },
+    {
+      "test": "M10: judge publishes two heats, operator corrects, finish is idempotent and advances live",
+      "status": "passed",
+      "durationMs": 50843
+    }
+  ]
+}
