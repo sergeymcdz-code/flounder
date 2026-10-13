@@ -29,7 +29,11 @@ export function HeatPage() {
             Вид № {found.discipline.number}. {found.discipline.name}
           </h2>
           <p>{found.session.name}</p>
-          <HeatProtocol heat={found.heat} lanes={event.venue?.lanes ?? 8} />
+          <HeatProtocol
+            heat={found.heat}
+            lanes={event.venue?.lanes ?? 8}
+            timeZone={event.venue?.timezone}
+          />
         </>
       )}
       {state.data && !found && <p>Заплыв не найден или ещё не опубликован.</p>}

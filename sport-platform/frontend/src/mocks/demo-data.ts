@@ -17,7 +17,8 @@ export const demoEvent: PublicEvent = {
     "name": "Бассейн «Дельфин»",
     "city": "Самара",
     "lanes": 8,
-    "courseLength": 25
+    "courseLength": 25,
+    "timezone": "Europe/Samara"
   },
   "sessions": [
     {

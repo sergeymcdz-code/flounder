@@ -150,6 +150,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void eventCardHasVenueSessionsDisciplinesAndRegistrationFlag() throws Exception {
         JsonNode response = read("");
+        assertThat(response.path("venue").path("timezone").asText()).isEqualTo("Europe/Samara");
         assertThat(response.path("venue").path("lanes").asInt()).isEqualTo(8);
         assertThat(response.path("venue").path("courseLength").asInt()).isEqualTo(25);
         assertThat(response.path("venue").path("name").asText()).isEqualTo("Бассейн");

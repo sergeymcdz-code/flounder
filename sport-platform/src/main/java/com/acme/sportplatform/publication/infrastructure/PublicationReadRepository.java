@@ -26,7 +26,7 @@ public class PublicationReadRepository {
             """;
     public Optional<Event> event(String slug) {
         return rows("""
-                select e.*, v.name as venue_name, v.city as venue_city,
+                select e.*, v.name as venue_name, v.city as venue_city, v.timezone as venue_timezone,
                     cast(v.venue_meta as text) as venue_meta_text
                 from events e left join venues v on v.id = e.venue_id
                 where e.public_slug = :slug and e.status in
@@ -35,7 +35,7 @@ public class PublicationReadRepository {
                 str(t,"title"), str(t,"description"), date(t,"registration_open_at"),
                 date(t,"registration_close_at"), date(t,"event_start_at"), date(t,"event_end_at"),
                 str(t,"status"), str(t,"public_slug"), str(t,"venue_name"), str(t,"venue_city"),
-                str(t,"venue_meta_text"))).findFirst();
+                str(t,"venue_timezone"), str(t,"venue_meta_text"))).findFirst();
     }
     public List<Session> sessions(UUID eventId) {
         return rows("""

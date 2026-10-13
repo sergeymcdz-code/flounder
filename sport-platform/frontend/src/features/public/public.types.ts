@@ -52,6 +52,7 @@ export type PublicEvent = {
   venue: {
     name: string
     city: string
+    timezone: string
     lanes: number
     courseLength: number | null
   } | null

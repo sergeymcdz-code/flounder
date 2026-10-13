@@ -110,7 +110,7 @@ export function PublicLayout() {
             </Link>
             <p>
               {eventState.data
-                ? `${date(eventState.data.eventStartAt)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}`
+                ? `${date(eventState.data.eventStartAt, eventState.data.venue?.timezone)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}`
                 : 'Загружаем сведения…'}
             </p>
           </div>

@@ -37,6 +37,7 @@ export function StartListPage() {
                       heat={heat}
                       lanes={event.venue?.lanes ?? 8}
                       slug={event.publicSlug}
+                      timeZone={event.venue?.timezone}
                     />
                   ))}
                 </div>

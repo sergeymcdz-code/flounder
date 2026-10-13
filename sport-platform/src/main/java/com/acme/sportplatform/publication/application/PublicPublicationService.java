@@ -36,7 +36,7 @@ public class PublicPublicationService {
         Set<UUID> published = reads.units(event.id()).stream().map(ReadModels.Unit::disciplineId).collect(Collectors.toSet());
         JsonNode meta = json(event.venueMeta());
         Venue venue = event.venueName() == null ? null : new Venue(event.venueName(), event.venueCity(),
-                meta.path("lanes").asInt(8), nullableInt(meta,"courseLength"));
+                meta.path("lanes").asInt(8), nullableInt(meta,"courseLength"), event.venueTimezone());
         return new Event(event.id(), event.sportId(), event.title(), event.description(), event.registrationOpenAt(),
                 event.registrationCloseAt(), event.eventStartAt(), event.eventEndAt(), event.status(), event.slug(),
                 registrationOpen(event), venue, sessionViews(event.id()),

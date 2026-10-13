@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { publicApi } from '../../api/public.api'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
-import { time } from './format'
+import { localTimeLabel, time } from './format'
 import { SCHEDULE_POLL_MS, usePublicData } from './usePublicData'
 import styles from './Public.module.css'
 
@@ -18,7 +18,7 @@ export function SchedulePage() {
     <>
       <h1>Расписание</h1>
       <p className={styles.muted}>
-        Время старта ориентировочное. Текущий заплыв выделен.
+        {localTimeLabel(event.eventStartAt, event.venue?.timezone)}. Время старта ориентировочное. Текущий заплыв выделен.
       </p>
       <DataState {...state} />
       {state.data && !state.data.length && (
@@ -44,7 +44,7 @@ export function SchedulePage() {
                   }
                 >
                   <strong>
-                    {time(item.scheduledAt)} · Заплыв {item.heatNumber}
+                    {time(item.scheduledAt, event.venue?.timezone)} · Заплыв {item.heatNumber}
                   </strong>
                   <p>{item.disciplineName}</p>
                   <small>

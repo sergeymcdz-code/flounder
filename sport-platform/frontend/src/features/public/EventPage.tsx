@@ -1,10 +1,12 @@
 import { Link } from 'react-router'
 import { usePublicEvent } from './publicContext'
-import { date, time } from './format'
+import { date, localTimeLabel, time } from './format'
 import styles from './Public.module.css'
 
 export function PublicEventPage() {
   const event = usePublicEvent()
+  const startDate = date(event.eventStartAt, event.venue?.timezone)
+  const endDate = date(event.eventEndAt, event.venue?.timezone)
   const base = `/e/${encodeURIComponent(event.publicSlug)}`
   return (
     <>
@@ -13,10 +15,8 @@ export function PublicEventPage() {
       <section className={styles.card}>
         <h2>О соревновании</h2>
         <p>
-          {date(event.eventStartAt)}
-          {event.eventEndAt.slice(0, 10) !== event.eventStartAt.slice(0, 10)
-            ? ` — ${date(event.eventEndAt)}`
-            : ''}
+          {startDate}
+          {endDate !== startDate ? ` — ${endDate}` : ''}
         </p>
         <p>
           {event.venue
@@ -57,12 +57,15 @@ export function PublicEventPage() {
       </div>
       <section className={styles.card}>
         <h2>Сессии и виды программы</h2>
+        <p className={styles.muted}>
+          {localTimeLabel(event.eventStartAt, event.venue?.timezone)}
+        </p>
         {[...event.sessions]
           .sort((a, b) => a.orderNo - b.orderNo)
           .map((session) => (
             <div key={session.id}>
               <h3>
-                {session.name} · {time(session.startsAt)}
+                {session.name} · {time(session.startsAt, event.venue?.timezone)}
               </h3>
               <ul className={styles.list}>
                 {event.disciplines
