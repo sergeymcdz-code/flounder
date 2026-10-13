@@ -22,7 +22,7 @@ class OrganizationServiceTest {
         var member = new OrganizationMemberEntity();
         member.setMemberRole(role);
         when(memberships.findByOrganizationIdAndUserId(organizationId, userId)).thenReturn(Optional.of(member));
-        var service = new OrganizationService(mock(OrganizationRepository.class), memberships, mock(UserRoleLookup.class));
+        var service = new OrganizationService(mock(OrganizationRepository.class), memberships, mock(UserRoleLookup.class), mock(com.acme.sportplatform.identity.UserLookup.class));
         assertEquals(allowed, service.canManageOrganization(organizationId, userId));
     }
 }

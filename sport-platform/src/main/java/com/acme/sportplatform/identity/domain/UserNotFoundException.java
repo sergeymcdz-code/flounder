@@ -6,6 +6,6 @@ import java.util.UUID;
 public class UserNotFoundException extends BusinessException {
 
     public UserNotFoundException(UUID userId) {
-        super("identity.user_not_found", "User with id '%s' was not found".formatted(userId));
+        super("identity.user_not_found", "Пользователь с ID '%s' не найден".formatted(userId));
     }
 }

@@ -18,7 +18,7 @@ public class GetCurrentUserUseCase {
     }
 
     public CurrentUserResponse execute(PlatformUserPrincipal principal) {
-        List<String> roles = userRoleAssignmentRepository.findRoleCodesByUserId(principal.getUserId());
+        List<String> roles = userRoleAssignmentRepository.findGlobalRoleCodesByUserId(principal.getUserId());
 
         return new CurrentUserResponse(
                 principal.getUserId(),

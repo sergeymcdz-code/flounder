@@ -4,10 +4,11 @@ import java.util.List;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.AccountStatusException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 
+import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.api.AuthTokenResponse;
 import com.acme.sportplatform.identity.api.LoginRequest;
 import com.acme.sportplatform.identity.domain.InvalidCredentialsException;
@@ -39,14 +40,16 @@ public class LoginUseCase {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
-        } catch (BadCredentialsException | AccountStatusException ex) {
+        } catch (DisabledException ex) {
+            throw new BusinessException("identity.user_blocked", "Пользователь заблокирован. Обратитесь к администратору");
+        } catch (BadCredentialsException ex) {
             throw new InvalidCredentialsException();
         }
 
         PlatformUserPrincipal principal =
                 (PlatformUserPrincipal) userDetailsService.loadUserByUsername(request.email());
 
-        List<String> roles = userRoleAssignmentRepository.findRoleCodesByUserId(principal.getUserId());
+        List<String> roles = userRoleAssignmentRepository.findGlobalRoleCodesByUserId(principal.getUserId());
 
         String token = jwtService.generateAccessToken(principal, roles);
 

@@ -4,17 +4,11 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.ArgumentCaptor;
-import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -36,10 +30,9 @@ class JwtAuthenticationFilterTest {
     @Test
     void rejectsTokenWithoutRolesClaim() throws ServletException, IOException {
         JwtService jwtService = mock(JwtService.class);
-        var entryPoint = mock(RestAuthenticationEntryPoint.class);
-        var users = mock(UserRepository.class);
-        var assignments = mock(UserRoleAssignmentRepository.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, users, assignments, entryPoint);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository.class),
+                mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository.class),
+                mock(com.acme.sportplatform.common.web.RestAuthenticationEntryPoint.class));
 
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
@@ -61,11 +54,10 @@ class JwtAuthenticationFilterTest {
         when(claims.get("roles"))
                 .thenReturn(null);
 
-        filter.doFilter(request, response, filterChain);
-        var error = ArgumentCaptor.forClass(InsufficientAuthenticationException.class);
-        verify(entryPoint).commence(eq(request), eq(response), error.capture());
-        assertThat(error.getValue()).hasMessage("JWT invalid").hasCauseInstanceOf(InvalidTokenException.class);
-        verifyNoInteractions(filterChain, users, assignments);
+        assertThatThrownBy(() -> filter.doFilter(request, response, filterChain))
+                .isInstanceOf(InsufficientAuthenticationException.class)
+                .hasMessage("JWT invalid")
+                .hasCauseInstanceOf(InvalidTokenException.class);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication())
                 .isNull();

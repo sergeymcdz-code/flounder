@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -13,13 +14,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
 import com.acme.sportplatform.identity.domain.ExpiredTokenException;
 import com.acme.sportplatform.identity.domain.InvalidTokenException;
-import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRoleAssignmentRepository;
 
 import io.jsonwebtoken.Claims;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,12 +35,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserRoleAssignmentRepository assignments;
     private final RestAuthenticationEntryPoint entryPoint;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserRepository users,
-            UserRoleAssignmentRepository assignments, RestAuthenticationEntryPoint entryPoint) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+            UserRepository users,
+            UserRoleAssignmentRepository assignments,
+            RestAuthenticationEntryPoint entryPoint) {
+        this.users = users; this.assignments = assignments; this.entryPoint = entryPoint;
         this.jwtService = jwtService;
-        this.users = users;
-        this.assignments = assignments;
-        this.entryPoint = entryPoint;
     }
 
     @Override
@@ -76,18 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new InvalidTokenException();
             }
 
-            if (!(rolesClaim instanceof Collection<?> rawRoles)) {
-                throw new InvalidTokenException();
-            }
-
-            List<String> roles = rawRoles.stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .map(String::trim)
-                    .filter(role -> !role.isBlank())
-                    .toList();
-
-            if (roles.isEmpty()) {
+            if (!(rolesClaim instanceof Collection<?>)) {
                 throw new InvalidTokenException();
             }
 
@@ -99,10 +90,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new InvalidTokenException();
             }
 
-            var user = users.findById(userId).orElseThrow(InvalidTokenException::new);
-            if (!"active".equalsIgnoreCase(user.getStatus())) throw new InvalidTokenException();
-
-            List<GrantedAuthority> authorities = assignments.findRoleCodesByUserId(userId).stream()
+            var user = users.findById(userId).orElse(null);
+            if (user == null || !"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+                SecurityContextHolder.clearContext();
+                entryPoint.commence(request, response, new DisabledException(
+                        user == null ? "identity.user_not_found" : "identity.user_blocked"));
+                return;
+            }
+            // Global authority changes take effect immediately; scoped assignments are not global privileges.
+            List<GrantedAuthority> authorities = assignments.findGlobalRoleCodesByUserId(userId).stream()
                     .map(role -> role.startsWith("ROLE_")
                             ? role.substring("ROLE_".length())
                             : role)
@@ -115,7 +111,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     userId,
                     user.getEmail(),
                     "",
-                    "active",
+                    user.getStatus(),
                     authorities
             );
 
@@ -131,10 +127,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (ExpiredTokenException ex) {
             SecurityContextHolder.clearContext();
-            entryPoint.commence(request, response, new InsufficientAuthenticationException("JWT expired", ex));
+            throw new InsufficientAuthenticationException("JWT expired", ex);
         } catch (InvalidTokenException ex) {
             SecurityContextHolder.clearContext();
-            entryPoint.commence(request, response, new InsufficientAuthenticationException("JWT invalid", ex));
+            throw new InsufficientAuthenticationException("JWT invalid", ex);
         }
     }
 }

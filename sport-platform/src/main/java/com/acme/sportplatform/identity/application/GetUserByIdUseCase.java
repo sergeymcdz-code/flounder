@@ -1,10 +1,11 @@
 package com.acme.sportplatform.identity.application;
 
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.acme.sportplatform.identity.UserMembershipLookup;
 import com.acme.sportplatform.identity.api.UserDetailsResponse;
 import com.acme.sportplatform.identity.domain.UserNotFoundException;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.ProfileEntity;
@@ -16,18 +17,21 @@ import com.acme.sportplatform.identity.infrastructure.persistence.repository.Use
 @Service
 public class GetUserByIdUseCase {
 
+    private final UserMembershipLookup memberships;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
 
     public GetUserByIdUseCase(UserRepository userRepository,
                               ProfileRepository profileRepository,
-                              UserRoleAssignmentRepository userRoleAssignmentRepository) {
+                              UserRoleAssignmentRepository userRoleAssignmentRepository, UserMembershipLookup memberships) {
+        this.memberships = memberships;
         this.userRepository = userRepository;
         this.profileRepository = profileRepository;
         this.userRoleAssignmentRepository = userRoleAssignmentRepository;
     }
 
+    @Transactional(readOnly = true)
     public UserDetailsResponse execute(UUID userId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
@@ -35,7 +39,7 @@ public class GetUserByIdUseCase {
         ProfileEntity profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        List<String> roles = userRoleAssignmentRepository.findRoleCodesByUserId(userId);
+        var roles = userRoleAssignmentRepository.findRolesByUserId(userId);
 
         return new UserDetailsResponse(
                 user.getId(),
@@ -53,7 +57,7 @@ public class GetUserByIdUseCase {
                         profile.getCountryCode(),
                         profile.getClubName()
                 ),
-                roles
+                roles, memberships.membershipsOf(userId)
         );
     }
 }

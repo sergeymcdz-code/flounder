@@ -12,14 +12,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.acme.sportplatform.identity.api.AssignRoleRequest;
+import com.acme.sportplatform.identity.api.ChangeUserPasswordRequest;
 import com.acme.sportplatform.identity.api.CreateUserRequest;
 import com.acme.sportplatform.identity.api.UpdateUserRequest;
 import com.acme.sportplatform.identity.api.UserDetailsResponse;
+import com.acme.sportplatform.identity.api.UserPageResponse;
 import com.acme.sportplatform.identity.api.UserResponse;
+import com.acme.sportplatform.identity.application.AdminUserService;
 import com.acme.sportplatform.identity.application.AssignRoleToUserUseCase;
 import com.acme.sportplatform.identity.application.CreateUserUseCase;
 import com.acme.sportplatform.identity.application.DeleteUserUseCase;
@@ -33,6 +37,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/users")
 public class UserController {
 
+    private final AdminUserService adminUsers;
     private final CreateUserUseCase createUserUseCase;
     private final GetUserByIdUseCase getUserByIdUseCase;
     private final UpdateUserUseCase updateUserUseCase;
@@ -45,13 +50,34 @@ public class UserController {
                         UpdateUserUseCase updateUserUseCase,
                         DeleteUserUseCase deleteUserUseCase,
                         AssignRoleToUserUseCase assignRoleToUserUseCase,
-                        RevokeRoleFromUserUseCase revokeRoleFromUserUseCase) {
+                        RevokeRoleFromUserUseCase revokeRoleFromUserUseCase, AdminUserService adminUsers) {
+        this.adminUsers = adminUsers;
         this.createUserUseCase = createUserUseCase;
         this.getUserByIdUseCase = getUserByIdUseCase;
         this.updateUserUseCase = updateUserUseCase;
         this.deleteUserUseCase = deleteUserUseCase;
         this.assignRoleToUserUseCase = assignRoleToUserUseCase;
         this.revokeRoleFromUserUseCase = revokeRoleFromUserUseCase;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public UserPageResponse list(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "") String role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return adminUsers.search(query, role, page, size);
+    }
+
+    @PatchMapping("/{userId}/password")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @io.swagger.v3.oas.annotations.Operation(summary = "Сменить пароль пользователя (admin-only)",
+            description = "Только platform_admin. Временная административная замена смены пароля до M02.")
+    public void password(@PathVariable UUID userId,
+            @Valid @RequestBody ChangeUserPasswordRequest request) {
+        adminUsers.changePassword(userId, request.newPassword());
     }
 
     @PostMapping
