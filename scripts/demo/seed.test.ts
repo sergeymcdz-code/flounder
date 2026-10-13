@@ -102,6 +102,15 @@ describe('seed and reset orchestration without network', () => {
     await seed(api, { ...options, skipImport: true }, quiet);
     expect(api.calls.slice(before).filter(call => call.method === 'POST' && call.path.startsWith('/regulation-versions/') && call.path.endsWith('/publish'))).toEqual([]);
   });
+  it('warns and opens registration when an explicit DEMO_DATE has already closed', async () => {
+    const api = new FakeApi();
+    const messages: string[] = [];
+    await seed(api, { ...options, demoDate: '2026-10-17', now: new Date('2026-10-18T12:00:00Z'), skipImport: true }, message => messages.push(message));
+    const event = api.lists.get('/events')![0];
+    expect(event.registrationOpenAt).toBe('2026-10-18T11:59:00.000Z');
+    expect(event.registrationCloseAt).toBe('2026-10-18T12:01:00.000Z');
+    expect(messages.some(message => message.includes('WARNING: плановое закрытие регистрации уже наступило'))).toBe(true);
+  });
   it('QA03-05 reuses published regulations returned in lowercase by the backend', async () => {
     const api = new FakeApi();
     api.lowercaseRegulations = true;

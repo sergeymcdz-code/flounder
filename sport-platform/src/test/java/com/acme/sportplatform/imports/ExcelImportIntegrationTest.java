@@ -24,6 +24,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.mock.web.MockMultipartFile;
@@ -471,8 +474,10 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         System.out.println("QA03 5000 distinct rows import duration: " + elapsedMs + " ms");
     }
 
-    @Test
-    void qa03_04PublicFormCanUseImportedAthleteWhenAccountAlreadyHasProfile() throws Exception {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "демо|родитель|1990-01-01|m")
+    void qa03_04ConflictingImportedAthleteReturns409AndKeepsAccountProfile(String externalKey) throws Exception {
         UUID event = event();
         var data = new ProfileData("Импортов", "Иван", null, LocalDate.of(2014, 5, 10), "M", "Дельфин");
         assertThat(upload(event, file(List.of(List.of(data.lastName(), data.firstName(),
@@ -480,8 +485,9 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         UUID userId = UUID.randomUUID();
         jdbc.update("insert into users (id,email,password_hash,status) values (?,?,'test','active')",
                 userId, "qa03-import-" + userId + "@example.com");
-        jdbc.update("insert into profiles (id,user_id,first_name,last_name,birth_date,gender) values (?,?,'Родитель','Демо','1990-01-01','M')",
-                UUID.randomUUID(), userId);
+        UUID accountProfileId = UUID.randomUUID();
+        jdbc.update("insert into profiles (id,user_id,first_name,last_name,birth_date,gender,external_key) values (?,?,'Родитель','Демо','1990-01-01','M',?)",
+                accountProfileId, userId, externalKey);
         UUID secondDiscipline = disciplines.findByEventId(event).stream()
                 .filter(d -> d.getCode().equals("M-100-FREE")).findFirst().orElseThrow().getId();
         var request = new com.acme.sportplatform.registrations.api.PublicRegistrationRequest(data,
@@ -489,7 +495,13 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         mvc.perform(post("/api/v1/public/events/" + events.findById(event).orElseThrow().getPublicSlug() + "/registrations")
                 .with(user(principal(userId, "PARTICIPANT"))).contentType("application/json")
                 .content(mapper.writeValueAsBytes(request)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].status").value("SUBMITTED"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("identity.profile_already_attached"));
+        assertThat(registrations.findByEventId(event)).hasSize(1);
+        var accountProfile = profiles.findById(accountProfileId).orElseThrow();
+        assertThat(accountProfile.getFirstName()).isEqualTo("Родитель");
+        assertThat(accountProfile.getLastName()).isEqualTo("Демо");
+        assertThat(accountProfile.getExternalKey()).isEqualTo(externalKey);
     }
 
     private UUID event() {

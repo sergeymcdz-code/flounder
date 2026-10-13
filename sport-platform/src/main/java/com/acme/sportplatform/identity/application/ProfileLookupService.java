@@ -117,6 +117,10 @@ public class ProfileLookupService implements ProfileLookup {
                 profile.setExternalKey(key);
             }
         }
+        if (imported != null && !imported.getId().equals(profile.getId()))
+            throw new com.acme.sportplatform.common.exception.BusinessException(
+                    "identity.profile_already_attached",
+                    "Спортсмен с такими ФИО, датой рождения и полом уже есть в списке заявок; у вашего аккаунта другой профиль — обратитесь к организатору");
         profile.setExternalKey(key);
         apply(profile, data);
         return toResult(profileRepository.save(profile));
