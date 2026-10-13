@@ -20,7 +20,7 @@ export async function getOrganizerEvent(
       `/api/v1/events/${encodeURIComponent(id)}/disciplines`,
       { accessToken },
     ),
-    getVenues(accessToken),
+    getVenues(accessToken).catch(() => []),
   ])
   const venue = venues.find((v) => v.id === event.venueId)
   return {

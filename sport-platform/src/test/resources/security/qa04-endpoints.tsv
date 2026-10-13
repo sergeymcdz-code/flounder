@@ -41,8 +41,8 @@ POST	/api/v1/organization-registration-requests/{id}/approve	admin	false	200		{}
 POST	/api/v1/organization-registration-requests/{id}/reject	admin	false	200		{"comment":"Тестовый отказ"}
 GET	/api/v1/organization-registration-requests/me/pending	authenticated	false	200		
 POST	/api/v1/venues	organize	false	201		{"name":"QA04 бассейн","timezone":"Europe/Samara","venueMeta":{"lanes":8,"courseLength":25}}
-GET	/api/v1/venues/{id}	organize	false	200		
-GET	/api/v1/venues	organize	false	200		
+GET	/api/v1/venues/{id}	manage-read	false	200
+GET	/api/v1/venues	manage-read	false	200
 GET	/api/v1/payments/review/registrations/{registrationId}	manage	true	200		
 POST	/api/v1/payments/{paymentId}/confirm	manage	true	200		
 GET	/api/v1/registrations/{registrationId}/payments	participant	false	200		

@@ -3,6 +3,7 @@ package com.acme.sportplatform.security;
 import java.util.ArrayList;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.springframework.http.MediaType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,20 +11,25 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Unfixed security requirements. Explicitly run with -Dtest=Qa04KnownDefectsIT (expected RED).
- * The repository already separates *IT from its ordinary `mvn test` lifecycle.
+ * Surefire excludes *IT; Failsafe excludes the known-defect tag from ordinary verify.
  * No disabled assertions: these tests must turn green when the report's defects are repaired. */
+@Tag("known-defect")
 class Qa04KnownDefectsIT extends Qa04SecurityFixture {
+    /** Owner: M09 — bootstrap admin from environment; migrations V028+ only.
+     * DEMO_SEED is not set here: the application does not read this variable. */
     @Test
     void qa04_06_seedDisabledMustNotAllowPublicDemoAdminCredentials() throws Exception {
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsBytes(Map.of("email", "admin@flounder.demo", "password", "Demo2026!"))))
                 .andExpect(status().isUnauthorized());
     }
+    /** Owner: M02 — password policy. */
     @Test
     void qa04_07_oneCharacterPasswordMustNotCreateAnAccount() throws Exception {
         mvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(userBody("a")))
                 .andExpect(status().isBadRequest());
     }
+    /** Owner: separate task "Подтверждение владения импортированным профилем". */
     @Test
     void qa04_10_importedAthleteCannotBeClaimedByUnverifiedSelfRegistration() throws Exception {
         String key = com.acme.sportplatform.identity.ProfileExternalKey.build(
@@ -42,6 +48,7 @@ class Qa04KnownDefectsIT extends Qa04SecurityFixture {
                 .with(authentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()))))
                 .andExpect(status().isForbidden());
     }
+    /** Owner: M02 — login rate limiting. */
     @Test
     void qa04_08_repeatedFailedLoginMustEventuallyBeRateLimited() throws Exception {
         var codes = new ArrayList<Integer>();

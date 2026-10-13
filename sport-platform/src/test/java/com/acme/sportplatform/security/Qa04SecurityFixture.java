@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Real PostgreSQL fixtures; each test rolls back its users, memberships and mutations. */
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = {"APP_CORS_ALLOWED_ORIGINS=https://qa04.example", "DEMO_SEED=false"})
+@TestPropertySource(properties = {"APP_CORS_ALLOWED_ORIGINS=https://qa04.example"})
 abstract class Qa04SecurityFixture extends AbstractPostgresIntegrationTest {
     static final List<String> ACTORS = List.of("anonymous", "participant", "judge", "operator",
             "organizer", "foreign_organizer", "platform_admin");

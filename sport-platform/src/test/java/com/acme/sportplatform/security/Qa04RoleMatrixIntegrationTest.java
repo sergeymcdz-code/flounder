@@ -38,7 +38,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
                     .filter(line -> !line.startsWith("#") && !line.isBlank()).map(line -> {
                         var c = line.split("\t", -1);
                         return new Endpoint(c[0], c[1], c[2], Boolean.parseBoolean(c[3]),
-                                Integer.parseInt(c[4]), c[5], c[6]);
+                                Integer.parseInt(c[4]), c.length > 5 ? c[5] : "", c.length > 6 ? c[6] : "");
                     }).toList();
         }
     }

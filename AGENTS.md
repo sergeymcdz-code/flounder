@@ -12,7 +12,7 @@ Flounder — B2B-платформа организации массовых со
 4. Миграции Flyway только добавлять (`V0NN__name.sql`), существующие не редактировать. Нумерация продолжается с V020.
 5. Секреты только через переменные окружения; `.env` в `.gitignore`; никаких ключей в коде и тестах кроме явно тестовых.
 6. Архитектура модулей Spring Modulith: модуль = пакет верхнего уровня `com.acme.sportplatform.<module>` со слоями `api` (DTO), `application` (use case), `domain`, `infrastructure`, `web`. Межмодульные вызовы — через публичные интерфейсы `*Lookup` в корне модуля, не через репозитории чужого модуля. `ModulithArchitectureTest` должен проходить.
-7. Все эндпоинты организатора/оператора обязаны вызывать `EventAccessService.assertCanManage(eventId, principal)` (появится в T01); публичные — под `/api/v1/public/**`.
+7. Все эндпоинты организатора/оператора обязаны вызывать `EventAccessService.assertCanManage(eventId, principal)` (появится в T01); публичные — под `/api/v1/public/**`. Каждый новый эндпоинт `/api/v1/**` добавляй строкой в `sport-platform/src/test/resources/security/qa04-endpoints.tsv` (метод, путь, политика, scoped, ожидаемый код, состояние фикстуры, тело) — иначе падает `Qa04RoleMatrixIntegrationTest.fixtureTableCoversEveryApiV1ControllerMapping`.
 8. Ошибки — через `BusinessException(code, message)` и существующий `GlobalExceptionHandler`; коды вида `module.reason`; сообщения на русском.
 9. Тексты интерфейса, сообщения об ошибках, письма — на русском. Идентификаторы, комментарии в коде — на английском.
 10. В описании PR: что сделано, как проверить вручную (пошагово), какие миграции добавлены, какие эндпоинты изменились, что не сделано и почему.

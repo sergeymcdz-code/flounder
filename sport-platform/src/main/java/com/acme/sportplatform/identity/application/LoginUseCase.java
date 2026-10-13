@@ -3,7 +3,8 @@ package com.acme.sportplatform.identity.application;
 import java.util.List;
 
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 
@@ -38,7 +39,7 @@ public class LoginUseCase {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
-        } catch (AuthenticationException ex) {
+        } catch (BadCredentialsException | AccountStatusException ex) {
             throw new InvalidCredentialsException();
         }
 
