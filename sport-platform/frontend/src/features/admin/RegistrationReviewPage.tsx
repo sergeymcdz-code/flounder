@@ -10,6 +10,7 @@ import {
   reviewRegistration,
 } from '../../api/registrations.api'
 import { useAuth } from '../../app/providers/AuthProvider'
+import './AdminPages.css'
 
 type DecisionOption = {
   value: RegistrationReviewDecision
@@ -21,7 +22,7 @@ const DECISIONS: DecisionOption[] = [
   {
     value: 'CONFIRMED',
     label: 'Подтвердить',
-    hint: 'Участник допущен к дальнейшему payment flow.',
+    hint: 'Участник может перейти к оплате участия.',
   },
   {
     value: 'NEEDS_CORRECTION',
@@ -41,7 +42,7 @@ function getErrorMessage(error: unknown) {
   }
 
   if (error.status === 403) {
-    return 'У вашей учётной записи нет прав на review заявок.'
+    return 'У вашей учётной записи нет прав на рассмотрение заявок.'
   }
 
   if (error.status === 404) {
@@ -123,7 +124,7 @@ export function RegistrationReviewPage() {
       </p>
 
       <div className="admin-warning">
-        Не меняйте подтверждённые заявки в production без необходимости.
+        Не меняйте подтверждённые заявки на рабочем стенде без необходимости.
         Для тестов используйте отдельную заявку в статусе «На рассмотрении».
       </div>
 

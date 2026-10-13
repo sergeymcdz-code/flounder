@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test:organizer": "playwright test --config playwright.organizer.config.ts",
+    "test:qa06": "playwright test --config playwright.qa06.config.ts",
     "test": "node --test tests/ && vitest run",
     "dev:demo": "vite --mode demo",
     "test:e2e": "playwright test",

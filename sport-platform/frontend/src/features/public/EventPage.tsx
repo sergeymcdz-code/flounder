@@ -46,7 +46,7 @@ export function PublicEventPage() {
             'Заплывы, дорожки и заявочное время',
           ],
           ['schedule', 'Расписание', 'Все старты по сессиям'],
-          ['live', 'Live', 'Сейчас в бассейне и следующие заплывы'],
+          ['live', 'Табло', 'Сейчас в бассейне и следующие заплывы'],
           ['results', 'Результаты', 'Абсолют и возрастные группы'],
         ].map(([path, title, description]) => (
           <Link key={path} className={styles.cardLink} to={`${base}/${path}`}>

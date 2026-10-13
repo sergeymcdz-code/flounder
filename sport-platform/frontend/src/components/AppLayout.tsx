@@ -9,6 +9,7 @@ export function AppLayout() {
     isOrganizer,
     isOperator,
     isParticipant,
+    hasRole,
     logout,
   } = useAuth()
 
@@ -28,7 +29,8 @@ export function AppLayout() {
   const canManageEvents = isPlatformAdmin || isOrganizer
   const canReviewRegistrations = isPlatformAdmin || isOrganizer
   const canProcessPayments = isPlatformAdmin || isOperator
-  const canManageResults = isPlatformAdmin || isOperator
+  const isJudge = hasRole('judge')
+  const canManageResults = isPlatformAdmin || isOperator || isJudge
 
   return (
     <div className={styles.shell}>

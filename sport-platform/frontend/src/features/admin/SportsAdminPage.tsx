@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { ApiError } from '../../api/http'
 import { getSports, type Sport } from '../../api/sports.api'
+import './AdminPages.css'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof ApiError) {

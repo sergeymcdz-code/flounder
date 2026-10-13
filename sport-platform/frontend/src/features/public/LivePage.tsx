@@ -276,7 +276,7 @@ export function LivePage() {
   const live = usePublicData(loadLive, LIVE_POLL_MS)
   return (
     <>
-      <h1>Live</h1>
+      <h1>Табло</h1>
       <DataState
         loading={live.loading}
         error={

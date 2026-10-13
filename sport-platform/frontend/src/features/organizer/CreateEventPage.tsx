@@ -40,6 +40,10 @@ type FormState = {
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
+const regulationStatusLabels: Record<string, string> = {
+  PUBLISHED: 'Опубликована', DRAFT: 'Черновик', ARCHIVED: 'Архив',
+}
+
 const initialFormState: FormState = {
   title: '',
   description: '',
@@ -102,7 +106,7 @@ function formatRegulationVersionLabel(
 
   return (
     `Версия ${regulationVersion.versionNo} · ` +
-    `${regulationVersion.status} · с ${effectiveFrom}`
+    `${regulationStatusLabels[regulationVersion.status.trim().toUpperCase()] ?? regulationVersion.status} · с ${effectiveFrom}`
   )
 }
 
