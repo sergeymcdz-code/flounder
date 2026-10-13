@@ -1,23 +1,30 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.VITE_API_MOCK === 'true' ? window.location.origin : '')
 
 export class ApiError extends Error {
   public readonly status: number
   public readonly code?: string
+  public readonly violations: FieldViolation[]
 
   constructor(
     status: number,
     message: string,
     code?: string,
+    violations: FieldViolation[] = [],
   ) {
     super(message)
 
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.violations = violations ?? []
   }
 }
 
+export type FieldViolation = { field: string; message: string }
+
 type ApiErrorResponse = {
+  violations?: FieldViolation[]
   code?: string
   message?: string
 }
@@ -31,9 +38,7 @@ export async function apiFetch<T>(
   options: ApiFetchOptions = {},
 ): Promise<T> {
   if (!API_BASE_URL) {
-    throw new Error(
-      'VITE_API_BASE_URL is not configured. Create frontend/.env.local and restart Vite.',
-    )
+    throw new Error('Не задан адрес API (VITE_API_BASE_URL).')
   }
 
   const { accessToken, ...requestOptions } = options
@@ -68,8 +73,9 @@ export async function apiFetch<T>(
 
     throw new ApiError(
       response.status,
-      payload?.message ?? `Request failed with HTTP ${response.status}`,
+      payload?.message ?? `Ошибка запроса: HTTP ${response.status}`,
       payload?.code,
+      payload?.violations,
     )
   }
 
@@ -84,4 +90,21 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T
+}
+
+export async function apiDownload(path: string, accessToken: string): Promise<Blob> {
+  if (!API_BASE_URL) throw new Error('Не задан адрес API (VITE_API_BASE_URL).')
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as ApiErrorResponse
+    throw new ApiError(
+      response.status,
+      payload.message ?? 'Не удалось скачать шаблон.',
+      payload.code,
+      payload.violations,
+    )
+  }
+  return response.blob()
 }

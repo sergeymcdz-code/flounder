@@ -5,12 +5,19 @@ import App from './app/App'
 import { AuthProvider } from './app/providers/AuthProvider'
 import './styles/globals.css'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>,
-)
+async function bootstrap() {
+  if (import.meta.env.VITE_API_MOCK === 'true') {
+    const { worker } = await import('./mocks/browser')
+    await worker.start({ onUnhandledFrame: 'bypass' })
+  }
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </StrictMode>,
+  )
+}
+void bootstrap()

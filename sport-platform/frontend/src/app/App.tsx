@@ -17,6 +17,12 @@ import { OrganizerDashboardPage } from '../features/organizer/OrganizerDashboard
 import { OrganizerEventsPage } from '../features/organizer/OrganizerEventsPage'
 import { OrganizerLayout } from '../features/organizer/OrganizerLayout'
 import { OrganizerRegistrationsPage } from '../features/organizer/OrganizerRegistrationsPage'
+import { OrganizerEventLayout } from '../features/organizer/OrganizerEventLayout'
+import { OrganizerOverviewPage } from '../features/organizer/OrganizerOverviewPage'
+import { OrganizerProgramPage } from '../features/organizer/OrganizerProgramPage'
+import { OrganizerEntriesPage } from '../features/organizer/OrganizerEntriesPage'
+import { OrganizerHeatsPage } from '../features/organizer/OrganizerHeatsPage'
+import { OrganizerResultsPage } from '../features/organizer/OrganizerResultsPage'
 
 import { OperatorPaymentsPage } from '../features/payments/OperatorPaymentsPage'
 import { OperatorRegistrationPage } from '../features/payments/OperatorRegistrationPage'
@@ -75,7 +81,8 @@ export default function App() {
         <Route
           element={
             <RequireRole
-              roles={['platform_admin', 'organizer']}
+              roles={['platform_admin', 'platformadmin', 'organizer', 'operator']}
+              deniedMessage="Нет доступа к кабинету организатора."
             />
           }
         >
@@ -92,10 +99,14 @@ export default function App() {
               element={<CreateEventPage />}
             />
 
-            <Route
-              path="events/:eventId/registrations"
-              element={<OrganizerRegistrationsPage />}
-            />
+            <Route path="events/:eventId" element={<OrganizerEventLayout />}>
+              <Route index element={<OrganizerOverviewPage />} />
+              <Route path="program" element={<OrganizerProgramPage />} />
+              <Route path="entries" element={<OrganizerEntriesPage />} />
+              <Route path="heats" element={<OrganizerHeatsPage />} />
+              <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="registrations" element={<OrganizerRegistrationsPage />} />
+            </Route>
 
             <Route
               path="regulations/create"
@@ -129,7 +140,7 @@ export default function App() {
         <Route
           element={
             <RequireRole
-              roles={['platform_admin', 'operator']}
+              roles={['platform_admin', 'platformadmin', 'operator']}
             />
           }
         >
