@@ -1,0 +1,49 @@
+# Третье ревью PR #7 · feat/T05-excel-import · 13.10.2026
+
+**Вердикт: слить.** Ветка перебазирована на актуальный `main` (`bd26e5a`), дубли T01/T03 удалены, импорт переведён на единые интерфейсы, V027 на месте, тест набора M и заголовки шаблона сохранены, CI зелёный (backend `mvn -B test` + frontend). Обязательных правок нет; пересечение с T02 — два тривиальных конфликта в `EventLookupResult`/`EventLookupService`, разрешаются при слиянии второй ветки (см. раздел «Пересечение с T02»).
+
+Проверялся коммит `cf63879` («refactor(imports): integrate shared event, discipline and profile services»), голова PR #7 (`head.sha` совпадает, `mergeable=true`). Сборка в контейнере ревьюера недоступна — проверка чтением `git diff origin/main..cf63879` (30 файлов, +1601/−9) и полных файлов на `cf63879`; CI: run 38382398590, job `backend` (`mvn -B test` на ubuntu-runner с Docker, т.е. с Testcontainers) и `frontend` — оба `success`.
+
+## Таблица проверки
+
+| № | Пункт | Статус | Где / как проверено |
+|---|---|---|---|
+| 1 | Ветка поверх `origin/main`, merge-tree чистый | ок | `git merge-base origin/main cf63879` = `bd26e5a` (голова `main`); `git log origin/main..cf63879` — ровно 3 коммита T05; `git merge-tree --write-tree origin/main cf63879` — дерево без конфликтов |
+| 2a | Нет своих V020–V026 | ок | в diff только `V027__active_registration_uniqueness.sql`; `main` содержит V020–V026 (T03), V027 в `main` и в T02 отсутствует — нумерация не конфликтует. V027 снимает `uq_registrations_discipline_profile` (V024) и `uq_registrations_discipline_participant` (V011) — имена совпадают с `main` |
+| 2b | Нет своего `TimeParser`, полей `RegistrationEntity`/`ProfileEntity`/`EventDisciplineEntity`, `ProfileRepository.findByExternalKey`, springdoc | ок | этих файлов в diff нет; `pom.xml` — только `poi-ooxml 5.5.1`; `RegistrationRepository` — добавлен один метод `findByEventDisciplineIdAndParticipantProfileIdAndStatusNot` |
+| 2c | `GlobalExceptionHandler` — только imports.* | ок | в `switch` по кодам `BusinessException` веток T05 нет; добавлены два `@ExceptionHandler` (`MaxUploadSizeExceededException` → 413 `imports.file_too_large`, `MissingServletRequestPartException` → 400 `imports.missing_file`) |
+| 3a | `identity.ProfileLookup.findOrCreateByExternalKey` + `ProfileExternalKey.build` | ок | `ImportRow.externalKey()` → `ProfileExternalKey.build(...)`; `ImportRowService.execute:24` → `profiles.findOrCreateByExternalKey(row.externalKey(), row.profile())`; `ExcelRowParser.parse:81-82` ловит `BusinessException` от `ProfileExternalKey.build` и превращает в ошибку колонки «Фамилия». `ImportedProfileLookup/Request/Service` удалены |
+| 3b | `competition.EventDisciplineLookup.findByEventId/findPublishedByEventId`, `AgeGroup.includes` | ок | `ExcelImportService.execute:60-63` (коды события и опубликованные), `ExcelWorkbookService` (шаблон/экспорт); `ImportRowValidator.validate:17-18` → `group.includes(gender, year)`. Новая ветка «дисциплина не опубликована» для кода, который есть в событии, но не опубликован |
+| 3c | `events.EventAccessService.assertCanManage` | ок | `ExcelImportController:51,68,76` — все три маршрута; `ImportAccessService` удалён; `@PreAuthorize` на классе сохранён |
+| 3d | `RegistrationImportLookup` | ок | `registrations/RegistrationImportLookup.java` + `application/RegistrationImportLookupService` (`upsert` под `Propagation.MANDATORY`, поиск только среди не-`WITHDRAWN`, `findByEventId` для экспорта) |
+| 3e | `BusinessException` от `TimeParser` main | ок | `ExcelRowParser.parse:76-77` — `catch (BusinessException ex) { throw error(7, ex.getMessage()); }`; `ExcelRowParserTest.rejectsInvalidTime` ожидает `BusinessException`, `parsesSwimmingTime` — семантика T03 (`32.15`, `0:32`, `32`, `1:02:30.50`) |
+| 3f | Advisory lock + clubName в `ProfileLookupService` | ок, T03 не ломает | `ProfileLookupService.findOrCreateByExternalKey:58-73` — `pg_advisory_xact_lock(hashtextextended(:key,0))` до `findByExternalKey`, метод `@Transactional` (перекрывает `readOnly` класса), клуб заполняется только если пуст; `ProfileLookupResult` получил поле `created` с сохранением 11-арг. конструктора и `withCreated`. Единственный другой вызов в `main` — `DemoDataModelIntegrationTest.attachesImportedProfile…:339-343` (проверяет только `id()`/`userId()`, клуб задан в обоих вызовах) — не затрагивается; CI backend зелёный. Новый тест `sharedProfileLookupSerializesCreationAndFillsOnlyMissingClub` (два параллельных вызова → один `id`, ровно один `created`) |
+| 3g | `publicSlug` в `EventLookupResult` | ок | поле добавлено в единый `EventLookupResult`, `EventLookupService.getById` заполняет `event.getPublicSlug()`; `ExcelImportController.export:77` → `events.getById(eventId).publicSlug()`; отдельный `getPublicSlug` из `EventLookup` удалён. Других конструкторов `new EventLookupResult(` в `main`/тестах нет |
+| 3h | `Europe/Moscow` | ок | `ExcelRowParser.birthDate:102` — `LocalDate.now(ZoneId.of("Europe/Moscow"))`; интеграционный тест (`:235`) использует ту же зону |
+| 4a | Тест набора M сохранён | ок | `ExcelImportIntegrationTest.importsDemoMInTenSecondsAndReportsExactlyThreeErrorsOnReload:66-102` — `total=200`, `created=200`, `createdProfiles=120`, 20 без времени, 53 `PENDING`, ≤ 10 с; повтор с `set-M-with-errors.xlsx` — `total=203`, `updated=200`, ошибки ровно в строках 202–204 с колонками `HEADERS[3]`, `HEADERS[6]`, «Фамилия»; третий импорт — 0 ошибок. Ожидания не ослаблены |
+| 4b | Заголовки шаблона = ТЗ §5.4 | ок | `ExcelRowParser.HEADERS` не менялись с `603583a` (diff `603583a..cf63879` по файлу — только импорты, `BusinessException`, `ProfileExternalKey`, зона); тест шаблона сверяет 8 заголовков с `HEADERS`, формат `@` колонок 3/7, жирность, freeze pane |
+| 4c | Modulith `package-info` imports | ок | `allowedDependencies = {events, competition, registrations, identity, organizations, common, common::exception}`; фактические импорты — `events`, `competition`, `registrations`, `identity`, `common`, `common.exception`. `ModulithArchitectureTest` входит в `mvn -B test` CI |
+| 4d | `docs/` и `tasks/` не тронуты | ок | `git diff --stat origin/main cf63879 -- docs tasks` — только `docs/decisions/2026-10-12-повторная-заявка-после-снятия.md` (ADR из второго ревью); `frontend/` без изменений |
+| 4e | Тесты не удалены | ок | diff по `src/test` — только добавления (+834); 28 аннотаций `@Test/@ParameterizedTest` в `imports/` (было 27 на `603583a` + новый тест общей точки identity) |
+| 5 | CI зелёный | ок | check-runs для `cf63879`: `backend success`, `frontend success` (run 38382398590). Описание PR: 174 теста, 0 падений; набор M за 808 мс |
+
+## Пересечение с T02 (`origin/feat/T02-scheduling` `b29f6fd`)
+
+`git merge-tree --write-tree origin/feat/T02-scheduling origin/feat/T05-excel-import` — два конфликта содержимого, оба механические:
+
+- `events/EventLookupResult.java` — T02 добавляет `venueId, createdByUserId, settingsJson` и 6-аргументный конструктор-обёртку; T05 добавляет `publicSlug`. Итог: record с десятью полями `(id, sportId, status, registrationOpenAt, registrationCloseAt, sessions, venueId, createdByUserId, settingsJson, publicSlug)` — 6-арг. конструктор T02 оставить, передавая `null` для slug (используется только тестами T02).
+- `events/application/EventLookupService.java:41-44` — одна строка `return new EventLookupResult(...)`: объединить аргументы обеих веток (`event.getVenueId(), event.getCreatedByUserId(), event.getSettingsJson(), event.getPublicSlug()`).
+
+`GlobalExceptionHandler` сливается автоматически (T02 добавляет `case` в `switch`, T05 — отдельные `@ExceptionHandler`). Миграций T02 не добавляет, V027 единственная. При порядке слияния T02 → T05 ветку T05 нужно будет один раз перебазировать с разрешением этих двух конфликтов; на логику импорта это не влияет.
+
+## Остаток (не блокирует слияние)
+
+1. `imports/package-info.java` — `organizations` в `allowedDependencies` не используется (импортов из `organizations` в модуле нет); можно убрать при любом следующем касании файла.
+2. Два `@ExceptionHandler` для `MaxUploadSizeExceededException`/`MissingServletRequestPartException` глобальные, но коды и тексты — `imports.*` («Размер файла превышает 5 МБ», «Не передан файл в поле file»). Пока единственный multipart-эндпоинт — импорт, это корректно; при появлении другой загрузки (например, логотип события) код/текст придётся обобщить (`common.file_too_large`, лимит из настройки).
+3. `RestAccessDeniedHandler`/`RestAuthenticationEntryPoint` — перевод сообщений 401/403 на русский (из первого коммита `3697f0d`). Соответствует правилу 9 AGENTS.md, тестами `main` не проверяется, но формально вне области T05 и в описании PR не упомянуто — достаточно одной строки в PR.
+4. `EventLookupResult` в T05 не получил обратно-совместимый конструктор (в отличие от T02); при слиянии с T02 его 6-арг. обёртку нужно сохранить (см. выше).
+5. `ExcelImportService.execute:47` — проверка `file.getSize() > MAX_FILE_SIZE` фактически недостижима при `max-file-size: 5MB` в `application.yml` (Spring отклонит раньше), но безвредна как защита при изменении конфигурации.
+
+## Текст правок для Codex
+
+Правок по PR #7 не требуется — ветка сливается. После слияния T02 (`feat/T02-scheduling`) в `main` перебазируй `feat/T05-excel-import` ещё раз и разреши два конфликта: в `events/EventLookupResult.java` объедини поля T02 (`venueId, createdByUserId, settingsJson`) и T05 (`publicSlug`) в один record, сохранив 6-аргументный конструктор T02 (с `null` для `publicSlug`); в `events/application/EventLookupService.java` передай в `new EventLookupResult(...)` аргументы обеих веток, включая `event.getPublicSlug()`. Заодно убери неиспользуемый `organizations` из `allowedDependencies` в `imports/package-info.java` и упомяни в описании PR перевод сообщений 401/403 в `RestAccessDeniedHandler`/`RestAuthenticationEntryPoint`. Прогони `mvn -q test` и убедись, что CI зелёный.

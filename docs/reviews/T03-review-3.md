@@ -1,0 +1,47 @@
+# Третье ревью PR #6 · feat/T03-data-model · 13.10.2026
+
+**Вердикт: слить.** Пункт 5 второго ревью (ребейз на `main` с удалением временных дублей) выполнен, CI на PR зелёный, регрессий относительно `main` не найдено. Два мелких замечания ниже — не блокируют, можно закрыть тем же PR до слияния или отдельным коммитом после.
+
+Проверялась голова `f8c6a17` («fix(backend): integrate T03 with merged T01 and T08», force-push) — три коммита `bfac4b7 → 58f8a18 → f8c6a17` поверх `2cf3f43` (`main` после слияния T01 и T08). Текущий `main` = `4c66ba6` (плюс T09 и docs). Сборка в контейнере ревьюера недоступна — проверка чтением `git diff origin/main...origin/feat/T03-data-model` (120 файлов, +4572/−340) и ключевых файлов, плюс результаты CI.
+
+## CI
+- Workflow `CI` run `38378857343` на `f8c6a17` (`pull_request`, ref слияния с `main`): **backend — success**, **frontend — success** (`mvn -B test` с Testcontainers, `npm ci && npm run lint && npm run build`). Профиль `test` держит `ddl-auto: validate`, `ModulithArchitectureTest` есть в `src/test` и не отключён — значит, соответствие JPA-сущностей миграциям V021–V026 и отсутствие Modulith-циклов подтверждены прогоном, а не только чтением.
+- Run стартовал в 09:47 UTC, слияние T09 в `main` — 09:49 UTC, т.е. CI проверял слияние с `main` без T09. T09 меняет только `infra/`, `Dockerfile`, `application-prod.yml`, `logback-spring.xml`, `docs/` — Java-код и тесты не затронуты, повторный прогон не требуется.
+
+## База ветки и слияние
+- `merge-base` = `2cf3f43` (не `4c66ba6`): ветка не содержит T09, но `git merge-tree --write-tree origin/main origin/feat/T03-data-model` возвращает чистое дерево без конфликтов. Повторный ребейз не обязателен — GitHub сольёт без конфликтов; после слияния `main` получит T01+T08+T09+T03.
+
+## Таблица проверок
+
+| № | Проверка | Статус | Где / как |
+|---|---|---|---|
+| 1 | Ветка поверх актуального `main` | **Частично — допустимо** | База `2cf3f43` (T01+T08), без T09; конфликтов нет (`merge-tree`), пересечений по файлам с T09 нет. |
+| 2a | `EventManagementAccess` / `TemporaryEventManagementAccess` удалены, используется `events.EventAccessService` T01 | **Выполнено** | Файлов нет в дереве ветки (`git ls-tree`), `grep EventManagementAccess` по `src/` пуст. Добавлен только `EventAccessService.canManage(eventId, principal)` (`events/EventAccessService.java:22–31`) — обёртка над `assertCanManage`, ловит `events.access_denied`. Используется в `ChangeRegistrationUseCase.withdraw:80` (менеджер события — без проверки владельца, иначе владелец + открытая регистрация). `GET /registrations` без `eventId` — версия `main` (`ListRegistrationsForReviewUseCase.accessibleEventIds`, пустой список без запроса) — замечание 2 второго ревью закрыто самим `main`. |
+| 2b | Нет второй `OpenApiConfiguration` / springdoc | **Выполнено** | `common/config/OpenApiConfiguration.java` удалён в `f8c6a17`; `pom.xml` и `config/OpenApiConfig.java` не отличаются от `main`; swagger-пути в `SecurityConfig` не тронуты (файл вне диффа). |
+| 2c | `mark-paid` / `applySuccessfulPayment` объединены с `RegistrationPaymentService` T01 | **Выполнено** | `RegistrationLookup.markPaid/applySuccessfulPayment` и их реализация в `RegistrationLookupService` удалены; одна реализация `RegistrationPaymentService.markPaid:30–40` (`lockById` PESSIMISTIC_WRITE, из `CONFIRMED` → `payment_status = PAID`, `status = PAID`, иначе 409 `registrations.payment_not_applicable`). Все три вызова (`ConfirmPaymentUseCase:66`, `ProcessYooKassaWebhookUseCase:107`, `ApplyProviderPaymentResultUseCase:44` — новый, для провайдера, сразу вернувшего `SUCCEEDED`) идут через `RegistrationPaymentLookup`. Вебхук идемпотентен по статусу платежа (`SUCCEEDED` → `markProcessed`), повторный `markPaid` туда не доходит. Тест `markPaidUsesCanonicalServiceAndRejectsOtherStatuses`. См. замечание 1. |
+| 2d | `GlobalExceptionHandler` — переводы `main` | **Выполнено** | Дифф к `main` — 4 строки: две `case` с новыми кодами (`events.session_*`, `competition.discipline_*`, `identity.profile_*`, `results.unit_*` → 409/404) и `ex.getViolations()` вместо `List.of()`. `RestAccessDeniedHandler` вне диффа. |
+| 2e | `permitAll` для `/api/v1/events`, `/api/v1/events/*` не возвращён | **Выполнено** | `identity/infrastructure/security/SecurityConfig.java` и `config/` не отличаются от `main`. |
+| 2f | `JUDGE` на read-only GET сохранён | **Выполнено** | `EventController` вне диффа (версия T01); `EventSessionController:26` — `GET /events/{eventId}/sessions` с `JUDGE` поверх классового `@PreAuthorize`; `ResultsController:355` — `GET /event-disciplines/{id}/results` с `JUDGE`; `EventLiveController` (класс) — `JUDGE` для `start/finish/live`, доступ к событию — `assertCanManage` в `EventLiveUseCase` (3 вызова). |
+| 2g | `venueMeta` / `VenueMapper` из T01 не сломаны | **Выполнено** | Модуль `organizations` целиком вне диффа. |
+| 3a | Миграции | **Выполнено** | `V021–V026` в `src/main/resources/db/migration/` побайтово идентичны `docs/migrations/` (`diff` по каждому файлу); `V001–V020` не тронуты (пустой `diff --stat`); новых миграций нет (V027 остаётся за T05). |
+| 3b | JPA-сущности vs колонки | **Выполнено** | `ddl-auto: validate` в `application.yml` и `application-test.yml` + зелёный backend-job. Новые сущности: `EventSessionEntity` (V021), `EventDisciplineEntity` (V022), `ProfileEntity.userId` nullable (V023), `RegistrationEntity` seed/payment/source (V024), `CompetitionUnitEntity/EntryEntity/ResultEntity/RuleExecutionLogEntity` (V025), `EventLiveStateEntity` (V026). |
+| 3c | Тесты не удалены | **Выполнено** | Удалённых файлов в диффе нет; `@Test`: 66 в `main` → 91 в ветке. Единственное изменение существующего теста — `EventIntegrationTest:285` (повторный `mark-paid` для `PAID`: `200` → `409`), см. замечание 1. |
+| 3d | `docs/`, `tasks/`, `frontend/` не тронуты | **Выполнено** | `diff --stat` по этим путям пуст. Из «чужого» — только `sport-platform/README.md` (+84 строки, раздел «Демо: модель плавания (T03)», удалений нет). |
+| 3e | Modulith-циклы | **Выполнено** | Новые порты в корне модулей: `events.SessionLookup/SessionUsageLookup/SessionHeatsLookup/EventSessionView`, `competition.CompetitionUnitUsageLookup/RegistrationUsageLookup`, `identity.ProfileExternalKey/ProfileData`, `registrations.RegistrationWithdrawn`. Реализации портов `events` живут в `competition`/`results` (`SessionUsageLookupService`, `SessionHeatsLookupService`) — зависимости `competition → events`, `results → events` уже существовали; `events` чужих пакетов не импортирует. `ModulithArchitectureTest` в CI прошёл. |
+| 4 | CI зелёный | **Выполнено** | См. раздел «CI». |
+
+## Необязательные пункты второго ревью
+- `CORRECTED` и RANKING-лог только для `PUBLISHED/FINISHED` — **сделано** (`SwimResultsUseCase.java:94–95`: `correcting = !existing.isEmpty() && PUBLISHED/FINISHED`; для `DRAFT/SCHEDULED/IN_PROGRESS` — обычная перезапись `VALID`).
+- `rankDiscipline` через `ProfileExternalKey.gender` — **сделано** (`SwimResultsUseCase.java:249, 309`).
+- Пустой `managedEventIds()` без запроса — закрыто версией `main` (`accessibleEventIds` + `if (eventIds.isEmpty()) return List.of()`).
+
+## Замечания (не блокирующие)
+1. `registrations/application/RegistrationPaymentService.java:33–36` + `integration/events/EventIntegrationTest.java:285` — повторный `POST /registrations/{id}/mark-paid` для заявки уже в `PAID` теперь возвращает 409 `registrations.payment_not_applicable`; в T01 (принято в T01-review-2) он был идемпотентным (200, статус не меняется), и `sport-platform/README.md:227–228` по-прежнему обещает «повторный вызов для `PAID` безопасен». Формулировка второго ревью («иначе 409») была неточной — имелись в виду `SUBMITTED/REJECTED/CANCELLED/…`. Рекомендация: вернуть `if ("PAID".equals(status)) return;` перед проверкой `CONFIRMED` и откатить строку теста к `isOk()` — иначе двойной клик «Отметить оплату» в T04 покажет ошибку. Либо, если 409 оставляется осознанно, поправить README.
+2. `sport-platform/README.md:230–231` — абзац «До слияния T03 отдельного `payment_status` нет; после V024 потребуется дополнить `RegistrationPaymentService` записью `payment_status = PAID`» устарел: V024 и запись `payment_status` уже в этой ветке. Убрать при следующем касании README.
+3. Для следующих ребейзов (T02, T05, T06, T08-фронт): `GetPublic*ResultsUseCase` читают публичные результаты по `FINISHED` (не `PUBLISHED`); `rule_execution_logs` пишется из `results/infrastructure/jpa/RuleExecutionLogEntity` (T02 — оставить одну реализацию); T05 — перейти на `identity.ProfileExternalKey.build`; `EventLookupResult`/`EventPublicLookupResult` получили поле `sessions`, `EventResponse` — `sessions` (сигнатуры записей изменились — моки в тестах других веток пересобрать).
+
+## Остаток
+Блокирующих пунктов нет. Необязательно: замечания 1–2 (идемпотентность `mark-paid` для `PAID` + две строки README).
+
+## Текст правок для Codex (необязательно, до или после слияния)
+PR #6 (feat/T03-data-model, `f8c6a17`) принят к слиянию. Мелкие правки, можно тем же PR или отдельным коммитом в `main`: (1) в `RegistrationPaymentService.markPaid` верни идемпотентность — для заявки в статусе `PAID` ничего не делай и не бросай ошибку (200), 409 `registrations.payment_not_applicable` оставь только для статусов, отличных от `CONFIRMED` и `PAID`; в `EventIntegrationTest:285` верни ожидание `isOk()` и `$.status == PAID`; (2) в `sport-platform/README.md` убери устаревший абзац «До слияния T03 отдельного `payment_status` нет…» (строки 230–231). `docs/`, `tasks/`, frontend, миграции не трогай.
