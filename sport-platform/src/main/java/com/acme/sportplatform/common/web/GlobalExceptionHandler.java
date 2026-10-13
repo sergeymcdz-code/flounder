@@ -264,6 +264,12 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleResourceNotFound(Exception ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiErrorResponse(
+                "common.not_found", "Ресурс не найден", OffsetDateTime.now(), List.of()));
+    }
+
     private ApiErrorResponse.FieldViolation toViolation(
             FieldError error
     ) {

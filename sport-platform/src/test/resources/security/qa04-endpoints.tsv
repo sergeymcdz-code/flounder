@@ -1,0 +1,99 @@
+# method	path	policy	scoped	allowed status	fixture state	JSON body
+GET	/api/v1/admin/ping	admin	false	200		
+POST	/api/v1/events/{eventId}/disciplines	manage	true	200	event-draft	{"disciplineTemplateId":"$template","code":"NEW","name":"50 м","distanceM":50,"stroke":"FREE","gender":"M","sessionId":"$session","orderInSession":3,"seedingMode":"BY_TIME_ALL","ageGroups":[]}
+GET	/api/v1/events/{eventId}/disciplines	manage-read	true	200		
+POST	/api/v1/events/{eventId}/disciplines/{disciplineId}/publish	manage	true	200	discipline-draft	
+GET	/api/v1/public/events	public	false	200		
+PATCH	/api/v1/event-disciplines/{id}	manage	true	200	event-published	{"name":"Новое имя"}
+DELETE	/api/v1/event-disciplines/{id}	manage	true	204	empty-discipline	
+GET	/api/v1/age-group-presets	authenticated	false	200		
+POST	/api/v1/events	organize	true	201		{"organizationId":"$org","venueId":"$venue","sportId":"$sport","regulationVersionId":"$version","title":"QA04 кубок","eventStartAt":"2030-06-01T10:00:00Z","eventEndAt":"2030-06-01T18:00:00Z"}
+GET	/api/v1/events/{id}	manage-read	true	200		
+GET	/api/v1/events	admin	false	200		
+GET	/api/v1/organizer/events	manage-read	false	200		
+POST	/api/v1/events/{id}/publish	manage	true	200	event-draft	
+POST	/api/v1/events/{id}/open-registration	manage	true	200	event-published	
+POST	/api/v1/events/{id}/close-registration	manage	true	200		
+POST	/api/v1/events/{id}/complete	manage	true	200	event-closed	
+GET	/api/v1/events/{eventId}/sessions	manage-read	true	200		
+POST	/api/v1/events/{eventId}/sessions	manage	true	201		{"name":"День","orderNo":2,"startsAt":"2030-06-01T15:00:00Z","breakBetweenEventsSec":60}
+PATCH	/api/v1/event-sessions/{id}	manage	true	200		{"name":"Новое имя"}
+DELETE	/api/v1/event-sessions/{id}	manage	true	204	empty-session	
+POST	/api/v1/auth/login	public	false	200		{"email":"$participantEmail","password":"Qa04-test-password!"}
+POST	/api/v1/auth/register	public	false	201		{"email":"$newEmail","password":"Qa04-test-password!","firstName":"Иван","lastName":"Петров","birthDate":"2014-03-05","gender":"M"}
+GET	/api/v1/auth/me	authenticated	false	200		
+POST	/api/v1/users	public	false	201		{"email":"$newEmail","password":"Qa04-test-password!","firstName":"Иван","lastName":"Петров","birthDate":"2014-03-05","gender":"M"}
+GET	/api/v1/users/{userId}	admin	false	200		
+PATCH	/api/v1/users/{userId}	admin	false	200		{"firstName":"Изменённое"}
+DELETE	/api/v1/users/{userId}	admin	false	204		
+POST	/api/v1/users/{userId}/roles	admin	false	201		{"roleCode":"judge"}
+DELETE	/api/v1/users/{userId}/roles/{roleCode}	admin	false	204		
+GET	/api/v1/events/{eventId}/registrations/import-template	manage	true	200		
+POST	/api/v1/events/{eventId}/registrations/import	manage	true	200		
+GET	/api/v1/events/{eventId}/registrations/export	manage	true	200		
+POST	/api/v1/organizations/{id}/members	owner	true	201		{"userId":"$target","memberRole":"member"}
+GET	/api/v1/organizations/{id}/members	owner	true	200		
+POST	/api/v1/organizations	admin	false	201		{"type":"club","name":"QA04 клуб"}
+GET	/api/v1/organizations/{id}	organize	true	200		
+GET	/api/v1/organizations	organize	false	200		
+POST	/api/v1/organization-registration-requests	authenticated	false	201		{"organizationType":"club","organizationName":"QA04 клуб"}
+POST	/api/v1/organization-registration-requests/{id}/approve	admin	false	200		{}
+POST	/api/v1/organization-registration-requests/{id}/reject	admin	false	200		{"comment":"Тестовый отказ"}
+GET	/api/v1/organization-registration-requests/me/pending	authenticated	false	200		
+POST	/api/v1/venues	organize	false	201		{"name":"QA04 бассейн","timezone":"Europe/Samara","venueMeta":{"lanes":8,"courseLength":25}}
+GET	/api/v1/venues/{id}	organize	false	200		
+GET	/api/v1/venues	organize	false	200		
+GET	/api/v1/payments/review/registrations/{registrationId}	manage	true	200		
+POST	/api/v1/payments/{paymentId}/confirm	manage	true	200		
+GET	/api/v1/registrations/{registrationId}/payments	participant	false	200		
+POST	/api/v1/registrations/{registrationId}/payments	participant	false	409		
+POST	/api/v1/payments/webhooks/yookassa	public	false	400		{}
+GET	/api/v1/public/events/{slug}	public	false	200		
+GET	/api/v1/public/events/{slug}/start-list	public	false	200		
+GET	/api/v1/public/events/{slug}/schedule	public	false	200		
+GET	/api/v1/public/events/{slug}/live	public	false	200		
+GET	/api/v1/public/events/{slug}/results	public	false	200		
+GET	/api/v1/public/events/{slug}/athletes	public	false	200		
+GET	/api/v1/public/events/{slug}/registration-form	public	false	200		
+POST	/api/v1/public/events/{slug}/registrations	participant	false	200		{"profile":{"lastName":"Петров","firstName":"Иван","birthDate":"2014-03-05","gender":"M","clubName":"Волна"},"items":[{"eventDisciplineId":"$newDiscipline","seedTimeMs":32150}]}
+PATCH	/api/v1/registrations/{id}	manage	true	200		{"seedTimeMs":31000}
+POST	/api/v1/registrations/{id}/withdraw	withdraw	true	200		
+POST	/api/v1/registrations/{id}/resubmit	participant	false	200	registration-correction	{"seedTimeMs":31000}
+POST	/api/v1/registrations	participant	false	200		{"eventDisciplineId":"$newDiscipline","seedTimeMs":32150}
+POST	/api/v1/registrations/{registrationId}/review	manage	true	200	registration-submitted	{"decision":"CONFIRMED"}
+POST	/api/v1/registrations/{registrationId}/mark-paid	manage	true	200		
+GET	/api/v1/registrations/me	participant	false	200		
+GET	/api/v1/registrations	manage	true	200		
+GET	/api/v1/registrations/{registrationId}	manage	true	200		
+GET	/api/v1/regulation-templates	authenticated	false	200		
+POST	/api/v1/regulation-templates	organize	false	200		{"sportId":"$sport","code":"QA04","name":"QA04"}
+GET	/api/v1/regulation-templates/{id}	authenticated	false	200		
+POST	/api/v1/regulation-templates/{id}/versions	organize	false	200		{"versionNo":2,"rulesJson":{"sections":[]}}
+GET	/api/v1/regulation-versions	authenticated	false	200		
+GET	/api/v1/regulation-versions/{id}	authenticated	false	200		
+POST	/api/v1/regulation-versions/{id}/publish	admin	false	200	version-draft	
+PUT	/api/v1/events/{eventId}/live	manage-read	true	200	unit-published	{"currentUnitId":"$unit"}
+POST	/api/v1/competition-units/{id}/start	manage-read	true	200	unit-published	
+POST	/api/v1/competition-units/{id}/finish	manage-read	true	200	unit-in-progress	
+GET	/api/v1/event-disciplines/{eventDisciplineId}/competition-units	manage-read	true	200		
+GET	/api/v1/competition-units/{unitId}	manage-read	true	200		
+GET	/api/v1/public/competition-units/{unitId}/results	public	false	200		
+GET	/api/v1/public/events/{eventId}/disciplines/{eventDisciplineId}/results	public	false	200		
+POST	/api/v1/competition-units	manage	true	201		{"eventDisciplineId":"$discipline","label":"Новый заплыв","sequenceNumber":2}
+POST	/api/v1/competition-units/{unitId}/entries	manage	true	201	unassigned	{"registrationId":"$registration","laneOrPosition":2}
+POST	/api/v1/results	manage-read	true	200		{"competitionUnitEntryId":"$entry","rawValue":"00:32.15","status":"PENDING"}
+POST	/api/v1/competition-units/{unitId}/results	manage-read	true	200		{"competitionUnitEntryId":"$entry","rawValue":"00:32.15","status":"PENDING"}
+POST	/api/v1/competition-units/{unitId}/recalculate	manage-read	true	200		
+POST	/api/v1/competition-units/{unitId}/publication	manage-read	true	204	unit-draft	{"published":true}
+GET	/api/v1/event-disciplines/{id}/results	manage-read	true	200		
+POST	/api/v1/event-disciplines/{id}/generate-competition-units	manage	true	200	seedable	{"force":false,"circleSeedTopHeats":false}
+POST	/api/v1/events/{eventId}/generate-competition-units	manage	true	200	seedable	{"force":false,"circleSeedTopHeats":false}
+POST	/api/v1/events/{eventId}/schedule/recalculate	manage	true	200		
+GET	/api/v1/event-disciplines/{id}/competition-units/validate	manage	true	200		
+POST	/api/v1/event-disciplines/{id}/competition-units/publish	manage	true	200	seedable	
+POST	/api/v1/events/{eventId}/competition-units/publish	manage	true	200	seedable	
+GET	/api/v1/sports	authenticated	false	200		
+POST	/api/v1/sports	admin	false	200		{"code":"QA04","name":"QA04"}
+GET	/api/v1/discipline-templates	authenticated	false	200		
+POST	/api/v1/discipline-templates	admin	false	200		{"sportId":"$sport","code":"QA04","name":"QA04","competitionFormat":"INDIVIDUAL","unitType":"HEAT","resultType":"TIME","rankingStrategy":"ASC"}
+PATCH	/api/v1/competition-unit-entries/{id}	manage	true	204		{"laneOrPosition":2}
