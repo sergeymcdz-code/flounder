@@ -1,4 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
+import { isDemoParticipant } from './auth-handlers'
 import { createFixtures } from './fixtures'
 import type {
   DisciplineInput,
@@ -173,7 +174,9 @@ function generate(disciplineId: string, force: boolean): GenerationResult {
   }
 }
 export const handlers = [
-  http.post(path('/auth/login'), async () => {
+  http.post(path('/auth/login'), async ({ request }) => {
+    const body = (await request.clone().json()) as { email?: string }
+    if (isDemoParticipant(body.email ?? '')) return
     await delay(100)
     const token = `demo.${btoa(JSON.stringify({ roles: ['organizer', 'operator'], exp: Math.floor(Date.now() / 1000) + 3600 }))}.demo`
     return HttpResponse.json({
@@ -184,7 +187,11 @@ export const handlers = [
   }),
   // Guard the mocked organizer API so missing credentials behave like production.
   http.all(path('/*'), ({ request }) => {
-    if (new URL(request.url).pathname.startsWith('/api/v1/public/')) return
+    const pathname = new URL(request.url).pathname
+    if (
+      pathname.startsWith('/api/v1/public/') ||
+      pathname.startsWith('/api/v1/auth/')
+    ) return
     const token = request.headers.get('Authorization')?.replace('Bearer ', '')
     if (!token) return error(401, 'auth.unauthorized', 'Войдите в систему.')
     try {

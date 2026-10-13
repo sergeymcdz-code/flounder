@@ -1,51 +1,119 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 
 import { AppLayout } from '../components/AppLayout'
 import { RequireRole } from '../components/RequireRole'
 
-import { RegistrationReviewPage } from '../features/admin/RegistrationReviewPage'
-import { SportsAdminPage } from '../features/admin/SportsAdminPage'
+import { LegacyEventRedirect, PublicLayout } from '../features/public/PublicLayout'
+import { PublicEventPage } from '../features/public/EventPage'
+import { StartListPage } from '../features/public/StartListPage'
+import { SchedulePage } from '../features/public/SchedulePage'
+import { LivePage } from '../features/public/LivePage'
+import { ResultsPage } from '../features/public/ResultsPage'
+import { PublicRegistrationPage } from '../features/public/RegistrationPage'
+import { HeatPage } from '../features/public/HeatPage'
 
-import { LoginPage } from '../features/auth/LoginPage'
-import { RegisterPage } from '../features/auth/RegisterPage'
+const RegistrationReviewPage = lazy(() =>
+  import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })),
+)
+const SportsAdminPage = lazy(() =>
+  import('../features/admin/SportsAdminPage').then(module => ({ default: module.SportsAdminPage })),
+)
 
-import { EventDetailsPage } from '../features/events/EventDetailsPage'
-import { EventsPage } from '../features/events/EventsPage'
+const LoginPage = lazy(() =>
+  import('../features/auth/LoginPage').then(module => ({ default: module.LoginPage })),
+)
+const RegisterPage = lazy(() =>
+  import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })),
+)
 
-import { CreateEventPage } from '../features/organizer/CreateEventPage'
-import { OrganizerDashboardPage } from '../features/organizer/OrganizerDashboardPage'
-import { OrganizerEventsPage } from '../features/organizer/OrganizerEventsPage'
-import { OrganizerLayout } from '../features/organizer/OrganizerLayout'
-import { OrganizerRegistrationsPage } from '../features/organizer/OrganizerRegistrationsPage'
-import { OrganizerEventLayout } from '../features/organizer/OrganizerEventLayout'
-import { OrganizerOverviewPage } from '../features/organizer/OrganizerOverviewPage'
-import { OrganizerProgramPage } from '../features/organizer/OrganizerProgramPage'
-import { OrganizerEntriesPage } from '../features/organizer/OrganizerEntriesPage'
-import { OrganizerHeatsPage } from '../features/organizer/OrganizerHeatsPage'
-import { OrganizerResultsPage } from '../features/organizer/OrganizerResultsPage'
+const EventsPage = lazy(() =>
+  import('../features/events/EventsPage').then(module => ({ default: module.EventsPage })),
+)
 
-import { OperatorPaymentsPage } from '../features/payments/OperatorPaymentsPage'
-import { OperatorRegistrationPage } from '../features/payments/OperatorRegistrationPage'
-import { PaymentPage } from '../features/payments/PaymentPage'
+const CreateEventPage = lazy(() =>
+  import('../features/organizer/CreateEventPage').then(module => ({ default: module.CreateEventPage })),
+)
+const OrganizerDashboardPage = lazy(() =>
+  import('../features/organizer/OrganizerDashboardPage').then(module => ({ default: module.OrganizerDashboardPage })),
+)
+const OrganizerEventsPage = lazy(() =>
+  import('../features/organizer/OrganizerEventsPage').then(module => ({ default: module.OrganizerEventsPage })),
+)
+const OrganizerLayout = lazy(() =>
+  import('../features/organizer/OrganizerLayout').then(module => ({ default: module.OrganizerLayout })),
+)
+const OrganizerRegistrationsPage = lazy(() =>
+  import('../features/organizer/OrganizerRegistrationsPage').then(module => ({ default: module.OrganizerRegistrationsPage })),
+)
+const OrganizerEventLayout = lazy(() =>
+  import('../features/organizer/OrganizerEventLayout').then(module => ({ default: module.OrganizerEventLayout })),
+)
+const OrganizerOverviewPage = lazy(() =>
+  import('../features/organizer/OrganizerOverviewPage').then(module => ({ default: module.OrganizerOverviewPage })),
+)
+const OrganizerProgramPage = lazy(() =>
+  import('../features/organizer/OrganizerProgramPage').then(module => ({ default: module.OrganizerProgramPage })),
+)
+const OrganizerEntriesPage = lazy(() =>
+  import('../features/organizer/OrganizerEntriesPage').then(module => ({ default: module.OrganizerEntriesPage })),
+)
+const OrganizerHeatsPage = lazy(() =>
+  import('../features/organizer/OrganizerHeatsPage').then(module => ({ default: module.OrganizerHeatsPage })),
+)
+const OrganizerResultsPage = lazy(() =>
+  import('../features/organizer/OrganizerResultsPage').then(module => ({ default: module.OrganizerResultsPage })),
+)
 
-import { MyRegistrationsPage } from '../features/registrations/MyRegistrationsPage'
-import { RegistrationPage } from '../features/registrations/RegistrationPage'
+const OperatorPaymentsPage = lazy(() =>
+  import('../features/payments/OperatorPaymentsPage').then(module => ({ default: module.OperatorPaymentsPage })),
+)
+const OperatorRegistrationPage = lazy(() =>
+  import('../features/payments/OperatorRegistrationPage').then(module => ({ default: module.OperatorRegistrationPage })),
+)
+const PaymentPage = lazy(() =>
+  import('../features/payments/PaymentPage').then(module => ({ default: module.PaymentPage })),
+)
 
-import { CreateRegulationPage } from '../features/regulations/CreateRegulationPage'
+const MyRegistrationsPage = lazy(() =>
+  import('../features/registrations/MyRegistrationsPage').then(module => ({ default: module.MyRegistrationsPage })),
+)
+const RegistrationPage = lazy(() =>
+  import('../features/registrations/RegistrationPage').then(module => ({ default: module.RegistrationPage })),
+)
 
-import { CompetitionUnitsPage } from '../features/results/CompetitionUnitsPage'
-import { JudgePanelPage } from '../features/results/JudgePanelPage'
-import { PublicDisciplineResultsPage } from '../features/results/PublicDisciplineResultsPage'
+const CreateRegulationPage = lazy(() =>
+  import('../features/regulations/CreateRegulationPage').then(module => ({ default: module.CreateRegulationPage })),
+)
+
+const CompetitionUnitsPage = lazy(() =>
+  import('../features/results/CompetitionUnitsPage').then(module => ({ default: module.CompetitionUnitsPage })),
+)
+const JudgePanelPage = lazy(() =>
+  import('../features/results/JudgePanelPage').then(module => ({ default: module.JudgePanelPage })),
+)
+const PublicDisciplineResultsPage = lazy(() =>
+  import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })),
+)
 
 export default function App() {
-  return (
+  const routes = (
     <Routes>
+      <Route path="e/:slug" element={<PublicLayout />}>
+        <Route index element={<PublicEventPage />} />
+        <Route path="start-list" element={<StartListPage />} />
+        <Route path="schedule" element={<SchedulePage />} />
+        <Route path="live" element={<LivePage />} />
+        <Route path="results" element={<ResultsPage />} />
+        <Route path="register" element={<PublicRegistrationPage />} />
+        <Route path="heats/:unitId" element={<HeatPage />} />
+      </Route>
       <Route element={<AppLayout />}>
         <Route index element={<EventsPage />} />
 
         <Route
           path="events/:eventCode"
-          element={<EventDetailsPage />}
+          element={<LegacyEventRedirect />}
         />
 
         <Route
@@ -181,4 +249,5 @@ export default function App() {
       </Route>
     </Routes>
   )
+  return <Suspense fallback={<p role="status">Загружаем страницу…</p>}>{routes}</Suspense>
 }

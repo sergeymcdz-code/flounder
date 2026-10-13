@@ -1,5 +1,8 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.VITE_API_MOCK === 'true' ? window.location.origin : '')
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.VITE_API_MOCK === 'true' || import.meta.env.PROD
+    ? window.location.origin
+    : '')
 
 export class ApiError extends Error {
   public readonly status: number

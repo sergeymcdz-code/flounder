@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ApiError } from '../../api/http'
+import { authReturnTarget } from '../../utils/authReturn'
 import { useAuth } from '../../app/providers/AuthProvider'
 import styles from './LoginPage.module.css'
 
@@ -20,7 +21,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const state = location.state as LoginLocationState | null
-  const returnTo = state?.from ?? '/my/registrations'
+  const returnTo = authReturnTarget(location.search, state?.from)
 
   if (isAuthenticated) {
     return <Navigate to={returnTo} replace />

@@ -25,3 +25,7 @@ dist-ssr
 
 /test-results/
 /playwright-report/
+
+# Public demo environment and local verification artifacts
+!.env.demo
+work/

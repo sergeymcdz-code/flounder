@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ApiError } from '../../api/http'
+import { authReturnTarget } from '../../utils/authReturn'
 import { register } from '../../api/auth.api'
 import { useAuth } from '../../app/providers/AuthProvider'
 import styles from './RegisterPage.module.css'
@@ -46,7 +47,7 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const state = location.state as RegisterLocationState | null
-  const returnTo = state?.from ?? '/my/registrations'
+  const returnTo = authReturnTarget(location.search, state?.from)
 
   if (isAuthenticated) {
     return <Navigate replace to={returnTo} />
