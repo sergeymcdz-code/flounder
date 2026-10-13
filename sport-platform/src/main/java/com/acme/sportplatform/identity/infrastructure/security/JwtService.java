@@ -46,11 +46,14 @@ public class JwtService {
 
     public Claims parse(String token) {
         try {
-            return Jwts.parser()
+            Claims claims = Jwts.parser()
                 .verifyWith(signingKey())
+                .requireIssuer(jwtProperties.issuer())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+            if (claims.getExpiration() == null) throw new InvalidTokenException();
+            return claims;
         } catch (ExpiredJwtException ex) {
             throw new ExpiredTokenException();
         } catch (JwtException | IllegalArgumentException ex) {

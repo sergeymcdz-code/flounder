@@ -47,13 +47,13 @@ public class VenueController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasRole('ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR','JUDGE')")
     public ResponseEntity<VenueResponse> getVenue(@PathVariable UUID id) {
         return ResponseEntity.ok(getVenueByIdUseCase.execute(id));
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasRole('ORGANIZER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR','JUDGE')")
     public ResponseEntity<List<VenueResponse>> getVenues() {
         return ResponseEntity.ok(getVenuesUseCase.execute());
     }
