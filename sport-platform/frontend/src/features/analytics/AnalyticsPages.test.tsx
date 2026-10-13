@@ -8,17 +8,17 @@ import { EventAnalyticsPage, EventAnalyticsView, OrganizationAnalyticsPage, Orga
 import type { EventAnalytics } from '../../api/analytics.api'
 
 vi.hoisted(() => { vi.stubEnv('VITE_API_BASE_URL', 'http://localhost') })
-const { logout, navigateSession } = vi.hoisted(() => ({ logout: vi.fn(), navigateSession: { accessToken: 'analytics-test-token' } }))
-vi.mock('../../app/providers/AuthProvider', () => ({ useAuth: () => ({ session: navigateSession, logout }) }))
+const { logout, navigateSession, authFlags } = vi.hoisted(() => ({ logout: vi.fn(), navigateSession: { accessToken: 'analytics-test-token' }, authFlags: { isPlatformAdmin: false } }))
+vi.mock('../../app/providers/AuthProvider', () => ({ useAuth: () => ({ session: navigateSession, logout, ...authFlags }) }))
 const empty: EventAnalytics = {
   eventId: 'event', title: 'Кубок', timezone: 'Europe/Samara', generatedAt: '2026-10-01T21:30:00Z',
   registrations: { total: 0, participants: 0, byStatus: [], byDay: [{ date: '2026-10-01', count: 0 }], funnel: { submitted: 0, confirmed: 0, paid: 0, admitted: 0 } },
   byDiscipline: [], byAgeGroup: [], byClub: [], byGender: [], sessions: [],
-  results: { publishedHeats: 0, medianPublicationSec: null, p95PublicationSec: null, latencySamples: 0, latencySource: 'UNAVAILABLE_M07', corrected: 0 },
+  results: { publishedHeats: 0, medianPublicationSec: null, p95PublicationSec: null, latencySamples: 0, latencySource: 'UNAVAILABLE_UNTIL_M07', corrected: 0 },
   validator: { runId: null, executedAt: null, errors: 0, warnings: 0 },
   importStats: { available: false, reason: 'История импортов пока не сохраняется в базе данных', recent: [] },
 }
-beforeEach(() => { logout.mockClear() })
+beforeEach(() => { logout.mockClear(); authFlags.isPlatformAdmin = false })
 function eventPage() {
   return render(<MemoryRouter initialEntries={['/organizer/events/event/analytics']}><Routes><Route path="/organizer/events/:eventId/analytics" element={<EventAnalyticsPage />} /><Route path="/login" element={<h1>Вход</h1>} /></Routes></MemoryRouter>)
 }
@@ -39,6 +39,7 @@ it('renders exact accessible chart values, funnel and target breach', async () =
   expect(screen.getByRole('cell', { name: '2026-10-02' })).toBeVisible()
   expect(screen.getByText(/Цель превышена/)).toBeInTheDocument()
   expect(screen.getByText('Допущено в посев')).toBeInTheDocument()
+  expect(screen.getByText(/«Подано» включает отклонённые и снятые заявки/)).toBeInTheDocument()
 })
 it('sends the token for JSON and XLSX and uses the server timezone', async () => {
   let exportToken: string | null = null
@@ -78,8 +79,23 @@ it('shows organization participation, repeat profiles and revenue', async () => 
   expect(screen.getByText('Повторные участники')).toBeInTheDocument(); expect(screen.getByText('Выручка по оплатам')).toBeInTheDocument()
   expect(screen.getByRole('cell', { name: 'Завершено' })).toBeInTheDocument()
 })
-it('provides an organization analytics entry point', async () => {
+it('provides organization analytics links to platform administrators', async () => {
+  authFlags.isPlatformAdmin = true
   server.use(http.get('*/api/v1/organizations', () => HttpResponse.json([{ id: 'org', name: 'Волна' }])))
   render(<MemoryRouter><OrganizationsAnalyticsListPage /></MemoryRouter>)
   expect(await screen.findByRole('link', { name: 'Открыть аналитику' })).toHaveAttribute('href', '/organizer/organizations/org/analytics')
+})
+
+it('explains access without offering links when membership roles are unavailable', async () => {
+  server.use(http.get('*/api/v1/organizations', () => HttpResponse.json([{ id: 'org', name: 'Волна' }, { id: 'other', name: 'Чайка' }])))
+  render(<MemoryRouter><OrganizationsAnalyticsListPage /></MemoryRouter>)
+  await screen.findByRole('heading', { name: 'Волна' })
+  expect(screen.getAllByText('Доступно владельцам и администраторам организации')).toHaveLength(2)
+  expect(screen.queryByRole('link', { name: 'Открыть аналитику' })).not.toBeInTheDocument()
+})
+it('uses the membership access explanation for a forbidden organization', async () => {
+  server.use(http.get('*/api/v1/organizations/org/analytics', () => HttpResponse.json({ message: 'Нет доступа' }, { status: 403 })))
+  render(<MemoryRouter initialEntries={['/org/org']}><Routes><Route path="/org/:orgId" element={<OrganizationAnalyticsPage />} /></Routes></MemoryRouter>)
+  expect(await screen.findByText('Доступно владельцам и администраторам организации')).toBeInTheDocument()
+  expect(screen.queryByText('Уникальные участники')).not.toBeInTheDocument()
 })

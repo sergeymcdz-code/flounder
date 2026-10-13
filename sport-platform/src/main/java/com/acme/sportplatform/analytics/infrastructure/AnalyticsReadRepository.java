@@ -135,33 +135,16 @@ public class AnalyticsReadRepository {
     }
 
     public Results results(UUID id) {
-        // TODO M07: wire immutable finish/publication timestamps once their producer is implemented.
-        // to_jsonb tolerates absent columns without a migration. updated_at and RANKING duration
-        // are deliberately excluded: edits/ranking do not measure finish-to-publication latency.
+        // TODO M08-2: define publication latency and session delay after M07 is merged.
         Tuple t = rows("""
-                with h as (select u.*,to_jsonb(u)->>'actual_finished_at' as finished,
-                  to_jsonb(u)->>'results_published_at' as published from competition_units u
+                select (select count(*) from competition_units u
                   join event_disciplines d on d.id=u.event_discipline_id
-                  where d.event_id=:id and d.status='PUBLISHED' and u.status in ('FINISHED','COMPLETED')),
-                samples as (select extract(epoch from published::timestamptz-finished::timestamptz) as seconds
-                  from h where finished is not null and published is not null
-                    and published::timestamptz>=finished::timestamptz)
-                select (select count(*) from h) as published_heats,
-                  percentile_cont(0.5) within group(order by seconds) as median,
-                  percentile_cont(0.95) within group(order by seconds) as p95,count(*) as samples,
+                  where d.event_id=:id and d.status='PUBLISHED'
+                    and u.status in ('FINISHED','COMPLETED')) as published_heats,
                   (select count(*) from results res join competition_unit_entries ce on ce.id=res.competition_unit_entry_id
                     join registrations r on r.id=ce.registration_id where r.event_id=:id and res.status='CORRECTED') as corrected
-                from samples
                 """, id).getFirst();
-        return new Results(num(t,"published_heats"),decimal(t,"median"),decimal(t,"p95"),num(t,"samples"),
-                num(t,"samples")==0 ? "UNAVAILABLE_M07" : "competition_units.actual_finished_at/results_published_at",num(t,"corrected"));
-    }
-
-    public boolean organizationOwnerOrAdmin(UUID id, UUID userId) {
-        return num(rows("""
-                select count(*) as count from organization_members where organization_id=:id
-                  and user_id=:userId and lower(member_role) in ('owner','admin')
-                """, Map.of("id",id,"userId",userId)).getFirst(),"count")>0;
+        return new Results(num(t,"published_heats"),null,null,0,"UNAVAILABLE_UNTIL_M07",num(t,"corrected"));
     }
 
     public OrganizationAnalytics organization(UUID id) {

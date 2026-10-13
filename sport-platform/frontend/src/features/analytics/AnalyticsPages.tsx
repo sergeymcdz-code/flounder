@@ -11,7 +11,8 @@ import styles from './AnalyticsPage.module.css'
 
 const number = (value: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(value)
 const time = (value: string | null, timezone?: string) => value ? new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short', timeZone: timezone }).format(new Date(value)) : '—'
-function useAnalytics<T>(id: string, load: (id: string, token: string) => Promise<T>) {
+const organizationAccessMessage = 'Доступно владельцам и администраторам организации'
+function useAnalytics<T>(id: string, load: (id: string, token: string) => Promise<T>, forbiddenMessage = 'Нет доступа к этой аналитике.') {
   const { session, logout } = useAuth(); const navigate = useNavigate()
   const token = session?.accessToken ?? ''
   const [state, setState] = useState<{ requestKey: string; data?: T; error?: string }>()
@@ -19,8 +20,8 @@ function useAnalytics<T>(id: string, load: (id: string, token: string) => Promis
   const requestKey = `${id}:${token}:${version}`
   const report = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && cause.status === 401) { logout(); navigate('/login', { replace: true }); return }
-    setState(previous => ({ ...previous, requestKey, error: cause instanceof ApiError && cause.status === 403 ? 'Нет доступа к этой аналитике.' : cause instanceof Error ? cause.message : 'Не удалось загрузить аналитику.' }))
-  }, [logout, navigate, requestKey])
+    setState(previous => ({ ...previous, requestKey, error: cause instanceof ApiError && cause.status === 403 ? forbiddenMessage : cause instanceof Error ? cause.message : 'Не удалось загрузить аналитику.' }))
+  }, [logout, navigate, requestKey, forbiddenMessage])
   useEffect(() => {
     let active = true
     load(id, token).then(data => { if (active) setState({ requestKey, data }) })
@@ -76,7 +77,7 @@ export function EventAnalyticsView({ data: a }: { data: EventAnalytics }) {
     {a.registrations.total === 0 && <p>Заявок пока нет</p>}
     <DailyChart days={a.registrations.byDay} />
     <section className={styles.panel}><h2>Воронка заявок</h2><div className={styles.bars}>{stages.map(([label, value]) => <div key={label}><div className={styles.barLabel}><span>{label}</span><strong>{number(value)}</strong></div><div className={styles.track}><div className={styles.fill} style={{ width: `${f.submitted ? value / f.submitted * 100 : 0}%` }} /></div></div>)}</div>
-      <p className={styles.muted}>Текущее состояние заявок. Каждый этап входит в предыдущий. Заявки без взноса считаются оплаченными; допуск требует действующего назначения в заплыв.</p>
+      <p className={styles.muted}>«Подано» включает отклонённые и снятые заявки; это текущее состояние, а не история переходов. Каждый этап входит в предыдущий. Заявки без взноса считаются оплаченными; допуск требует действующего назначения в заплыв.</p>
     </section>
     <section className={styles.panel}><Counts title="Заявки по статусам" values={a.registrations.byStatus} /></section>
     <section className={styles.panel}><div className={styles.table}><table><caption>По видам</caption><thead><tr><th>Вид</th><th>Заявки</th><th>Заплывы</th><th>Участники</th></tr></thead><tbody>{a.byDiscipline.map(d => <tr key={d.id}><td>{d.name}</td><td>{number(d.registrations)}</td><td>{number(d.heats)}</td><td>{number(d.participants)}</td></tr>)}</tbody></table></div></section>
@@ -90,7 +91,7 @@ export function EventAnalyticsView({ data: a }: { data: EventAnalytics }) {
   </>
 }
 export function OrganizationAnalyticsPage() {
-  const { orgId = '' } = useParams(); const state = useAnalytics(orgId, getOrganizationAnalytics)
+  const { orgId = '' } = useParams(); const state = useAnalytics(orgId, getOrganizationAnalytics, organizationAccessMessage)
   if (state.loading) return <LoadingState message="Загружаем аналитику организации…" />
   if (!state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить аналитику.'} onRetry={state.refresh} />
   const a: OrganizationAnalytics = state.data
@@ -104,8 +105,9 @@ export function OrganizationAnalyticsPage() {
 }
 const loadOrganizations = (_id: string, token: string) => getOrganizations(token)
 export function OrganizationsAnalyticsListPage() {
+  const { isPlatformAdmin } = useAuth()
   const state = useAnalytics<OrganizationResponse[]>('list', loadOrganizations)
   if (state.loading) return <LoadingState message="Загружаем организации…" />
   if (!state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить организации.'} onRetry={state.refresh} />
-  return <div className={styles.page}><h1>Аналитика организаций</h1><p>Доступна владельцам и администраторам организации, а также администратору платформы.</p>{state.data.length === 0 && <p>Организаций пока нет</p>}{state.data.map(o => <section key={o.id} className={styles.panel}><h2>{o.name}</h2><Link to={`/organizer/organizations/${o.id}/analytics`}>Открыть аналитику</Link></section>)}</div>
+  return <div className={styles.page}><h1>Аналитика организаций</h1><p>Доступна владельцам и администраторам организации, а также администратору платформы.</p>{state.data.length === 0 && <p>Организаций пока нет</p>}{state.data.map(o => <section key={o.id} className={styles.panel}><h2>{o.name}</h2><p>{organizationAccessMessage}</p>{isPlatformAdmin && <Link to={`/organizer/organizations/${o.id}/analytics`}>Открыть аналитику</Link>}</section>)}</div>
 }

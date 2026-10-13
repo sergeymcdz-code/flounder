@@ -46,6 +46,7 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
         assertThat(a.sessions()).hasSize(2);
         assertThat(a.sessions()).allMatch(s -> s.delaySec()==null);
         assertThat(a.results().latencySamples()).isZero();
+        assertThat(a.results().latencySource()).isEqualTo("UNAVAILABLE_UNTIL_M07");
         assertThat(a.results().medianPublicationSec()).isNull();assertThat(a.results().p95PublicationSec()).isNull();
         assertThat(a.importStats().available()).isFalse();assertThat(a.importStats().recent()).isEmpty();
         assertThat(a.validator().errors()).isEqualTo(2);assertThat(a.validator().warnings()).isEqualTo(1);
@@ -105,8 +106,11 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
             mvc.perform(get(path+suffix).with(authentication(auth("operator")))).andExpect(status().isForbidden());
         }
         jdbc.update("update organization_members set member_role='organizer' where organization_id=? and user_id=?",id("org"),id("organizer"));
+        // JDBC fixture changes bypass the persistence context now used by OrganizationService.
+        em.clear();
         mvc.perform(get(path).with(authentication(auth("organizer")))).andExpect(status().isForbidden());
         jdbc.update("update organization_members set member_role='admin' where organization_id=? and user_id=?",id("org"),id("organizer"));
+        em.clear();
         mvc.perform(get(path).with(authentication(auth("organizer")))).andExpect(status().isOk());
     }
 
@@ -129,21 +133,6 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
         try(var w=new XSSFWorkbook(new ByteArrayInputStream(org.getContentAsByteArray()))) {
             assertThat(w.getNumberOfSheets()).isEqualTo(3);assertThat(w.getSheet("События по статусам")).isNotNull();assertThat(w.getSheet("Выручка")).isNotNull();
         }
-    }
-
-    @Test
-    void optionalImmutableTimestampsGiveInterpolatedMedianAndP95WithoutUsingUpdatedAt() {
-        // Test-only transactional DDL models the future producer; production has no migration.
-        jdbc.execute("alter table competition_units add column actual_finished_at timestamptz, add column results_published_at timestamptz");
-        for(int i=1;i<=20;i++) {
-            UUID heat=i==1 ? id("unit") : UUID.randomUUID();
-            if(i>1) jdbc.update("insert into competition_units(id,event_discipline_id,label,sequence_number,status) values (?,?,'Synthetic',?,'FINISHED')",heat,id("discipline"),i);
-            jdbc.update("update competition_units set actual_finished_at='2026-10-01T10:00:00Z',results_published_at='2026-10-01T10:00:00Z'::timestamptz+make_interval(secs=>?),updated_at=now() where id=?",i*10,heat);
-        }
-        var r=reads.results(id("event"));assertThat(r.latencySamples()).isEqualTo(20);
-        assertThat(r.medianPublicationSec()).isEqualTo(105.0);assertThat(r.p95PublicationSec()).isEqualTo(190.5);
-        jdbc.update("update competition_units set results_published_at=null where id=?",id("unit"));
-        assertThat(reads.results(id("event")).latencySamples()).isEqualTo(19);
     }
 
     @Test

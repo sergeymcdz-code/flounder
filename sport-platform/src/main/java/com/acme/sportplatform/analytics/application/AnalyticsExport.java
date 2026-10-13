@@ -77,7 +77,9 @@ public class AnalyticsExport {
     private byte[] bytes(XSSFWorkbook w) throws IOException {
         for(var s:w) {
             for(int col=0;col<s.getRow(0).getLastCellNum();col++) {
-                s.autoSizeColumn(col);s.setColumnWidth(col,Math.min(18000,Math.max(4000,s.getColumnWidth(col))));
+                int width = col == 0 ? 36 : 18;
+                if (col == 0 && (s.getSheetName().equals("Виды") || s.getSheetName().equals("Сессии"))) width = 40;
+                s.setColumnWidth(col, 256 * width);
             }
             s.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0,s.getLastRowNum(),0,s.getRow(0).getLastCellNum()-1));
         }

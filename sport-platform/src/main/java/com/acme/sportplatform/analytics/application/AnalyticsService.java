@@ -6,6 +6,7 @@ import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.events.EventAccessService;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.organizations.OrganizationLookup;
+import com.acme.sportplatform.organizations.OrganizationManagementAccess;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
@@ -19,11 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnalyticsService {
     private final EventAccessService access;
     private final OrganizationLookup organizations;
+    private final OrganizationManagementAccess organizationAccess;
     private final AnalyticsReadRepository reads;
     private final Cache<UUID,EventAnalytics> events=Caffeine.newBuilder().maximumSize(500)
             .expireAfterWrite(Duration.ofSeconds(60)).build();
-    public AnalyticsService(EventAccessService access,OrganizationLookup organizations,AnalyticsReadRepository reads) {
-        this.access=access;this.organizations=organizations;this.reads=reads;
+    public AnalyticsService(EventAccessService access,OrganizationLookup organizations,
+            OrganizationManagementAccess organizationAccess,AnalyticsReadRepository reads) {
+        this.access=access;this.organizations=organizations;this.organizationAccess=organizationAccess;this.reads=reads;
     }
     public EventAnalytics event(UUID id,AuthenticatedUserPrincipal principal) {
         // Authorization always precedes cache lookup, including XLSX and warm-cache requests.
@@ -33,7 +36,7 @@ public class AnalyticsService {
     public OrganizationAnalytics organization(UUID id,AuthenticatedUserPrincipal principal) {
         if(!organizations.existsById(id))
             throw new BusinessException("organizations.organization_not_found","Организация не найдена");
-        if(principal==null || !principal.isPlatformAdmin() && !reads.organizationOwnerOrAdmin(id,principal.getUserId()))
+        if(principal==null || !principal.isPlatformAdmin() && !organizationAccess.isOwnerOrAdmin(id,principal.getUserId()))
             throw new BusinessException("organizations.access_denied","Нет доступа к аналитике организации");
         return reads.organization(id);
     }
