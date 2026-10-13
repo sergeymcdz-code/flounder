@@ -137,7 +137,7 @@ export function LiveBoard({
             })}
           </ol>
         ) : (
-          <p>Следующих заплывов нет.</p>
+          <p className="fl-empty">Следующих заплывов нет.</p>
         )}
       </section>
       <p className={styles.muted}>

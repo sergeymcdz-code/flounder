@@ -47,7 +47,7 @@ test('QA06-04 table headings use the readable muted token', async ({ page }) => 
   await openAuditPage(page, '/operator/payments', 'operator')
   await expect(page.locator('tbody tr').first()).toBeVisible()
   const color = await page.locator('th').first().evaluate(node => getComputedStyle(node).color)
-  expect(color).toBe('rgb(92, 105, 128)')
+  expect(color).toBe('rgb(82, 97, 106)')
 })
 
 test('QA06-06 dates use DD.MM.YYYY', async ({ page }) => {
@@ -107,7 +107,6 @@ test('QA06-11 focus ring has 3:1 contrast on white', async ({ page }) => {
   const luminance = channels.slice(0, 3).map(v => (v * alpha + 255 * (1 - alpha)) / 255)
     .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
     .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
-  knownDefect()
   expect(1.05 / (luminance + 0.05)).toBeGreaterThanOrEqual(3)
 })
 
@@ -170,9 +169,12 @@ test('QA06-14 live waits 15 seconds before its next poll', async ({ page }) => {
 test('QA06-15 print removes the page background', async ({ page }) => {
   await openAuditPage(page, '/e/demo/start-list')
   await expect(page.getByRole('table').first()).toBeVisible()
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'dark' })
   await page.emulateMedia({ media: 'print' })
   expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
   await expect(page.getByRole('navigation')).toBeHidden()
+  expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('light')
+  expect(await page.locator('article').first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
 })
 
 for (const target of ['organizer', 'participant']) {
@@ -235,3 +237,19 @@ test('QA06-22 judge can discover the results panel from primary navigation', asy
   await expect(page.getByRole('navigation', { name: 'Основная навигация' })
     .getByRole('link', { name: 'Результаты', exact: true })).toBeVisible()
 })
+
+for (const width of [1366, 375]) {
+  test(`D01 judge time controls stay large and use tabular numerals at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 })
+    await openAuditPage(page, `/operator/competition-units/${unitId}?eventId=${eventId}`, 'judge')
+    const input = page.getByRole('textbox', { name: /^Время, дорожка \d+$/ }).first()
+    const appearance = await input.evaluate(node => {
+      const css = getComputedStyle(node)
+      return { fontSize: css.fontSize, height: node.getBoundingClientRect().height, numbers: css.fontVariantNumeric }
+    })
+    expect(appearance.fontSize).toBe('24px')
+    expect(appearance.height).toBeGreaterThanOrEqual(56)
+    expect(appearance.numbers).toContain('tabular-nums')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+  })
+}

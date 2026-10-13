@@ -105,7 +105,7 @@ export function OrganizerHeatsPage() {
         </p>
         <div className={styles.actions}>
           <button
-            className={styles.primary}
+            className={`${styles.primary} fl-button-primary`}
             disabled={busy || !event.disciplines.length}
             onClick={() => requestGenerate()}
           >
@@ -231,7 +231,7 @@ export function OrganizerHeatsPage() {
             .map((h) => (
               <article
                 id={`heat-${h.id}`}
-                className={`${styles.card} ${highlight === h.id ? styles.highlight : ''}`}
+                className={`${styles.card} fl-heat ${highlight === h.id ? styles.highlight : ''}`}
                 key={h.id}
               >
                 <div className={styles.toolbar}>
@@ -241,7 +241,7 @@ export function OrganizerHeatsPage() {
                     {h.ageGroupCode &&
                       ` · группа ${d.ageGroups?.find((g) => g.code === h.ageGroupCode)?.name ?? h.ageGroupCode}`}
                   </h2>
-                  <span className={styles.badge}>
+                  <span className={`${styles.badge} fl-status fl-status-${h.status.toLowerCase()}`}>
                     {statusLabels[h.status] ?? h.status}
                   </span>
                 </div>
@@ -334,7 +334,7 @@ export function OrganizerHeatsPage() {
               </article>
             ))}
           {!heats.some((h) => h.eventDisciplineId === d.id) && (
-            <p className={styles.muted}>Заплывы ещё не сформированы.</p>
+            <p className={`${styles.muted} fl-empty`}>Заплывы ещё не сформированы.</p>
           )}
         </div>
       ))}

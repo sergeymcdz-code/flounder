@@ -6,15 +6,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1120px;
-  min-height: 72px;
+  max-width: 1280px;
+  min-height: 76px;
+  border-bottom: 3px solid var(--color-text);
   margin: 0 auto;
   padding: 0 24px;
 }
 
 .brand {
-  color: var(--color-primary);
-  font-size: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.03em;
   text-decoration: none;
@@ -31,7 +36,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #506078;
+  color: var(--color-text-muted);
   font-size: 0.95rem;
   font-weight: 600;
   text-decoration: none;
@@ -49,8 +54,8 @@
 }
 
 .content {
-  width: min(100% - 48px, 1120px);
-  margin: 48px auto;
+  width: min(100% - 48px, 1280px);
+  margin: 28px auto;
 }
 
 @media (max-width: 640px) {
@@ -71,10 +76,12 @@
   }
 
   .content {
-    width: min(100% - 32px, 1120px);
+    width: min(100% - 32px, 1280px);
     margin-top: 32px;
   }
 }
 .adminMenu { position: relative; }
 .adminMenu summary { cursor: pointer; }
-.adminLinks { position: absolute; right: 0; top: 100%; z-index: 10; display: grid; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface, white); box-shadow: 0 4px 16px #0002; }
+.adminLinks { position: absolute; right: 0; top: 100%; z-index: 10; display: grid; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface, white); box-shadow: var(--shadow-pop); }
+
+.brand::before { content: ""; width: 32px; height: 32px; background: url("/favicon.svg") center / contain no-repeat; }

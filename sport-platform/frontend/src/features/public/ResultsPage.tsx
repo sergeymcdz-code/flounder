@@ -36,7 +36,7 @@ export function ResultsPage() {
       <DataState {...state} />
       {state.data &&
         (!state.data.disciplines.length ? (
-          <p>Результаты ещё не опубликованы.</p>
+          <p className="fl-empty">Результаты ещё не опубликованы.</p>
         ) : (
           state.data.disciplines.map((discipline) => (
             <section key={discipline.id} className={styles.results}>

@@ -104,7 +104,7 @@ export function LoginPage() {
           ) : null}
 
           <button
-            className={styles.submitButton}
+            className={`${styles.submitButton} fl-button-primary`}
             disabled={isSubmitting}
             type="submit"
           >

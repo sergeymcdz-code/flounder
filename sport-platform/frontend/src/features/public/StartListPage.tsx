@@ -45,7 +45,7 @@ export function StartListPage() {
             </section>
           ))
         ) : (
-          <p>Стартовый протокол ещё не опубликован.</p>
+          <p className="fl-empty">Стартовый протокол ещё не опубликован.</p>
         ))}
     </>
   )

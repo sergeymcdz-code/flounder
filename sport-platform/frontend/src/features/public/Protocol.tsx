@@ -65,7 +65,7 @@ export function PrintButton({ ready }: { ready: boolean }) {
 
 export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
   return (
-    <table className={styles.table}>
+    <table className={`${styles.table} fl-protocol fl-lanes`}>
       <caption className={styles.srOnly}>
         Дорожки заплыва №{heat.number}
       </caption>
@@ -129,7 +129,7 @@ export function HeatProtocol({
   timeZone?: string
 }) {
   return (
-    <article className={styles.heat}>
+    <article className={`${styles.heat} fl-heat`}>
       <h4>
         {slug ? (
           <Link
@@ -162,7 +162,7 @@ export function ResultsTable({
       a.lastName.localeCompare(b.lastName, 'ru'),
   )
   return (
-    <table className={styles.table}>
+    <table className={`${styles.table} fl-protocol fl-results`}>
       <caption className={styles.srOnly}>
         Итоговый протокол{grouped ? ' по возрастной группе' : ''}
       </caption>
@@ -188,7 +188,7 @@ export function ResultsTable({
             </td>
             <td>{row.birthYear}</td>
             <td>{row.club ?? '—'}</td>
-            <td>
+            <td className="fl-stopwatch">
               {isValidResult(row.status) ? (row.display ?? '—') : row.status}
             </td>
           </tr>

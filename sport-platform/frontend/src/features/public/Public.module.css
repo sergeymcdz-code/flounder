@@ -410,6 +410,77 @@
     gap: 12px;
   }
 }
+@media screen {
+  .header {
+    min-height: 88px;
+    border-bottom: 3px solid var(--color-text);
+    padding-block: 16px;
+  }
+  .brand { font-family: var(--font-heading); color: var(--color-text); font-size: 26px; letter-spacing: 0.01em; }
+  .logo { background: url('/favicon.svg') center / contain no-repeat; color: transparent; border-radius: 0; }
+  .main { max-width: 1120px; padding-block: 24px; }
+  .root h1 { font-size: clamp(32px, 4.4vw, 56px); line-height: 1.12; }
+  .root h2 { font-size: 26px; }
+  .root h3 { font-size: 22px; }
+  .root h4 { font-size: 20px; }
+  .root .button, .root button { color: var(--color-on-primary); }
+  .root .segment button[aria-pressed='false'] { color: var(--color-primary); background: var(--color-surface); }
+  .card, .cardLink, .heat { padding: 18px; margin-bottom: 16px; }
+  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .cardLink { min-height: 136px; border-top: 3px solid var(--color-primary); }
+  .cardLink strong { font-family: var(--font-heading); font-weight: 600; font-size: 22px; line-height: 1.2; }
+  .cardLink span { font-size: 14px; }
+  .cardLink:hover { background: var(--color-primary-soft); }
+  .eyebrow { font-size: 12px; letter-spacing: 0.09em; }
+  .nav { background: var(--color-surface); box-shadow: none; border-top: 2px solid var(--color-border); }
+  .nav a { font-size: 14px; }
+  .table { font-size: 14px; }
+  .table th, .table td { padding: 8px; vertical-align: middle; }
+  .table td:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .live {
+    --color-surface-muted: var(--color-board-surface);
+    --color-text-muted: var(--color-board-muted);
+    --color-primary-soft: var(--color-board-surface);
+    --color-border: var(--color-board-border);
+    --color-primary: var(--color-board-accent);
+    --color-focus: var(--color-board-accent);
+    background: var(--color-board);
+    color: var(--color-board-text);
+    border: 0;
+    border-top: 4px solid var(--color-board-accent);
+    padding: 24px;
+  }
+  .live h2 { font-size: 32px; margin-block: 16px; }
+  .live .heatNumber { font-family: var(--font-heading); font-size: 80px; font-variant-numeric: tabular-nums; color: var(--color-board-accent); }
+  .liveDescription { font-size: 20px; }
+  .live .table { font-size: 16px; }
+  .live .table td:nth-child(2) { font-weight: 700; font-size: 20px; }
+  .live .button { background: var(--color-board-accent); border-color: var(--color-board-accent); color: var(--color-board); }
+  .live .button:hover { background: var(--color-board-text); }
+  .live .table tbody tr:hover { background: var(--color-board-surface); }
+  .list li { padding: 12px 0; }
+  .timelineLink { border-inline-start: 3px solid var(--color-border-strong); padding-inline-start: 16px; }
+  .timelineLink strong { font-variant-numeric: tabular-nums; }
+  .results { background: var(--color-surface); }
+  .field input, .field select { border-color: var(--color-border-strong); background: var(--color-surface); }
+  .form fieldset, .skip:focus { background: var(--color-surface); }
+  .notice { color: var(--color-warning); background: var(--color-warning-soft); }
+}
+
+@media screen and (max-width: 640px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cardLink { min-height: 148px; margin-bottom: 0; padding: 12px; }
+  .grid { margin-bottom: 16px; }
+  .header { gap: 12px; }
+  .header > div { min-width: min(100%, 220px); }
+  .live { padding: 16px 10px; }
+  .live .table { font-size: 12px; }
+  .live .table td:nth-child(2) { font-size: 14px; }
+  .liveDescription { font-size: 16px; }
+  .live .heatNumber { font-size: 64px; }
+  .nav a { font-size: 12px; }
+}
+
 @media print {
   @page {
     size: A4 portrait;
