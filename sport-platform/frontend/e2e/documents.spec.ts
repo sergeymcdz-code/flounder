@@ -35,6 +35,7 @@ test('parent uploads and downloads a document at 375 px without overflow', async
   })
   await page.goto('/my/registrations')
   await expect(page.getByText('Документы пока не загружены.')).toBeVisible()
+  await expect(page.getByLabel('Файл документа')).not.toHaveAttribute('capture')
   await page.getByLabel('Файл документа').setInputFiles({ name: 'medical.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n') })
   await page.getByLabel('Дата выдачи').fill('2026-10-13')
   await page.getByLabel('Действует до').fill('2027-10-13')

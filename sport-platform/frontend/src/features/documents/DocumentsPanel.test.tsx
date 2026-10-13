@@ -18,6 +18,7 @@ it('uploads multipart for the child with dates and updates the visible status', 
   const changed = vi.fn()
   const { container } = render(<DocumentsPanel profileId="child" accessToken="token" onChanged={changed} />)
   await screen.findByText('Документы пока не загружены.')
+  expect(screen.getByLabelText('Файл документа')).not.toHaveAttribute('capture')
   fireEvent.change(screen.getByLabelText('Файл документа'), { target: { files: [new File(['%PDF-1.7'], 'medical.pdf', { type: 'application/pdf' })] } })
   fireEvent.change(screen.getByLabelText('Действует до'), { target: { value: '2027-10-13' } })
   // jsdom's FormData does not read file input's synthetic FileList; use the real multipart shape.

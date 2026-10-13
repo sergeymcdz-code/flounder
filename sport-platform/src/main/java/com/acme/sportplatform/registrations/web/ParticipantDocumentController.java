@@ -44,7 +44,7 @@ public class ParticipantDocumentController {
     public ResponseEntity<FileLookup.SignedDownload> download(@PathVariable UUID id, @RequestParam(required = false) UUID eventId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) { return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.download(id, eventId, principal)); }
     @GetMapping("/public/documents/{id}/content")
-    public ResponseEntity<byte[]> content(@PathVariable UUID id, @RequestParam(required = false) UUID eventId,
+    public ResponseEntity<org.springframework.core.io.InputStreamResource> content(@PathVariable UUID id, @RequestParam(required = false) UUID eventId,
             @RequestParam(required = false) Long expires, @RequestParam(required = false) String signature,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         var content = service.content(id, eventId, expires, signature, principal);
@@ -52,6 +52,8 @@ public class ParticipantDocumentController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(content.document().originalName(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
                 .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-                .header("X-Content-Type-Options", "nosniff").body(content.bytes());
+                .header("X-Content-Type-Options", "nosniff")
+                .contentLength(content.document().sizeBytes())
+                .body(new org.springframework.core.io.InputStreamResource(content.input()));
     }
 }

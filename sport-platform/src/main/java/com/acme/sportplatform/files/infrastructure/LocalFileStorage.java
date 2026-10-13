@@ -1,6 +1,6 @@
 package com.acme.sportplatform.files.infrastructure;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,10 +15,8 @@ import com.acme.sportplatform.files.domain.FileStorage;
 public class LocalFileStorage implements FileStorage {
     private final Path directory;
     private final FileCryptography cryptography;
-
     public LocalFileStorage(@Value("${app.files.local-dir:./data/files}") String directory, FileCryptography cryptography) {
-        this.directory = Path.of(directory).toAbsolutePath().normalize();
-        this.cryptography = cryptography;
+        this.directory = Path.of(directory).toAbsolutePath().normalize(); this.cryptography = cryptography;
     }
     private Path path(String key) {
         if (key == null || !key.matches("[0-9a-f-]{36}")) throw new BusinessException("files.not_found", "Файл не найден");
@@ -26,16 +24,35 @@ public class LocalFileStorage implements FileStorage {
         if (Files.isSymbolicLink(path)) throw new BusinessException("files.not_found", "Файл не найден");
         return path;
     }
-    @Override public void put(String key, byte[] bytes) {
+    @Override public void put(String key, InputStream input, long size) {
+        Path target = path(key); boolean created = false;
         try {
             Files.createDirectories(directory);
-            Files.write(path(key), cryptography.encrypt(key, bytes), StandardOpenOption.CREATE_NEW);
-        } catch (IOException ex) { throw new BusinessException("files.storage_unavailable", "Хранилище файлов недоступно"); }
+            try (var output = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW)) {
+                created = true;
+                try (var encrypted = cryptography.encrypting(key, output)) {
+                    if (input.transferTo(encrypted) != size) throw new BusinessException("files.invalid_size", "Размер документа не соответствует переданному файлу");
+                }
+            }
+        } catch (IOException | RuntimeException ex) {
+            if (created) {
+                try { Files.deleteIfExists(target); } catch (IOException cleanup) { ex.addSuppressed(cleanup); }
+            }
+            if (ex instanceof BusinessException business) throw business;
+            throw new BusinessException("files.storage_unavailable", "Хранилище файлов недоступно");
+        }
     }
-    @Override public byte[] get(String key) {
-        try { return cryptography.decrypt(key, Files.readAllBytes(path(key))); }
-        catch (NoSuchFileException ex) { throw new BusinessException("files.not_found", "Файл не найден"); }
-        catch (IOException ex) { throw new BusinessException("files.storage_unavailable", "Хранилище файлов недоступно"); }
+    @Override public InputStream get(String key) {
+        InputStream input = null;
+        try {
+            input = Files.newInputStream(path(key));
+            return cryptography.decrypting(key, input);
+        } catch (IOException | RuntimeException ex) {
+            if (input != null) try { input.close(); } catch (IOException close) { ex.addSuppressed(close); }
+            if (ex instanceof BusinessException business) throw business;
+            if (ex instanceof NoSuchFileException) throw new BusinessException("files.not_found", "Файл не найден");
+            throw new BusinessException("files.storage_unavailable", "Хранилище файлов недоступно");
+        }
     }
     @Override public void delete(String key) {
         try { Files.deleteIfExists(path(key)); }

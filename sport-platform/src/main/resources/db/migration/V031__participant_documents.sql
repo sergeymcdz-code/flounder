@@ -22,9 +22,11 @@ create index ix_participant_documents_event on participant_documents(event_id);
 create index ix_participant_documents_status on participant_documents(status);
 create table file_access_log (
     id uuid primary key,
-    file_key varchar(255) not null,
-    user_id uuid not null references users(id),
-    action varchar(255) not null check (action in ('UPLOAD','SIGN_DOWNLOAD','DOWNLOAD','DELETE')),
+    file_key varchar(255),
+    document_id uuid,
+    user_id uuid references users(id) on delete set null,
+    action varchar(255) not null check (action in ('UPLOAD','SIGN_DOWNLOAD','DOWNLOAD','DELETE','DENIED')),
     at timestamptz not null
 );
 create index ix_file_access_log_file_at on file_access_log(file_key, at);
+create index ix_file_access_log_user_at on file_access_log(user_id, at);

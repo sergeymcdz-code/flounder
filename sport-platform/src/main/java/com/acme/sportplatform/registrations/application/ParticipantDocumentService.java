@@ -1,6 +1,7 @@
 package com.acme.sportplatform.registrations.application;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.*;
 import java.util.*;
 import org.springframework.context.ApplicationEventPublisher;
@@ -44,12 +45,13 @@ public class ParticipantDocumentService {
             throw new BusinessException("documents.invalid_dates", "Дата выдачи должна быть не позже срока действия");
         if (file.getSize() > 10 * 1024 * 1024) throw new BusinessException("files.too_large", "Размер документа превышает 10 МБ");
         String name = safeName(file.getOriginalFilename());
-        byte[] bytes;
-        try (var input = file.getInputStream()) { bytes = input.readNBytes(10 * 1024 * 1024 + 1); }
-        catch (IOException ex) { throw new BusinessException("files.read_failed", "Не удалось прочитать документ"); }
-        var stored = files.put(bytes, name, file.getContentType(), principal.getUserId());
+        UUID documentId = UUID.randomUUID();
+        FileLookup.StoredFile stored;
+        try (var input = file.getInputStream()) {
+            stored = files.put(input, file.getSize(), name, file.getContentType(), documentId, principal.getUserId());
+        } catch (IOException ex) { throw new BusinessException("files.read_failed", "Не удалось прочитать документ"); }
         var d = new ParticipantDocumentEntity();
-        d.setId(UUID.randomUUID()); d.setProfileId(profileId); d.setEventId(eventId); d.setType(type.name());
+        d.setId(documentId); d.setProfileId(profileId); d.setEventId(eventId); d.setType(type.name());
         d.setFileKey(stored.key()); d.setOriginalName(name); d.setContentType(stored.contentType()); d.setSizeBytes(stored.sizeBytes());
         d.setIssuedAt(issuedAt); d.setValidUntil(validUntil); d.setStatus(DocumentStatus.PENDING.name());
         d.setUploadedBy(principal.getUserId()); d.setUploadedAt(OffsetDateTime.now()); documents.save(d);
@@ -72,24 +74,32 @@ public class ParticipantDocumentService {
         if (!d.getProfileId().equals(profileId)) throw notFound();
         if (!owns(profileId, principal)) throw denied();
         if (!DocumentStatus.PENDING.name().equals(d.getStatus())) throw new BusinessException("documents.not_pending", "Можно удалить только документ на проверке");
-        documents.delete(d); files.delete(d.getFileKey(), principal.getUserId());
+        documents.delete(d); files.delete(d.getFileKey(), d.getId(), principal.getUserId());
     }
     public FileLookup.SignedDownload download(UUID id, UUID eventId, AuthenticatedUserPrincipal principal) {
-        var d = accessible(id, eventId, principal);
-        var link = files.presignedUrl(d.getFileKey(), id, principal.getUserId());
-        // Re-check the organizer event scope when fetching the signed content.
-        return new FileLookup.SignedDownload(link.url() + (eventId == null ? "" : "&eventId=" + eventId), link.expiresAt());
+        var d = documents.findById(id).orElse(null);
+        try {
+            if (d == null) throw notFound();
+            assertDocumentAccess(d, eventId, principal);
+            var link = files.presignedUrl(d.getFileKey(), id, principal.getUserId());
+            return new FileLookup.SignedDownload(link.url() + (eventId == null ? "" : "&eventId=" + eventId), link.expiresAt());
+        } catch (BusinessException ex) { recordDenied(d, id, principal, ex); throw ex; }
     }
     public Content content(UUID id, UUID eventId, Long expires, String signature, AuthenticatedUserPrincipal principal) {
-        if (principal == null || expires == null || signature == null) throw new BusinessException("files.not_found", "Файл не найден");
-        var d = documents.findById(id).orElseThrow(this::notFound);
-        files.verify(d.getFileKey(), principal.getUserId(), expires, signature);
-        assertDocumentAccess(d, eventId, principal);
-        return new Content(response(d), files.get(d.getFileKey(), principal.getUserId()));
+        var d = documents.findById(id).orElse(null);
+        try {
+            if (principal == null || expires == null || signature == null)
+                throw new BusinessException("files.not_found", "Файл не найден");
+            if (d == null) throw notFound();
+            files.verify(d.getFileKey(), principal.getUserId(), expires, signature);
+            assertDocumentAccess(d, eventId, principal);
+            return new Content(response(d), files.get(d.getFileKey(), id, principal.getUserId()));
+        } catch (BusinessException ex) { recordDenied(d, id, principal, ex); throw ex; }
     }
-    private ParticipantDocumentEntity accessible(UUID id, UUID eventId, AuthenticatedUserPrincipal principal) {
-        var d = documents.findById(id).orElseThrow(this::notFound);
-        assertDocumentAccess(d, eventId, principal); return d;
+    private void recordDenied(ParticipantDocumentEntity d, UUID id, AuthenticatedUserPrincipal principal, BusinessException ex) {
+        if (Set.of("documents.access_denied", "documents.not_found", "files.not_found", "events.access_denied",
+                "events.event_not_found", "identity.profile_not_found").contains(ex.getCode()))
+            files.logDenied(d == null ? null : d.getFileKey(), id, principal == null ? null : principal.getUserId());
     }
     private void assertDocumentAccess(ParticipantDocumentEntity d, UUID eventId, AuthenticatedUserPrincipal principal) {
         if (owns(d.getProfileId(), principal)) return;
@@ -119,5 +129,5 @@ public class ParticipantDocumentService {
         return new ParticipantDocumentResponse(d.getId(), d.getProfileId(), d.getEventId(), d.getType(), d.getOriginalName(),
                 d.getContentType(), d.getSizeBytes(), d.getIssuedAt(), d.getValidUntil(), d.getStatus(), d.getRejectReason(), d.getUploadedAt());
     }
-    public record Content(ParticipantDocumentResponse document, byte[] bytes) {}
+    public record Content(ParticipantDocumentResponse document, InputStream input) {}
 }

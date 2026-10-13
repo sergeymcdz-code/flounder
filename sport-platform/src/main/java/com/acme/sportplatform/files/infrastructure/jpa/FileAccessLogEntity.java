@@ -12,6 +12,8 @@ public class FileAccessLogEntity {
     private UUID id;
     @Column(name = "file_key")
     private String fileKey;
+    @Column(name = "document_id")
+    private UUID documentId;
     @Column(name = "user_id")
     private UUID userId;
     @Column(name = "action")
@@ -22,6 +24,8 @@ public class FileAccessLogEntity {
     public void setId(UUID value) { id = value; }
     public String getFileKey() { return fileKey; }
     public void setFileKey(String value) { fileKey = value; }
+    public UUID getDocumentId() { return documentId; }
+    public void setDocumentId(UUID value) { documentId = value; }
     public UUID getUserId() { return userId; }
     public void setUserId(UUID value) { userId = value; }
     public String getAction() { return action; }

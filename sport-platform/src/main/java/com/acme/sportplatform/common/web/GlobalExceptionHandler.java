@@ -31,11 +31,9 @@ public class GlobalExceptionHandler {
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex, jakarta.servlet.http.HttpServletRequest request) {
-        boolean documents = request.getRequestURI().contains("/documents");
+    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiErrorResponse(
-                documents ? "files.too_large" : "imports.file_too_large",
-                documents ? "Размер документа превышает 10 МБ" : "Размер файла превышает 5 МБ", OffsetDateTime.now(), List.of()));
+                "files.too_large", "Размер файла превышает допустимый", OffsetDateTime.now(), List.of()));
     }
 
     @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
@@ -62,7 +60,7 @@ public class GlobalExceptionHandler {
             case "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
             case "documents.access_denied" -> HttpStatus.FORBIDDEN;
             case "documents.not_pending" -> HttpStatus.CONFLICT;
-            case "files.too_large" -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case "files.too_large", "imports.file_too_large" -> HttpStatus.PAYLOAD_TOO_LARGE;
             case "files.storage_unavailable", "files.corrupt" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "scheduling.published_units_exist", "scheduling.validation_failed", "scheduling.active_units_exist", "results.lane_conflict" -> HttpStatus.CONFLICT;
             case "organizations.venue_not_found" -> HttpStatus.NOT_FOUND;

@@ -74,7 +74,7 @@ export function DocumentsPanel({ profileId, accessToken, eventId, manager = fals
       <label>Тип документа<select name="type" value={type} onChange={(e) => setType(e.target.value as DocumentType)}>
         {Object.entries(documentTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
-      <label>Файл документа<input name="file" type="file" accept="image/*,application/pdf" capture="environment" required /></label>
+      <label>Файл документа<input name="file" type="file" accept="image/*,application/pdf" required /></label>
       <label>Дата выдачи<input name="issuedAt" type="date" /></label>
       <label>Действует до<input name="validUntil" type="date" /></label>
       <button disabled={busy || loading} type="submit">{busy ? 'Сохраняем…' : 'Загрузить документ'}</button>

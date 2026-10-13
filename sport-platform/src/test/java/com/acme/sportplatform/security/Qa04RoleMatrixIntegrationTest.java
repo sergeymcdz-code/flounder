@@ -95,7 +95,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     }
     MockHttpServletRequestBuilder request(Endpoint e) throws Exception {
         String path = e.path();
-        String genericId = path.contains("documents/") ? "document" : path.contains("organization-registration-requests/") ? "orgRequest"
+        String genericId = e.state().equals("document") ? "document" : path.contains("organization-registration-requests/") ? "orgRequest"
                 : path.contains("organizations/") ? "org"
                 : path.contains("venues/") ? "venue"
                 : path.contains("event-sessions/") ? "session"
@@ -139,6 +139,10 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     @Autowired com.acme.sportplatform.files.FileLookup files;
     void prepare(Endpoint e, String actor) {
         if (e.state().equals("document")) {
+            // REQUIRES_NEW denial audit must reference committed users, as it does in production.
+            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
+            org.springframework.test.context.transaction.TestTransaction.end();
+            org.springframework.test.context.transaction.TestTransaction.start();
             var d = documents.upload(id("profile"), id("event"), com.acme.sportplatform.registrations.domain.DocumentType.MEDICAL_CERT,
                     new MockMultipartFile("file", "medical.pdf", "application/pdf", "%PDF-1.7\nQA04".getBytes(StandardCharsets.UTF_8)),
                     null, java.time.LocalDate.now().plusYears(1), principal("participant"));

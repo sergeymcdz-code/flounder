@@ -31,7 +31,10 @@ class Qa04ErrorAndWorkbookTest {
         var oversized = new MockMultipartFile("file", "large.xlsx", "application/octet-stream",
                 new byte[(int) ExcelImportService.MAX_FILE_SIZE + 1]);
         assertThatThrownBy(() -> service.execute(UUID.randomUUID(), UUID.randomUUID(), oversized))
-                .isInstanceOf(MaxUploadSizeExceededException.class);
+                .isInstanceOfSatisfying(BusinessException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo("imports.file_too_large");
+                    assertThat(ex.getMessage()).isEqualTo("Размер файла превышает 5 МБ");
+                });
         byte[] workbook;
         try (var book = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
             var sheet = book.createSheet();
@@ -57,6 +60,13 @@ class Qa04ErrorAndWorkbookTest {
         assertThatThrownBy(() -> service.execute(UUID.randomUUID(), UUID.randomUUID(), bomb))
                 .isInstanceOf(BusinessException.class).extracting(e -> ((BusinessException)e).getCode()).isEqualTo("imports.invalid_file");
         verifyNoInteractions(rows, disciplines);
+    }
+    @Test
+    void servletUploadLimitUsesOneStableCodeAndMessageForEveryEndpoint() {
+        var response = new GlobalExceptionHandler().handleLargeUpload(new MaxUploadSizeExceededException(10 * 1024 * 1024));
+        assertThat(response.getStatusCode().value()).isEqualTo(413);
+        assertThat(response.getBody().code()).isEqualTo("files.too_large");
+        assertThat(response.getBody().message()).isEqualTo("Размер файла превышает допустимый");
     }
     @Test
     void formulaCellsAreRejectedAndFormulaLikeStringsRemainLiteral() throws Exception {

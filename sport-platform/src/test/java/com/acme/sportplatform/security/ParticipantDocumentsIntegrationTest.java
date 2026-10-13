@@ -25,6 +25,14 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
     @Autowired ListRegistrationsForReviewUseCase list;
     @Autowired ApplicationEvents events;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @org.junit.jupiter.api.BeforeEach
+    void commitIdentityFixtureBeforeIndependentAuditTransactions() {
+        if (org.springframework.test.context.transaction.TestTransaction.isActive()) {
+            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
+            org.springframework.test.context.transaction.TestTransaction.end();
+            org.springframework.test.context.transaction.TestTransaction.start();
+        }
+    }
     static final byte[] PDF = "%PDF-1.7\nprivate medical certificate".getBytes(StandardCharsets.UTF_8);
     MockMultipartFile file(byte[] bytes) { return new MockMultipartFile("file", "справка.pdf", "application/pdf", bytes); }
     String base(String profile) { return "/api/v1/profiles/" + ids.get(profile) + "/documents"; }
@@ -51,7 +59,8 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
                 .andExpect(status().isOk()).andReturn().getResponse();
         String url = json.readTree(signed.getContentAsString()).get("url").asText();
         mvc.perform(get(url).with(authentication(auth("participant")))).andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "private, no-store")).andExpect(content().bytes(PDF));
+                .andExpect(header().string("Cache-Control", "private, no-store"))
+                .andExpect(header().longValue("Content-Length", PDF.length)).andExpect(content().bytes(PDF));
         em.flush();
         assertThat(jdbc.queryForList("select action from file_access_log where file_key=? order by at", String.class, key))
                 .containsExactly("UPLOAD", "SIGN_DOWNLOAD", "DOWNLOAD");
@@ -104,6 +113,24 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         mvc.perform(multipart(base("foreignProfile")).file(file(PDF)).param("type", "INSURANCE")
                 .param("eventId", ids.get("event")).with(authentication(auth("organizer"))))
                 .andExpect(status().isNotFound());
+    }
+    @Test
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void denialAuditSurvivesOuterRollbackAndRetainsDocumentIdentityAfterDeletion() throws Exception {
+        UUID document = upload("profile", id("event"), LocalDate.now().plusYears(1));
+        String key = jdbc.queryForObject("select file_key from participant_documents where id=?", String.class, document);
+        mvc.perform(get("/api/v1/documents/" + document + "/download").with(authentication(auth("foreign_organizer"))))
+                .andExpect(status().isForbidden());
+        var audit = jdbc.queryForMap("select file_key, document_id, user_id from file_access_log where document_id=? and action='DENIED'", document);
+        assertThat(audit).containsEntry("file_key", key).containsEntry("document_id", document).containsEntry("user_id", id("foreign_organizer"));
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status -> {
+            assertThatThrownBy(() -> documents.download(document, id("event"), principal("foreign_organizer")))
+                    .isInstanceOf(com.acme.sportplatform.common.exception.BusinessException.class);
+            status.setRollbackOnly(); return null;
+        });
+        assertThat(jdbc.queryForObject("select count(*) from file_access_log where document_id=? and action='DENIED'", Long.class, document)).isEqualTo(2);
+        documents.delete(id("profile"), document, principal("participant"));
+        assertThat(jdbc.queryForObject("select count(*) from file_access_log where document_id=? and action='DENIED'", Long.class, document)).isEqualTo(2);
     }
     @Test void signaturesAreRequiredAndCannotBeReusedByAnotherUserOrAfterRevocation() throws Exception {
         UUID document = upload("profile", id("event"), LocalDate.now().plusYears(1));

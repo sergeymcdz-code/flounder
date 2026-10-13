@@ -14,6 +14,5 @@ organizer-lk-dump.txt
 # server backups (infra/backup.sh)
 backups/
 
-# Encrypted participant documents and deployment-local secret wiring
+# Encrypted participant documents
 **/data/files/
-infra/compose.files.override.yaml

@@ -1,2 +1,2 @@
-/** Workbox serializes this RegExp into the service worker; documents must stay network-only. */
-export const publicApiCachePattern = /^https?:\/\/[^/]+\/api\/v1\/public\/(?!documents(?:[/?#]|$))/
+/** Workbox serializes this RegExp; documents and PDF protocols must stay network-only. */
+export const publicApiCachePattern = /^https?:\/\/[^/]+\/api\/v1\/public\/(?!documents(?:[/?#]|$))(?![^?#]*\.pdf(?:[?#]|$))/i
