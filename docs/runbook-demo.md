@@ -5,7 +5,9 @@
 Стенд: один сервер Timeweb Cloud (Ubuntu 24.04, 2 vCPU / 4 ГБ), всё работает в Docker:
 `caddy` (HTTPS и маршрутизация) → `web` (сайт, React) и `api` (бэкенд, Spring Boot) → `postgres` (база данных).
 
-Файлы, о которых идёт речь, лежат в репозитории: `infra/compose.prod.yaml`, `infra/Caddyfile`, `infra/.env.prod.example`, `infra/deploy.sh`, `infra/backup.sh`, `infra/restore.sh`, `infra/crontab.example`, `.github/workflows/deploy.yml`.
+Файлы, о которых идёт речь, лежат в репозитории: `infra/compose.prod.yaml`, `infra/Caddyfile`, `infra/.env.prod.example`, `infra/deploy.sh`, `infra/backup.sh`, `infra/restore.sh`, `infra/crontab.example`, `infra/deploy-staging.sh`, `infra/restore-production.sh`, `infra/alert.sh`, `infra/check-disk.sh`, `infra/verify-latest-backup.sh`, `infra/harden.sh`, `infra/compose.staging.yaml`, `infra/compose.monitoring.yaml`.
+
+Текущий каталог репозитория на сервере — `/home/deploy/flounder` (`~/flounder` под deploy); проверить `readlink -f ~/flounder`. Владелец может войти root по ключу и выполнить `su - deploy`. Слияние M09, редеплой prod, Kuma/staging и hardening — после демо 15.10.2026, в окно без нагрузки.
 
 Условные обозначения: `DOMAIN` — ваш домен (например `demo.flounder.kz`), `SERVER_IP` — IP сервера из панели Timeweb. Команды с `$` вводятся на сервере; `PS>` — на вашем ноутбуке в PowerShell.
 
@@ -121,12 +123,12 @@ EOF
 $ ssh -T git@github.com     # зачем: проверка; ожидаем "Hi <owner>/flounder! You've successfully authenticated…"
 ```
 
-Клонируем (путь `/opt/flounder` используется во всех скриптах и в cron):
+Клонируем (путь `~/flounder` используется во всех скриптах и в cron):
 
 ```bash
-$ sudo mkdir -p /opt/flounder && sudo chown deploy:deploy /opt/flounder
-$ git clone git@github.com:<owner>/flounder.git /opt/flounder
-$ cd /opt/flounder && git log --oneline -1   # зачем: убедиться, что код скачался
+$ sudo mkdir -p ~/flounder && sudo chown deploy:deploy ~/flounder
+$ git clone git@github.com:<owner>/flounder.git ~/flounder
+$ cd ~/flounder && git log --oneline -1   # зачем: убедиться, что код скачался
 ```
 
 ### Вариант Б: HTTPS с токеном
@@ -136,10 +138,10 @@ $ cd /opt/flounder && git log --oneline -1   # зачем: убедиться, �
 На GitHub: аватар → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**: Repository access — Only select repositories → `flounder`; Permissions → Contents: **Read-only**; срок — 90 дней (потом перевыпустить). Скопировать токен (`github_pat_…`).
 
 ```bash
-$ sudo mkdir -p /opt/flounder && sudo chown deploy:deploy /opt/flounder
-$ git clone https://github.com/<owner>/flounder.git /opt/flounder
+$ sudo mkdir -p ~/flounder && sudo chown deploy:deploy ~/flounder
+$ git clone https://github.com/<owner>/flounder.git ~/flounder
 # Username: <ваш логин GitHub>; Password: <вставить токен>
-$ cd /opt/flounder && git config credential.helper store   # зачем: запомнить токен, чтобы deploy.sh не спрашивал его каждый раз
+$ cd ~/flounder && git config credential.helper store   # зачем: запомнить токен, чтобы deploy.sh не спрашивал его каждый раз
 $ git pull                                                  # ещё раз введите логин и токен — теперь они сохранятся в ~/.git-credentials
 ```
 
@@ -150,7 +152,7 @@ $ git pull                                                  # ещё раз вв
 **Зачем:** в этом файле все секреты и домен. Он не попадает в git (есть в `.gitignore`).
 
 ```bash
-$ cd /opt/flounder
+$ cd ~/flounder
 $ cp infra/.env.prod.example infra/.env.prod
 $ chmod 600 infra/.env.prod                     # зачем: читать может только deploy
 $ echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"   # зачем: сгенерировать пароль БД — скопируйте строку
@@ -181,7 +183,7 @@ $ nano infra/.env.prod
 **Зачем:** скрипт `deploy.sh` скачивает свежий код, собирает образы (бэкенд ~5–8 минут на 2 vCPU в первый раз, фронт ~2 минуты) и запускает все контейнеры. Повторные запуски быстрее благодаря кэшу.
 
 ```bash
-$ cd /opt/flounder
+$ cd ~/flounder
 $ ./infra/deploy.sh
 ```
 
@@ -219,12 +221,13 @@ $ curl -s https://DOMAIN/api/v1/public/events  # зачем: публичный 
 
 **Зачем:** наполнить пустую базу организацией, событием и заявками для демонстрации. Скрипт появится в задаче T10 (`scripts/demo/seed.ts`), работает через HTTP API стенда и идемпотентен (повторный запуск дублей не создаёт).
 
-Запускается с ноутбука или с сервера (нужен Node.js 22):
+На ноутбуке нужен Node.js 22; на сервере Node устанавливать не требуется — запускать
+под deploy в Docker, после настройки `scripts/demo/.env` по README:
 
 ```bash
-$ cd /opt/flounder && git pull                     # зачем: получить скрипт после слияния T10
-$ sudo apt-get install -y nodejs npm               # только если Node нет на сервере
-$ API_URL=https://DOMAIN ADMIN_EMAIL=<админ> ADMIN_PASSWORD=<пароль> npx tsx scripts/demo/seed.ts
+cd ~/flounder
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine sh -c 'npm ci && npx tsx seed.ts'
 ```
 
 Точные параметры — в `tasks/T10_Демо-данные_и_сценарий.md` и в README скрипта. После сида сделайте бэкап (п. 9) — это «чистая» точка, к которой можно откатиться после репетиции.
@@ -236,7 +239,7 @@ $ API_URL=https://DOMAIN ADMIN_EMAIL=<админ> ADMIN_PASSWORD=<пароль> 
 **Зачем:** первое, куда смотреть при любой проблеме.
 
 ```bash
-$ cd /opt/flounder
+$ cd ~/flounder
 $ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod logs --tail=200 api     # последние 200 строк бэкенда
 $ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod logs -f api             # «живой» хвост (выход Ctrl+C)
 $ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod logs --tail=100 caddy   # HTTPS, сертификаты, маршрутизация
@@ -250,7 +253,7 @@ $ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod logs --ta
 Удобное сокращение — добавьте в `~/.bashrc` алиас, чтобы не печатать длинную команду:
 
 ```bash
-$ echo "alias fl='docker compose -f /opt/flounder/infra/compose.prod.yaml --env-file /opt/flounder/infra/.env.prod'" >> ~/.bashrc && source ~/.bashrc
+$ echo "alias fl='docker compose -f /home/deploy/flounder/infra/compose.prod.yaml --env-file /home/deploy/flounder/infra/.env.prod'" >> ~/.bashrc && source ~/.bashrc
 $ fl ps   # теперь так
 ```
 
@@ -267,16 +270,17 @@ $ fl ps   # теперь так
 ### Бэкап вручную и расписание
 
 ```bash
-cd /opt/flounder
+cd ~/flounder
 mkdir -p /home/deploy/backups
 chmod 700 /home/deploy/backups
+cp -n ~/flounder/backups/2026-10-13.sql.gz /home/deploy/backups/
 ./infra/backup.sh
 ls -lh /home/deploy/backups
 ```
 
 Новый формат: `/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump` (`pg_dump -Fc`,
-время имени по Москве). Повтор в ту же минуту отказывается перезаписывать файл;
-для второй копии дождитесь следующей минуты. Права файлов — только для deploy.
+время имени по Москве). Повтор в ту же минуту сохраняет существующий файл
+и завершается кодом 0 без алерта; для новой копии дождитесь следующей минуты. Права файлов — только для deploy.
 Лог: `/home/deploy/backups/backup.log`, локальная ротация бэкапов — 30 суток.
 Неполные временные файлы удаляются, ошибка возвращает ненулевой код и алерт.
 Если есть Docker volume `flounder_files`, рядом создаётся `.files.tar.gz`;
@@ -286,22 +290,21 @@ Volume отсутствует на текущем main; восстановлен
 
 Старый боевой `.sql.gz` (~36 КБ, снят 13.10.2026) совместим с новым `restore.sh`:
 расширение `.dump` выбирает `pg_restore`, `.sql.gz` — `gzip` → `psql`.
-Скопируйте старые файлы из `/opt/flounder/backups` в `/home/deploy/backups`, сохраняя оригиналы;
-их размер сам по себе не подтверждает целостность.
+Старый файл находится в `~/flounder/backups/2026-10-13.sql.gz`. Скопируйте его в `/home/deploy/backups`, сохраняя оригинал;
+размер файла сам по себе не подтверждает целостность.
 
 ```bash
-./infra/restore.sh /home/deploy/backups/OLD_BACKUP.sql.gz
+./infra/restore.sh /home/deploy/backups/2026-10-13.sql.gz
 ./infra/verify-latest-backup.sh
-sudo timedatectl set-timezone Europe/Moscow
-timedatectl
+timedatectl | grep 'Time zone'
 crontab -e
 ```
 
-Замените старую строку бэкапа строками `infra/crontab.example`, сохранив прочие задания.
+Замените старую строку бэкапа **одним** вариантом из `infra/crontab.example`, сохранив прочие задания: для Europe/Moscow — 03:00/04:00, для UTC — 00:00/01:00. Перед демо менять timezone хоста не требуется.
 Ubuntu cron считает расписание в timezone **хоста**; одной переменной `TZ` в crontab недостаточно.
 Ежедневно 03:00 МСК — бэкап, воскресенье 04:00 — восстановление последней копии,
-каждые 15 минут — диск (>85%). Настройте Telegram до установки cron (§12),
-проверьте `crontab -l`. Изменение timezone хоста не меняет timezone соревнований/контейнера API.
+раз в час — диск (>85%). Настройте Telegram до установки cron (§12),
+проверьте `crontab -l`. Если всё же меняете timezone: `sudo timedatectl set-timezone Europe/Moscow`, затем обязательно `sudo systemctl restart cron`. Изменение timezone хоста не меняет timezone соревнований/контейнера API.
 
 ### Восстановление за 10 минут
 
@@ -311,43 +314,35 @@ Ubuntu cron считает расписание в timezone **хоста**; од
 и выполняются только при согласованном откате в окно обслуживания. Сначала сохраните
 текущую БД, проверьте выбранный дамп, убедитесь, что его схема совместима с выбранной версией API.
 
-1. Войти как deploy, выбрать копию абсолютным путём и выполнить проверку:
+1. Войти как deploy и запустить отдельный скрипт с явным путём к выбранному дампу:
 
 ```bash
-cd /opt/flounder
-FILE=/home/deploy/backups/CHOSEN_BACKUP.dump  # или старый .sql.gz
-./infra/backup.sh
-./infra/restore.sh "$FILE"
+cd ~/flounder
+./infra/restore-production.sh /home/deploy/backups/CHOSEN_BACKUP.dump
+# Для старого формата: ./infra/restore-production.sh /home/deploy/backups/2026-10-13.sql.gz
 ```
 
-2. Если проверка успешна, закрыть запись пользователей, подтвердить откат и остановить API.
-Значения DB/USER ниже — стандартные; при изменённых `.env.prod` сначала подставьте свои.
-Не продолжать после любой ошибки (включён `set -e`).
+2. Ввести `restore-production` только при согласованном откате. Скрипт сам проверяет
+выбранный дамп через неизменённый `restore.sh`, останавливает API, делает **свежий**
+`backup.sh` в уникальный `/home/deploy/backups/pre-restore-…/`, и только после успеха
+удаляет/создаёт рабочую БД. Затем загружает `.dump` или `.sql.gz`, проверяет `events`,
+запускает API и ожидает health UP. Строгая обработка ошибок действует внутри скрипта;
+в интерактивной SSH-сессии `set -e`/`set -u` включать не требуется.
+Страховочную копию сохранить до приёмки; обычная ротация её вложенный каталог не удаляет.
+
+3. После успешного завершения проверить:
 
 ```bash
-set -euo pipefail
-DB=sport_platform
-DB_USER=sport_user
-read -r -p "Удалить текущую БД $DB? Введите restore-production: " answer
-[[ "$answer" == restore-production ]]
-docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
-docker exec flounder-postgres dropdb -U "$DB_USER" --force "$DB"
-docker exec flounder-postgres createdb -U "$DB_USER" -T template0 -O "$DB_USER" "$DB"
-case "$FILE" in
-  *.dump) docker exec -i flounder-postgres pg_restore -U "$DB_USER" -d "$DB" \
-    --no-owner --no-privileges --single-transaction --exit-on-error < "$FILE" ;;
-  *.sql.gz) gzip -dc "$FILE" | docker exec -i flounder-postgres psql -X -U "$DB_USER" \
-    -d "$DB" -v ON_ERROR_STOP=1 --single-transaction ;;
-  *) echo "Неизвестный формат"; exit 1 ;;
-esac
-docker exec flounder-postgres psql -X -U "$DB_USER" -d "$DB" -v ON_ERROR_STOP=1 -c 'select count(*) from events'
-docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
 curl -fsS https://sportgate.pro/actuator/health
+docker exec flounder-postgres psql -U sport_user -d sport_platform -c 'select count(*) from events'
+tail -n 30 /home/deploy/backups/backup.log
 ```
 
-3. Открыть публичную страницу существующего события, войти организатором, проверить
-число заявок/результаты. При ошибке загрузки оставить API остановленным, изучить `backup.log`
-и логи PostgreSQL; использовать сохранённую текущую копию, не выполнять повторный DROP наугад.
+Открыть публичную страницу существующего события, войти организатором, проверить
+число заявок/результаты. Если ошибка произошла до DROP, скрипт пытается вернуть API;
+после начала DROP и до успешной загрузки оставляет API остановленным и выводит путь
+страховочной копии. Изучить лог и восстановить её тем же скриптом, не повторять DROP
+наугад. При сбое health после загрузки API уже запущен: проверить его логи и статус.
 
 Если появились файлы M04: сначала остановить сервисы, пишущие в volume, сохранить его текущую
 копию и проверить парный архив (`tar -tzf ...files.tar.gz`). Восстановление в новый volume:
@@ -369,6 +364,15 @@ curl -fsS https://sportgate.pro/actuator/health
 `rclone copyto rf:BUCKET/flounder/NAME.dump /home/deploy/backups/downloaded.dump`,
 затем `./infra/restore.sh /home/deploy/backups/downloaded.dump`.
 Не передавать ключи в CLI, не коммитить `.env`; хотя бы одну копию хранить вне сервера.
+С ноутбука скопировать выбранный дамп (подставить настоящее имя):
+
+```powershell
+scp root@SERVER_IP:/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump .
+scp root@SERVER_IP:/home/deploy/flounder/backups/2026-10-13.sql.gz .
+```
+
+Если уже проверен ключ deploy, можно использовать `deploy@SERVER_IP` вместо root.
+30-дневная ротация удаляет и старые `.sql.gz`, поэтому внешнюю копию сохранить заранее.
 
 ---
 
@@ -379,18 +383,17 @@ curl -fsS https://sportgate.pro/actuator/health
 Способ 1 — на сервере:
 
 ```bash
-$ cd /opt/flounder && ./infra/deploy.sh
+$ cd ~/flounder && ./infra/deploy.sh
 ```
 
-Способ 2 — из GitHub, без входа на сервер (нужно один раз настроить):
+Автоматический deploy workflow в текущем репозитории отсутствует; используйте
+`./infra/deploy.sh` под deploy. При первом редеплое M09 новый Sentry dependency
+инвалидирует Maven-слой образа, поэтому сборка может занять на 1–3 минуты дольше.
+Новые опции Docker-логов пересоздают контейнеры (включая PostgreSQL), а прежняя
+история `docker logs` исчезает — заранее сохраните нужные логи. Этот редеплой
+выполнять после демо 15.10.2026, в согласованное окно обслуживания.
 
-1. На сервере создать ключ для GitHub Actions: `ssh-keygen -t ed25519 -f ~/.ssh/gha_deploy -N "" -C gha` и добавить публичную часть в доверенные: `cat ~/.ssh/gha_deploy.pub >> ~/.ssh/authorized_keys`.
-2. В репозитории: **Settings → Secrets and variables → Actions → New repository secret**: `SSH_HOST` = `SERVER_IP`, `SSH_USER` = `deploy`, `SSH_KEY` = содержимое `cat ~/.ssh/gha_deploy` (приватный ключ целиком, со строками BEGIN/END). После этого `rm ~/.ssh/gha_deploy` на сервере — приватный ключ там не нужен.
-3. GitHub → **Actions → Deploy demo stand → Run workflow** (ветка `main`, папка `/opt/flounder`) → Run. Лог деплоя виден в самом Action.
-
-Если давать GitHub доступ по SSH не хочется — просто не создавайте секреты и пользуйтесь способом 1; workflow без секретов завершится ошибкой и ничего не сделает.
-
-Откат к предыдущей версии кода: `cd /opt/flounder && git log --oneline -5` → выбрать коммит → `git checkout <hash> && ./infra/deploy.sh --no-pull`. Вернуться на актуальный `main`: `./infra/deploy.sh`.
+Откат к предыдущей версии кода: `cd ~/flounder && git log --oneline -5` → выбрать коммит → `git checkout <hash> && ./infra/deploy.sh --no-pull`. Вернуться на актуальный `main`: `./infra/deploy.sh`.
 
 Смена `POSTGRES_PASSWORD` после первого запуска: `fl exec postgres psql -U sport_user -d sport_platform -c "ALTER USER sport_user PASSWORD 'новый';"`, затем вписать новый пароль в `.env.prod` и `fl up -d` (пересоздаст api с новым паролем).
 
@@ -469,14 +472,14 @@ $ fl down && fl up -d        # зачем: остановить и поднят�
 |---|---|
 | Статус | `fl ps` |
 | Логи API | `fl logs -f api` |
-| Обновить | `cd /opt/flounder && ./infra/deploy.sh` |
-| Бэкап | `/opt/flounder/infra/backup.sh` |
-| Восстановить | `/opt/flounder/infra/restore.sh /home/deploy/backups/<файл>.dump` (проверка) |
+| Обновить | `cd ~/flounder && ./infra/deploy.sh` |
+| Бэкап | `~/flounder/infra/backup.sh` |
+| Восстановить | `~/flounder/infra/restore.sh /home/deploy/backups/<файл>.dump` (проверка) |
 | Перезапуск одного сервиса | `fl restart api` |
 | Полный перезапуск | `fl down && fl up -d` |
 | Здоровье | `curl -s https://DOMAIN/actuator/health` |
 
-(`fl` — алиас из п. 8; без него: `docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod …` из `/opt/flounder`.)
+(`fl` — алиас из п. 8; без него: `docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod …` из `~/flounder`.)
 
 ## 12. Мониторинг и Telegram (M09)
 
@@ -489,7 +492,7 @@ $ fl down && fl up -d        # зачем: остановить и поднят�
 2. Под deploy запустить Kuma и отправить тестовый алерт:
 
 ```bash
-cd /opt/flounder
+cd ~/flounder
 docker compose -f infra/compose.monitoring.yaml up -d
 ./infra/alert.sh "Flounder: проверка доставки уведомлений"
 ./infra/check-disk.sh
@@ -518,7 +521,7 @@ Kuma на том же VPS не сможет отправить сообщени�
 
 ## 13. Staging на том же сервере (M09)
 
-Staging не меняет checkout `/opt/flounder`, имеет проект `flounder-staging`, отдельные
+Staging не меняет checkout `~/flounder`, имеет проект `flounder-staging`, отдельные
 БД `sport_platform_staging`, postgres volume, JWT/пароль БД и образы. БД не публикуется наружу.
 Только staging gateway подключён к общей edge-сети Caddy. Код выбранной ветки собирается
 в `/home/deploy/flounder-staging`; повторный деплой отказывается затирать локальные изменения.
@@ -534,13 +537,13 @@ Staging не меняет checkout `/opt/flounder`, имеет проект `flo
 Рекомендация для постоянной эксплуатации: 4 vCPU/8 ГБ или отдельный staging VPS;
 сборки перенести в CI с публикацией образов. Это оценка, нагрузочная проверка не выполнена.
 
-Шаги под deploy после слияния PR:
+Шаги под deploy после слияния PR **после демо 15.10**, в окно без нагрузки:
 
 ```bash
-cd /opt/flounder
+cd ~/flounder
 git pull --ff-only origin main
 # В окно обслуживания обновить prod compose: подключает Caddy к flounder_edge.
-docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod up -d --build
+./infra/deploy.sh
 mkdir -p /home/deploy/.config/flounder
 cp infra/.env.staging.example /home/deploy/.config/flounder/.env.staging
 chmod 700 /home/deploy/.config/flounder
@@ -555,7 +558,7 @@ seed-админа выделенной staging-БД и `DEMO_PASSWORD`. На ч�
 существующих миграций (см. `docs/02_ТЗ_демо.md` §1), затем сменить его пароль через UI.
 Скрипт дожидается health и запускает **настоящий HTTP-сид** `scripts/demo/seed.ts`
 с `DEMO_SEED_ENABLED=true`. Он не полагается на неработающий флаг `DEMO_SEED` backend.
-Требуется Node.js 22+; ветка должна содержать `scripts/demo` и совместимые миграции/API.
+Node/npm на хосте не нужны: сид выполняется в `node:22-alpine` с UID/GID deploy, `HOME=/tmp` и host network. Ветка должна содержать `scripts/demo` и совместимые миграции/API.
 Сид обращается к loopback gateway, а не к production. Его профиль процесса `staging`
 не меняет серверный prod-профиль, который используется для настроек БД/логов.
 
@@ -610,19 +613,19 @@ DSN пусты в примерах; доступ к аккаунту Sentry и �
 ## 15. Опциональное усиление SSH (M09)
 
 `harden.sh` не запускается при деплое. Он идемпотентно устанавливает fail2ban/sshd,
-unattended-upgrades; ufw остаётся настроенным ранее. Шаг отключения root SSH выполняется
+unattended-upgrades; ufw остаётся настроенным ранее. Шаг отключения root SSH **по паролю** выполняется
 только после явного подтверждения работающего ключа deploy. Не закрывать исходную сессию.
 
 1. В отдельном терминале ноутбука: `ssh -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no deploy@SERVER_IP`.
 Проверить `whoami` → deploy и `sudo -v`. Убедиться в доступе к консоли провайдера.
-2. В исходной SSH-сессии deploy: `cd /opt/flounder && ./infra/harden.sh`.
+2. В исходной сессии deploy (допустим вход root по ключу → `su - deploy`): `cd ~/flounder && ./infra/harden.sh`.
 3. Только после успеха шага 1 ввести `deploy-key-verified`. Скрипт ставит
-`PermitRootLogin no`, проверяет `sshd -t` и эффективную политику `sshd -T`, перезагружает
+`PermitRootLogin prohibit-password`, проверяет `sshd -t` и эффективную политику `sshd -T`, перезагружает
 `ssh` (не обрывает существующую сессию). При ошибке проверки файл откатывается.
 4. Проверить ещё один вход deploy по ключу, `sudo fail2ban-client status sshd`,
-`systemctl status unattended-upgrades`, `sudo ufw status`. Root SSH должен отказать.
+`systemctl status unattended-upgrades`, `sudo ufw status`. Root по ключу продолжает работать, по паролю — нет.
 
-Не принимать подтверждение без фактической проверки второго входа.
+До появления рабочего ключа deploy на ноутбуке этот опциональный скрипт не запускать. Перед подтверждением скрипт проверяет непустой `/home/deploy/.ssh/authorized_keys`; при `su - deploy` без `SSH_CONNECTION` использует addr=127.0.0.1 для проверки политики. Не принимать подтверждение без фактической проверки второго входа.
 Скрипт и пакетная конфигурация проверены статически; их выполнение на сервере — отдельный
 опциональный шаг оператора. При потере входа использовать консоль провайдера и убрать
 `/etc/ssh/sshd_config.d/00-flounder-hardening.conf`, проверить `sshd -t`, reload ssh.

@@ -31,10 +31,6 @@ cat > "$TMP/bin/docker" <<'DOCKER'
 #!/usr/bin/env bash
 printf 'docker %s\n' "$*" >> "$TEST_LOG"
 DOCKER
-cat > "$TMP/bin/npm" <<'NPM'
-#!/usr/bin/env bash
-printf 'npm %s cwd=%s api=%s seed=%s\n' "$*" "$PWD" "${API_URL:-}" "${DEMO_SEED_ENABLED:-}" >> "$TEST_LOG"
-NPM
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 "$TMP/prod/infra/deploy-staging.sh" feat/test
@@ -42,7 +38,13 @@ export PATH="$TMP/bin:$PATH"
 [[ "$(git -C "$TMP/prod" rev-parse HEAD)" == "$prod_head" ]]
 [[ "$(git -C "$TMP/prod" branch --show-current)" == main ]]
 grep -q -- "--project-directory $STAGING_DIR/infra -f $TMP/prod/infra/compose.staging.yaml" "$TEST_LOG"
-grep -q 'api=http://127.0.0.1:8081 seed=true' "$TEST_LOG"
+seed_call="$(grep '^docker run ' "$TEST_LOG" | head -1)"
+for expected in '--network host' "--user $(id -u):$(id -g)" '-e HOME=/tmp' \
+  '-e API_URL=http://127.0.0.1:8081' '-e DEMO_SEED_ENABLED=true' '-e NODE_ENV=development' \
+  '-e SPRING_PROFILES_ACTIVE=staging' '-e ADMIN_EMAIL' '-e ADMIN_PASSWORD' '-e DEMO_PASSWORD' \
+  "-v $STAGING_DIR:/repo" '-w /repo/scripts/demo' 'node:22-alpine sh -c npm ci && npx tsx seed.ts'; do
+  [[ "$seed_call" == *"$expected"* ]] || { echo "Missing seed argument: $expected"; exit 1; }
+done
 # A subdirectory of production must never be mistaken for a worktree.
 export STAGING_DIR="$TMP/prod/infra"
 if "$TMP/prod/infra/deploy-staging.sh" feat/test; then echo 'Expected worktree guard'; exit 1; fi
@@ -52,3 +54,5 @@ echo dirty > "$STAGING_DIR/untracked"
 if "$TMP/prod/infra/deploy-staging.sh" feat/test; then echo 'Expected dirty tree guard'; exit 1; fi
 if "$TMP/prod/infra/deploy-staging.sh" --bad-branch; then echo 'Expected invalid branch refusal'; exit 1; fi
 echo 'Staging script tests passed (branch worktree, seed target, dirty tree and production isolation)'
+
+bash "$REPO/infra/tests/harden-test.sh"

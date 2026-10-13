@@ -27,7 +27,7 @@ HTTP-сид с `DEMO_SEED_ENABLED=true`. Адрес сида и сохранно
 - Файловый volume включается в `.files.tar.gz`; старые SQL-бэкапы удаляются по 30-дневной
   ротации, посторонние файлы сохраняются; при недоступном контейнере нет финального/частичного дампа.
 - Staging: выбор remote-ветки, повторный деплой, HTTP-сид только на loopback staging,
-  отказ для dirty tree и подкаталога production. Docker/npm в этом тесте подменены;
+  отказ для dirty tree и подкаталога production. Docker в этом тесте подменён; проверяются аргументы node:22-alpine/host network/UID/GID/env;
   полноценный деплой должен пройти операторскую приёмку.
 - `caddy validate`: production и staging в локальных контейнерах без сети.
 - Frontend: `npm test` (Node test runner + 42 Vitest-теста), `npm run build`, `npm run lint`.
@@ -68,3 +68,21 @@ GitHub-hosted Ubuntu предоставляет Docker; отдельный DinD 
 correlation-id и Sentry: Java filter/CORS/тест, Maven/npm зависимости и frontend bootstrap/
 Docker build arg. README содержит требуемый CI-бейдж; `.gitignore` разрешает только
 новый несекретный `.env.staging.example`, настоящий `.env.staging` остаётся игнорируемым.
+
+## Правки по M09-review-1 (PR #25)
+
+- Сид staging переведён на `docker run … node:22-alpine`, без Node/npm на сервере;
+  пути исправлены на `~/flounder`, timezone API staging выровнен с prod (Europe/Samara).
+- Cron: раз в час проверка диска, отдельные варианты Moscow/UTC, restart cron при
+  смене timezone; повтор бэкапа в ту же минуту успешен без ложного алерта.
+- Hardening сохраняет root по ключу (`prohibit-password`), проверяет deploy authorized_keys
+  до подтверждения, допускает `su - deploy` без SSH_CONNECTION. Regression с mock sudo
+  проверяет отсутствие ключа, подтверждение, fallback addr и rollback; хост не менялся.
+- `restore-production.sh`: отдельное подтверждение, неизменённый restore.sh для проверки,
+  stop API → свежий бэкап в уникальном каталоге → DROP/load/smoke → start API/health.
+  Локальные regression-тесты проверили оба формата, сохранность свежего снимка, отказ
+  без подтверждения/при битом SQL, запрет DROP при сбое бэкапа и остановленный API при
+  ошибке загрузки. Compose start/stop и HTTP health подменены, SQL реально выполнялся
+  в одноразовом локальном PostgreSQL. Реальный production не восстанавливался.
+- Shellcheck и все infra/tests после правок прошли. CI, restore.sh, RequestIdFilter
+  и формат дампа не изменены. Слияние и редеплой — после демо 15.10.2026.

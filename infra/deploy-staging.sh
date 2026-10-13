@@ -41,11 +41,9 @@ export STAGING_CADDYFILE="$REPO_DIR/infra/Caddyfile.staging"
 compose() { docker compose --project-name flounder-staging --project-directory "$STAGING_DIR/infra" -f "$REPO_DIR/infra/compose.staging.yaml" --env-file "$STAGING_ENV" "$@"; }
 compose config --quiet
 compose up -d --build --wait --wait-timeout 300
-# DEMO_SEED alone is ignored by the application: run the actual HTTP seed.
-(
-  cd "$STAGING_DIR/scripts/demo"
-  npm ci
-  API_URL=http://127.0.0.1:8081 DEMO_SEED_ENABLED=true NODE_ENV=development SPRING_PROFILES_ACTIVE=staging \
-    npm exec -- tsx seed.ts
-)
+# Run the HTTP seed in Docker; Node/npm are not required on the host.
+docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -e API_URL=http://127.0.0.1:8081 -e DEMO_SEED_ENABLED=true -e NODE_ENV=development \
+  -e SPRING_PROFILES_ACTIVE=staging -e ADMIN_EMAIL -e ADMIN_PASSWORD -e DEMO_PASSWORD \
+  -v "$STAGING_DIR":/repo -w /repo/scripts/demo node:22-alpine sh -c 'npm ci && npx tsx seed.ts'
 printf 'Staging deployed: %s (%s)\n' "$BRANCH" "$COMMIT"

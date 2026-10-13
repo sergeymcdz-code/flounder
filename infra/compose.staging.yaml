@@ -40,7 +40,7 @@ services:
       APP_PAYMENTS_PROVIDER: MANUAL
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: staging
-      TZ: Europe/Moscow
+      TZ: ${TZ:-Europe/Samara}
       JAVA_TOOL_OPTIONS: '-Xmx384m -XX:+ExitOnOutOfMemoryError'
     healthcheck:
       test: [CMD, curl, -fsS, 'http://localhost:8080/actuator/health']

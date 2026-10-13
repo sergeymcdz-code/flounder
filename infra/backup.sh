@@ -19,7 +19,7 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT
-[[ ! -e "$FILE" && ! -e "$FILES" ]] || { echo '[backup] timestamp already exists'; exit 1; }
+[[ ! -e "$FILE" && ! -e "$FILES" ]] || { echo '[backup] timestamp already exists; keeping existing backup'; exit 0; }
 printf '[backup] %s dumping %s\n' "$(date -Is)" "$DB"
 docker exec "$CONTAINER" pg_dump -U "$USER_NAME" -d "$DB" -Fc --no-owner --no-privileges > "$FILE.tmp"
 docker exec -i "$CONTAINER" pg_restore --list < "$FILE.tmp" >/dev/null

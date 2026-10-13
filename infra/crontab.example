@@ -1,8 +1,16 @@
-# deploy user; Ubuntu cron uses the host timezone for schedule evaluation.
-# First set the host timezone: sudo timedatectl set-timezone Europe/Moscow
-# TZ alone does not change Ubuntu cron schedule times. Preserve existing jobs.
+# deploy user; check the repository path: readlink -f ~/flounder
+# Check the host timezone: timedatectl | grep 'Time zone'
+# Ubuntu cron uses host timezone, not a TZ variable in this file.
+# If changing it: sudo timedatectl set-timezone Europe/Moscow
+# Then reload the cron timezone: sudo systemctl restart cron
+# Preserve existing jobs; install only ONE schedule variant below.
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
-0 3 * * * /opt/flounder/infra/backup.sh
-0 4 * * 0 /opt/flounder/infra/verify-latest-backup.sh
-*/15 * * * * /opt/flounder/infra/check-disk.sh >> /home/deploy/backups/backup.log 2>&1
+# Europe/Moscow: daily 03:00 MSK, Sunday 04:00 MSK, hourly disk check.
+0 3 * * * "$HOME/flounder/infra/backup.sh"
+0 4 * * 0 "$HOME/flounder/infra/verify-latest-backup.sh"
+0 * * * * "$HOME/flounder/infra/check-disk.sh" >> "$HOME/backups/backup.log" 2>&1
+# UTC alternative: uncomment these INSTEAD of the three lines above.
+# 0 0 * * * "$HOME/flounder/infra/backup.sh"
+# 0 1 * * 0 "$HOME/flounder/infra/verify-latest-backup.sh"
+# 0 * * * * "$HOME/flounder/infra/check-disk.sh" >> "$HOME/backups/backup.log" 2>&1
