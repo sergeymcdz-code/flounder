@@ -2,7 +2,15 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+export function validateApiUrl(apiUrl: string, allowRemote = process.env.QA05_ALLOW_REMOTE) {
+  if (!['localhost', '127.0.0.1'].includes(new URL(apiUrl).hostname) && allowRemote !== '1') {
+    throw new Error('QA05 запускается только против локального backend; для удалённого стенда задайте QA05_ALLOW_REMOTE=1')
+  }
+  return apiUrl
+}
+
 export default function setup() {
+  const apiUrl = validateApiUrl(process.env.QA05_API_URL ?? 'http://localhost:8080')
   // A new isolated event per run avoids deleting or changing a previous demo.
   const directory = resolve('../../scripts/demo')
   const suffix = ` · QA05 ${new Date().toISOString()}`
@@ -15,7 +23,7 @@ export default function setup() {
     encoding: 'utf8',
     env: {
       ...process.env,
-      API_URL: process.env.QA05_API_URL ?? 'http://localhost:8080',
+      API_URL: apiUrl,
       ADMIN_EMAIL: 'admin@flounder.demo',
       ADMIN_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',
       DEMO_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',

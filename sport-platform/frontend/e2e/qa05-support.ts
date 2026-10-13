@@ -2,13 +2,19 @@ import { expect, type Page } from '@playwright/test'
 import { mkdir, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-export const evidence = resolve('../../docs/qa/screenshots')
+export const evidence = resolve(process.env.QA05_EVIDENCE_DIR ?? 'work/qa05/evidence')
 export async function screenshots(page: Page, name: string) {
-  await mkdir(evidence, { recursive: true })
+  const directory = resolve(evidence, 'screenshots')
+  await mkdir(directory, { recursive: true })
   const viewport = page.viewportSize()!
   for (const width of [1366, 375]) {
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 })
-    await page.screenshot({ path: resolve(evidence, `QA05-${name}-${width}.png`), fullPage: await page.getByRole('dialog').count() === 0 })
+    const path = resolve(directory, `QA05-${name}-${width}.png`)
+    if (name === '06-validator') {
+      await page.locator('article').filter({ has: page.getByRole('heading', { name: 'Проверка', exact: true }) }).screenshot({ path })
+    } else {
+      await page.screenshot({ path, fullPage: await page.getByRole('dialog').count() === 0 })
+    }
   }
   await page.setViewportSize(viewport)
 }
@@ -39,12 +45,12 @@ export async function api<T>(page: Page, path: string, method = 'GET', body?: un
 export async function pdf(page: Page, name: string) {
   await page.emulateMedia({ media: 'print' })
   const blocks = name === 'results' ? page.locator('#public-content table tbody tr') : page.locator('article').filter({ has: page.locator('table') })
-  expect.soft(await blocks.count(), `${name}: protocol has heats`).toBeGreaterThan(0)
+  expect.soft(await blocks.count(), `${name === 'draft-start-list' ? 'QA05-03: ' : ''}${name}: protocol has heats`).toBeGreaterThan(0)
   for (const block of await blocks.all()) {
     expect.soft(await block.evaluate(node => getComputedStyle(node).breakInside), `${name}: no heat split`).toBe('avoid')
   }
-  await mkdir(resolve('../../docs/qa'), { recursive: true })
-  const path = resolve(`../../docs/qa/QA05-${name}.pdf`)
+  await mkdir(evidence, { recursive: true })
+  const path = resolve(evidence, `QA05-${name}.pdf`)
   await page.pdf({ path, format: 'A4', printBackground: true, margin: { top: '15mm', right: '15mm', bottom: '15mm', left: '15mm' } })
   expect.soft((await stat(path)).size).toBeGreaterThan(1_000)
   await page.emulateMedia({ media: 'screen' })

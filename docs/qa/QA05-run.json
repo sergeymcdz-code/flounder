@@ -110,7 +110,7 @@
     "withdrawn": 1
   },
   "artifacts": {
-    "screenshots": 66,
+    "screenshots": 11,
     "widths": [
       1366,
       375
@@ -119,6 +119,100 @@
       "QA05-draft-start-list.pdf",
       "QA05-start-list.pdf",
       "QA05-results.pdf"
-    ]
+    ],
+    "screenshotsScope": "curated committed evidence; full run artifacts are ignored in frontend/work/qa05/evidence",
+    "screenshotsBytes": 868451
+  },
+  "review1Run": {
+    "seed": {
+      "eventId": "cccabfac-8d6e-4494-ba30-bdb4fabd18d1",
+      "date": "2026-10-17",
+      "slug": "otkrytyy-kubok-samary-po-plavaniyu-demo-qa05-2026-10-13t14-50-10-770z",
+      "suffix": " · QA05 2026-10-13T14:50:10.770Z"
+    },
+    "steps": [
+      {
+        "name": "1. Anonymous overview, program, organizer QR and settings",
+        "durationMs": 3274,
+        "errors": 0
+      },
+      {
+        "name": "2. Excel download, 203/200/3 report and duplicate-free reimport",
+        "durationMs": 7717,
+        "errors": 0
+      },
+      {
+        "name": "3. Parent mobile submission, organizer confirmation and secretary payment",
+        "durationMs": 12458,
+        "errors": 1
+      },
+      {
+        "name": "4. Seeding, validator, schedule, draft PDF and anonymous publication",
+        "durationMs": 24411,
+        "errors": 3
+      },
+      {
+        "name": "5. Secretary live, three next heats, Demov search, polling and PWA",
+        "durationMs": 16821,
+        "errors": 0
+      },
+      {
+        "name": "6. Published withdrawal preserves neighbors, schedule and validator WARNING",
+        "durationMs": 14445,
+        "errors": 1
+      },
+      {
+        "name": "7. Times/DNS/DSQ, shared places 1,1,3, publication, correction and final PDF",
+        "durationMs": 47183,
+        "errors": 4
+      }
+    ],
+    "timings": {
+      "set-M-with-errors.xlsx": 774,
+      "set-M.xlsx": 768,
+      "seeding": 254,
+      "liveRefresh": 14943
+    },
+    "audit": [
+      {
+        "kind": "http",
+        "message": "403 GET http://localhost:8080/api/v1/venues"
+      },
+      {
+        "kind": "console",
+        "message": "Failed to load resource: the server responded with a status of 403 ()"
+      },
+      {
+        "kind": "http",
+        "message": "400 POST http://localhost:8080/api/v1/competition-units/8602e138-5d93-4613-825c-762696cac153/finish"
+      },
+      {
+        "kind": "console",
+        "message": "Failed to load resource: the server responded with a status of 400 ()"
+      },
+      {
+        "kind": "http",
+        "message": "400 POST http://localhost:8080/api/v1/competition-units/e6a467f1-c1d3-4d46-b380-b7413475cd45/finish"
+      },
+      {
+        "kind": "console",
+        "message": "Failed to load resource: the server responded with a status of 400 ()"
+      }
+    ],
+    "status": "failed",
+    "openDefects": [
+      "QA05-01",
+      "QA05-02",
+      "QA05-03",
+      "QA05-07",
+      "QA05-08",
+      "QA05-09"
+    ],
+    "generatedArtifacts": {
+      "screenshots": 64,
+      "pdf": 3
+    },
+    "evidenceDirectory": "sport-platform/frontend/work/qa05/evidence",
+    "publishedEvidence": "Original run PNG/PDF preserved; validator panel recaptured in review 1 run"
   }
 }

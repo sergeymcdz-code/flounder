@@ -20,6 +20,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
   const audit: { kind: string; message: string }[] = []
   const steps: { name: string; durationMs: number; errors: number; blocked?: string }[] = []
   const timings: Record<string, number> = {}
+  let failedPrerequisite: number | undefined
   for (const context of contexts) context.on('page', monitor)
   for (const page of [org, parent, sec, spectator]) monitor(page)
   function monitor(page: Page) {
@@ -31,6 +32,11 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
     })
   }
   async function step(name: string, action: () => Promise<void>) {
+    if (failedPrerequisite !== undefined) {
+      steps.push({ name, durationMs: 0, errors: 0, blocked: `skipped: step ${failedPrerequisite} failed` })
+      return
+    }
+    const number = Number(name.split('.')[0])
     const started = Date.now()
     const errors = info.errors.length
     let blocked: string | undefined
@@ -41,6 +47,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       }
     })
     steps.push({ name, durationMs: Date.now() - started, errors: info.errors.length - errors, blocked })
+    if (blocked && (number === 2 || number === 4)) failedPrerequisite = number
   }
   let event!: OrganizerEventDetails
   let heats: Heat[] = []
@@ -77,7 +84,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await org.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
       await expect(org.getByRole('heading', { name: 'Сессии соревнования' })).toBeVisible()
       await screenshots(org, '01-program')
-      await org.getByRole('button', { name: 'Изменить', exact: true }).nth(2).click()
+      await org.getByRole('row').filter({ has: org.getByText('M-50-FREE', { exact: true }) }).getByRole('button', { name: 'Изменить', exact: true }).click()
       const dialog = org.getByRole('dialog')
       await dialog.getByRole('button', { name: 'Добавить пресет', exact: true }).click()
       await expect.soft(dialog.getByRole('combobox', { name: 'Пресет' })).toContainText(/Детские.*2 года/i)
@@ -168,7 +175,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.soft(org.getByRole('button', { name: 'Оплачено', exact: true }), 'QA05: zero-fee mark-paid action').toHaveCount(2)
       await login(sec, 'sec@flounder.demo', `${base}/entries`)
       // The operator is allowed by the route, but /venues currently returns 403.
-      await expect.soft(sec.getByRole('heading', { name: 'Заявки участников · 202' })).toBeVisible()
+      await expect.soft(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
       await screenshots(sec, '03-secretary-cabinet')
       for (const registration of rows) {
         if (await sec.getByLabel('Поиск', { exact: true }).count()) {
@@ -234,7 +241,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       const printHref = await org.getByRole('link', { name: 'Открыть печатную форму' }).getAttribute('href')
       await printPage.goto(printHref!)
       await expect(printPage.getByRole('heading', { name: 'Стартовый протокол', exact: true })).toBeVisible()
-      await expect.soft(printPage.locator('article').filter({ has: printPage.locator('table') })).toHaveCount(heats.length)
+      await expect.soft(printPage.locator('article').filter({ has: printPage.locator('table') }), 'QA05-03: draft print contains generated heats').toHaveCount(heats.length)
       await screenshots(printPage, '04-draft-print')
       await pdf(printPage, 'draft-start-list')
       await org.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
@@ -322,7 +329,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       expect.soft(afterHeat.scheduledAt).toBeTruthy()
       const validation = await api<{ violations: Violation[] }>(org, `/event-disciplines/${discipline.id}/competition-units/validate`)
       expect.soft(validation.violations.filter(v => v.severity === 'ERROR')).toEqual([])
-      expect.soft(validation.violations.some(v => v.severity === 'WARNING' && /PUBLISHED|CHANGED|WITHDRAW/i.test(v.code)), 'published change warning').toBe(true)
+      expect.soft(validation.violations.some(v => v.severity === 'WARNING' && /PUBLISHED|CHANGED|WITHDRAW/i.test(v.code)), 'QA05-08: published change warning').toBe(true)
       await org.getByRole('button', { name: 'Проверить заплывы', exact: true }).click()
       await settle(org)
       await screenshots(org, '06-validator')
@@ -373,7 +380,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.configure({ soft: true }).poll(async () => {
         const results = await api<Results>(spectator, `/public/events/${seed.slug}/results`)
         return results.disciplines.find(d => d.id === discipline.id)?.overall.length ?? 0
-      }, { timeout: 15_000 }).toBe(selected.reduce((sum, unit) => sum + unit.entries.length, 0))
+      }, { timeout: 15_000, message: 'QA05-07: published results are public' }).toBe(selected.reduce((sum, unit) => sum + unit.entries.length, 0))
       await screenshots(spectator, '07-public-results')
       await sec.goto(`/operator/competition-units/${heat.id}?eventId=${seed.eventId}`)
       await sec.getByRole('textbox', { name: `Время, дорожка ${entries[2].laneOrPosition}`, exact: true }).fill('00:48.10')
@@ -386,7 +393,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.configure({ soft: true }).poll(async () => {
         const row = spectator.getByRole('row').filter({ hasText: publicName }).first()
         return await row.count() ? row.innerText() : ''
-      }, { timeout: 25_000 }).toContain('00:48.10')
+      }, { timeout: 25_000, message: 'QA05-07: public corrected result is updated' }).toContain('00:48.10')
       await screenshots(sec, '07-secretary-correction')
       await screenshots(spectator, '07-public-corrected')
       // Explicit continuation to inspect the final PDF despite the publication bug.
@@ -395,7 +402,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         const finishPromise = sec.waitForResponse(r => r.url().endsWith(`/${unit.id}/finish`) && r.request().method() === 'POST')
         await sec.getByRole('button', { name: 'Финиш', exact: true }).click()
         const response = await finishPromise
-        expect.soft(response.status(), 'QA05: finish after publication').toBe(200)
+        expect.soft(response.status(), 'QA05-09: finish after publication').toBe(200)
         if (!response.ok()) {
           await screenshots(sec, `07-finish-error-${unit.sequenceNumber}`)
           await test.step('Continue via UI start/finish after publication reset the heat state', async () => {
