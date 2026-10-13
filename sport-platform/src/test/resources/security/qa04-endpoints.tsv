@@ -119,3 +119,6 @@ DELETE	/api/v1/profiles/{profileId}/documents/{id}	participant	false	204	documen
 GET	/api/v1/documents/{id}/download	documents	true	200	document
 GET	/api/v1/public/documents/{id}/content	signed-document	true	200	document
 GET	/api/v1/events/{eventId}/registrations	manage	true	200
+GET	/api/v1/organizations/{id}/notification-settings	owner	true	200
+PUT	/api/v1/organizations/{id}/notification-settings	owner	true	200		[{"templateCode":"registration_confirmed","enabled":false}]
+GET	/api/v1/events/{eventId}/notifications	manage	true	200

@@ -28,6 +28,11 @@ public class RegistrationLookupService implements RegistrationLookup {
     }
 
     @Override
+    public List<RegistrationLookupResult> findByEventId(UUID id) {
+        return toResults(registrationRepository.findByEventId(id));
+    }
+
+    @Override
     public List<RegistrationLookupResult> findByDisciplineId(UUID id) {
         return toResults(registrationRepository.findByEventDisciplineId(id));
     }

@@ -26,6 +26,7 @@ const navigationItems: NavigationItem[] = [
     to: '/organizer/regulations/create',
     label: 'Регламенты',
   },
+  { to: '/organizer/notification-settings', label: 'Настройки уведомлений' },
 ]
 
 export function OrganizerLayout() {

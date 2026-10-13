@@ -40,6 +40,7 @@ public class CreateRegistrationUseCase {
     private final EventDisciplineLookup eventDisciplineLookup;
     private final RegistrationMapper registrationMapper;
     private final ObjectMapper objectMapper;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     public CreateRegistrationUseCase(
             RegistrationRepository registrationRepository,
@@ -47,7 +48,8 @@ public class CreateRegistrationUseCase {
             EventLookup eventLookup,
             EventDisciplineLookup eventDisciplineLookup,
             RegistrationMapper registrationMapper,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            org.springframework.context.ApplicationEventPublisher publisher
     ) {
         this.registrationRepository = registrationRepository;
         this.profileLookup = profileLookup;
@@ -55,6 +57,7 @@ public class CreateRegistrationUseCase {
         this.eventDisciplineLookup = eventDisciplineLookup;
         this.registrationMapper = registrationMapper;
         this.objectMapper = objectMapper;
+        this.publisher = publisher;
     }
 
     @Transactional
@@ -171,9 +174,10 @@ public class CreateRegistrationUseCase {
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
 
-        return registrationMapper.toResponse(
-                registrationRepository.save(entity)
-        );
+        var saved = registrationRepository.save(entity);
+        if (RegistrationStatus.SUBMITTED.name().equals(saved.getStatus()))
+            publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationSubmittedEvent(saved.getId()));
+        return registrationMapper.toResponse(saved);
     }
 
     private String createParticipantSnapshot(ProfileLookupResult profile) {

@@ -54,6 +54,8 @@ const OrganizerRegistrationsPage = lazy(() =>
 const OrganizerEventLayout = lazy(() =>
   import('../features/organizer/OrganizerEventLayout').then(module => ({ default: module.OrganizerEventLayout })),
 )
+const NotificationSettingsPage = lazy(() => import('../features/organizer/NotificationSettingsPage').then(module => ({ default: module.NotificationSettingsPage })))
+const OrganizerNotificationsPage = lazy(() => import('../features/organizer/OrganizerNotificationsPage').then(module => ({ default: module.OrganizerNotificationsPage })))
 const OrganizerOverviewPage = lazy(() =>
   import('../features/organizer/OrganizerOverviewPage').then(module => ({ default: module.OrganizerOverviewPage })),
 )
@@ -164,6 +166,7 @@ export default function App() {
         >
           <Route path="organizer" element={<OrganizerLayout />}>
             <Route index element={<OrganizerDashboardPage />} />
+            <Route path="notification-settings" element={<NotificationSettingsPage />} />
 
             <Route
               path="events"
@@ -181,6 +184,7 @@ export default function App() {
               <Route path="entries" element={<OrganizerEntriesPage />} />
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="notifications" element={<OrganizerNotificationsPage />} />
               <Route path="registrations" element={<OrganizerRegistrationsPage />} />
             </Route>
 

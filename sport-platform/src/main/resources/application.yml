@@ -105,6 +105,13 @@ app:
       region: ${APP_FILES_S3_REGION:ru-1}
       access-key: ${APP_FILES_S3_ACCESS_KEY:}
       secret-key: ${APP_FILES_S3_SECRET_KEY:}
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:noreply@localhost}
+    enabled: ${MAIL_ENABLED:false}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   security:

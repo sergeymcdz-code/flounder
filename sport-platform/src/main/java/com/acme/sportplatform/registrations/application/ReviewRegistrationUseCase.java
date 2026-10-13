@@ -20,13 +20,16 @@ public class ReviewRegistrationUseCase {
 
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     public ReviewRegistrationUseCase(
             RegistrationRepository registrationRepository,
-            RegistrationMapper registrationMapper
+            RegistrationMapper registrationMapper,
+            org.springframework.context.ApplicationEventPublisher publisher
     ) {
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
+        this.publisher = publisher;
     }
 
         @Transactional
@@ -60,7 +63,12 @@ public class ReviewRegistrationUseCase {
         registration.setReviewedAt(now);
         registration.setUpdatedAt(now);
 
-        return registrationMapper.toResponse(registrationRepository.save(registration));
+        registrationRepository.save(registration);
+        if (newStatus == RegistrationStatus.CONFIRMED)
+            publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationConfirmedEvent(registrationId));
+        if (newStatus == RegistrationStatus.REJECTED)
+            publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationRejectedEvent(registrationId, request.reviewNote()));
+        return registrationMapper.toResponse(registration);
         }
 
     private boolean requiresReviewNote(

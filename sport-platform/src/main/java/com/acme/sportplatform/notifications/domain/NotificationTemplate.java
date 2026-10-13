@@ -1,0 +1,25 @@
+package com.acme.sportplatform.notifications.domain;
+
+import com.acme.sportplatform.common.exception.BusinessException;
+import java.util.Arrays;
+import java.util.List;
+
+public enum NotificationTemplate {
+    registration_submitted("Заявка принята"),
+    registration_confirmed("Заявка подтверждена"),
+    registration_rejected("Заявка отклонена"),
+    start_list_published("Стартовый протокол опубликован"),
+    results_published("Результаты опубликованы"),
+    password_reset("Восстановление пароля Flounder");
+
+    private final String subject;
+    NotificationTemplate(String subject) { this.subject = subject; }
+    public String subject() { return subject; }
+    public static List<NotificationTemplate> organizerTemplates() {
+        return Arrays.stream(values()).filter(t -> t != password_reset).toList();
+    }
+    public static NotificationTemplate organizerTemplate(String code) {
+        return organizerTemplates().stream().filter(t -> t.name().equals(code)).findFirst()
+                .orElseThrow(() -> new BusinessException("notifications.invalid_template", "Неизвестный шаблон уведомления"));
+    }
+}

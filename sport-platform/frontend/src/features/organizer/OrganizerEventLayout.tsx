@@ -202,6 +202,7 @@ function OrganizerEventContent() {
           ['entries', 'Заявки'],
           ['heats', 'Заплывы'],
           ['results', 'Результаты'],
+          ['notifications', 'Уведомления'],
         ].map(([path, title]) => (
           <NavLink
             key={path}
