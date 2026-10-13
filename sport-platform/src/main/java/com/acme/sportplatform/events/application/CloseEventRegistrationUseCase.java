@@ -27,13 +27,13 @@ public class CloseEventRegistrationUseCase {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new BusinessException(
                         "events.event_not_found",
-                        "Event not found"
+                        "Событие не найдено"
                 ));
 
         if (!EventStatus.REGISTRATION_OPEN.name().equals(event.getStatus())) {
             throw new BusinessException(
                     "events.invalid_status_transition",
-                    "Only event with registration_open status can be closed"
+                    "Закрыть регистрацию можно только для события в статусе REGISTRATION_OPEN"
             );
         }
 

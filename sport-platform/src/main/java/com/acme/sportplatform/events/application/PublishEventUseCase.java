@@ -27,13 +27,13 @@ public class PublishEventUseCase {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new BusinessException(
                         "events.event_not_found",
-                        "Event not found"
+                        "Событие не найдено"
                 ));
 
         if (!EventStatus.DRAFT.name().equals(event.getStatus())) {
             throw new BusinessException(
                     "events.invalid_status_transition",
-                    "Only draft event can be published"
+                    "Опубликовать можно только событие в статусе DRAFT"
             );
         }
 

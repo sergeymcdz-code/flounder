@@ -27,14 +27,14 @@ public class CompleteEventUseCase {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new BusinessException(
                         "events.event_not_found",
-                        "Event not found"
+                        "Событие не найдено"
                 ));
 
         if (!EventStatus.LIVE.name().equals(event.getStatus())
                 && !EventStatus.REGISTRATION_CLOSED.name().equals(event.getStatus())) {
             throw new BusinessException(
                     "events.invalid_status_transition",
-                    "Only live or registration_closed event can be completed"
+                    "Завершить можно только событие в статусе LIVE или REGISTRATION_CLOSED"
             );
         }
 

@@ -58,12 +58,13 @@ public class RecalculateScheduleUseCase {
                                 unit.number(),
                                 null,
                                 null));
-            if ("PUBLISHED".equals(unit.status()) && !Objects.equals(unit.scheduledAt(), time))
+            if ("PUBLISHED".equals(unit.status()) && (!Objects.equals(unit.scheduledAt(), time)
+                    || unit.entries().stream().anyMatch(e -> "WITHDRAWN".equals(e.status()))))
                 violations.add(
                         new Violation(
                                 "PUBLISHED_HEAT_CHANGED",
                                 Violation.Severity.WARNING,
-                                "Время опубликованного заплыва изменено",
+                                "Опубликованный заплыв изменён при пересчёте",
                                 unit.disciplineId(),
                                 unit.number(),
                                 null,

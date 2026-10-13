@@ -44,7 +44,7 @@ public class PublishEventDisciplineUseCase {
         if (!discipline.getEventId().equals(eventId)) {
             throw new BusinessException(
                     "competition.discipline_event_mismatch",
-                    "Event discipline does not belong to this event"
+                    "Дисциплина принадлежит другому событию"
             );
         }
 
@@ -52,7 +52,7 @@ public class PublishEventDisciplineUseCase {
                 .equals(discipline.getStatus())) {
             throw new BusinessException(
                     "competition.discipline_not_draft",
-                    "Only a draft discipline can be published"
+                    "Опубликовать можно только дисциплину в статусе DRAFT"
             );
         }
 

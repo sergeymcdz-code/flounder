@@ -819,6 +819,161 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
     }
 
     @Test
+    @WithUserDetails("admin@flounder.demo")
+    void qa01PublishedWithdrawalWarnsWithoutMovingOtherLanes() throws Exception {
+        // QA01-04: the validator must retain the published-change warning after withdrawal.
+        var f = fixture(9);
+        UUID discipline = f.disciplines().getFirst(), withdrawn = f.registrations().getFirst();
+        ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        ok(post("/api/v1/event-disciplines/{id}/competition-units/publish", discipline));
+        String before = lanes(discipline);
+        ok(post("/api/v1/registrations/{id}/withdraw", withdrawn));
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertEquals("WITHDRAWN",
+                jdbc.queryForObject("select entry_status from competition_unit_entries where registration_id=?", String.class, withdrawn)));
+        var recalculated = ok(post("/api/v1/events/{id}/schedule/recalculate", f.event()));
+        assertTrue(StreamSupport.stream(recalculated.path("violations").spliterator(), false)
+                .anyMatch(v -> "PUBLISHED_HEAT_CHANGED".equals(v.path("code").asText()) && "WARNING".equals(v.path("severity").asText())));
+        var validation = ok(get("/api/v1/event-disciplines/{id}/competition-units/validate", discipline));
+        assertTrue(StreamSupport.stream(validation.path("violations").spliterator(), false)
+                .anyMatch(v -> "PUBLISHED_HEAT_CHANGED".equals(v.path("code").asText()) && "WARNING".equals(v.path("severity").asText())));
+        validation.path("violations").forEach(v -> assertNotEquals("ERROR", v.path("severity").asText()));
+        assertEquals(before, lanes(discipline));
+        assertTrue(jdbc.queryForObject("select exists(select 1 from rule_execution_logs where event_discipline_id=? and kind='VALIDATION' and violations_json @> '[{\"code\":\"PUBLISHED_HEAT_CHANGED\"}]'::jsonb)", Boolean.class, discipline));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 8, 9, 16, 17})
+    @WithUserDetails("admin@flounder.demo")
+    void qa01BoundaryCountsNtAndRepeatPublication(int count) throws Exception {
+        var f = fixture(count);
+        UUID discipline = f.disciplines().getFirst();
+        jdbc.update("update registrations set seed_time_ms=null where event_discipline_id=?", discipline);
+        var generated = ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        assertEquals(count, StreamSupport.stream(generated.path("heats").spliterator(), false)
+                .mapToInt(h -> h.path("lanes").size()).sum());
+        var validation = ok(get("/api/v1/event-disciplines/{id}/competition-units/validate", discipline));
+        validation.path("violations").forEach(v -> assertNotEquals("ERROR", v.path("severity").asText()));
+        assertEquals(count > 0, StreamSupport.stream(validation.path("violations").spliterator(), false)
+                .anyMatch(v -> "MANY_NT".equals(v.path("code").asText())));
+        if (count < 3) assertFalse(StreamSupport.stream(validation.path("violations").spliterator(), false)
+                .anyMatch(v -> "SMALL_HEAT".equals(v.path("code").asText())));
+        String before = lanes(discipline);
+        ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        assertEquals(before, lanes(discipline));
+        ok(post("/api/v1/event-disciplines/{id}/competition-units/publish", discipline));
+        ok(post("/api/v1/event-disciplines/{id}/competition-units/publish", discipline));
+        assertEquals(before, lanes(discipline));
+    }
+
+    @Test
+    @WithUserDetails("admin@flounder.demo")
+    void qa01ScheduleBreakEndTimeAndAgeBoundaryRest() throws Exception {
+        var f = fixture(17, 9);
+        UUID first = f.disciplines().getFirst(), second = f.disciplines().get(1);
+        UUID session = jdbc.queryForObject("select session_id from event_disciplines where id=?", UUID.class, first);
+        jdbc.update("update event_disciplines set session_id=?,order_in_session=2 where id=?", session, second);
+        jdbc.update("update event_disciplines set seeding_mode='BY_AGE_GROUP',age_groups_json='[{\"code\":\"M-2014-2015\",\"name\":\"Юноши\",\"gender\":\"M\",\"birthYearFrom\":2014,\"birthYearTo\":2015}]'::jsonb where id=?", first);
+        jdbc.update("update registrations set participant_snapshot=jsonb_set(participant_snapshot,'{birthDate}','\"2015-12-31\"'::jsonb) where id=?", f.registrations().get(1));
+        UUID profile = jdbc.queryForObject("select participant_profile_id from registrations where id=?", UUID.class, f.registrations().getFirst());
+        jdbc.update("update registrations set participant_profile_id=? where id=?", profile, f.registrations().get(17));
+        var generated = ok(post("/api/v1/events/{id}/generate-competition-units", f.event()));
+        generated.path("violations").forEach(v -> assertNotEquals("ERROR", v.path("severity").asText()));
+        var units = ok(post("/api/v1/events/{id}/schedule/recalculate", f.event())).path("units");
+        List<Instant> times = StreamSupport.stream(units.spliterator(), false).map(u -> Instant.parse(u.path("scheduledAt").asText())).toList();
+        Instant start = Instant.parse("2026-10-17T07:00:00Z");
+        assertEquals(List.of(start, start.plusSeconds(90), start.plusSeconds(180), start.plusSeconds(330), start.plusSeconds(480)), times);
+        assertEquals(List.of(1, 2, 3, 4, 5), StreamSupport.stream(units.spliterator(), false).map(u -> u.path("sequenceInSession").asInt()).toList());
+        var summary = ok(get("/api/v1/events/{id}/sessions", f.event())).get(0);
+        assertEquals(5, summary.path("heatsCount").asInt());
+        assertEquals(start.plusSeconds(630), Instant.parse(summary.path("estimatedEndsAt").asText()));
+        assertTrue(StreamSupport.stream(ok(get("/api/v1/event-disciplines/{id}/competition-units/validate", first)).path("violations").spliterator(), false)
+                .anyMatch(v -> "INSUFFICIENT_REST".equals(v.path("code").asText())));
+        jdbc.update("update event_sessions set starts_at=starts_at+interval '10 minutes' where id=?", session);
+        var changed = ok(post("/api/v1/events/{id}/schedule/recalculate", f.event())).path("units");
+        assertEquals(start.plusSeconds(600), Instant.parse(changed.get(0).path("scheduledAt").asText()));
+    }
+
+    @Test
+    @WithUserDetails("admin@flounder.demo")
+    void qa01DraftWithdrawalAndAddedEntryRebuildAllHeats() throws Exception {
+        var f = fixture(9);
+        UUID discipline = f.disciplines().getFirst(), changed = f.registrations().getFirst();
+        ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        var previousIds = jdbc.queryForList("select id from competition_units where event_discipline_id=?", UUID.class, discipline);
+        ok(post("/api/v1/registrations/{id}/withdraw", changed));
+        ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        assertEquals(1, jdbc.queryForObject("select count(*) from competition_units where event_discipline_id=?", Integer.class, discipline));
+        assertTrue(Collections.disjoint(previousIds, jdbc.queryForList("select id from competition_units where event_discipline_id=?", UUID.class, discipline)));
+        assertEquals(8, jdbc.queryForObject("select count(*) from competition_unit_entries e join competition_units u on u.id=e.competition_unit_id where u.event_discipline_id=?", Integer.class, discipline));
+        UUID added = UUID.randomUUID(), profile = UUID.randomUUID();
+        jdbc.update("insert into profiles(id,first_name,last_name,birth_date,gender) values(?,'Новый','Участник','2014-01-01','M')", profile);
+        jdbc.update("insert into registrations(id,event_id,event_discipline_id,participant_profile_id,status,participant_snapshot,seed_time_ms,created_at,updated_at) select ?,event_id,event_discipline_id,?,'CONFIRMED',participant_snapshot,29000,now(),now() from registrations where id=?", added, profile, changed);
+        var generated = ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        assertEquals(2, generated.path("heats").size());
+        var addedLane = StreamSupport.stream(generated.path("heats").get(1).path("lanes").spliterator(), false)
+                .filter(l -> added.toString().equals(l.path("registrationId").asText())).findFirst().orElseThrow();
+        assertEquals(4, addedLane.path("lane").asInt());
+        assertEquals(0, jdbc.queryForObject("select count(*) from competition_unit_entries where registration_id=?", Integer.class, changed));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LANE_CONFLICT", "LANE_OUT_OF_RANGE", "ATHLETE_IN_TWO_HEATS", "HEAT_OVER_CAPACITY", "HEAT_NUMBER_SEQUENCE", "ATHLETE_NOT_FOUND", "GENDER_MISMATCH", "AGE_GROUP_MISMATCH"})
+    @WithUserDetails("admin@flounder.demo")
+    void qa01ValidatorDetectsCorruptedPersistedHeats(String code) throws Exception {
+        var f = fixture(9);
+        UUID discipline = f.disciplines().getFirst();
+        ok(post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline));
+        UUID first = jdbc.queryForObject("select id from competition_units where event_discipline_id=? and sequence_number=1", UUID.class, discipline);
+        UUID second = jdbc.queryForObject("select id from competition_units where event_discipline_id=? and sequence_number=2", UUID.class, discipline);
+        UUID entry = jdbc.queryForList("select id from competition_unit_entries where competition_unit_id=? order by lane_or_position", UUID.class, first).getFirst();
+        UUID registration = jdbc.queryForObject("select registration_id from competition_unit_entries where id=?", UUID.class, entry);
+        switch (code) {
+            case "LANE_CONFLICT" -> jdbc.update("update competition_unit_entries set lane_or_position=4 where competition_unit_id=?", first);
+            case "LANE_OUT_OF_RANGE" -> jdbc.update("update competition_unit_entries set lane_or_position=9 where id=?", entry);
+            case "ATHLETE_IN_TWO_HEATS" -> jdbc.update("insert into competition_unit_entries(id,competition_unit_id,registration_id,lane_or_position,seed_time_ms,entry_status) select ?,?,registration_id,1,seed_time_ms,'ASSIGNED' from competition_unit_entries where id=?", UUID.randomUUID(), second, entry);
+            case "HEAT_OVER_CAPACITY" -> jdbc.update("update competition_unit_entries set competition_unit_id=? where competition_unit_id=?", second, first);
+            case "HEAT_NUMBER_SEQUENCE" -> jdbc.update("update competition_units set sequence_number=3 where id=?", second);
+            case "ATHLETE_NOT_FOUND" -> jdbc.update("update registrations set participant_snapshot=participant_snapshot-'birthDate' where id=?", registration);
+            case "GENDER_MISMATCH" -> jdbc.update("update registrations set participant_snapshot=jsonb_set(participant_snapshot,'{gender}','\"F\"'::jsonb) where id=?", registration);
+            case "AGE_GROUP_MISMATCH" -> jdbc.update("update event_disciplines set age_groups_json='[{\"code\":\"M-2015\",\"name\":\"Юноши\",\"gender\":\"M\",\"birthYearFrom\":2015,\"birthYearTo\":2015}]'::jsonb where id=?", discipline);
+            default -> fail("Unknown corruption " + code);
+        }
+        var validation = ok(get("/api/v1/event-disciplines/{id}/competition-units/validate", discipline));
+        assertTrue(StreamSupport.stream(validation.path("violations").spliterator(), false)
+                .anyMatch(v -> code.equals(v.path("code").asText()) && "ERROR".equals(v.path("severity").asText())), validation.toString());
+        mvc.perform(post("/api/v1/event-disciplines/{id}/competition-units/publish", discipline))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("scheduling.validation_failed"));
+        assertEquals(0, jdbc.queryForObject("select count(*) from competition_units where event_discipline_id=? and status='PUBLISHED'", Integer.class, discipline));
+        assertEquals(2, jdbc.queryForObject("select count(*) from rule_execution_logs where event_discipline_id=? and kind='VALIDATION'", Integer.class, discipline));
+    }
+
+    @Test
+    @WithUserDetails("admin@flounder.demo")
+    void qa01ConcurrentEventGenerationHasNoDuplicateHeats() throws Exception {
+        var f = fixture(17, 9);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var ready = new java.util.concurrent.CountDownLatch(2);
+            var start = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<JsonNode> generate = () -> {
+                ready.countDown();
+                assertTrue(start.await(10, java.util.concurrent.TimeUnit.SECONDS));
+                return ok(post("/api/v1/events/{id}/generate-competition-units", f.event()).with(principal(OWNER, "PLATFORM_ADMIN")));
+            };
+            var a = executor.submit(generate);
+            var b = executor.submit(generate);
+            assertTrue(ready.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            start.countDown();
+            assertEquals(2, a.get(30, java.util.concurrent.TimeUnit.SECONDS).path("disciplines").size());
+            assertEquals(2, b.get(30, java.util.concurrent.TimeUnit.SECONDS).path("disciplines").size());
+        }
+        assertEquals(5, jdbc.queryForObject("select count(*) from competition_units u join event_disciplines d on d.id=u.event_discipline_id where d.event_id=?", Integer.class, f.event()));
+        assertEquals(26, jdbc.queryForObject("select count(*) from competition_unit_entries e join competition_units u on u.id=e.competition_unit_id join event_disciplines d on d.id=u.event_discipline_id where d.event_id=?", Integer.class, f.event()));
+        assertEquals(0, jdbc.queryForObject("select count(*) from (select u.event_discipline_id,u.sequence_number from competition_units u join event_disciplines d on d.id=u.event_discipline_id where d.event_id=? group by u.event_discipline_id,u.sequence_number having count(*)>1) duplicates", Integer.class, f.event()));
+        for (UUID discipline : f.disciplines()) ok(get("/api/v1/event-disciplines/{id}/competition-units/validate", discipline)).path("violations")
+                .forEach(v -> assertNotEquals("ERROR", v.path("severity").asText()));
+    }
+
+    @Test
     void organizationMemberCanManageEventThroughT01AccessPolicy() throws Exception {
         var f = fixture(3);
         UUID organization =
