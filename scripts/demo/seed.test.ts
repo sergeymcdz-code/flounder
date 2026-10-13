@@ -88,6 +88,14 @@ const options: SeedOptions = { adminEmail: 'admin@example.invalid', adminPasswor
   now: new Date('2026-10-12T12:00:00Z'), workbook: new Uint8Array([80, 75]), skipImport: false };
 const quiet = () => {};
 describe('seed and reset orchestration without network', () => {
+  it('QA05: reuses a regulation returned as lowercase published by the real API', async () => {
+    const api = new FakeApi();
+    await seed(api, options, quiet);
+    api.lists.get('/regulation-versions')![0].status = 'published';
+    const before = api.calls.length;
+    await seed(api, { ...options, skipImport: true }, quiet);
+    expect(api.calls.slice(before).filter(call => call.method === 'POST' && call.path.startsWith('/regulation-versions/') && call.path.endsWith('/publish'))).toEqual([]);
+  });
   it('reruns without duplicate entities or generation, and imports through multipart', async () => {
     const api = new FakeApi();
     await seed(api, options, quiet);

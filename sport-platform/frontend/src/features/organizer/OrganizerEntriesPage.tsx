@@ -243,8 +243,7 @@ export function OrganizerEntriesPage() {
                         >
                           Отклонить
                         </button>
-                        {r.paymentStatus !== 'PAID' &&
-                          r.paymentStatus !== 'NOT_REQUIRED' && (
+                        {r.paymentStatus !== 'PAID' && (
                             <button
                               disabled={busy}
                               onClick={() => {
