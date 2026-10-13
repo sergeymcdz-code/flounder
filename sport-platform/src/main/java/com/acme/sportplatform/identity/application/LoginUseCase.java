@@ -41,6 +41,7 @@ public class LoginUseCase {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
+            limiter.succeeded(request.email());
         } catch (DisabledException ex) {
             PlatformUserPrincipal principal = (PlatformUserPrincipal) userDetailsService.loadUserByUsername(request.email());
             if (passwordEncoder.matches(request.password(), principal.getPassword())) {

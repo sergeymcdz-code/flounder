@@ -43,6 +43,8 @@ export function LoginPage() {
       const message =
         error instanceof ApiError && error.status === 401
           ? 'Проверьте email и пароль.'
+          : error instanceof ApiError && error.status === 429 && error.retryAfter !== undefined
+            ? `Слишком много попыток входа. Попробуйте через ${Math.max(1, Math.ceil(error.retryAfter / 60))} мин.`
           : error instanceof ApiError
             ? error.message
             : 'Не удалось выполнить вход. Попробуйте ещё раз.'

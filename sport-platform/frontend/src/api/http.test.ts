@@ -105,3 +105,16 @@ it('does not restore a logged-out session when an in-flight refresh completes an
   await vi.waitFor(() => expect(revoked).toEqual({ refreshToken: 'new-refresh' }))
   expect(getAuthState().session).toBeNull()
 })
+
+it('exposes the numeric Retry-After header on API errors', async () => {
+  server.use(http.post('*/api/v1/auth/login', () => HttpResponse.json({ code: 'identity.too_many_attempts', message: 'Слишком много попыток входа' }, {
+    status: 429, headers: { 'Retry-After': '121' },
+  })))
+  await expect(apiFetch('/api/v1/auth/login', { method: 'POST' })).rejects.toMatchObject({ status: 429, retryAfter: 121 })
+})
+it('ignores missing or invalid Retry-After values', async () => {
+  for (const retryAfter of [undefined, 'invalid', '-5']) {
+    server.use(http.get('*/limited', () => new HttpResponse(null, { status: 429, headers: retryAfter === undefined ? {} : { 'Retry-After': retryAfter } })))
+    await expect(apiFetch('/limited')).rejects.toMatchObject({ status: 429, retryAfter: undefined })
+  }
+})

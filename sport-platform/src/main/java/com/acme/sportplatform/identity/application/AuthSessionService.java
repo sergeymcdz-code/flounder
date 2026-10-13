@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.api.AuthTokenResponse;
+import com.acme.sportplatform.identity.domain.InvalidRefreshTokenException;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.RefreshTokenEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.UserEntity;
 import com.acme.sportplatform.identity.infrastructure.persistence.repository.*;
@@ -36,13 +37,18 @@ public class AuthSessionService {
         return newPair(user, userAgent);
     }
 
-    @Transactional
+    // A reused token must revoke sessions even though the request returns 401.
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public AuthTokenResponse refresh(String rawToken, String userAgent) {
         String hash = OpaqueTokens.hash(rawToken);
         var snapshot = tokens.findUserIdByTokenHash(hash).orElseThrow(this::invalidToken);
         UserEntity user = users.findByIdForUpdate(snapshot).orElseThrow(this::invalidToken);
         var token = tokens.findForUpdate(hash).orElseThrow(this::invalidToken);
-        if (token.getRevokedAt() != null || !token.getExpiresAt().isAfter(clock.instant())) throw invalidToken();
+        if (token.getRevokedAt() != null) {
+            tokens.invalidateAll(user.getId(), clock.instant());
+            throw invalidToken();
+        }
+        if (!token.getExpiresAt().isAfter(clock.instant())) throw invalidToken();
         assertActive(user);
         token.setRevokedAt(clock.instant());
         return newPair(user, userAgent);
@@ -81,7 +87,7 @@ public class AuthSessionService {
             throw new BusinessException("identity.user_blocked", "Пользователь заблокирован. Обратитесь к администратору");
     }
 
-    private BusinessException invalidToken() {
-        return new BusinessException("identity.refresh_token_invalid", "Сессия истекла, войдите снова");
+    private InvalidRefreshTokenException invalidToken() {
+        return new InvalidRefreshTokenException();
     }
 }

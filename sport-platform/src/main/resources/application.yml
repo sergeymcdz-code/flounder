@@ -90,6 +90,10 @@ logging:
     org.hibernate.SQL: WARN
 
 app:
+  auth:
+    login:
+      max-failures: ${APP_AUTH_LOGIN_MAX_FAILURES:5}
+      window: ${APP_AUTH_LOGIN_WINDOW:PT15M}
   public-url: ${APP_PUBLIC_URL:http://localhost:5173}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}

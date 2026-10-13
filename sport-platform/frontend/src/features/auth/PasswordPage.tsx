@@ -5,7 +5,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import styles from './LoginPage.module.css'
 
 export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) {
-  const { session } = useAuth()
+  const { session, logout } = useAuth()
   const [params] = useSearchParams()
   const token = params.get('token')
   const [email, setEmail] = useState('')
@@ -17,7 +17,7 @@ export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) 
   const [busy, setBusy] = useState(false)
   const title = mode === 'forgot' ? 'Восстановить пароль' : mode === 'reset' ? 'Новый пароль' : 'Сменить пароль'
 
-  if (mode === 'change' && !session) return <Navigate to="/login" state={{ from: '/account/password' }} replace />
+  if (mode === 'change' && !session && !success) return <Navigate to="/login" state={{ from: '/account/password' }} replace />
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -39,6 +39,10 @@ export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) 
       })
       setSuccess(true)
       setCurrentPassword(''); setPassword(''); setConfirmation('')
+      if (mode === 'change') {
+        // Password change already revoked the current refresh on the backend.
+        await logout().catch(() => {})
+      }
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Не удалось выполнить запрос. Попробуйте ещё раз.')
     } finally { setBusy(false) }
@@ -50,6 +54,7 @@ export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) 
       <h1 className={styles.title}>{title}</h1>
       {success ? <p role="status">{mode === 'forgot'
         ? 'Если аккаунт с этим email существует, мы отправили ссылку восстановления.'
+        : mode === 'change' ? 'Пароль изменён. Войдите заново с новым паролем'
         : 'Пароль изменён. При следующем входе используйте новый пароль.'}</p>
         : mode === 'reset' && !token ? <p role="alert">В ссылке отсутствует токен. <Link to="/forgot-password">Запросить новую ссылку</Link></p>
         : <form className={styles.form} onSubmit={submit}>

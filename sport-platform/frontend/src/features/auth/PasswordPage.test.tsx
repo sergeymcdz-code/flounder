@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { http, HttpResponse } from 'msw'
 import { server } from '../../test/setup'
 import { AuthProvider } from '../../app/providers/AuthProvider'
-import { setAuthSession } from '../../api/auth-session'
+import { getAuthState, setAuthSession } from '../../api/auth-session'
 import { PasswordPage } from './PasswordPage'
 
 vi.hoisted(() => { vi.stubEnv('VITE_API_BASE_URL', 'http://localhost') })
@@ -94,4 +94,24 @@ it('sends current and new passwords with authentication and displays mismatch er
 it('redirects anonymous password changes to login', async () => {
   page('change', '/account/password')
   expect(await screen.findByText('Страница входа')).toBeInTheDocument()
+})
+
+it('signs out after changing the password and keeps the success message visible', async () => {
+  setAuthSession({ accessToken: 'access', refreshToken: 'revoked-refresh', tokenType: 'Bearer', expiresAt: Date.now() + 100000 })
+  let revoked: unknown
+  server.use(
+    http.post('*/api/v1/auth/change-password', () => new HttpResponse(null, { status: 204 })),
+    http.post('*/api/v1/auth/logout', async ({ request }) => {
+      revoked = await request.json(); return new HttpResponse(null, { status: 204 })
+    }),
+  )
+  page('change', '/account/password')
+  await userEvent.type(screen.getByLabelText('Текущий пароль'), 'Initial123!')
+  await passwords('Changed123!')
+  await userEvent.click(screen.getByRole('button', { name: 'Сохранить пароль' }))
+  expect(await screen.findByRole('status')).toHaveTextContent('Пароль изменён. Войдите заново с новым паролем')
+  await vi.waitFor(() => expect(revoked).toEqual({ refreshToken: 'revoked-refresh' }))
+  expect(getAuthState().session).toBeNull()
+  expect(sessionStorage.getItem('flounder.auth-session')).toBeNull()
+  expect(screen.queryByText('Страница входа')).not.toBeInTheDocument()
 })

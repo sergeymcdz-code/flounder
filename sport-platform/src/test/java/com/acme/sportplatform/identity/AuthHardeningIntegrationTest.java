@@ -167,6 +167,18 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "1"));
         now = now.plusSeconds(1);
         login();
+        // Change IPs to isolate the email counter; success must not clear IP failures.
+        for (int i = 0; i < 4; i++)
+            send("/login", Map.of("email", email.toUpperCase(Locale.ROOT), "password", "wrong"), null, "198.51.100." + (10 + i))
+                    .andExpect(status().isUnauthorized());
+        login();
+        for (int i = 0; i < 4; i++)
+            send("/login", Map.of("email", email, "password", "wrong"), null, "198.51.100." + (20 + i))
+                    .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.invalid_credentials"));
+        // Five recorded failures are allowed; the following attempt is rate-limited.
+        send("/login", Map.of("email", email, "password", "wrong"), null, "198.51.100.24").andExpect(status().isUnauthorized());
+        send("/login", Map.of("email", email, "password", PASSWORD), null, "198.51.100.25")
+                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "900"));
     }
 
     @Test
@@ -191,11 +203,50 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         JsonNode rotated = body(send("/refresh", Map.of("refreshToken", first.get("refreshToken").asText()), null, ip)
                 .andExpect(status().isOk()).andReturn());
         assertThat(rotated.get("refreshToken").asText()).isNotEqualTo(first.get("refreshToken").asText());
-        invalidRefresh(first.get("refreshToken").asText());
+        assertThat(jdbc.queryForObject("select revoked_at from refresh_tokens where token_hash=?", OffsetDateTime.class,
+                OpaqueTokens.hash(first.get("refreshToken").asText()))).isNotNull();
         send("/logout", Map.of("refreshToken", rotated.get("refreshToken").asText()), null, ip).andExpect(status().isNoContent());
         send("/logout", Map.of("refreshToken", rotated.get("refreshToken").asText()), null, ip).andExpect(status().isNoContent());
-        invalidRefresh(rotated.get("refreshToken").asText());
         send("/refresh", Map.of("refreshToken", second.get("refreshToken").asText()), null, ip).andExpect(status().isOk());
+        // Presenting a revoked token afterwards triggers reuse detection across all devices.
+        invalidRefresh(rotated.get("refreshToken").asText());
+    }
+
+    @Test
+    void reusedRefreshRevokesTheRotatedTokenAndOtherDevicesDespiteReturning401() throws Exception {
+        JsonNode original = login(), otherDevice = login();
+        JsonNode rotated = body(send("/refresh", Map.of("refreshToken", original.get("refreshToken").asText()), null, ip)
+                .andExpect(status().isOk()).andReturn());
+        invalidRefresh(original.get("refreshToken").asText());
+        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where user_id=? and revoked_at is null", Integer.class, userId)).isZero();
+        invalidRefresh(rotated.get("refreshToken").asText());
+        invalidRefresh(otherDevice.get("refreshToken").asText());
+    }
+
+    @Test
+    void successfulLoginDoesNotClearIpFailures() throws Exception {
+        for (int i = 0; i < 4; i++)
+            send("/login", Map.of("email", "unknown" + i + "@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
+        login();
+        send("/login", Map.of("email", "fifth@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
+        send("/login", Map.of("email", email, "password", PASSWORD), null, ip).andExpect(status().isTooManyRequests());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {" "})
+    void emptyNewPasswordsHaveRussianValidationMessagesWithoutConsumingReset(String password) throws Exception {
+        JsonNode pair = login();
+        var request = new HashMap<String, String>();
+        request.put("currentPassword", PASSWORD); request.put("newPassword", password);
+        send("/change-password", request, pair.get("accessToken").asText(), ip).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation_error"))
+                .andExpect(jsonPath("$.violations[0].message").value("Укажите новый пароль"));
+        requestReset();
+        request.remove("currentPassword"); request.put("token", resetToken);
+        send("/password-reset/confirm", request, null, ip).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].message").value("Укажите новый пароль"));
+        send("/password-reset/confirm", Map.of("token", resetToken, "newPassword", "Reset123!"), null, ip).andExpect(status().isNoContent());
     }
 
     @Test
@@ -235,7 +286,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     void concurrentRefreshHasOnlyOneWinner() throws Exception {
         String raw = login().get("refreshToken").asText();
         assertThat(race("/refresh", Map.of("refreshToken", raw))).containsExactlyInAnyOrder(200, 401);
-        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where user_id=? and revoked_at is null", Integer.class, userId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where user_id=? and revoked_at is null", Integer.class, userId)).isZero();
     }
 
     @Test

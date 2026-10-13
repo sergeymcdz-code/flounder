@@ -11,12 +11,14 @@ export class ApiError extends Error {
   public readonly status: number
   public readonly code?: string
   public readonly violations: FieldViolation[]
+  public readonly retryAfter?: number
 
   constructor(
     status: number,
     message: string,
     code?: string,
     violations: FieldViolation[] = [],
+    retryAfter?: number,
   ) {
     super(message)
 
@@ -24,6 +26,7 @@ export class ApiError extends Error {
     this.status = status
     this.code = code
     this.violations = violations ?? []
+    this.retryAfter = retryAfter
   }
 }
 
@@ -80,6 +83,7 @@ export async function apiFetch<T>(
       payload?.message ?? `Ошибка запроса: HTTP ${response.status}`,
       payload?.code,
       payload?.violations,
+      retryAfterSeconds(response),
     )
   }
 
@@ -94,6 +98,13 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const value = response.headers.get('Retry-After')
+  if (!value || !/^\d+$/.test(value)) return undefined
+  const seconds = Number(value)
+  return Number.isFinite(seconds) ? seconds : undefined
 }
 
 let refreshInFlight: Promise<string> | null = null
@@ -153,7 +164,7 @@ export async function apiDownload(path: string, accessToken: string): Promise<Bl
   if (!response.ok) {
     const payload = await response.json().catch(() => ({})) as ApiErrorResponse
     throw new ApiError(
-      response.status, payload.message ?? 'Не удалось скачать шаблон.', payload.code, payload.violations,
+      response.status, payload.message ?? 'Не удалось скачать шаблон.', payload.code, payload.violations, retryAfterSeconds(response),
     )
   }
   return response.blob()
