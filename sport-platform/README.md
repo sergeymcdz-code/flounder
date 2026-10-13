@@ -358,9 +358,10 @@ FINISHED. Исправления CORRECTED и аудит RANKING применя�
 | `/api/v1/auth/logout-all` | без тела | Bearer access, 204 |
 
 Ссылки «Забыли пароль?» и «Сменить пароль» ведут на `/forgot-password`,
-`/reset-password?token=…` и `/account/password`. Пока нет notifications/SMTP,
-`LoggingMailSender` пишет письмо и ссылку в INFO с пометкой DEV; открывать ссылку из
-лога нужно на адресе `APP_PUBLIC_URL` (по умолчанию `http://localhost:5173`).
+`/reset-password?token=…` и `/account/password`. Уведомление восстановления сохраняется
+в outbox; при MAIL_ENABLED=false адресат и тема выводятся в INFO с пометкой DEV,
+тело и ссылка — только в DEBUG логгера notifications. Открывать ссылку нужно на
+адресе `APP_PUBLIC_URL` (по умолчанию `http://localhost:5173`).
 Reset-ссылки действуют час и используются один раз; новый запрос заменяет прежнюю ссылку.
 Новый пароль: минимум 8 символов, буквы и цифры, максимум 72 UTF-8 байта (bcrypt).
 
@@ -397,7 +398,7 @@ Caddy (docker-сеть входит в `internal-proxies`); `getRemoteAddr()` в
 присланный клиентом заголовок не доверяется. Код обработки IP не менялся.
 
 В `infra/compose.prod.yaml` API получает `APP_PUBLIC_URL` из окружения с fallback
-`https://${DOMAIN}`. В примере production env указано `APP_PUBLIC_URL=https://sportgate.pro`.
+`https://${DOMAIN}`. В примере production env APP_PUBLIC_URL оставлен пустым; значение задаётся на стенде.
 Изменения M02 предназначены для слияния и деплоя после демо 15.10.2026 (с 16.10).
 
 ### E-mail уведомления (M05)

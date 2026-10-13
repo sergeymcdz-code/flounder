@@ -16,6 +16,7 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -38,6 +39,8 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     @Autowired NotificationOutboxRepository outbox;
     @Autowired NotificationWorker worker;
     @Autowired MailSender mail;
+    @Autowired org.springframework.context.ApplicationContext context;
+    @Autowired com.acme.sportplatform.identity.application.PasswordService passwords;
     @Autowired ReviewRegistrationUseCase review;
     @Autowired CreateRegistrationUseCase create;
     @Autowired PublishCompetitionUnitUseCase publishResults;
@@ -49,6 +52,13 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         now = Instant.now();
         when(clock.instant()).thenAnswer(i -> now);
         when(sender.createMimeMessage()).thenAnswer(i -> new MimeMessage(Session.getInstance(new Properties())));
+    }
+    void commitQueue() {
+        TestTransaction.flagForCommit(); TestTransaction.end(); TestTransaction.start();
+    }
+    @AfterEach void clearCommittedQueue() {
+        if (TestTransaction.isActive()) { TestTransaction.flagForRollback(); TestTransaction.end(); }
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> jdbc.update("delete from notification_outbox"));
     }
     long count() { return jdbc.queryForObject("select count(*) from notification_outbox where event_id=?", Long.class, id("event")); }
     void confirmed() { publisher.publishEvent(new RegistrationConfirmedEvent(id("registration"))); }
@@ -87,9 +97,9 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(count()).isEqualTo(1);
     }
     @Test void loggingDeliveryKeepsOutboxWithoutSmtp() {
-        confirmed();
+        confirmed(); commitQueue();
         var loggingTransport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false), sender, new LoggingMailSender());
-        new NotificationWorker(outbox, new MailTemplateRenderer(), loggingTransport, clock).sendBatch();
+        new NotificationWorker(outbox, new MailTemplateRenderer(), loggingTransport, clock, transactionManager).sendBatch();
         verifyNoInteractions(sender);
         assertThat(jdbc.queryForObject("select status from notification_outbox where event_id=?", String.class, id("event"))).isEqualTo("SENT");
     }
@@ -117,16 +127,105 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(count()).isEqualTo(1);
     }
     @Test void publicationOfResultsQueuesOnlyDisciplineRecipients() {
+        ids.put("secondRegistration", UUID.randomUUID().toString());
+        ids.put("noHeatRegistration", UUID.randomUUID().toString());
+        ids.put("noHeatProfile", UUID.randomUUID().toString());
+        ids.put("secondUnit", UUID.randomUUID().toString());
+        ids.put("secondEntry", UUID.randomUUID().toString());
+        registration("secondRegistration", "event", "discipline", "foreignProfile", "target");
+        profile("noHeatProfile", "judge");
+        registration("noHeatRegistration", "event", "discipline", "noHeatProfile", "judge");
+        jdbc.update("insert into competition_units(id,event_discipline_id,label,sequence_number,status) values (?,?,'Второй заплыв',2,'PUBLISHED')",
+                id("secondUnit"), id("discipline"));
+        entry("secondEntry", "secondUnit", "secondRegistration");
         jdbc.update("update competition_units set status='PUBLISHED' where id=?", id("unit"));
         publishResults.execute(id("unit"), true);
+        assertThat(jdbc.queryForList("select recipient_email from notification_outbox where event_id=?", String.class, id("event")))
+                .containsExactly(ids.get("participantEmail"));
+        assertThat(jdbc.queryForObject("select delivery_key from notification_outbox where event_id=?", String.class, id("event")))
+                .isEqualTo("results_published:" + id("unit") + ":" + ids.get("participantEmail"));
+        publishResults.execute(id("unit"), false);
+        publishResults.execute(id("unit"), true);
         assertThat(count()).isEqualTo(1);
-        assertThat(jdbc.queryForObject("select template_code from notification_outbox where event_id=?", String.class, id("event")))
-                .isEqualTo("results_published");
-        publisher.publishEvent(new ResultsPublishedEvent(UUID.randomUUID(), UUID.randomUUID()));
-        assertThat(count()).isEqualTo(1);
+        publishResults.execute(id("secondUnit"), true);
+        assertThat(jdbc.queryForList("select recipient_email from notification_outbox where event_id=?", String.class, id("event")))
+                .containsExactlyInAnyOrder(ids.get("participantEmail"), "target-" + ids.get("event") + "@qa04.example");
+        publisher.publishEvent(new ResultsPublishedEvent(UUID.randomUUID(), UUID.randomUUID(), List.of(id("noHeatRegistration"))));
+        assertThat(count()).isEqualTo(2);
+    }
+    @Test void eventDatesUseSystemZoneAndRussianMonthAcrossUtcMidnight() {
+        var previous = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Samara"));
+            jdbc.update("update events set event_start_at=?::timestamptz,event_end_at=?::timestamptz where id=?",
+                    "2026-10-18T20:30:00Z", "2026-10-19T21:00:00Z", id("event"));
+            confirmed();
+            assertThat(jdbc.queryForObject("select payload->>'date' from notification_outbox where event_id=?", String.class, id("event")))
+                    .isEqualTo("19 октября 2026");
+        } finally { TimeZone.setDefault(previous); }
+    }
+    @Test void sentResetPayloadIsErased() {
+        mail.send("payload@example.org", "Восстановление пароля", "Ссылка: /reset-password?token=test-reset-token");
+        commitQueue(); worker.sendBatch();
+        assertThat(jdbc.queryForObject("select payload::text from notification_outbox where recipient_email='payload@example.org'", String.class))
+                .isEqualTo("{}").doesNotContain("token=");
+    }
+    @Test void failedResetPayloadSurvivesRetriesAndIsErasedOnFinalFailure() {
+        mail.send("failed@example.org", "Восстановление пароля", "Ссылка: /reset-password?token=test-reset-token");
+        commitQueue();
+        doThrow(new MailSendException("secret")).when(sender).send(any(MimeMessage.class));
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            worker.sendBatch();
+            String payload = jdbc.queryForObject("select payload::text from notification_outbox where recipient_email='failed@example.org'", String.class);
+            if (attempt < 5) assertThat(payload).contains("token=test-reset-token");
+            else assertThat(payload).isEqualTo("{}").doesNotContain("token=");
+            now = now.plusSeconds(10L * (1L << (attempt - 1)));
+        }
+        assertThat(jdbc.queryForObject("select status from notification_outbox where recipient_email='failed@example.org'", String.class)).isEqualTo("FAILED");
+    }
+    @Test void actualPasswordResetUsesTheOnlyMailSenderAndErasesPayloadAfterDelivery() {
+        assertThat(context.getBeansOfType(MailSender.class)).hasSize(1);
+        passwords.requestReset(ids.get("participantEmail"));
+        var pending = jdbc.queryForMap("select template_code,payload::text,event_id,status from notification_outbox where recipient_email=?", ids.get("participantEmail"));
+        assertThat(pending).containsEntry("template_code", "password_reset").containsEntry("event_id", null).containsEntry("status", "PENDING");
+        assertThat(pending.get("payload").toString()).contains("/reset-password?token=");
+        commitQueue();
+        var logging = new LoggingMailSender();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(LoggingMailSender.class);
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start(); logger.addAppender(appender);
+        try {
+            var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false), sender, logging);
+            new NotificationWorker(outbox, new MailTemplateRenderer(), transport, clock, transactionManager).sendBatch();
+            verifyNoInteractions(sender);
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.getFirst().getFormattedMessage()).contains("Восстановление пароля Flounder").doesNotContain("token=");
+        } finally { logger.detachAppender(appender); }
+        var sent = jdbc.queryForMap("select status,payload::text from notification_outbox where recipient_email=?", ids.get("participantEmail"));
+        assertThat(sent).containsEntry("status", "SENT").containsEntry("payload", "{}");
+    }
+    @Test void failureMarkingLaterRowDoesNotRollBackEarlierDelivery() {
+        mail.send("first@example.org", "Восстановление пароля", "token=first");
+        mail.send("second@example.org", "Восстановление пароля", "token=second");
+        commitQueue();
+        var ids = outbox.dueBatch(now);
+        var crashing = new NotificationOutboxRepository(jdbc, json) {
+            @Override public void sent(UUID id, Instant at) {
+                if (id.equals(ids.get(1))) throw new org.springframework.dao.DataAccessResourceFailureException("simulated mark failure");
+                super.sent(id, at);
+            }
+        };
+        var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", true), sender, new LoggingMailSender());
+        var crashingWorker = new NotificationWorker(crashing, new MailTemplateRenderer(), transport, clock, transactionManager);
+        assertThatThrownBy(crashingWorker::sendBatch).isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
+        assertThat(jdbc.queryForMap("select status,payload::text from notification_outbox where id=?", ids.get(0)))
+                .containsEntry("status", "SENT").containsEntry("payload", "{}");
+        assertThat(jdbc.queryForObject("select status from notification_outbox where id=?", String.class, ids.get(1))).isEqualTo("PENDING");
+        worker.sendBatch();
+        verify(sender, times(3)).send(any(MimeMessage.class));
     }
     @Test void workerSendsUtf8MultipartThroughJavaMailSender() throws Exception {
-        confirmed(); worker.sendBatch();
+        confirmed(); commitQueue(); worker.sendBatch();
         var message = org.mockito.ArgumentCaptor.forClass(MimeMessage.class);
         verify(sender).send(message.capture());
         assertThat(message.getValue().getSubject()).isEqualTo("Заявка подтверждена");
@@ -139,7 +238,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
                 .containsEntry("status", "SENT").containsEntry("attempts", 1).containsEntry("last_error", null);
     }
     @Test void retriesBackOffAndFailOnFifthAttemptWithoutLeakingSmtpError() {
-        confirmed();
+        confirmed(); commitQueue();
         doThrow(new MailSendException("secret-reset-token mail body password")).when(sender).send(any(MimeMessage.class));
         for (int attempt = 1; attempt <= 5; attempt++) {
             worker.sendBatch();
@@ -154,6 +253,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     }
     @Test void workerBatchIsLimitedToFiftyAndContinuesAfterFailure() {
         for (int n = 0; n < 51; n++) mail.send("batch@example.org", "Восстановление пароля Flounder", "Тестовое письмо " + n);
+        commitQueue();
         doThrow(new MailSendException("test")).doNothing().when(sender).send(any(MimeMessage.class));
         worker.sendBatch(); verify(sender, times(50)).send(any(MimeMessage.class));
         assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email='batch@example.org'", Long.class)).isEqualTo(49);

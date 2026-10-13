@@ -10,6 +10,8 @@ import com.acme.sportplatform.results.ResultsPublishedEvent;
 import com.acme.sportplatform.scheduling.StartListPublishedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,20 +55,30 @@ public class NotificationEventListener {
     @EventListener
     public void results(ResultsPublishedEvent e) {
         disciplines.findById(e.disciplineId()).ifPresent(d -> broadcast(d.eventId(),
-                registrations.findByDisciplineId(e.disciplineId()), NotificationTemplate.results_published, e.publicationId()));
+                registrations.findByIdIn(e.registrationIds()).stream()
+                        .filter(r -> e.disciplineId().equals(r.eventDisciplineId())).toList(),
+                NotificationTemplate.results_published, e.competitionUnitId()));
     }
     private void registration(UUID id, NotificationTemplate template, String reason) {
         registrations.findById(id).ifPresent(r -> events.findNotificationContext(r.eventId()).ifPresent(event -> {
+            if (!settings.enabled(event.organizationId(), template.name())) return;
             var user = recipient(r);
             user.ifPresent(u -> enqueue(event, r, u, template, reason, UUID.randomUUID().toString()));
         }));
     }
     private void broadcast(UUID eventId, List<RegistrationLookupResult> rows, NotificationTemplate template, UUID publicationId) {
         events.findNotificationContext(eventId).ifPresent(event -> {
+            if (!settings.enabled(event.organizationId(), template.name())) return;
+            var eligible = rows.stream().filter(r -> eventId.equals(r.eventId())
+                    && Set.of("CONFIRMED", "PAID", "ADMITTED").contains(r.status())).toList();
+            var userIds = eligible.stream().map(RegistrationLookupResult::participantUserId)
+                    .filter(Objects::nonNull).distinct().toList();
+            var recipients = new HashMap<UUID, UserLookup.User>();
+            if (!userIds.isEmpty()) users.findAllByIds(userIds).forEach(u -> recipients.put(u.id(), u));
             Set<String> sent = new HashSet<>();
-            for (var r : rows) {
-                if (!Set.of("CONFIRMED", "PAID", "ADMITTED").contains(r.status())) continue;
-                recipient(r).ifPresent(u -> {
+            for (var r : eligible) {
+                Optional.ofNullable(recipients.get(r.participantUserId()))
+                        .filter(u -> u.email() != null && !u.email().isBlank()).ifPresent(u -> {
                     String email = u.email().toLowerCase(Locale.ROOT);
                     if (sent.add(email)) enqueue(event, r, u, template, "", publicationId + ":" + email);
                 });
@@ -80,7 +92,6 @@ public class NotificationEventListener {
     }
     private void enqueue(NotificationEventLookup.Context event, RegistrationLookupResult registration, UserLookup.User user,
                          NotificationTemplate template, String reason, String key) {
-        if (!settings.enabled(event.organizationId(), template.name())) return;
         var payload = new HashMap<String, Object>();
         String name = user.firstName() == null ? "Участник" : user.firstName();
         try {
@@ -88,7 +99,8 @@ public class NotificationEventListener {
             name = snapshot.path("firstName").asText(name);
         } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException ignored) { }
         payload.put("name", name); payload.put("event", event.title());
-        payload.put("date", event.startsAt() == null ? "" : event.startsAt().toLocalDate().toString());
+        payload.put("date", event.startsAt() == null ? "" : event.startsAt().atZoneSameInstant(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))));
         payload.put("reason", reason == null ? "Причина не указана" : reason);
         String base = publicUrl + (event.publicSlug() == null ? "" : "/e/" + event.publicSlug());
         payload.put("link", base + (template == NotificationTemplate.start_list_published ? "/start-list"

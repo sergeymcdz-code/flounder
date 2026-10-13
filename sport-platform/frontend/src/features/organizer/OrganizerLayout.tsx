@@ -8,7 +8,6 @@ type NavigationItem = {
 }
 
 const navigationItems: NavigationItem[] = [
-  { to: '/organizer/notification-settings', label: 'Настройки уведомлений' },
   {
     to: '/organizer',
     label: 'Обзор',
@@ -27,6 +26,7 @@ const navigationItems: NavigationItem[] = [
     to: '/organizer/regulations/create',
     label: 'Регламенты',
   },
+  { to: '/organizer/notification-settings', label: 'Настройки уведомлений' },
 ]
 
 export function OrganizerLayout() {

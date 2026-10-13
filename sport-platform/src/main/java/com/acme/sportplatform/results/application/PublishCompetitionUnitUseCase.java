@@ -109,7 +109,8 @@ public class PublishCompetitionUnitUseCase {
         unit.setUpdatedAt(OffsetDateTime.now());
         // M07: set actual_finished_at here on the first transition to FINISHED.
         publisher.publishEvent(new com.acme.sportplatform.results.ResultsPublishedEvent(
-                UUID.randomUUID(), unit.getEventDisciplineId()));
+                unitId, unit.getEventDisciplineId(), entries.stream()
+                        .map(CompetitionUnitEntryEntity::getRegistrationId).toList()));
     }
 
     private void validateResultForPublication(ResultEntity result) {

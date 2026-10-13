@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -27,27 +28,36 @@ public class NotificationOutboxRepository {
                     Timestamp.from(now), Timestamp.from(now));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalArgumentException("Invalid mail payload", e); }
     }
-    // Call only inside the worker transaction; locks prevent two workers sending the same row concurrently.
-    public List<Pending> lockBatch(Instant now) {
+    public List<UUID> dueBatch(Instant now) {
         return jdbc.query("""
-                select id,recipient_email,template_code,payload,attempts from notification_outbox
+                select id from notification_outbox
                 where status='PENDING' and next_attempt_at<=? and attempts<5
-                order by created_at,id limit 50 for update skip locked
+                order by created_at,id limit 50
+                """, (rs, n) -> rs.getObject("id", UUID.class), Timestamp.from(now));
+    }
+    // Recheck eligibility while locking one row in its delivery transaction.
+    public Optional<Pending> lockPending(UUID id, Instant now) {
+        var rows = jdbc.query("""
+                select id,recipient_email,template_code,payload,attempts from notification_outbox
+                where id=? and status='PENDING' and next_attempt_at<=? and attempts<5
+                for update skip locked
                 """, (rs, n) -> {
                     try {
                         return new Pending(rs.getObject("id", UUID.class), rs.getString("recipient_email"),
                                 rs.getString("template_code"), json.readValue(rs.getString("payload"), new TypeReference<>() {}),
                                 rs.getInt("attempts"));
                     } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new java.sql.SQLException("Invalid mail payload", e); }
-                }, Timestamp.from(now));
+                }, id, Timestamp.from(now));
+        return rows.stream().findFirst();
     }
     public void sent(UUID id, Instant now) {
-        jdbc.update("update notification_outbox set status='SENT',attempts=attempts+1,sent_at=?,last_error=null where id=?",
+        jdbc.update("update notification_outbox set status='SENT',attempts=attempts+1,sent_at=?,last_error=null,payload='{}'::jsonb where id=?",
                 Timestamp.from(now), id);
     }
     public void failed(Pending row, Instant now, String safeError) {
         int attempt = row.attempts() + 1;
-        jdbc.update("update notification_outbox set attempts=?,status=?,last_error=?,next_attempt_at=? where id=?",
+        jdbc.update("update notification_outbox set attempts=?,status=?,last_error=?,next_attempt_at=?"
+                        + (attempt >= 5 ? ",payload='{}'::jsonb" : "") + " where id=?",
                 attempt, attempt >= 5 ? "FAILED" : "PENDING", safeError,
                 Timestamp.from(now.plusSeconds(10L * (1L << (attempt - 1)))), row.id());
     }
