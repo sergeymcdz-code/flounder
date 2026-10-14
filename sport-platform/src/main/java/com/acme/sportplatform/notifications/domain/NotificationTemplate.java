@@ -10,7 +10,7 @@ public enum NotificationTemplate {
     registration_rejected("Заявка отклонена"),
     start_list_published("Стартовый протокол опубликован"),
     results_published("Результаты опубликованы"),
-    password_reset("Восстановление пароля Flounder");
+    password_reset("Восстановление пароля SportGate");
 
     private final String subject;
     NotificationTemplate(String subject) { this.subject = subject; }

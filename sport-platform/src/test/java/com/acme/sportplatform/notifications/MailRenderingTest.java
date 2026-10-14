@@ -19,6 +19,8 @@ class MailRenderingTest {
         for (var template : NotificationTemplate.values()) {
             var message = renderer.render(template, payload);
             assertThat(message.subject()).isNotBlank();
+            assertThat(message.text()).contains("Команда SportGate", "SportGate · sportgate.pro").doesNotContain("Flounder");
+            assertThat(message.html()).contains("Команда SportGate", "SportGate · sportgate.pro").doesNotContain("Flounder");
             assertThat(message.text()).contains(template == NotificationTemplate.password_reset ? "Ссылка восстановления" : "Иван");
             assertThat(message.html()).doesNotContain("<script>", "th:text", "[[${");
         }

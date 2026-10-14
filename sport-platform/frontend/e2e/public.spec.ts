@@ -102,7 +102,7 @@ test('surname search, auto print and legacy redirect', async ({ page }) => {
       ;(window as unknown as { printCalls: number }).printCalls++
     }
   })
-  await page.getByRole('link', { name: 'Flounder', exact: true }).click()
+  await page.getByRole('link', { name: 'SportGate', exact: true }).click()
   await page.getByRole('link', { name: /Стартовый протокол →/ }).click()
   await page.evaluate(() => history.replaceState(null, '', '?print=1'))
   // A full navigation requires reinstalling the print spy before app bootstrap.
@@ -189,9 +189,11 @@ test('production PWA caches shell and live API and reloads offline', async ({
   expect(await page.locator('link[rel=icon]').getAttribute('href')).toBe(
     manifest.icons[0].src,
   )
-  await expect(page).toHaveTitle(/Flounder/)
+  await expect(page).toHaveTitle(/SportGate/)
   expect(manifest).toMatchObject({
-    name: 'Flounder',
+    name: 'SportGate',
+    short_name: 'SportGate',
+    description: 'SportGate — расписание, заплывы и результаты соревнований по плаванию',
     lang: 'ru',
     display: 'standalone',
     theme_color: '#182126',
@@ -201,9 +203,14 @@ test('production PWA caches shell and live API and reloads offline', async ({
       ['192x192', '512x512'].includes(icon.sizes),
     ),
   ).toHaveLength(3)
+  for (const icon of manifest.icons) {
+    expect(icon.src).toMatch(/^\/icons\/sportgate-/)
+    expect((await page.request.get(`http://localhost:5175${icon.src}`)).ok()).toBe(true)
+  }
+  await expect(page.getByRole('contentinfo')).toHaveText('SportGate · sportgate.pro')
   await page.goto('http://localhost:5175/')
   await expect(
-    page.getByRole('heading', { name: 'Осенний кубок Flounder' }),
+    page.getByRole('heading', { name: 'Осенний кубок SportGate' }),
   ).toBeVisible()
   await page.getByRole('link', { name: 'Подробнее' }).click()
   await expect(page).toHaveURL('http://localhost:5175/e/demo')

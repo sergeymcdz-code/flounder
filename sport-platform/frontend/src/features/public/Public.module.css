@@ -88,6 +88,12 @@
   color: white;
   background: var(--color-primary);
 }
+.footer {
+  padding: 16px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-align: center;
+}
 .main {
   max-width: 960px;
   margin: 0 auto;

@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 
 @Configuration
-@OpenAPIDefinition(info = @Info(title = "Flounder API", version = "v1"),
+@OpenAPIDefinition(info = @Info(title = "SportGate API", version = "v1"),
         security = @SecurityRequirement(name = "bearerAuth"))
 @SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 public class OpenApiConfig {}

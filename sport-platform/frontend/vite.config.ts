@@ -33,16 +33,16 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         injectRegister: null,
         includeAssets: [
-          'icons/flounder-192.png',
-          'icons/flounder-512.png',
+          'icons/sportgate-192.png',
+          'icons/sportgate-512.png',
           'favicon.svg',
         ],
         manifest: {
-          name: 'Flounder',
-          short_name: 'Flounder',
+          name: 'SportGate',
+          short_name: 'SportGate',
           lang: 'ru',
           description:
-            'Расписание, заплывы и результаты соревнований по плаванию',
+            'SportGate — расписание, заплывы и результаты соревнований по плаванию',
           theme_color: '#182126',
           background_color: '#ffffff',
           display: 'standalone',
@@ -50,19 +50,19 @@ export default defineConfig(({ mode }) => {
           scope: '/',
           icons: [
             {
-              src: '/icons/flounder-192.png',
+              src: '/icons/sportgate-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/icons/flounder-512.png',
+              src: '/icons/sportgate-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/icons/flounder-maskable-512.png',
+              src: '/icons/sportgate-maskable-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',

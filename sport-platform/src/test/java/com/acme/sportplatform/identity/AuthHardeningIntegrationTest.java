@@ -52,7 +52,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         ip = "192.0.2." + SEQUENCE.get();
         resetToken = null;
         doAnswer(call -> {
-            assertThat(call.getArgument(1, String.class)).isEqualTo("Восстановление пароля Flounder");
+            assertThat(call.getArgument(1, String.class)).isEqualTo("Восстановление пароля SportGate");
             String body = call.getArgument(2, String.class);
             assertThat(body).contains("https://auth.example/reset-password?token=");
             resetToken = body.split("token=")[1].split("\\n")[0];

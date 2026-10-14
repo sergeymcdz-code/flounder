@@ -7,7 +7,7 @@ export const demoEvent: PublicEvent = {
   "status": "REGISTRATION_OPEN",
   "registrationOpenAt": "2026-10-10T00:00:00+03:00",
   "registrationCloseAt": "2026-10-14T23:59:00+03:00",
-  "title": "Осенний кубок Flounder",
+  "title": "Осенний кубок SportGate",
   "description": "Демонстрационное соревнование для юношей и девушек 2010–2015 годов рождения.",
   "publicSlug": "demo",
   "eventStartAt": "2026-10-15T10:00:00+03:00",

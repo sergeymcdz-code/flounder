@@ -46,7 +46,7 @@ export function createFixtures() {
     organizationId: DEMO_ORGANIZATION_ID,
     sportId: id(8, 1),
     venueId: id(9, 1),
-    title: 'Осенний кубок Flounder',
+    title: 'Осенний кубок SportGate',
     description: 'Открытые соревнования по плаванию среди юношей и девушек.',
     publicSlug: 'flounder-autumn-2026',
     status: 'DRAFT',

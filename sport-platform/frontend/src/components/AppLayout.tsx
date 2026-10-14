@@ -1,8 +1,13 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../app/providers/AuthProvider'
 import styles from './AppLayout.module.css'
 
 export function AppLayout() {
+  useEffect(() => {
+    document.title = 'SportGate'
+  }, [])
+
   const {
     isAuthenticated,
     isPlatformAdmin,
@@ -37,7 +42,7 @@ export function AppLayout() {
     <div className={styles.shell}>
       <header className={styles.header}>
         <NavLink className={styles.brand} to="/">
-          Flounder
+          SportGate
         </NavLink>
 
         <nav className={styles.navigation} aria-label="Основная навигация">

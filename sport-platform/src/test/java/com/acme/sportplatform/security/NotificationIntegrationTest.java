@@ -199,7 +199,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
             new NotificationWorker(outbox, new MailTemplateRenderer(), transport, clock, transactionManager).sendBatch();
             verifyNoInteractions(sender);
             assertThat(appender.list).hasSize(1);
-            assertThat(appender.list.getFirst().getFormattedMessage()).contains("Восстановление пароля Flounder").doesNotContain("token=");
+            assertThat(appender.list.getFirst().getFormattedMessage()).contains("Восстановление пароля SportGate").doesNotContain("token=");
         } finally { logger.detachAppender(appender); }
         var sent = jdbc.queryForMap("select status,payload::text from notification_outbox where recipient_email=?", ids.get("participantEmail"));
         assertThat(sent).containsEntry("status", "SENT").containsEntry("payload", "{}");
@@ -252,7 +252,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(jdbc.queryForObject("select last_error from notification_outbox where event_id=?", String.class, id("event"))).doesNotContain("secret", "password", "body");
     }
     @Test void workerBatchIsLimitedToFiftyAndContinuesAfterFailure() {
-        for (int n = 0; n < 51; n++) mail.send("batch@example.org", "Восстановление пароля Flounder", "Тестовое письмо " + n);
+        for (int n = 0; n < 51; n++) mail.send("batch@example.org", "Восстановление пароля SportGate", "Тестовое письмо " + n);
         commitQueue();
         doThrow(new MailSendException("test")).doNothing().when(sender).send(any(MimeMessage.class));
         worker.sendBatch(); verify(sender, times(50)).send(any(MimeMessage.class));
