@@ -1,3 +1,4 @@
+import { selectedEvents } from './plan.ts';
 import { existsSync } from 'node:fs';
 import { accounts, demoEventTitle } from './bodies.ts';
 
@@ -18,11 +19,12 @@ export function config(env: NodeJS.ProcessEnv, needsUsers = true) {
     throw new Error('API_URL должен быть HTTP(S) origin без пути /api/v1, пароля и query-параметров.');
   }
   demoEventTitle(env.EVENT_TITLE_SUFFIX);
+  selectedEvents(env.DEMO_EVENTS);
   return {
     requireVenueMeta: env.REQUIRE_VENUE_META === 'true', eventTitleSuffix: env.EVENT_TITLE_SUFFIX ?? '',
     apiUrl: url.origin, adminEmail: required('ADMIN_EMAIL'), adminPassword: required('ADMIN_PASSWORD'),
     passwords: Object.fromEntries(needsUsers ? accounts.map(account => [account.key, required(env[`${account.key}_PASSWORD`] ? `${account.key}_PASSWORD` : 'DEMO_PASSWORD')]) : []),
-    demoDate: env.DEMO_DATE,
+    demoDate: env.DEMO_DATE, demoEvents: env.DEMO_EVENTS,
   };
 }
 export function flags(args: string[], allowed: string[]) {

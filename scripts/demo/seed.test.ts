@@ -1,281 +1,319 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, type Api, type Row } from './api.ts';
 import { accounts } from './bodies.ts';
+import { dataset, demoEvents, eventDates, profileKey, selectedEvents, shiftDate } from './plan.ts';
 import { seed, type SeedOptions } from './seed.ts';
 import { resetPlan } from './reset.ts';
 
-// An in-memory API double checks orchestration without sockets or backend dependencies.
+// Model the existing API state machine; real Excel/API contracts are also checked by test:demo.
 class FakeApi implements Api {
   calls: { method: string; path: string; body: unknown; token?: string }[] = [];
   lists = new Map<string, Row[]>([['/sports', [{ id: 'swim', code: 'swim' }]]]);
   users = new Map<string, Row & { roles: string[] }>([['admin@example.invalid', { id: 'admin', email: 'admin@example.invalid', roles: ['platform_admin'] }]]);
+  profiles = new Map<string, string>();
   imports = 0;
   missingImport = false;
-  openRaceStatus: string | undefined;
   missingSessions = false;
-  supportsVenueMeta = false;
+  supportsVenueMeta = true;
   lowercaseRegulations = false;
+  openRaceStatus: string | undefined;
   private serial = 0;
+  private id() { return `00000000-0000-4000-8000-${String(++this.serial).padStart(12, '0')}`; }
+  private add(path: string, data: Record<string, unknown>) {
+    const row = { ...data, id: this.id() };
+    this.lists.set(path, [...(this.lists.get(path) ?? []), row]);
+    return row as Row;
+  }
+  private registration(event: Row, entry: Awaited<ReturnType<typeof dataset>>['C'][number], status: string) {
+    const key = profileKey(entry.profile);
+    if (!this.profiles.has(key)) this.profiles.set(key, this.id());
+    const discipline = this.lists.get(`/events/${event.id}/disciplines`)!.find(d => d.code === entry.code)!;
+    return this.add(`/events/${event.id}/registrations`, { eventId: event.id, eventDisciplineId: discipline.id,
+      participantProfileId: this.profiles.get(key), participantSnapshot: entry.profile, seedTimeMs: entry.seedTimeMs, status });
+  }
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     this.calls.push({ method, path, body, token });
-    let data = body as Record<string, unknown>;
-    if (method === 'POST' && path === '/venues') {
-      const allowed = ['name', 'countryCode', 'city', 'address', 'timezone', ...(this.supportsVenueMeta ? ['venueMeta'] : [])];
-      // Spring Boot ignores unknown fields on both DTO versions.
-      data = Object.fromEntries(Object.entries(data).filter(([key]) => allowed.includes(key)));
-    }
-    if (method === 'POST' && /^\/organizations\/[^/]+\/members$/.test(path)) {
-      if (!['owner', 'admin', 'member', 'organizer', 'operator', 'judge'].includes(String(data.memberRole))) {
-        throw new ApiError(400, 'organizations.invalid_member_role', method, path);
-      }
-    }
-    if (method === 'POST' && /^\/events\/[^/]+\/disciplines$/.test(path)) {
-      const event = this.lists.get('/events')?.find(row => row.id === path.split('/')[2]);
-      if (!event || !['DRAFT', 'PUBLISHED'].includes(String(event.status))) throw new ApiError(400, 'competition.event_not_editable', method, path);
-    }
+    const data = body as Record<string, unknown>;
+    const all = () => [...this.lists.values()].flat();
     if (path === '/auth/login') {
       if (!this.users.has(String(data.email))) throw new ApiError(400, 'identity.invalid_credentials', method, path);
       return { accessToken: data.email } as T;
     }
     if (path === '/auth/me') return this.users.get(token!) as T;
+    if (path.startsWith('/users?')) return { items: [...this.users.values()] } as T;
     if (path === '/users') {
-      const user = { ...data, id: `user-${++this.serial}`, roles: ['participant'] };
-      this.users.set(String(data.email), user);
-      return user as T;
+      const user = { ...data, id: this.id(), roles: ['participant'] };
+      this.users.set(String(data.email), user); return user as T;
     }
     if (/\/users\/.*\/roles$/.test(path)) {
-      const user = [...this.users.values()].find(user => path === `/users/${user.id}/roles`)!;
-      user.roles.push(String(data.roleCode));
+      this.users.forEach(user => { if (path === `/users/${user.id}/roles`) user.roles.push(String(data.roleCode)); });
       return undefined as T;
     }
+    if (path.endsWith('/sessions') && this.missingSessions) throw new ApiError(404, '', method, path);
     if (path.endsWith('/registrations/import')) {
       if (this.missingImport) throw new ApiError(404, '', method, path);
-      const created = this.imports++ === 0 ? 200 : 0;
-      return { total: 200, created, updated: 200 - created, skipped: 0, errors: [] } as T;
-    }
-    if (path.endsWith('/sessions') && this.missingSessions) throw new ApiError(404, '', method, path);
-    if (/\/(publish|open-registration)$/.test(path)) {
-      const id = path.split('/').at(-2);
-      const row = [...this.lists.values()].flat().find(row => row.id === id)!;
-      if (this.lowercaseRegulations && path.startsWith('/regulation-versions/')) {
-        if (row.status !== 'draft') throw new ApiError(400, 'regulations.invalid_status_transition', method, path);
-        row.status = 'published';
-        return row as T;
+      this.imports++;
+      const event = this.lists.get('/events')!.find(e => e.id === path.split('/')[2])!;
+      const spec = demoEvents.find(spec => String(event.title).startsWith(spec.title))!;
+      const entries = (await dataset('2026-10-19'))[spec.key].filter(entry => !entry.state);
+      let created = 0;
+      for (const entry of entries) {
+        const rows = this.lists.get(`/events/${event.id}/registrations`) ?? [];
+        if (!rows.some(row => profileKey(row.participantSnapshot as never) === profileKey(entry.profile) &&
+          this.lists.get(`/events/${event.id}/disciplines`)!.find(d => d.id === row.eventDisciplineId)?.code === entry.code)) {
+          this.registration(event, entry, 'CONFIRMED'); created++;
+        }
       }
+      return { total: entries.length, created, updated: entries.length - created, skipped: 0, errors: [] } as T;
+    }
+    if (path.startsWith('/public/events/') && path.endsWith('/registrations')) {
+      const event = this.lists.get('/events')!.find(e => e.publicSlug === path.split('/')[3])!;
+      const item = (data.items as { eventDisciplineId: string; seedTimeMs: number }[])[0];
+      const discipline = this.lists.get(`/events/${event.id}/disciplines`)!.find(d => d.id === item.eventDisciplineId)!;
+      const rows = this.lists.get(`/events/${event.id}/registrations`) ?? [];
+      const status = rows.filter(row => row.eventDisciplineId === discipline.id && row.status !== 'NEEDS_CORRECTION').length >= 16 ? 'WAITLISTED' : 'SUBMITTED';
+      return [this.registration(event, { profile: data.profile as never, code: String(discipline.code), seedTimeMs: item.seedTimeMs }, status)] as T;
+    }
+    if (path.endsWith('/review')) {
+      const row = all().find(row => row.id === path.split('/')[2])!;
+      row.status = data.decision; return row as T;
+    }
+    if (path.includes('/documents')) {
+      const base = path.split('?')[0];
+      if (method === 'GET') return (this.lists.get(base) ?? []) as T;
+      return this.add(base, { type: 'MEDICAL_CERT', originalName: 'sportgate-demo-medical.pdf' }) as T;
+    }
+    if (path.endsWith('/generate-competition-units')) {
+      const discipline = all().find(row => row.id === path.split('/')[2])!;
+      const rows = (this.lists.get(`/events/${discipline.eventId}/registrations`) ?? []).filter(row => row.eventDisciplineId === discipline.id);
+      for (let i = 0; i < rows.length; i += 8) {
+        this.add(`/event-disciplines/${discipline.id}/competition-units`, { eventDisciplineId: discipline.id, sequenceNumber: i / 8 + 1, status: 'DRAFT',
+          scheduledAt: `${String(this.lists.get('/events')!.find(e => e.id === discipline.eventId)!.eventStartAt).slice(0, 10)}T${discipline.code?.toString().includes('-50-') ? '10' : '15'}:${String(i).padStart(2, '0')}:00+04:00`,
+          entries: rows.slice(i, i + 8).map(row => ({ entryId: this.id(), registrationId: row.id })) });
+      }
+      return {} as T;
+    }
+    if (path.endsWith('/schedule/recalculate')) return {} as T;
+    if (path.endsWith('/competition-units/publish')) {
+      const eventId = path.split('/')[2];
+      const disciplines = this.lists.get(`/events/${eventId}/disciplines`)!;
+      disciplines.forEach(d => this.lists.get(`/event-disciplines/${d.id}/competition-units`)?.forEach(unit => { unit.status = 'PUBLISHED'; }));
+      return { violations: [] } as T;
+    }
+    if (/^\/competition-units\//.test(path)) {
+      const unit = all().find(row => row.id === path.split('/')[2])!;
+      if (method === 'GET') return unit as T;
+      if (path.endsWith('/start')) unit.status = 'IN_PROGRESS';
+      if (path.endsWith('/finish') || path.endsWith('/publication')) unit.status = 'FINISHED';
+      if (path.endsWith('/results')) {
+        for (const result of body as { competitionUnitEntryId: string; status: string; timeMs: number | null }[]) {
+          const entry = (unit.entries as Row[]).find(e => e.entryId === result.competitionUnitEntryId)!;
+          if (unit.status === 'FINISHED' && token === 'judge@flounder.demo') throw new ApiError(403, '', method, path);
+          entry.resultStatus = unit.status === 'FINISHED' ? 'CORRECTED' : result.status;
+          entry.timeMs = result.timeMs;
+        }
+      }
+      return unit as T;
+    }
+    if (/\/(publish|open-registration|close-registration|complete)$/.test(path)) {
+      const row = all().find(row => row.id === path.split('/').at(-2))!;
       if (path.endsWith('open-registration') && this.openRaceStatus) {
-        row.status = this.openRaceStatus;
-        throw new ApiError(400, 'events.invalid_transition', method, path);
+        row.status = this.openRaceStatus; throw new ApiError(400, 'events.invalid_transition', method, path);
       }
-      row.status = path.endsWith('open-registration') ? 'REGISTRATION_OPEN' : 'PUBLISHED';
+      row.status = path.endsWith('open-registration') ? 'REGISTRATION_OPEN' : path.endsWith('close-registration') ? 'REGISTRATION_CLOSED' : path.endsWith('complete') ? 'COMPLETED' :
+        this.lowercaseRegulations && path.startsWith('/regulation-versions/') ? 'published' : 'PUBLISHED';
       return row as T;
     }
-    if (path.startsWith('/regulation-templates/') && path.endsWith('/versions') && method === 'POST') {
-      const row = { ...data, id: `id-${++this.serial}`, regulationTemplateId: path.split('/')[2], status: this.lowercaseRegulations ? 'draft' : 'DRAFT' };
-      this.lists.set('/regulation-versions', [...(this.lists.get('/regulation-versions') ?? []), row]);
-      return row as T;
-    }
-    if (method === 'GET' && /^\/(venues|organizations|events)\/[^/]+$/.test(path)) {
-      const row = this.lists.get(`/${path.split('/')[1]}`)!.find(row => row.id === path.split('/')[2])!;
-      if (path.startsWith('/venues/')) {
-        const { venueMeta, ...response } = row;
-        return { ...response, ...(this.supportsVenueMeta && venueMeta !== undefined ? { venueMeta } : {}) } as T;
-      }
-      return row as T;
-    }
-    const listPath = path === '/organizer/events' ? '/events' : path;
-    const list = this.lists.get(listPath) ?? [];
-    if (method === 'GET') return list as T;
+    if (path.startsWith('/regulation-templates/') && path.endsWith('/versions'))
+      return this.add('/regulation-versions', { ...data, regulationTemplateId: path.split('/')[2], status: this.lowercaseRegulations ? 'draft' : 'DRAFT' }) as T;
+    if (method === 'GET' && /^\/(venues|organizations|events)\/[^/]+$/.test(path)) return all().find(row => row.id === path.split('/')[2]) as T;
+    if (method === 'GET') return (this.lists.get(path) ?? []) as T;
     if (method === 'POST') {
-      const row = { ...data, id: `id-${++this.serial}`, status: 'DRAFT', publicSlug: 'demo-swim' };
-      list.push(row);
-      this.lists.set(listPath, list);
-      return row as T;
+      if (path === '/venues' && !this.supportsVenueMeta) { const { venueMeta: _meta, ...rest } = data; return this.add(path, rest) as T; }
+      if (/\/events\/[^/]+\/disciplines$/.test(path)) {
+        const event = this.lists.get('/events')!.find(e => e.id === path.split('/')[2])!;
+        if (!['DRAFT', 'PUBLISHED'].includes(String(event.status))) throw new ApiError(400, 'competition.event_not_editable', method, path);
+      }
+      const spec = path === '/events' ? demoEvents.find(s => String(data.title).startsWith(s.title)) : undefined;
+      return this.add(path, { ...data, ...(path.endsWith('/disciplines') ? { eventId: path.split('/')[2] } : {}), status: 'DRAFT', ...(spec ? { publicSlug: spec.slug + (String(data.title).includes('резерв') ? '-backup' : '') } : {}) }) as T;
     }
     throw new Error(`Unimplemented test route: ${method} ${path}`);
   }
 }
 const options: SeedOptions = { adminEmail: 'admin@example.invalid', adminPassword: 'unit-test-password',
-  passwords: Object.fromEntries(accounts.map(account => [account.key, 'unit-test-password'])),
-  now: new Date('2026-10-12T12:00:00Z'), workbook: new Uint8Array([80, 75]), skipImport: false };
+  passwords: Object.fromEntries(accounts.map(account => [account.key, 'unit-test-password'])), demoDate: '2026-10-19',
+  now: new Date('2026-10-14T12:00:00Z'), workbook: new Uint8Array([80, 75]), skipImport: false };
 const quiet = () => {};
-describe('seed and reset orchestration without network', () => {
-  it('QA05: reuses a regulation returned as lowercase published by the real API', async () => {
+describe('dates and profile plan', () => {
+  it('accepts Monday demo dates and uses Samara 10:00 for all three starts', () => {
+    expect(demoEvents.map(event => eventDates('2026-10-19', event).date)).toEqual(['2026-10-11', '2026-10-20', '2026-10-24']);
+    for (const event of demoEvents) expect(eventDates('2026-10-19', event).eventStartAt).toMatch(/T10:00:00\+04:00$/);
+  });
+  it('crosses month/year/leap-day boundaries without using the host timezone', () => {
+    expect(shiftDate('2027-01-03', -8)).toBe('2026-12-26');
+    expect(shiftDate('2028-02-28', 1)).toBe('2028-02-29');
+    expect(shiftDate('2026-12-30', 5)).toBe('2027-01-04');
+    expect(() => shiftDate('2026-02-29', 1)).toThrow();
+  });
+  it('validates event selectors before making requests', () => {
+    expect(selectedEvents('C,A').map(e => e.key)).toEqual(['A', 'C']);
+    for (const value of ['', 'A,A', 'D', 'A,']) expect(() => selectedEvents(value)).toThrow('DEMO_EVENTS');
+  });
+  it('has 300 unique swimmers, 40 shared B/C profiles, 12 clubs and no accidental A overlap', async () => {
+    const data = await dataset('2026-10-19');
+    const keys = (entries: typeof data.A) => new Set(entries.map(entry => profileKey(entry.profile)));
+    const a = keys(data.A), b = keys(data.B), c = keys(data.C);
+    expect([data.A.length, data.B.length, data.C.length]).toEqual([160, 200, 124]);
+    expect(new Set([...a, ...b, ...c]).size).toBe(300);
+    expect([...c].filter(key => b.has(key))).toHaveLength(40);
+    expect([...a].filter(key => b.has(key) || c.has(key))).toEqual([]);
+    expect(new Set(Object.values(data).flat().map(entry => entry.profile.club)).size).toBe(12);
+    expect(new Set(Object.values(data).flat().map(entry => Number(entry.profile.birthDate.slice(0, 4))))).toEqual(new Set([2010, 2011, 2012, 2013, 2014, 2015, 2016]));
+  });
+  it('keeps C within discipline capacity and places exactly four overflow entries on M-50', async () => {
+    const { C } = await dataset('2026-10-19');
+    for (const code of new Set(C.map(entry => entry.code))) expect(C.filter(entry => entry.code === code && !entry.state).length).toBeLessThanOrEqual(16);
+    expect(C.filter(entry => entry.state === 'NEEDS_CORRECTION')).toHaveLength(6);
+    expect(C.filter(entry => entry.state === 'WAITLISTED').map(entry => entry.code)).toEqual(Array(4).fill('M-50-FREE'));
+    expect(C.filter(entry => entry.email === 'sergeymcdz@yandex.ru')).toHaveLength(1);
+  });
+});
+describe('seed and reset API orchestration', () => {
+  it('reruns all three completed plans without duplicate entities, imports, generations or documents', async () => {
     const api = new FakeApi();
     await seed(api, options, quiet);
-    api.lists.get('/regulation-versions')![0].status = 'published';
+    const sizes = [...api.lists].map(([path, rows]) => [path, rows.length]);
     const before = api.calls.length;
-    await seed(api, { ...options, skipImport: true }, quiet);
-    expect(api.calls.slice(before).filter(call => call.method === 'POST' && call.path.startsWith('/regulation-versions/') && call.path.endsWith('/publish'))).toEqual([]);
+    const events = await seed(api, options, quiet);
+    expect(events.map(event => event.status)).toEqual(['COMPLETED', 'REGISTRATION_CLOSED', 'REGISTRATION_OPEN']);
+    expect([...api.lists].map(([path, rows]) => [path, rows.length])).toEqual(sizes);
+    expect(api.calls.slice(before).filter(call => call.method !== 'GET' && call.path !== '/auth/login')).toEqual([]);
+    expect(api.imports).toBe(3);
+    expect(api.profiles.size).toBe(300);
+    expect([...api.lists].filter(([path]) => /documents$/.test(path))).toHaveLength(2);
   });
-  it('warns and opens registration when an explicit DEMO_DATE has already closed', async () => {
-    const api = new FakeApi();
-    const messages: string[] = [];
-    await seed(api, { ...options, demoDate: '2026-10-17', now: new Date('2026-10-18T12:00:00Z'), skipImport: true }, message => messages.push(message));
-    const event = api.lists.get('/events')![0];
-    expect(event.registrationOpenAt).toBe('2026-10-18T11:59:00.000Z');
-    expect(event.registrationCloseAt).toBe('2026-10-18T12:01:00.000Z');
-    expect(messages.some(message => message.includes('WARNING: плановое закрытие регистрации уже наступило'))).toBe(true);
-  });
-  it('QA03-05 reuses published regulations returned in lowercase by the backend', async () => {
-    const api = new FakeApi();
-    api.lowercaseRegulations = true;
-    await seed(api, options, quiet);
-    const sizes = [...api.lists].map(([path, list]) => [path, list.length]);
-    await seed(api, options, quiet);
-    expect([...api.lists].map(([path, list]) => [path, list.length])).toEqual(sizes);
-    expect(api.calls.filter(call => call.method === 'POST' && call.path.startsWith('/regulation-versions/') && call.path.endsWith('/publish'))).toHaveLength(1);
-  });
-  it('reruns without duplicate entities or generation, and imports through multipart', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
-    const sizes = [...api.lists].map(([path, list]) => [path, list.length]);
-    await seed(api, options, quiet);
-    expect([...api.lists].map(([path, list]) => [path, list.length])).toEqual(sizes);
-    expect(api.users.size).toBe(5);
-    expect(api.imports).toBe(2);
+  it.each(['A', 'B', 'C'])('seeds only the selected event %s', async key => {
+    const api = new FakeApi(); await seed(api, { ...options, demoEvents: key }, quiet);
     expect(api.lists.get('/events')).toHaveLength(1);
-    expect(api.calls.some(call => /generate-competition-units|schedule\/recalculate/.test(call.path))).toBe(false);
+    expect(api.lists.get('/events')![0].title).toBe(demoEvents.find(e => e.key === key)!.title);
+  });
+  it('keeps profiles shared when B and C are seeded in either order', async () => {
+    for (const order of [['B', 'C'], ['C', 'B']]) {
+      const api = new FakeApi();
+      for (const demoEvents of order) await seed(api, { ...options, demoEvents }, quiet);
+      expect(api.profiles.size).toBe(204);
+    }
+  });
+  it('uses judge API for initial results and operator API for two published corrections', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, demoEvents: 'A' }, quiet);
+    const results = api.calls.filter(call => call.path.endsWith('/results') && call.method === 'POST');
+    expect(results.filter(call => call.token === 'sec@flounder.demo')).toHaveLength(2);
+    expect(results.filter(call => call.token === 'judge@flounder.demo').length).toBeGreaterThan(0);
+    expect(api.calls.some(call => call.path.endsWith('/finish'))).toBe(true);
     expect(api.calls.filter(call => call.path.endsWith('/registrations/import')).every(call => call.body instanceof FormData)).toBe(true);
-    expect(api.calls.find(call => call.path === '/events' && call.method === 'POST')?.token).toBe('org@flounder.demo');
   });
-  it('resumes after missing T03 and lets --skip-import bypass only import', async () => {
-    const api = new FakeApi();
-    api.missingSessions = true;
-    await expect(seed(api, { ...options, skipImport: true }, quiet)).rejects.toThrow('Эндпоинт не найден');
-    api.missingSessions = false;
-    api.missingImport = true;
-    await expect(seed(api, options, quiet)).rejects.toThrow('--skip-import');
+  it('finishes exactly the first two B heats and leaves the others published', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, demoEvents: 'B' }, quiet);
+    const units = [...api.lists].filter(([path]) => path.endsWith('/competition-units')).flatMap(([, rows]) => rows);
+    expect(units.filter(unit => unit.status === 'FINISHED')).toHaveLength(2);
+    expect(units.filter(unit => unit.status === 'PUBLISHED').length).toBeGreaterThan(0);
+  });
+  it.each([false, true])('reuses lowercase published regulations, lowercase create=%s', async lowercaseRegulations => {
+    const api = new FakeApi(); api.lowercaseRegulations = lowercaseRegulations;
     await seed(api, { ...options, skipImport: true }, quiet);
-    expect(api.lists.get('/events')).toHaveLength(1);
+    api.lists.get('/regulation-versions')![0].status = 'published';
+    await seed(api, { ...options, skipImport: true }, quiet);
+    expect(api.calls.filter(c => c.path.startsWith('/regulation-versions/') && c.path.endsWith('/publish'))).toHaveLength(1);
+  });
+  it('resumes after missing sessions and lets --skip-import bypass import only', async () => {
+    const api = new FakeApi(); api.missingSessions = true;
+    await expect(seed(api, { ...options, skipImport: true }, quiet)).rejects.toThrow('Эндпоинт не найден');
+    api.missingSessions = false; api.missingImport = true;
+    await expect(seed(api, options, quiet)).rejects.toThrow('Эндпоинт не найден');
+    await seed(api, { ...options, skipImport: true }, quiet);
+    expect(api.lists.get('/events')).toHaveLength(3);
     expect(api.imports).toBe(0);
-    expect(api.lists.get('/events')![0].status).toBe('REGISTRATION_OPEN');
   });
   it('rejects ambiguous demo objects instead of creating another', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
+    const api = new FakeApi(); await seed(api, { ...options, skipImport: true }, quiet);
     api.lists.get('/events')!.push({ ...api.lists.get('/events')![0], id: 'duplicate' });
     await expect(seed(api, options, quiet)).rejects.toThrow('несколько объектов');
   });
-  it('keeps the existing event date on a later rerun', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
-    await seed(api, { ...options, now: new Date('2026-10-19T12:00:00Z') }, quiet);
-    expect(api.lists.get('/events')![0].eventStartAt).toBe('2026-10-17T10:00:00+04:00');
+  it('requires reset for changed DEMO_DATE and never shifts dates from wall clock time', async () => {
+    const api = new FakeApi(); await seed(api, options, quiet);
+    await seed(api, { ...options, now: new Date('2026-10-20T23:00:00Z') }, quiet);
+    expect(api.lists.get('/events')![0].eventStartAt).toBe('2026-10-11T10:00:00+04:00');
     await expect(seed(api, { ...options, demoDate: '2026-10-24' }, quiet)).rejects.toThrow('DEMO_DATE отличается');
   });
-  it('continues to import without venueMeta, with valid T01 membership roles', async () => {
-    const api = new FakeApi();
-    const messages: string[] = [];
-    await seed(api, options, message => messages.push(message));
-    expect(api.imports).toBe(1);
+  it('continues without venueMeta with a warning and valid membership roles', async () => {
+    const api = new FakeApi(); api.supportsVenueMeta = false; const messages: string[] = [];
+    await seed(api, { ...options, skipImport: true }, msg => messages.push(msg));
     expect(messages.join()).toContain('WARNING');
-    expect(messages.join()).toContain('8 дорожек по умолчанию');
-    expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
-    expect(api.calls.filter(call => call.method === 'POST' && call.path.endsWith('/members')).map(call => (call.body as Row).memberRole))
-      .toEqual(['owner', 'operator', 'judge']);
+    expect(api.calls.filter(c => c.path.endsWith('/members') && c.method === 'POST').map(c => (c.body as Row).memberRole)).toEqual(['owner', 'operator', 'judge']);
   });
-  it('checks venue metadata strictly only when requested', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
-    await expect(seed(api, { ...options, requireVenueMeta: true }, quiet)).rejects.toThrow('площадка сохранена без venueMeta; API обновления площадки нет — задайте параметры в БД или создайте площадку заново');
-    expect(api.imports).toBe(1);
-    api.supportsVenueMeta = true;
-    api.lists.get('/venues')![0].venueMeta = { lanes: 8, courseLength: 25 };
-    await seed(api, { ...options, requireVenueMeta: true }, quiet);
-    expect(api.imports).toBe(2);
-  });
-  it.each([false, true])('saves metadata with updated T01, strict=%s', async requireVenueMeta => {
-    const api = new FakeApi();
-    api.supportsVenueMeta = true;
-    const messages: string[] = [];
-    await seed(api, { ...options, requireVenueMeta }, message => messages.push(message));
-    expect(api.imports).toBe(1);
-    expect(messages.join()).not.toContain('WARNING');
-    const venue = api.lists.get('/venues')![0];
-    expect(await api.request('GET', `/venues/${venue.id}`)).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
-    expect(api.calls.find(call => call.method === 'POST' && call.path === '/venues')?.body)
-      .toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
-  });
-  it('ignores unknown venue fields but rejects unsupported roles and closed discipline creation', async () => {
-    const api = new FakeApi();
-    const venue = await api.request<Row>('POST', '/venues', { name: 'test', lanes: 8, venueMeta: { lanes: 8, courseLength: 25 } });
-    expect(venue).not.toHaveProperty('lanes');
-    expect(venue).not.toHaveProperty('venueMeta');
-    expect(await api.request('GET', `/venues/${venue.id}`)).not.toHaveProperty('venueMeta');
-    await expect(api.request('POST', '/organizations/org/members', { userId: 'user', memberRole: 'staff' }))
-      .rejects.toMatchObject({ code: 'organizations.invalid_member_role' });
-    for (const status of ['REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'COMPLETED']) {
-      api.lists.set('/events', [{ id: 'event', status }]);
-      await expect(api.request('POST', '/events/event/disciplines', { code: 'M-50-FREE' }))
-        .rejects.toMatchObject({ code: 'competition.event_not_editable' });
-    }
-  });
-  it('explains a missing discipline while registration is open before POST', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
-    const id = api.lists.get('/events')![0].id;
-    api.lists.get(`/events/${id}/disciplines`)!.pop();
-    const before = api.calls.length;
-    await expect(seed(api, options, quiet)).rejects.toThrow('выполните reset');
-    expect(api.calls.slice(before).some(call => call.method === 'POST' && call.path.endsWith('/disciplines'))).toBe(false);
-  });
-  it('converts a UTC start across midnight to the Samara date', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
-    api.lists.get('/events')![0].eventStartAt = '2026-10-16T22:00:00Z';
-    await seed(api, options, quiet);
-    expect(api.imports).toBe(2);
-  });
-  it('creates and reuses a separate backup event selected by the title suffix', async () => {
-    const api = new FakeApi();
-    await seed(api, options, quiet);
-    await seed(api, { ...options, eventTitleSuffix: ' · резерв' }, quiet);
-    await seed(api, { ...options, eventTitleSuffix: ' · резерв' }, quiet);
-    const events = api.lists.get('/events')!;
-    expect(events).toHaveLength(2);
-    expect(events[1].title).toBe(`${events[0].title} · резерв`);
-    events[1].id = '11111111-2222-3333-4444-555555555555';
-    const messages: string[] = [];
-    await resetPlan(api, options.adminEmail, options.adminPassword, message => messages.push(message), { eventTitleSuffix: ' · резерв' });
-    expect(messages.join()).toContain('demo_event_title=');
-    expect(messages.join()).toContain(' · резерв');
-    expect(messages.join()).toContain('demo_event_id=11111111-2222-3333-4444-555555555555');
-  });
-  it('requires the database URL before --apply can start', async () => {
-    const api = new FakeApi();
-    await expect(resetPlan(api, options.adminEmail, options.adminPassword, quiet, { apply: true })).rejects.toThrow('DEMO_DATABASE_URL');
-    expect(api.calls).toHaveLength(0);
-  });
-  it('prepares a scoped SQL reset without guessing a DELETE route', async () => {
-    const api = new FakeApi();
-    const messages: string[] = [];
-    await resetPlan(api, options.adminEmail, options.adminPassword, message => messages.push(message));
-    expect(messages.join()).toContain('сброс не требуется');
-    await seed(api, options, quiet);
-    api.lists.get('/events')![0].id = '11111111-2222-3333-4444-555555555555';
-    await resetPlan(api, options.adminEmail, options.adminPassword, message => messages.push(message));
-    expect(messages.join()).toContain('-v demo_event_id=11111111-2222-3333-4444-555555555555');
-    expect(api.calls.some(call => call.method === 'DELETE')).toBe(false);
-  });
-  it('continues after the scheduler opens registration between publish and open', async () => {
-    const api = new FakeApi(); api.openRaceStatus = 'REGISTRATION_OPEN';
-    expect((await seed(api, options, quiet)).status).toBe('REGISTRATION_OPEN');
-    expect(api.imports).toBe(1);
-    expect(api.calls.some(c => c.method === 'GET' && /^\/events\/[^/]+$/.test(c.path))).toBe(true);
-  });
-  it('does not swallow an invalid transition when registration was not opened', async () => {
-    const api = new FakeApi(); api.openRaceStatus = 'REGISTRATION_CLOSED';
-    await expect(seed(api, options, quiet)).rejects.toMatchObject({ code: 'events.invalid_transition' });
+  it('stops on missing venue metadata in strict mode', async () => {
+    const api = new FakeApi(); api.supportsVenueMeta = false;
+    await expect(seed(api, { ...options, requireVenueMeta: true }, quiet)).rejects.toThrow('площадка сохранена без venueMeta');
     expect(api.imports).toBe(0);
   });
-  it('reruns a closed event with a warning without reopening registration', async () => {
-    const api = new FakeApi(); await seed(api, options, quiet);
-    api.lists.get('/events')![0].status = 'REGISTRATION_CLOSED';
-    const messages: string[] = []; const before = api.calls.length;
-    expect((await seed(api, options, m => messages.push(m))).status).toBe('REGISTRATION_CLOSED');
-    expect(api.imports).toBe(2);
-    expect(messages.join()).toContain('WARNING: регистрация закрыта');
-    expect(api.calls.slice(before).some(c => c.path.endsWith('/open-registration'))).toBe(false);
+  it('rejects an existing venue in a different timezone', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, skipImport: true }, quiet);
+    api.lists.get('/venues')![0].timezone = 'Europe/Moscow';
+    await expect(seed(api, options, quiet)).rejects.toThrow('Europe/Samara');
+    expect(api.imports).toBe(0);
   });
-
+  it('always sends supported pool metadata', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, requireVenueMeta: true, skipImport: true }, quiet);
+    expect(api.calls.find(c => c.path === '/venues' && c.method === 'POST')?.body).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
+  });
+  it('explains a missing discipline after registration opens before attempting POST', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, skipImport: true }, quiet);
+    const id = api.lists.get('/events')![0].id; api.lists.get(`/events/${id}/disciplines`)!.pop();
+    const before = api.calls.length;
+    await expect(seed(api, options, quiet)).rejects.toThrow('Выполните reset');
+    expect(api.calls.slice(before).some(c => c.method === 'POST' && c.path.endsWith('/disciplines'))).toBe(false);
+  });
+  it('reuses equivalent UTC timestamps across the Samara date boundary', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, skipImport: true }, quiet);
+    api.lists.get('/events')![0].eventStartAt = '2026-10-11T06:00:00Z';
+    await seed(api, { ...options, skipImport: true }, quiet);
+    expect(api.lists.get('/events')).toHaveLength(3);
+  });
+  it('creates separate backup titles and reset selects only their slugs', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, demoEvents: 'B', skipImport: true }, quiet);
+    await seed(api, { ...options, demoEvents: 'B', eventTitleSuffix: ' · резерв', skipImport: true }, quiet);
+    const events = api.lists.get('/events')!; expect(events).toHaveLength(2);
+    const messages: string[] = [];
+    await resetPlan(api, options.adminEmail, options.adminPassword, msg => messages.push(msg), { eventTitleSuffix: ' · резерв', demoSlugs: String(events[1].publicSlug) });
+    expect(messages.join()).toContain(events[1].id);
+    expect(messages.join()).not.toContain(events[0].id);
+  });
+  it('requires database URL before --apply can start', async () => {
+    const api = new FakeApi(); await expect(resetPlan(api, options.adminEmail, options.adminPassword, quiet, { apply: true })).rejects.toThrow('DEMO_DATABASE_URL');
+    expect(api.calls).toHaveLength(0);
+  });
+  it('prepares all three reset targets without guessing a DELETE route', async () => {
+    const api = new FakeApi(); const messages: string[] = [];
+    await resetPlan(api, options.adminEmail, options.adminPassword, msg => messages.push(msg));
+    expect(messages.join()).toContain('сброс не требуется');
+    await seed(api, { ...options, skipImport: true }, quiet);
+    await resetPlan(api, options.adminEmail, options.adminPassword, msg => messages.push(msg));
+    for (const event of api.lists.get('/events')!) expect(messages.join()).toContain(String(event.publicSlug));
+    expect(api.calls.some(c => c.method === 'DELETE')).toBe(false);
+  });
+  it('continues when the scheduler opens registration concurrently', async () => {
+    const api = new FakeApi(); api.openRaceStatus = 'REGISTRATION_OPEN';
+    expect((await seed(api, { ...options, demoEvents: 'B' }, quiet))[0].status).toBe('REGISTRATION_CLOSED');
+  });
+  it('does not swallow a scheduler race that leaves C closed', async () => {
+    const api = new FakeApi(); api.openRaceStatus = 'REGISTRATION_CLOSED';
+    await expect(seed(api, { ...options, demoEvents: 'C' }, quiet)).rejects.toMatchObject({ code: 'events.invalid_transition' });
+    expect(api.imports).toBe(0);
+  });
+  it('resumes closed B without reopening registration or repeating import', async () => {
+    const api = new FakeApi(); await seed(api, { ...options, demoEvents: 'B' }, quiet); const before = api.calls.length;
+    await seed(api, { ...options, demoEvents: 'B' }, quiet);
+    expect(api.calls.slice(before).some(c => c.path.endsWith('/open-registration'))).toBe(false);
+    expect(api.imports).toBe(1);
+  });
 });
