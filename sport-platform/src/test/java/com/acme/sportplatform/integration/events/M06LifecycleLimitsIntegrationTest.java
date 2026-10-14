@@ -248,6 +248,9 @@ class M06LifecycleLimitsIntegrationTest extends AbstractPostgresIntegrationTest 
         var resubmitted = call(post("/api/v1/registrations/{id}/resubmit", original.path("id").asText()), user, "PARTICIPANT", Map.of("seedTimeMs", 33000), 200);
         assertEquals("WAITLISTED", resubmitted.path("status").asText());
         assertEquals(1, resubmitted.path("waitlistPosition").asInt());
+        // M05 x M06: only the initial submission emitted "submitted"; the waitlisted resubmission must not
+        assertEquals(1, domainEvents.stream(com.acme.sportplatform.registrations.RegistrationSubmittedEvent.class)
+                .filter(e -> e.registrationId().toString().equals(original.path("id").asText())).count());
     }
 
     @Test

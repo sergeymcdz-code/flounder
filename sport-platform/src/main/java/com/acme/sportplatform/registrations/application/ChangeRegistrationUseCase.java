@@ -135,7 +135,9 @@ public class ChangeRegistrationUseCase {
         capacity.allocate(entity, "SUBMITTED");
         entity.setSubmittedAt(OffsetDateTime.now());
         var response = save(entity);
-        publisher.publishEvent(new RegistrationSubmittedEvent(id));
+        // Waitlisted resubmissions must not trigger the "submitted" notification (M05 x M06).
+        if ("SUBMITTED".equals(entity.getStatus()))
+            publisher.publishEvent(new RegistrationSubmittedEvent(id));
         return response;
     }
 
