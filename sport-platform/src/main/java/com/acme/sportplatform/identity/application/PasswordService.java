@@ -69,7 +69,7 @@ public class PasswordService {
         token.setUserId(user.getId()); token.setTokenHash(OpaqueTokens.hash(raw));
         token.setCreatedAt(clock.instant()); token.setExpiresAt(clock.instant().plus(Duration.ofHours(1)));
         resets.save(token);
-        mail.send(user.getEmail(), "Восстановление пароля Flounder",
+        mail.send(user.getEmail(), "Восстановление пароля SportGate",
                 "Для восстановления пароля перейдите по ссылке: " + publicUrl + "/reset-password?token=" + raw
                         + "\nСсылка действует 1 час. Если вы не запрашивали восстановление, проигнорируйте письмо.");
     }

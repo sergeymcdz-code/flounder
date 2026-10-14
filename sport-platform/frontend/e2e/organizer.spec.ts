@@ -9,7 +9,7 @@ async function login(page: Page) {
   await page.getByLabel('Пароль', { exact: true }).fill('demo-password')
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await expect(
-    page.getByRole('heading', { name: 'Осенний кубок Flounder', exact: true }),
+    page.getByRole('heading', { name: 'Осенний кубок SportGate', exact: true }),
   ).toBeVisible()
 }
 
@@ -114,7 +114,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .getByRole('button', { name: 'Скачать шаблон', exact: true })
     .click()
   const download = await downloadPromise
-  expect(download.suggestedFilename()).toBe('flounder-registrations.xlsx')
+  expect(download.suggestedFilename()).toBe('sportgate-registrations.xlsx')
   await dialog
     .getByLabel('Файл .xlsx')
     .setInputFiles('src/mocks/import-template.xlsx')

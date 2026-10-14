@@ -56,7 +56,7 @@ export function eventBody(ids: { organizationId: string; venueId: string; sportI
   const expired = Date.parse(close) <= now.getTime();
   if (expired) log('WARNING: плановое закрытие регистрации уже наступило; демо-окно регистрации сдвинуто на минуту до и после запуска. Дата события сохранена.');
   return {
-    ...ids, title: demoEventTitle(titleSuffix), description: 'Вымышленные данные для демонстрации Flounder. Набор M, 200 заявок.',
+    ...ids, title: demoEventTitle(titleSuffix), description: 'Вымышленные данные для демонстрации SportGate. Набор M, 200 заявок.',
     registrationOpenAt: new Date(now.getTime() - (expired ? 60_000 : 0)).toISOString(),
     registrationCloseAt: expired ? new Date(Math.max(Date.parse(close), now.getTime() + 60_000)).toISOString() : close,
     eventStartAt: `${date}T10:00:00+04:00`, eventEndAt: `${date}T18:00:00+04:00`,

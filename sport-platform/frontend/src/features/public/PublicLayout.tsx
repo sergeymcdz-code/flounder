@@ -71,9 +71,9 @@ export function PublicLayout() {
   }, [slug])
   useEffect(() => {
     if (eventState.errorStatus === 404)
-      document.title = 'Соревнование не найдено · Flounder'
+      document.title = 'Соревнование не найдено · SportGate'
     else if (eventState.data)
-      document.title = `${eventState.data?.title ?? 'Соревнование'} · Flounder`
+      document.title = `${eventState.data?.title ?? 'Соревнование'} · SportGate`
   }, [eventState.data, eventState.errorStatus])
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
@@ -101,9 +101,9 @@ export function PublicLayout() {
         <header className={styles.header}>
           <Link className={styles.brand} to={base}>
             <span className={styles.logo} aria-hidden="true">
-              F
+              S
             </span>{' '}
-            Flounder
+            SportGate
           </Link>
           <div>
             <Link to={base}>
@@ -144,6 +144,7 @@ export function PublicLayout() {
             </tr>
           </tbody>
         </table>
+        <footer className={styles.footer}>SportGate · sportgate.pro</footer>
         <nav className={styles.nav} aria-label="Разделы соревнования">
           {links.map(([path, label]) =>
             path.includes('#') ? (

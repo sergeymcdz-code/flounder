@@ -288,7 +288,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       expect.soft(manifestHref).toBeTruthy()
       const manifest = await spectator.request.get(manifestHref!)
       expect.soft(manifest.ok()).toBe(true)
-      expect.soft((await manifest.json()).name).toBe('Flounder')
+      expect.soft((await manifest.json()).name).toBe('SportGate')
       const worker = await spectator.request.get('/sw.js')
       expect.soft(worker.ok()).toBe(true)
       expect.soft(worker.headers()['content-type']).toMatch(/javascript/)

@@ -22,7 +22,7 @@ function EventDetails({ slug }: { slug: string }) {
 it('does not show the previous competition when the next slug is missing', async () => {
   const { rerender } = render(<EventDetails slug="demo" />)
   expect(
-    await screen.findByRole('heading', { name: 'Осенний кубок Flounder' }),
+    await screen.findByRole('heading', { name: 'Осенний кубок SportGate' }),
   ).toBeInTheDocument()
   rerender(<EventDetails slug="missing" />)
   expect(screen.queryByRole('heading')).not.toBeInTheDocument()

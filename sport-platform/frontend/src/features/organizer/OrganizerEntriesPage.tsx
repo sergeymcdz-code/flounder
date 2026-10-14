@@ -457,7 +457,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'flounder-registrations.xlsx'
+      link.download = 'sportgate-registrations.xlsx'
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     }, 'none')

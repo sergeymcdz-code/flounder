@@ -63,7 +63,7 @@ export const authHandlers = [
     if (mockPassword(email)) {
       const token = crypto.randomUUID()
       resets.set(token, { email: email.trim().toLowerCase(), expiresAt: Date.now() + 3600000 })
-      console.info(`DEV Восстановление пароля Flounder: ${window.location.origin}/reset-password?token=${token}`)
+      console.info(`DEV Восстановление пароля SportGate: ${window.location.origin}/reset-password?token=${token}`)
     }
     return new HttpResponse(null, { status: 202 })
   }),
