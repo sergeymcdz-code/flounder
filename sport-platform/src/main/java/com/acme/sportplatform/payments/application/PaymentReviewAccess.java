@@ -29,6 +29,6 @@ public class PaymentReviewAccess {
     public void assertPaymentAccess(UUID paymentId, AuthenticatedUserPrincipal principal) {
         var payment = payments.findById(paymentId)
                 .orElseThrow(() -> new BusinessException("payments.not_found", "Платёж не найден"));
-        assertRegistrationAccess(payment.getRegistrationId(), principal);
+        events.assertCanModify(registrations.eventId(payment.getRegistrationId()), principal);
     }
 }

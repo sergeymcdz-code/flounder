@@ -13,8 +13,9 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepos
 @Service
 public class RegistrationPaymentService implements RegistrationPaymentLookup {
     private final RegistrationRepository registrations;
+    private final com.acme.sportplatform.events.EventLockService locks;
 
-    public RegistrationPaymentService(RegistrationRepository registrations) { this.registrations = registrations; }
+    public RegistrationPaymentService(RegistrationRepository registrations, com.acme.sportplatform.events.EventLockService locks) { this.registrations = registrations; this.locks = locks; }
 
     private RegistrationEntity get(UUID id) {
         return registrations.findById(id)
@@ -28,6 +29,7 @@ public class RegistrationPaymentService implements RegistrationPaymentLookup {
     @Override
     @Transactional
     public void markPaid(UUID id) {
+        locks.lockWritableForUpdate(eventId(id));
         RegistrationEntity registration = registrations.lockById(id)
                 .orElseThrow(() -> new BusinessException("registrations.not_found", "Заявка не найдена"));
         if (!"CONFIRMED".equals(registration.getStatus())) {

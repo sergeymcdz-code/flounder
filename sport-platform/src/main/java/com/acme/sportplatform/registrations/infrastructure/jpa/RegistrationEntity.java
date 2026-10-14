@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 @Table(name = "registrations")
 public class RegistrationEntity {
 
+    private Integer waitlistPosition;
     @Id
     private UUID id;
 
@@ -91,6 +92,9 @@ public class RegistrationEntity {
     public void setPaymentStatus(String value) {
         this.paymentStatus = value;
     }
+
+    public Integer getWaitlistPosition() { return waitlistPosition; }
+    public void setWaitlistPosition(Integer value) { waitlistPosition = value; }
 
     public UUID getId() {
         return id;

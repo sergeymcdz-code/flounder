@@ -52,8 +52,8 @@ public class GenerateCompetitionUnitsUseCase {
             boolean circleSeedTopHeats,
             AuthenticatedUserPrincipal principal) {
         UUID disciplineId = discipline.id();
-        data.access.assertCanManage(discipline.eventId(), principal);
-        data.locks.lockForUpdate(discipline.eventId());
+        data.access.assertCanModify(discipline.eventId(), principal);
+        data.locks.lockWritableForUpdate(discipline.eventId());
         long start = System.nanoTime();
         var previousUnits = data.units.findByDisciplineId(disciplineId);
         boolean published = previousUnits.stream().anyMatch(u -> "PUBLISHED".equals(u.status()));

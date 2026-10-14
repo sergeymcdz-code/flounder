@@ -100,6 +100,7 @@ public class CreateEventUseCase {
         entity.setRegistrationCloseAt(request.registrationCloseAt());
         entity.setEventStartAt(request.eventStartAt());
         entity.setEventEndAt(request.eventEndAt());
+        entity.setMaxParticipants(request.maxParticipants());
         entity.setStatus(EventStatus.DRAFT.name());
         entity.setPublicSlug(slugService.generate(request.title()));
         entity.setSettingsJson("{}");

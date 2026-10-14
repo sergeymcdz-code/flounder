@@ -26,8 +26,8 @@ public class PublishUnitsUseCase {
     public ValidationResponse forDiscipline(
             UUID disciplineId, AuthenticatedUserPrincipal principal) {
         var discipline = data.discipline(disciplineId);
-        data.access.assertCanManage(discipline.eventId(), principal);
-        data.locks.lockForUpdate(discipline.eventId());
+        data.access.assertCanModify(discipline.eventId(), principal);
+        data.locks.lockWritableForUpdate(discipline.eventId());
         var result = validate.execute(disciplineId, principal);
         assertValid(result.violations());
         boolean changed = data.units.findByDisciplineId(disciplineId).stream().anyMatch(u -> "DRAFT".equals(u.status()));
@@ -39,8 +39,8 @@ public class PublishUnitsUseCase {
 
     @Transactional(noRollbackFor = ValidationFailedException.class)
     public ValidationResponse forEvent(UUID eventId, AuthenticatedUserPrincipal principal) {
-        data.access.assertCanManage(eventId, principal);
-        data.locks.lockForUpdate(eventId);
+        data.access.assertCanModify(eventId, principal);
+        data.locks.lockWritableForUpdate(eventId);
         var disciplines = data.disciplines(eventId);
         List<Violation> violations = new ArrayList<>();
         for (var discipline : disciplines)

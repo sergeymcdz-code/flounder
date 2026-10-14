@@ -12,4 +12,6 @@ public interface EventLookup {
     EventLookupResult getById(UUID eventId);
 
     EventProtocolHeader protocolHeader(UUID eventId);
+
+    EventLookupResult lockById(UUID eventId);
 }

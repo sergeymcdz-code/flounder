@@ -323,11 +323,15 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
                         200);
         assertEquals(32150L, r.path("seedTimeMs").asLong());
         assertEquals("NOT_REQUIRED", r.path("paymentStatus").asText());
-        call(
+        var waiting = call(
                 post("/api/v1/public/events/{slug}/registrations", e.getPublicSlug()),
                 b,
                 form(b, List.of(d)),
-                409);
+                200).get(0);
+        assertEquals("WAITLISTED", waiting.path("status").asText());
+        assertEquals(1, waiting.path("waitlistPosition").asInt());
+        assertEquals(1L, registrations.countByEventDisciplineIdAndStatusIn(
+                d.getId(), List.of("SUBMITTED", "UNDER_REVIEW", "CONFIRMED", "PAID", "ADMITTED")));
     }
 
     @Test

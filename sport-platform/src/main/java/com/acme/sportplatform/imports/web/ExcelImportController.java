@@ -65,7 +65,7 @@ public class ExcelImportController {
                                      "createdProfiles":180}
                                     """))))
     public ImportReport upload(@PathVariable UUID eventId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal, @RequestPart("file") MultipartFile file) {
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         UUID actorId = principal.getUserId();
         return imports.execute(eventId, actorId, file);
     }

@@ -21,19 +21,25 @@ public class ReviewRegistrationUseCase {
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
     private final org.springframework.context.ApplicationEventPublisher publisher;
+    private final RegistrationCapacityService capacity;
 
     public ReviewRegistrationUseCase(
             RegistrationRepository registrationRepository,
             RegistrationMapper registrationMapper,
-            org.springframework.context.ApplicationEventPublisher publisher
+            org.springframework.context.ApplicationEventPublisher publisher,
+            RegistrationCapacityService capacity
     ) {
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
         this.publisher = publisher;
+        this.capacity = capacity;
     }
 
         @Transactional
         public RegistrationResponse execute(UUID registrationId, UUID reviewerUserId, ReviewRegistrationRequest request) {
+        var selectedEventId = registrationRepository.findEventIdById(registrationId).orElseThrow(() ->
+                new BusinessException("registrations.notfound", "Заявка не найдена"));
+        capacity.lock(selectedEventId);
         RegistrationEntity registration =
                 registrationRepository
                         .lockById(registrationId)
@@ -42,7 +48,8 @@ public class ReviewRegistrationUseCase {
                                         new BusinessException(
                                                 "registrations.notfound", "Заявка не найдена"));
 
-        if (!java.util.Set.of("SUBMITTED", "UNDER_REVIEW").contains(registration.getStatus())) {
+        if (!java.util.Set.of("SUBMITTED", "UNDER_REVIEW", "WAITLISTED").contains(registration.getStatus())
+                && !("CONFIRMED".equals(registration.getStatus()) && request.decision() == RegistrationReviewDecision.REJECTED)) {
             throw new BusinessException(
                     "registrations.notreviewable", "Рассмотреть можно только поданную заявку");
         }
@@ -58,12 +65,15 @@ public class ReviewRegistrationUseCase {
                     "registrations.invalid_transition", "Недопустимый переход статуса заявки");
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         registration.setStatus(newStatus.name());
+        registration.setWaitlistPosition(null);
         registration.setReviewNote(request.reviewNote());
         registration.setReviewedByUserId(reviewerUserId);
         registration.setReviewedAt(now);
         registration.setUpdatedAt(now);
 
-        registrationRepository.save(registration);
+        registrationRepository.saveAndFlush(registration);
+        if (newStatus == RegistrationStatus.REJECTED || newStatus == RegistrationStatus.NEEDS_CORRECTION)
+            capacity.promote(registration.getEventId());
         if (newStatus == RegistrationStatus.CONFIRMED)
             publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationConfirmedEvent(registrationId));
         if (newStatus == RegistrationStatus.REJECTED)

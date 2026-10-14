@@ -16,6 +16,15 @@ public interface EventRepository extends JpaRepository<EventEntity, UUID> {
 
     List<EventEntity> findAllByOrderByEventStartAtDesc();
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select e from EventEntity e where e.id=:id")
+    Optional<EventEntity> lockById(UUID id);
+
+    @org.springframework.data.jpa.repository.Query("select e from EventEntity e where "
+            + "(e.status = 'PUBLISHED' and e.registrationOpenAt <= :now) or "
+            + "(e.status = 'REGISTRATION_OPEN' and e.registrationCloseAt <= :now) order by e.eventStartAt")
+    List<EventEntity> findDueLifecycleEvents(java.time.OffsetDateTime now);
+
     boolean existsByPublicSlug(String publicSlug);
 
     List<EventEntity> findByStatusInOrderByEventStartAtAsc(

@@ -59,7 +59,7 @@ public class EventSessionService implements SessionLookup {
             UUID eventId,
             EventSessionRequest request,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         var entity = new EventSessionEntity();
         entity.setId(UUID.randomUUID());
         entity.setEventId(eventId);
@@ -72,7 +72,7 @@ public class EventSessionService implements SessionLookup {
             EventSessionRequest request,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        access.assertCanManage(entity.getEventId(), principal);
+        access.assertCanModify(entity.getEventId(), principal);
         return save(entity, request);
     }
 
@@ -100,7 +100,7 @@ public class EventSessionService implements SessionLookup {
     public void delete(
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        access.assertCanManage(entity.getEventId(), principal);
+        access.assertCanModify(entity.getEventId(), principal);
         if (usage.isInUse(id))
             throw new BusinessException(
                     "events.session_in_use",

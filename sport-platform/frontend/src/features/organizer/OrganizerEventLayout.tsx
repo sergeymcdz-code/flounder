@@ -195,6 +195,7 @@ function OrganizerEventContent() {
           </p>
         </div>
       </header>
+      {data.event.status === 'ARCHIVED' && <p role="status">Событие в архиве. Доступен только просмотр.</p>}
       <nav className={styles.tabs} aria-label="Разделы события">
         {[
           ['', 'Обзор'],

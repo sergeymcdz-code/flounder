@@ -6,9 +6,18 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
 import { usePublicData } from './usePublicData'
-import type { RegistrationRequest } from './public.types'
+import type { RegistrationRequest, RegistrationDiscipline } from './public.types'
 import styles from './Public.module.css'
 import { eligible, maskSeedTime, parseSeedTime } from './registrationFields'
+
+function isDisciplineFull(item: RegistrationDiscipline, profile: RegistrationRequest['profile']) {
+  if (item.maxParticipants != null && (item.participantsCount ?? 0) >= item.maxParticipants) return true
+  const year = Number(profile.birthDate.slice(0, 4))
+  const group = item.ageGroups.find(g => (g.gender === 'X' || g.gender === profile.gender)
+    && (g.birthYearFrom == null || year >= g.birthYearFrom) && (g.birthYearTo == null || year <= g.birthYearTo))
+  const limit = group ? item.limitsByAgeGroup?.[group.code] : undefined
+  return group != null && limit != null && (item.participantsByAgeGroup?.[group.code] ?? 0) >= limit
+}
 
 export function PublicRegistrationPage() {
   const event = usePublicEvent()
@@ -34,7 +43,7 @@ export function PublicRegistrationPage() {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState<string[]>()
   const returnTo = `/e/${encodeURIComponent(event.publicSlug)}/register`
-  if (!event.registrationOpen)
+  if (!event.registrationOpen || state.data?.registrationOpen === false)
     return (
       <>
         <h1>Заявка на участие</h1>
@@ -164,6 +173,7 @@ export function PublicRegistrationPage() {
     <>
       <h1>Заявка на участие</h1>
       <DataState {...state} />
+      {state.data && state.data.maxParticipants != null && (state.data.participantsCount ?? 0) >= state.data.maxParticipants && <p role="status">Мест нет, запись в лист ожидания</p>}
       {state.data && (
         <form className={styles.form} onSubmit={submit}>
           <fieldset disabled={submitting}>
@@ -255,7 +265,7 @@ export function PublicRegistrationPage() {
                           })
                         }
                       />
-                      {item.name} ·{' '}
+                      {item.name}{isDisciplineFull(item, profile) ? ' · Мест нет, запись в лист ожидания' : ''} ·{' '}
                       {item.entryFee === 0 ? 'Бесплатно' : `${item.entryFee} ₽`}
                     </label>
                     {!allowed && (

@@ -23,8 +23,8 @@ public class RecalculateScheduleUseCase {
 
     @Transactional
     public ScheduleResponse execute(UUID eventId, AuthenticatedUserPrincipal principal) {
-        data.access.assertCanManage(eventId, principal);
-        data.locks.lockForUpdate(eventId);
+        data.access.assertCanModify(eventId, principal);
+        data.locks.lockWritableForUpdate(eventId);
         long start = System.nanoTime();
         var disciplines = data.disciplines(eventId);
         Map<UUID, List<SeededHeat>> heats = new LinkedHashMap<>();

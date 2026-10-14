@@ -63,6 +63,8 @@ export const saveDiscipline = (
       accessToken,
       method: id ? 'PATCH' : 'POST',
       body: JSON.stringify({
+        maxParticipants: input.maxParticipants,
+        limitsByAgeGroup: input.limitsByAgeGroup,
         code: input.code?.trim() || undefined,
         name: input.name?.trim() || undefined,
         distanceM: input.distanceM,

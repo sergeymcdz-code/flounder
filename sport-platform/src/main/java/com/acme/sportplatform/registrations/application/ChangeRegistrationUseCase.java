@@ -20,6 +20,7 @@ import java.util.*;
 @Transactional
 public class ChangeRegistrationUseCase {
     private final RegistrationRepository registrations;
+    private final RegistrationCapacityService capacity;
     private final RegistrationMapper mapper;
     private final EventAccessService access;
     private final EventLookup events;
@@ -36,7 +37,7 @@ public class ChangeRegistrationUseCase {
             ProfileLookup profiles,
             ApplicationEventPublisher publisher,
             com.acme.sportplatform.competition.EventDisciplineLookup disciplines,
-            com.fasterxml.jackson.databind.ObjectMapper json) {
+            com.fasterxml.jackson.databind.ObjectMapper json, RegistrationCapacityService capacity) {
         this.registrations = registrations;
         this.mapper = mapper;
         this.access = access;
@@ -45,6 +46,7 @@ public class ChangeRegistrationUseCase {
         this.publisher = publisher;
         this.disciplines = disciplines;
         this.json = json;
+        this.capacity = capacity;
     }
 
     public RegistrationResponse patch(
@@ -52,7 +54,7 @@ public class ChangeRegistrationUseCase {
             PatchRegistrationRequest r,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var entity = require(id);
-        access.assertCanManage(entity.getEventId(), principal);
+        access.assertCanModify(entity.getEventId(), principal);
         if (r.seedTimeMs() != null) entity.setSeedTimeMs(r.seedTimeMs());
         if (r.status() != null) {
             if (!Set.of(RegistrationStatus.ADMITTED, RegistrationStatus.WITHDRAWN)
@@ -95,18 +97,6 @@ public class ChangeRegistrationUseCase {
                     "registrations.invalid_transition",
                     "Повторная подача доступна после запроса исправлений");
         var discipline = disciplines.lockPublishedById(entity.getEventDisciplineId());
-        if (discipline.participantLimit() != null
-                && registrations.countByEventDisciplineIdAndStatusIn(
-                                discipline.id(),
-                                List.of(
-                                        "SUBMITTED",
-                                        "UNDER_REVIEW",
-                                        "CONFIRMED",
-                                        "PAID",
-                                        "ADMITTED"))
-                        >= discipline.participantLimit())
-            throw new BusinessException(
-                    "registrations.discipline_limit_reached", "Достигнут лимит участников");
         var profile =
                 request != null && request.profile() != null
                         ? profiles.upsertForUser(userId, request.profile())
@@ -142,10 +132,12 @@ public class ChangeRegistrationUseCase {
         entity.setReviewNote(null);
         entity.setReviewedAt(null);
         entity.setReviewedByUserId(null);
-        transition(entity, RegistrationStatus.SUBMITTED);
+        capacity.allocate(entity, "SUBMITTED");
         entity.setSubmittedAt(OffsetDateTime.now());
         var response = save(entity);
-        publisher.publishEvent(new RegistrationSubmittedEvent(id));
+        // Waitlisted resubmissions must not trigger the "submitted" notification (M05 x M06).
+        if ("SUBMITTED".equals(entity.getStatus()))
+            publisher.publishEvent(new RegistrationSubmittedEvent(id));
         return response;
     }
 
@@ -155,6 +147,7 @@ public class ChangeRegistrationUseCase {
                     "registrations.invalid_transition",
                     "Недопустимый переход статуса заявки: " + e.getStatus() + " → " + target);
         e.setStatus(target.name());
+        e.setWaitlistPosition(null);
         if (target == RegistrationStatus.WITHDRAWN)
             publisher.publishEvent(
                     new RegistrationWithdrawn(e.getId(), e.getEventId(), e.getEventDisciplineId()));
@@ -174,10 +167,14 @@ public class ChangeRegistrationUseCase {
                 || event.registrationCloseAt() != null
                         && !now.isBefore(event.registrationCloseAt()))
             throw new BusinessException(
-                    "registrations.registration_not_open", "Регистрация закрыта");
+                    "registrations.registration_closed", "Регистрация закрыта");
     }
 
     private RegistrationEntity require(UUID id) {
+        var selectedEventId = registrations.findEventIdById(id).orElseThrow(() ->
+                new BusinessException("registrations.not_found", "Заявка не найдена"));
+        capacity.lock(selectedEventId);
+        access.assertWritable(selectedEventId);
         return registrations
                 .lockById(id)
                 .orElseThrow(
@@ -188,6 +185,8 @@ public class ChangeRegistrationUseCase {
 
     private RegistrationResponse save(RegistrationEntity e) {
         e.setUpdatedAt(OffsetDateTime.now());
-        return mapper.toResponse(registrations.save(e));
+        registrations.saveAndFlush(e);
+        if ("WITHDRAWN".equals(e.getStatus())) capacity.promote(e.getEventId());
+        return mapper.toResponse(e);
     }
 }

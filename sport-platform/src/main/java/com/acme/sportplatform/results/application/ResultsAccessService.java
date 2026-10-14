@@ -44,4 +44,22 @@ public class ResultsAccessService {
         assertUnitAccess(entry.getCompetitionUnitId(), principal);
     }
 
+    public void assertDisciplineModification(UUID id, AuthenticatedUserPrincipal principal) {
+        var discipline = eventDisciplineLookup.findById(id).orElseThrow(() ->
+                new BusinessException("competition.discipline_not_found", "Дисциплина не найдена"));
+        eventAccessService.assertCanModify(discipline.eventId(), principal);
+    }
+
+    public void assertUnitModification(UUID id, AuthenticatedUserPrincipal principal) {
+        var unit = competitionUnitRepository.findById(id).orElseThrow(() ->
+                new BusinessException("results.competition_unit_not_found", "Заплыв не найден"));
+        assertDisciplineModification(unit.getEventDisciplineId(), principal);
+    }
+
+    public void assertEntryModification(UUID id, AuthenticatedUserPrincipal principal) {
+        var entry = entryRepository.findById(id).orElseThrow(() ->
+                new BusinessException("results.entry_not_found", "Участник заплыва не найден"));
+        assertUnitModification(entry.getCompetitionUnitId(), principal);
+    }
+
 }

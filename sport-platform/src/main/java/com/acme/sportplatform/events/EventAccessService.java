@@ -31,6 +31,20 @@ public class EventAccessService {
     }
 
     @Transactional(readOnly = true)
+    public void assertCanModify(UUID eventId, AuthenticatedUserPrincipal principal) {
+        assertCanManage(eventId, principal);
+        assertWritable(eventId);
+    }
+
+    @Transactional(readOnly = true)
+    public void assertWritable(UUID eventId) {
+        var event = events.findById(eventId).orElseThrow(() ->
+                new BusinessException("events.event_not_found", "Событие не найдено"));
+        if ("ARCHIVED".equals(event.getStatus()))
+            throw new BusinessException("events.archived", "Архивное событие доступно только для чтения");
+    }
+
+    @Transactional(readOnly = true)
     public void assertCanManage(UUID eventId, AuthenticatedUserPrincipal principal) {
         var event = events.findById(eventId)
                 .orElseThrow(() -> new BusinessException("events.event_not_found", "Событие не найдено"));

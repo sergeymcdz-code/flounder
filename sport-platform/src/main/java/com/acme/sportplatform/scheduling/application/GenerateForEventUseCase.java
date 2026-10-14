@@ -31,8 +31,8 @@ public class GenerateForEventUseCase {
             boolean force,
             boolean circleSeedTopHeats,
             AuthenticatedUserPrincipal principal) {
-        data.access.assertCanManage(eventId, principal);
-        data.locks.lockForUpdate(eventId);
+        data.access.assertCanModify(eventId, principal);
+        data.locks.lockWritableForUpdate(eventId);
         long start = System.nanoTime();
         var disciplines = data.disciplines(eventId);
         Map<UUID, GenerateCompetitionUnitsUseCase.Draft> drafts = new LinkedHashMap<>();

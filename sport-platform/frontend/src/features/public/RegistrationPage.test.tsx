@@ -38,6 +38,10 @@ function setup(count = 1, fillTimes = true) {
 describe('QA03 public registration submission', () => {
   beforeEach(() => {
     form.requiresSeedTime = true
+    form.registrationOpen = true
+    form.maxParticipants = null
+    form.participantsCount = 0
+    form.disciplines.forEach(item => { item.ageGroups = []; item.limitsByAgeGroup = null; item.participantsByAgeGroup = {} })
     vi.spyOn(publicApi, 'register').mockResolvedValue([])
   })
 
@@ -79,4 +83,31 @@ describe('QA03 public registration submission', () => {
     await waitFor(() => expect(publicApi.register).toHaveBeenCalledTimes(1))
     expect(vi.mocked(publicApi.register).mock.calls[0][1].items[0].seedTimeMs).toBeNull()
   })
+  it('M06 hides submission when registration closes after the event page was loaded', () => {
+    form.registrationOpen = false
+    render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    expect(screen.getByText('Регистрация закрыта.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Фамилия')).not.toBeInTheDocument()
+    expect(publicApi.register).not.toHaveBeenCalled()
+  })
+
+  it('M06 shows the waitlist notice while allowing submission when the event is full', async () => {
+    form.maxParticipants = 1
+    form.participantsCount = 1
+    const element = setup()
+    expect(screen.getByRole('status')).toHaveTextContent('Мест нет, запись в лист ожидания')
+    fireEvent.submit(element)
+    await waitFor(() => expect(publicApi.register).toHaveBeenCalledTimes(1))
+  })
+
+  it('M06 shows an age-group waitlist after entering the athlete birth date', () => {
+    form.disciplines[0].ageGroups = [{ code: 'young', name: 'Младшие', gender: 'M', birthYearFrom: 2014, birthYearTo: 2015 }]
+    form.disciplines[0].limitsByAgeGroup = { young: 1 }
+    form.disciplines[0].participantsByAgeGroup = { young: 1 }
+    render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    expect(screen.queryByText(/Вид 1 · Мест нет/)).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
+    expect(screen.getByText(/Вид 1 · Мест нет, запись в лист ожидания/)).toBeInTheDocument()
+  })
+
 })
