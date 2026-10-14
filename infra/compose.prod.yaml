@@ -52,6 +52,7 @@ services:
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://${DOMAIN}}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_SECURITY: ${MAIL_SECURITY:-auto}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-noreply@localhost}

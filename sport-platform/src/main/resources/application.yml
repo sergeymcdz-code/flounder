@@ -108,6 +108,7 @@ app:
   mail:
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:587}
+    security: ${MAIL_SECURITY:auto}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     from: ${MAIL_FROM:noreply@localhost}
