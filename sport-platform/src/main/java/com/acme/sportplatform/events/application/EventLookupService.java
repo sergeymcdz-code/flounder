@@ -15,13 +15,21 @@ import com.acme.sportplatform.events.infrastructure.persistence.repository.Event
 public class EventLookupService implements EventLookup {
 
     private final EventRepository eventRepository;
+    private final jakarta.persistence.EntityManager entityManager;
     private final EventSessionService sessions;
     private final com.acme.sportplatform.organizations.OrganizationManagementAccess organizations;
 
     public EventLookupService(EventRepository eventRepository,
-            com.acme.sportplatform.organizations.OrganizationManagementAccess organizations, EventSessionService sessions) {
+            com.acme.sportplatform.organizations.OrganizationManagementAccess organizations, EventSessionService sessions, jakarta.persistence.EntityManager entityManager) {
         this.eventRepository = eventRepository;
+        this.entityManager = entityManager;
         this.organizations = organizations; this.sessions=sessions;
+    }
+
+    @Override
+    public java.util.Map<UUID, java.time.LocalDate> startDates(java.util.Collection<UUID> eventIds) {
+        return eventRepository.findAllById(eventIds).stream().collect(java.util.stream.Collectors.toMap(
+                EventEntity::getId, event -> event.getEventStartAt().toLocalDate()));
     }
 
     @Override
@@ -42,6 +50,16 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
+    @Transactional
+    public EventLookupResult lockById(UUID eventId) {
+        var event = eventRepository.lockById(eventId).orElseThrow(() ->
+                new IllegalArgumentException("Event not found: " + eventId));
+        // A public lookup earlier in this request may have populated the persistence context.
+        entityManager.refresh(event);
+        return getById(eventId);
+    }
+
+    @Override
     public EventLookupResult getById(UUID eventId) {
         EventEntity event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -53,7 +71,7 @@ public class EventLookupService implements EventLookup {
                 event.getSportId(),
                 event.getStatus(), event.getRegistrationOpenAt(), event.getRegistrationCloseAt(),
                 sessions.views(eventId), event.getVenueId(), event.getCreatedByUserId(), event.getSettingsJson(),
-                event.getPublicSlug()
+                event.getPublicSlug(), event.getMaxParticipants()
         );
     }
 }

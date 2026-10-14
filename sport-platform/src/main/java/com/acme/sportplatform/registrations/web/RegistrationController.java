@@ -66,7 +66,7 @@ public class RegistrationController {
     public ResponseEntity<RegistrationResponse> review(@PathVariable UUID registrationId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @RequestBody @Valid ReviewRegistrationRequest request) {
-        eventAccessService.assertCanManage(registrationPaymentLookup.eventId(registrationId), principal);
+        eventAccessService.assertCanModify(registrationPaymentLookup.eventId(registrationId), principal);
         return ResponseEntity.ok(reviewRegistrationUseCase.execute(registrationId, principal.getUserId(), request));
     }
 
@@ -75,7 +75,7 @@ public class RegistrationController {
     @Operation(summary = "Отметить заявку как оплаченную")
     public RegistrationResponse markPaid(@PathVariable UUID registrationId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
-        eventAccessService.assertCanManage(registrationPaymentLookup.eventId(registrationId), principal);
+        eventAccessService.assertCanModify(registrationPaymentLookup.eventId(registrationId), principal);
         registrationPaymentLookup.markPaid(registrationId);
         return getRegistrationByIdUseCase.execute(registrationId);
     }

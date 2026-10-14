@@ -498,12 +498,33 @@
 .statusButtons .resultStatusDanger { background: var(--color-surface); color: var(--color-danger); border-color: var(--color-danger); }
 .statusButtons .resultStatusDanger[aria-pressed='true'] { background: var(--color-danger-soft); color: var(--color-danger); }
 
-@media screen and (max-width: 480px) {
-  .resultsTable th:first-child,
-  .resultsTable td:first-child {
+@media screen and (max-width: 640px) {
+  .tableWrap { scroll-padding-inline-start: 188px; }
+  .resultInput { width: 152px; }
+  .resultsTable { border-collapse: separate; border-spacing: 0; }
+  .resultsTable :is(th, td):first-child {
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
+    padding-inline: 6px;
     position: sticky;
     left: 0;
+    z-index: 2;
     background: var(--color-surface);
-    z-index: 1;
   }
+  .resultsTable :is(th, td):nth-child(2) {
+    width: 124px;
+    min-width: 124px;
+    max-width: 124px;
+    padding-inline: 8px;
+    position: sticky;
+    left: 64px;
+    z-index: 2;
+    background: var(--color-surface);
+    box-shadow: 2px 0 var(--color-border);
+  }
+  .resultsTable th:first-child { font-size: 10px; letter-spacing: 0; }
+  .resultsTable th:nth-child(-n+2) { z-index: 3; background: var(--color-surface-muted); }
+  .resultsTable tbody tr:nth-child(even) td:nth-child(-n+2) { background: var(--color-surface-muted); }
+  .participantName { max-width: 108px; overflow-wrap: anywhere; }
 }

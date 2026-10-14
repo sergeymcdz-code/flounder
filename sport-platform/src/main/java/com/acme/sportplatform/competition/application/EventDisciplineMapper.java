@@ -35,6 +35,6 @@ public class EventDisciplineMapper {
                 entity.getSeedingMode(),
                 entity.getSessionId(),
                 entity.getOrderInSession(),
-                entity.getHeatDurationSec());
+                entity.getHeatDurationSec(), entity.getMaxParticipants(), entity.getLimitsByAgeGroup());
     }
 }

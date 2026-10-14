@@ -48,6 +48,8 @@ export type PublicEvent = {
   publicSlug: string
   eventStartAt: string
   eventEndAt: string
+  maxParticipants?: number | null
+  participantsCount?: number
   registrationOpen: boolean
   venue: {
     name: string
@@ -151,10 +153,17 @@ export type RegistrationDiscipline = {
   stroke: Stroke
   gender: Gender
   ageGroups: AgeGroup[]
+  maxParticipants?: number | null
+  participantsCount?: number
+  limitsByAgeGroup?: Record<string, number> | null
+  participantsByAgeGroup?: Record<string, number>
   entryFee: number
 }
 export type RegistrationForm = {
   disciplines: RegistrationDiscipline[]
+  registrationOpen?: boolean
+  maxParticipants?: number | null
+  participantsCount?: number
   requiresSeedTime: boolean
 }
 export type RegistrationRequest = {

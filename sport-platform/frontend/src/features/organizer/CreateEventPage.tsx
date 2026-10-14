@@ -26,6 +26,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import styles from './CreateEventPage.module.css'
 
 type FormState = {
+  maxParticipants: string
   title: string
   description: string
   registrationOpenAt: string
@@ -45,6 +46,7 @@ const regulationStatusLabels: Record<string, string> = {
 }
 
 const initialFormState: FormState = {
+  maxParticipants: '',
   title: '',
   description: '',
   registrationOpenAt: '',
@@ -367,6 +369,7 @@ export function CreateEventPage() {
       venueId: form.venueId,
       sportId: form.sportId,
       regulationVersionId: form.regulationVersionId,
+      maxParticipants: form.maxParticipants ? Number(form.maxParticipants) : null,
       title: form.title.trim(),
       description: form.description.trim() || null,
       registrationOpenAt: new Date(
@@ -845,6 +848,10 @@ export function CreateEventPage() {
             Отмена
           </NavLink>
 
+          <label>Лимит участников события (необязательно)
+            <input type="number" min="1" step="1" value={form.maxParticipants} placeholder="Без лимита"
+              onChange={e => setForm(previous => ({ ...previous, maxParticipants: e.target.value }))} />
+          </label>
           <button
             className={styles.primaryButton}
             type="submit"

@@ -24,7 +24,7 @@ public class CompleteEventUseCase {
 
     @Transactional
     public EventResponse execute(UUID eventId) {
-        EventEntity event = eventRepository.findById(eventId)
+        EventEntity event = eventRepository.lockById(eventId)
                 .orElseThrow(() -> new BusinessException(
                         "events.event_not_found",
                         "Событие не найдено"
@@ -39,6 +39,7 @@ public class CompleteEventUseCase {
         }
 
         event.setStatus(EventStatus.COMPLETED.name());
+        event.setUpdatedAt(java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC));
         EventEntity saved = eventRepository.save(event);
         return eventMapper.toResponse(saved);
     }

@@ -33,6 +33,7 @@ public class PublicPublicationService {
     public Event event(String slug) {
         var event = requireEvent(slug);
         var disciplines = reads.disciplines(event.id());
+        var capacity = reads.capacity(event.id());
         Set<UUID> published = reads.units(event.id()).stream().map(ReadModels.Unit::disciplineId).collect(Collectors.toSet());
         JsonNode meta = json(event.venueMeta());
         Venue venue = event.venueName() == null ? null : new Venue(event.venueName(), event.venueCity(),
@@ -41,7 +42,7 @@ public class PublicPublicationService {
                 event.registrationCloseAt(), event.eventStartAt(), event.eventEndAt(), event.status(), event.slug(),
                 registrationOpen(event), venue, sessionViews(event.id()),
                 disciplines.stream().map(d -> new Discipline(d.id(), d.number(), d.name(), d.distanceM(), d.stroke(),
-                        d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()))).toList());
+                        d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()))).toList(), capacity.maxParticipants(), capacity.participantsCount());
     }
 
     @Cacheable(cacheNames = "publicStartList", cacheManager = "publicationCacheManager")

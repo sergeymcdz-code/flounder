@@ -26,20 +26,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 @Service
 public class CreateRegistrationUseCase {
 
-    private static final List<String> LIMIT_OCCUPYING_STATUSES = List.of(
-            RegistrationStatus.SUBMITTED.name(),
-            RegistrationStatus.UNDER_REVIEW.name(),
-            RegistrationStatus.CONFIRMED.name(),
-            RegistrationStatus.PAID.name(),
-            RegistrationStatus.ADMITTED.name()
-    );
-
     private final RegistrationRepository registrationRepository;
     private final ProfileLookup profileLookup;
     private final EventLookup eventLookup;
     private final EventDisciplineLookup eventDisciplineLookup;
     private final RegistrationMapper registrationMapper;
     private final ObjectMapper objectMapper;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
+    private final RegistrationCapacityService capacity;
 
     public CreateRegistrationUseCase(
             RegistrationRepository registrationRepository,
@@ -47,7 +41,9 @@ public class CreateRegistrationUseCase {
             EventLookup eventLookup,
             EventDisciplineLookup eventDisciplineLookup,
             RegistrationMapper registrationMapper,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            org.springframework.context.ApplicationEventPublisher publisher,
+            RegistrationCapacityService capacity
     ) {
         this.registrationRepository = registrationRepository;
         this.profileLookup = profileLookup;
@@ -55,6 +51,8 @@ public class CreateRegistrationUseCase {
         this.eventDisciplineLookup = eventDisciplineLookup;
         this.registrationMapper = registrationMapper;
         this.objectMapper = objectMapper;
+        this.publisher = publisher;
+        this.capacity = capacity;
     }
 
     @Transactional
@@ -74,6 +72,8 @@ public class CreateRegistrationUseCase {
         EventDisciplineLookupResult discipline;
 
         try {
+            var selected = eventDisciplineLookup.getPublishedById(request.eventDisciplineId());
+            capacity.lock(selected.eventId());
             discipline = eventDisciplineLookup.lockPublishedById(request.eventDisciplineId());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(
@@ -84,7 +84,7 @@ public class CreateRegistrationUseCase {
         EventLookupResult event;
 
         try {
-            event = eventLookup.getById(discipline.eventId());
+            event = eventLookup.lockById(discipline.eventId());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException("registrations.event_not_found", "Событие не найдено");
         }
@@ -96,7 +96,7 @@ public class CreateRegistrationUseCase {
                 || event.registrationCloseAt() != null
                         && !current.isBefore(event.registrationCloseAt())) {
             throw new BusinessException(
-                    "registrations.registration_not_open", "Регистрация на событие закрыта");
+                    "registrations.registration_closed", "Регистрация на событие закрыта");
         }
 
         String gender =
@@ -119,19 +119,6 @@ public class CreateRegistrationUseCase {
                 discipline.id(), profile.id())) {
             throw new BusinessException(
                     "registrations.already_exists", "Участник уже зарегистрирован в дисциплине");
-        }
-
-        if (discipline.participantLimit() != null) {
-            long occupiedPlaces = registrationRepository
-                    .countByEventDisciplineIdAndStatusIn(
-                            discipline.id(),
-                            LIMIT_OCCUPYING_STATUSES
-                    );
-
-            if (occupiedPlaces >= discipline.participantLimit()) {
-                throw new BusinessException(
-                        "registrations.discipline_limit_reached", "Достигнут лимит участников");
-            }
         }
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -171,9 +158,11 @@ public class CreateRegistrationUseCase {
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
 
-        return registrationMapper.toResponse(
-                registrationRepository.save(entity)
-        );
+        capacity.allocate(entity, "SUBMITTED");
+        var saved = registrationRepository.save(entity);
+        if (RegistrationStatus.SUBMITTED.name().equals(saved.getStatus()))
+            publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationSubmittedEvent(saved.getId()));
+        return registrationMapper.toResponse(saved);
     }
 
     private String createParticipantSnapshot(ProfileLookupResult profile) {

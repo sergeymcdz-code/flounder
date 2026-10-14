@@ -12,6 +12,7 @@ import { usePublicData } from './usePublicData'
 import { date } from './format'
 import styles from './Public.module.css'
 import { PublicConnectionContext } from './publicContext'
+import { ThemeToggle } from '../../components/ThemeToggle'
 
 export function DataState({
   loading,
@@ -114,6 +115,7 @@ export function PublicLayout() {
                 : 'Загружаем сведения…'}
             </p>
           </div>
+          <ThemeToggle />
         </header>
         {(offline || cached) && (
           <div className={`${styles.notice} ${styles.noPrint}`} role="status">

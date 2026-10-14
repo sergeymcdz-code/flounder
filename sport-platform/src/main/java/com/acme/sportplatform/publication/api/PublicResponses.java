@@ -14,7 +14,16 @@ public final class PublicResponses {
             OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
             OffsetDateTime eventStartAt, OffsetDateTime eventEndAt, String status,
             String publicSlug, boolean registrationOpen, Venue venue,
-            List<Session> sessions, List<Discipline> disciplines) {}
+            List<Session> sessions, List<Discipline> disciplines, Integer maxParticipants, long participantsCount) {
+        public Event(UUID id, UUID sportId, String title, String description,
+                OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
+                OffsetDateTime eventStartAt, OffsetDateTime eventEndAt, String status,
+                String publicSlug, boolean registrationOpen, Venue venue,
+                List<Session> sessions, List<Discipline> disciplines) {
+            this(id, sportId, title, description, registrationOpenAt, registrationCloseAt, eventStartAt,
+                    eventEndAt, status, publicSlug, registrationOpen, venue, sessions, disciplines, null, 0);
+        }
+    }
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Venue(String name, String city, Integer lanes, Integer courseLength, String timezone) {}
     public record Session(UUID id, String name, int orderNo, OffsetDateTime startsAt,

@@ -486,6 +486,19 @@
   .liveDescription { font-size: 16px; }
   .live .heatNumber { font-size: 64px; }
   .nav a { font-size: 12px; }
+  .header { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .header > div { grid-column: 1 / -1; min-width: 0; }
+  .header > button { grid-column: 2; grid-row: 1; }
+}
+
+@media screen {
+  :global(html[data-theme='light']) .live {
+    --color-board: #ffffff;
+    --color-board-surface: #f3f5f3;
+    --color-board-text: #182126;
+    --color-board-muted: #52616a;
+    --color-board-border: #cbd2d3;
+  }
 }
 
 @media screen and (min-width: 641px) {

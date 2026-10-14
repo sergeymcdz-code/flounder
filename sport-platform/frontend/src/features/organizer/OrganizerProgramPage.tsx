@@ -40,6 +40,10 @@ const genders: Record<string, string> = {
   M: 'Мужской',
   X: 'Смешанный',
 }
+function disciplineLimit(d: SwimDiscipline) {
+  if (d.maxParticipants == null) return d.participantLimit
+  return d.participantLimit == null ? d.maxParticipants : Math.min(d.maxParticipants, d.participantLimit)
+}
 function localDateTime(value: string) {
   const date = new Date(value)
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -63,7 +67,7 @@ export function OrganizerProgramPage() {
           <h2>Сессии соревнования</h2>
           <button
             className={styles.primary}
-            disabled={busy}
+            disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => setSessionEdit('new')}
           >
             Добавить сессию
@@ -100,13 +104,13 @@ export function OrganizerProgramPage() {
                     <td>
                       <div className={styles.actions}>
                         <button
-                          disabled={busy}
+                          disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() => setSessionEdit(s)}
                         >
                           Изменить
                         </button>
                         <button
-                          disabled={busy}
+                          disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() =>
                             setRemove({
                               title: `Удалить сессию «${s.name}»?`,
@@ -132,7 +136,7 @@ export function OrganizerProgramPage() {
           <h2>Виды программы</h2>
           <button
             className={styles.primary}
-            disabled={busy}
+            disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => setDisciplineEdit('new')}
           >
             Добавить вид
@@ -166,6 +170,7 @@ export function OrganizerProgramPage() {
                   <td>
                     {d.name}
                     <p className={styles.muted}>{d.code}</p>
+                    {disciplineLimit(d) != null && <span className={styles.badge}>Лимит: {registrations.filter(r => r.eventDisciplineId === d.id && ['SUBMITTED', 'UNDER_REVIEW', 'CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status)).length}/{disciplineLimit(d)}</span>}
                   </td>
                   <td>{d.distanceM} м</td>
                   <td>{strokes[d.stroke] ?? d.stroke}</td>
@@ -186,13 +191,13 @@ export function OrganizerProgramPage() {
                   <td>
                     <div className={styles.actions}>
                       <button
-                        disabled={busy}
+                        disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() => setDisciplineEdit(d)}
                       >
                         Изменить
                       </button>
                       <button
-                        disabled={busy}
+                        disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() =>
                           setRemove({
                             title: `Удалить вид «${d.name}»?`,
@@ -204,7 +209,7 @@ export function OrganizerProgramPage() {
                       </button>
                       {d.status !== 'PUBLISHED' && (
                         <button
-                          disabled={busy}
+                          disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() => {
                             void run(() =>
                               publishDiscipline(event.id, d.id, accessToken),
@@ -348,7 +353,7 @@ function SessionEditor({
           />
           <span className={styles.error}>{error('breakBetweenEventsSec')}</span>
         </label>
-        <button className={styles.primary} disabled={busy}>
+        <button className={styles.primary} disabled={busy || event.status === 'ARCHIVED'}>
           Сохранить сессию
         </button>
       </form>
@@ -364,7 +369,9 @@ function DisciplineEditor({
 }) {
   const { event, sessions, accessToken, busy, run } = useOrganizerEvent()
   const [form, setForm] = useState<DisciplineInput>(
-    discipline ?? {
+    discipline ? { ...discipline, maxParticipants: discipline.maxParticipants ?? null, limitsByAgeGroup: discipline.limitsByAgeGroup ?? {} } : {
+      maxParticipants: null,
+      limitsByAgeGroup: {},
       code: '',
       name: '',
       disciplineTemplateId: '',
@@ -454,7 +461,8 @@ function DisciplineEditor({
         await saveDiscipline(
           event.id,
           discipline?.id,
-          { ...form, name: form.name?.trim() || undefined },
+          { ...form, name: form.name?.trim() || undefined,
+            limitsByAgeGroup: Object.fromEntries(Object.entries(form.limitsByAgeGroup ?? {}).filter(([code]) => form.ageGroups.some(g => g.code === code))) },
           accessToken,
         )
       } catch (cause) {
@@ -621,6 +629,11 @@ function DisciplineEditor({
           />
           <span className={styles.error}>{error('heatDurationSec')}</span>
         </label>
+        <label className={styles.field}>Лимит участников вида
+          <input type="number" min="1" step="1" value={form.maxParticipants ?? ''} placeholder="Без лимита"
+            onChange={e => patch('maxParticipants', e.target.value ? Number(e.target.value) : null)} />
+          <span className={styles.error}>{error('maxParticipants')}</span>
+        </label>
         <div className={styles.toolbar}>
           <h2>Возрастные группы</h2>
           <button
@@ -721,6 +734,10 @@ function DisciplineEditor({
                   </span>
                 </label>
               ))}
+              <label className={styles.field}>Лимит группы
+                <input type="number" min="1" step="1" value={form.limitsByAgeGroup?.[g.code] ?? ''} placeholder="Без лимита"
+                  onChange={e => { const limits = { ...form.limitsByAgeGroup }; if (e.target.value) limits[g.code] = Number(e.target.value); else delete limits[g.code]; patch('limitsByAgeGroup', limits) }} />
+              </label>
               <button
                 type="button"
                 onClick={() =>

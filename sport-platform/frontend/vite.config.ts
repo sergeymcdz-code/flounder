@@ -1,3 +1,4 @@
+import { publicApiCachePattern } from './src/utils/publicApiCache.ts'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { rm } from 'node:fs/promises'
@@ -76,7 +77,7 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
-              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/public/') && !url.pathname.endsWith('.pdf'),
+              urlPattern: publicApiCachePattern,
               handler: 'NetworkFirst',
               method: 'GET',
               options: {

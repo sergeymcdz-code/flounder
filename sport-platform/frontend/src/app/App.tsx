@@ -54,6 +54,8 @@ const OrganizerRegistrationsPage = lazy(() =>
 const OrganizerEventLayout = lazy(() =>
   import('../features/organizer/OrganizerEventLayout').then(module => ({ default: module.OrganizerEventLayout })),
 )
+const NotificationSettingsPage = lazy(() => import('../features/organizer/NotificationSettingsPage').then(module => ({ default: module.NotificationSettingsPage })))
+const OrganizerNotificationsPage = lazy(() => import('../features/organizer/OrganizerNotificationsPage').then(module => ({ default: module.OrganizerNotificationsPage })))
 const OrganizerOverviewPage = lazy(() =>
   import('../features/organizer/OrganizerOverviewPage').then(module => ({ default: module.OrganizerOverviewPage })),
 )
@@ -100,6 +102,10 @@ const JudgePanelPage = lazy(() =>
 const PublicDisciplineResultsPage = lazy(() =>
   import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })),
 )
+
+const EventAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.EventAnalyticsPage })))
+const OrganizationAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationAnalyticsPage })))
+const OrganizationsAnalyticsListPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationsAnalyticsListPage })))
 
 export default function App() {
   const routes = (
@@ -164,6 +170,11 @@ export default function App() {
         >
           <Route path="organizer" element={<OrganizerLayout />}>
             <Route index element={<OrganizerDashboardPage />} />
+            <Route path="notification-settings" element={<NotificationSettingsPage />} />
+            <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
+              <Route path="organizations" element={<OrganizationsAnalyticsListPage />} />
+              <Route path="organizations/:orgId/analytics" element={<OrganizationAnalyticsPage />} />
+            </Route>
 
             <Route
               path="events"
@@ -181,6 +192,10 @@ export default function App() {
               <Route path="entries" element={<OrganizerEntriesPage />} />
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="notifications" element={<OrganizerNotificationsPage />} />
+              <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
+                <Route path="analytics" element={<EventAnalyticsPage />} />
+              </Route>
               <Route path="registrations" element={<OrganizerRegistrationsPage />} />
             </Route>
 

@@ -18,15 +18,18 @@ import java.util.UUID;
 public class RegistrationImportLookupService implements RegistrationImportLookup {
     private final RegistrationRepository registrations;
     private final ObjectMapper mapper;
+    private final RegistrationCapacityService capacity;
 
-    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper) {
+    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper, RegistrationCapacityService capacity) {
         this.registrations = registrations;
         this.mapper = mapper;
+        this.capacity = capacity;
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean upsert(UUID eventId, UUID disciplineId, ProfileLookupResult profile, Long seedTimeMs, BigDecimal fee) {
+        capacity.lock(eventId);
         RegistrationEntity entity = registrations.findByEventDisciplineIdAndParticipantProfileIdAndStatusNot(
                 disciplineId, profile.id(), "WITHDRAWN").orElse(null);
         boolean created = entity == null;

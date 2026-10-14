@@ -60,8 +60,8 @@ select u.id,u.event_discipline_id from competition_units u join competition_unit
             throw new BusinessException("results.entry_not_found", "Участник заплыва не найден");
         var row = rows.getFirst();
         var discipline = disciplines.getForScheduling(row[1]);
-        access.assertCanManage(discipline.eventId(), principal);
-        locks.lockForUpdate(discipline.eventId());
+        access.assertCanModify(discipline.eventId(), principal);
+        locks.lockWritableForUpdate(discipline.eventId());
         int lanes;
         try {
             lanes =

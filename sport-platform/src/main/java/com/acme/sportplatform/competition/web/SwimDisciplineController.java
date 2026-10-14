@@ -53,9 +53,11 @@ public class SwimDisciplineController {
                 "competition.invalid_request", errors);
         Set<String> cleared = new HashSet<>();
         for (String field :
-                List.of("sessionId", "orderInSession", "heatDurationSec", "participantLimit"))
+                List.of("sessionId", "orderInSession", "heatDurationSec", "participantLimit", "maxParticipants", "limitsByAgeGroup"))
             if (body.has(field) && body.get(field).isNull()) cleared.add(field);
-        return update.patch(id, request, cleared, principal);
+        Set<String> fields = new HashSet<>();
+        body.fieldNames().forEachRemaining(fields::add);
+        return update.patch(id, request, cleared, fields, principal);
     }
 
     @DeleteMapping("/event-disciplines/{id}")

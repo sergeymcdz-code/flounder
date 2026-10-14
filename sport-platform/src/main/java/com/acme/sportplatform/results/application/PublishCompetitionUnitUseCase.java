@@ -26,15 +26,18 @@ public class PublishCompetitionUnitUseCase {
     private final CompetitionUnitRepository competitionUnitRepository;
     private final CompetitionUnitEntryRepository entryRepository;
     private final ResultRepository resultRepository;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     public PublishCompetitionUnitUseCase(
             CompetitionUnitRepository competitionUnitRepository,
             CompetitionUnitEntryRepository entryRepository,
-            ResultRepository resultRepository
+            ResultRepository resultRepository,
+            org.springframework.context.ApplicationEventPublisher publisher
     ) {
         this.competitionUnitRepository = competitionUnitRepository;
         this.entryRepository = entryRepository;
         this.resultRepository = resultRepository;
+        this.publisher = publisher;
     }
 
     @Transactional
@@ -106,6 +109,9 @@ public class PublishCompetitionUnitUseCase {
         var now = OffsetDateTime.now();
         if (unit.getActualFinishedAt() == null) unit.setActualFinishedAt(now);
         unit.setUpdatedAt(now);
+        publisher.publishEvent(new com.acme.sportplatform.results.ResultsPublishedEvent(
+                unitId, unit.getEventDisciplineId(), entries.stream()
+                        .map(CompetitionUnitEntryEntity::getRegistrationId).toList()));
     }
 
     private void validateResultForPublication(ResultEntity result) {

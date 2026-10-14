@@ -39,7 +39,7 @@ public class EventLiveUseCase {
             UUID eventId,
             UUID currentUnitId,
             com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         locks.lockForUpdate(eventId);
         if (currentUnitId != null && !eventId.equals(eventId(require(currentUnitId))))
             throw new BusinessException(
@@ -54,7 +54,7 @@ public class EventLiveUseCase {
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var unit = managedUnit(id, principal);
         UUID eventId = eventId(unit);
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         if ("IN_PROGRESS".equals(unit.getStatus()))
             throw new BusinessException("results.unit_already_started", "Заплыв уже начат");
         if (!Set.of("DRAFT", "SCHEDULED", "PUBLISHED").contains(unit.getStatus()))
@@ -79,7 +79,7 @@ public class EventLiveUseCase {
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var unit = managedUnit(id, principal);
         UUID eventId = eventId(unit);
-        access.assertCanManage(eventId, principal);
+        access.assertCanModify(eventId, principal);
         var state = lockState(eventId);
         if (!Set.of("IN_PROGRESS", "FINISHED").contains(unit.getStatus()))
             throw new BusinessException(

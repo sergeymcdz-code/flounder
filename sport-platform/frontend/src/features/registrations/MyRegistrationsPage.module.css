@@ -30,10 +30,10 @@
 .successBanner {
   margin-top: 28px;
   padding: 14px 16px;
-  border: 1px solid #a7dfc0;
+  border: 1px solid var(--color-success);
   border-radius: var(--radius-sm);
-  background: #edf9f1;
-  color: #17613c;
+  background: var(--color-success-soft);
+  color: var(--color-success);
   font-weight: 650;
   line-height: 1.45;
 }
@@ -41,7 +41,7 @@
 .emptyState {
   margin-top: 32px;
   padding: 24px;
-  border: 1px solid #cbe6f4;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
@@ -63,12 +63,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   margin-top: 20px;
   padding: 0 16px;
   border-radius: var(--radius-sm);
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-on-primary);
   font-weight: 700;
   text-decoration: none;
   transition: background-color 160ms ease, transform 160ms ease;
@@ -123,35 +123,35 @@
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-weight: 750;
   white-space: nowrap;
 }
 
 .statusSubmitted {
-  background: #fff4d7;
-  color: #8c5a05;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .statusConfirmed {
-  background: #e5f7ec;
-  color: #17613c;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .statusRejected {
-  background: #fee9e7;
-  color: #a12747;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .statusCorrection {
-  background: #f0e9ff;
-  color: #6544a3;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .statusCancelled {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .facts {
@@ -176,7 +176,7 @@
 
 .facts dd {
   margin: 0;
-  color: #33435c;
+  color: var(--color-text);
   font-size: 0.94rem;
   line-height: 1.45;
 }
@@ -186,7 +186,7 @@
   padding: 16px;
   border-left: 4px solid var(--color-primary);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: #eef8fc;
+  background: var(--color-primary-soft);
 }
 
 .reviewNote strong {
@@ -196,13 +196,13 @@
 
 .reviewNote p {
   margin: 8px 0 0;
-  color: #41516a;
+  color: var(--color-text-muted);
   line-height: 1.55;
 }
 
 .technicalId {
   margin: 20px 0 0;
-  color: #8b98ab;
+  color: var(--color-text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.76rem;
   line-height: 1.45;
@@ -237,27 +237,27 @@
 }
 
 .hintSubmitted {
-  border-left-color: #d6a62c;
-  background: #fff9e9;
-  color: #765420;
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .hintConfirmed {
-  border-left-color: #17613c;
-  background: #edf9f1;
-  color: #17613c;
+  border-left-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .hintCorrection {
-  border-left-color: #2d5c9a;
-  background: #e8f0ff;
-  color: #2d5c9a;
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .hintRejected,
 .hintCancelled {
   border-left-color: var(--color-danger);
-  background: #fff7f7;
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
@@ -267,3 +267,7 @@
   gap: 10px;
   margin-top: 18px;
 }
+
+.emptyState { border-inline-start: 3px solid var(--color-border-strong); background: var(--color-surface-muted); }
+.card { border-top: 3px solid var(--color-text); }
+.facts { font-variant-numeric: tabular-nums; }

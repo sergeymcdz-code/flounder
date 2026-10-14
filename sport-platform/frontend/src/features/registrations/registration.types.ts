@@ -23,6 +23,7 @@ export type CreateRegistrationRequest = {
 }
 
 export type RegistrationStatus =
+  | 'WAITLISTED'
   | 'SUBMITTED'
   | 'CONFIRMED'
   | 'PAID'
@@ -31,6 +32,7 @@ export type RegistrationStatus =
   | 'CANCELLED'
 
 export type Registration = {
+  waitlistPosition?: number | null
   id: string
   eventId: string
   eventDisciplineId: string
@@ -45,4 +47,6 @@ export type Registration = {
   submittedAt: string
   createdAt: string
   updatedAt: string
+  documents?: Partial<Record<import('../../api/documents.api').DocumentType, import('../../api/documents.api').DocumentStatus>>
+  admissionWarnings?: string[]
 }

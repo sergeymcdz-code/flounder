@@ -12,6 +12,16 @@ import java.util.*;
 public class SwimDisciplineValidator {
     private final SessionLookup sessions;
 
+    public void validateLimits(com.acme.sportplatform.competition.infrastructure.jpa.EventDisciplineEntity d) {
+        if (d.getLimitsByAgeGroup() == null) return;
+        var codes = d.getAgeGroups().stream().map(com.acme.sportplatform.competition.AgeGroup::code).collect(java.util.stream.Collectors.toSet());
+        for (var entry : d.getLimitsByAgeGroup().entrySet()) {
+            if (!codes.contains(entry.getKey()) || entry.getValue() == null || entry.getValue() <= 0)
+                throw new com.acme.sportplatform.common.exception.BusinessException(
+                        "competition.invalid_limits", "Лимит должен быть положительным и относиться к существующей группе");
+        }
+    }
+
     public SwimDisciplineValidator(SessionLookup sessions) {
         this.sessions = sessions;
     }

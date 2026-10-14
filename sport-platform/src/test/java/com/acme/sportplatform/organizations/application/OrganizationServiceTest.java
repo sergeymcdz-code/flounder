@@ -14,6 +14,22 @@ import static org.mockito.Mockito.when;
 
 class OrganizationServiceTest {
     @ParameterizedTest
+    @CsvSource({"owner,true", "ADMIN,true", "organizer,false", "operator,false", "judge,false", "member,false", "missing,false"})
+    void analyticsRequiresOwnerOrAdminMembership(String role, boolean allowed) {
+        UUID organizationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        var memberships = mock(OrganizationMemberRepository.class);
+        var member = new OrganizationMemberEntity();
+        member.setMemberRole(role);
+        when(memberships.findByOrganizationIdAndUserId(organizationId, userId))
+                .thenReturn(role.equals("missing") ? Optional.empty() : Optional.of(member));
+        var service = new OrganizationService(mock(OrganizationRepository.class), memberships,
+                mock(UserRoleLookup.class), mock(com.acme.sportplatform.identity.UserLookup.class),
+                new com.fasterxml.jackson.databind.ObjectMapper());
+        assertEquals(allowed, service.isOwnerOrAdmin(organizationId, userId));
+    }
+
+    @ParameterizedTest
     @CsvSource({"owner,true", "ADMIN,true", "organizer,true", "operator,false", "judge,false", "member,false"})
     void eventCreationRequiresManagementMembership(String role, boolean allowed) {
         UUID organizationId = UUID.randomUUID();

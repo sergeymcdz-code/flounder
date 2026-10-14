@@ -11,6 +11,7 @@ class FakeApi implements Api {
   users = new Map<string, Row & { roles: string[] }>([['admin@example.invalid', { id: 'admin', email: 'admin@example.invalid', roles: ['platform_admin'] }]]);
   imports = 0;
   missingImport = false;
+  openRaceStatus: string | undefined;
   missingSessions = false;
   supportsVenueMeta = false;
   lowercaseRegulations = false;
@@ -61,6 +62,10 @@ class FakeApi implements Api {
         row.status = 'published';
         return row as T;
       }
+      if (path.endsWith('open-registration') && this.openRaceStatus) {
+        row.status = this.openRaceStatus;
+        throw new ApiError(400, 'events.invalid_transition', method, path);
+      }
       row.status = path.endsWith('open-registration') ? 'REGISTRATION_OPEN' : 'PUBLISHED';
       return row as T;
     }
@@ -69,7 +74,7 @@ class FakeApi implements Api {
       this.lists.set('/regulation-versions', [...(this.lists.get('/regulation-versions') ?? []), row]);
       return row as T;
     }
-    if (method === 'GET' && /^\/(venues|organizations)\/[^/]+$/.test(path)) {
+    if (method === 'GET' && /^\/(venues|organizations|events)\/[^/]+$/.test(path)) {
       const row = this.lists.get(`/${path.split('/')[1]}`)!.find(row => row.id === path.split('/')[2])!;
       if (path.startsWith('/venues/')) {
         const { venueMeta, ...response } = row;
@@ -252,4 +257,25 @@ describe('seed and reset orchestration without network', () => {
     expect(messages.join()).toContain('-v demo_event_id=11111111-2222-3333-4444-555555555555');
     expect(api.calls.some(call => call.method === 'DELETE')).toBe(false);
   });
+  it('continues after the scheduler opens registration between publish and open', async () => {
+    const api = new FakeApi(); api.openRaceStatus = 'REGISTRATION_OPEN';
+    expect((await seed(api, options, quiet)).status).toBe('REGISTRATION_OPEN');
+    expect(api.imports).toBe(1);
+    expect(api.calls.some(c => c.method === 'GET' && /^\/events\/[^/]+$/.test(c.path))).toBe(true);
+  });
+  it('does not swallow an invalid transition when registration was not opened', async () => {
+    const api = new FakeApi(); api.openRaceStatus = 'REGISTRATION_CLOSED';
+    await expect(seed(api, options, quiet)).rejects.toMatchObject({ code: 'events.invalid_transition' });
+    expect(api.imports).toBe(0);
+  });
+  it('reruns a closed event with a warning without reopening registration', async () => {
+    const api = new FakeApi(); await seed(api, options, quiet);
+    api.lists.get('/events')![0].status = 'REGISTRATION_CLOSED';
+    const messages: string[] = []; const before = api.calls.length;
+    expect((await seed(api, options, m => messages.push(m))).status).toBe('REGISTRATION_CLOSED');
+    expect(api.imports).toBe(2);
+    expect(messages.join()).toContain('WARNING: регистрация закрыта');
+    expect(api.calls.slice(before).some(c => c.path.endsWith('/open-registration'))).toBe(false);
+  });
+
 });

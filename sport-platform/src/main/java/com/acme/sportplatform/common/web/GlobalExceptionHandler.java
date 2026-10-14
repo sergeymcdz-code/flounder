@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiErrorResponse(
-                "imports.file_too_large", "Размер файла превышает 5 МБ", OffsetDateTime.now(), List.of()));
+                "files.too_large", "Размер файла превышает допустимый", OffsetDateTime.now(), List.of()));
     }
 
     @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
@@ -57,6 +57,11 @@ public class GlobalExceptionHandler {
         HttpStatus status = switch (ex.getCode()) {
             case "documents.generation_failed" -> HttpStatus.INTERNAL_SERVER_ERROR;
             case "documents.busy" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
+            case "documents.access_denied" -> HttpStatus.FORBIDDEN;
+            case "documents.not_pending" -> HttpStatus.CONFLICT;
+            case "files.too_large", "imports.file_too_large" -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case "files.storage_unavailable", "files.corrupt" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "scheduling.published_units_exist", "scheduling.validation_failed", "scheduling.active_units_exist", "results.lane_conflict" -> HttpStatus.CONFLICT;
             case "organizations.venue_not_found" -> HttpStatus.NOT_FOUND;
             case "events.session_in_use", "events.session_order_conflict", "competition.discipline_in_use", "competition.discipline_code_already_exists", "identity.profile_already_attached", "results.unit_in_progress", "results.unit_already_started" -> HttpStatus.CONFLICT;

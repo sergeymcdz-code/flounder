@@ -83,7 +83,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   const date = samaraDate(String(event.eventStartAt));
   validateDemoDate(date);
   if (options.demoDate && date !== options.demoDate) throw new Error('DEMO_DATE отличается от существующего события. Выполните reset, затем seed.');
-  if (!['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN'].includes(String(event.status))) {
+  if (!['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED'].includes(String(event.status))) {
     throw new Error(`Демо-событие в статусе ${event.status}. Для нового прогона выполните reset, затем seed.`);
   }
   const sessions: Row[] = [];
@@ -102,7 +102,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     const path = `/events/${event.id}/disciplines`;
     let discipline = unique(await api.request<Row[]>('GET', path, undefined, organizerToken), row => row.code === spec.code, spec.code);
     if (!discipline) {
-      if (event.status === 'REGISTRATION_OPEN') {
+      if (['REGISTRATION_OPEN', 'REGISTRATION_CLOSED'].includes(String(event.status))) {
         throw new Error(`Дисциплина ${spec.code} отсутствует, но регистрация уже открыта: выполните reset, затем seed. Добавление видов разрешено только в DRAFT/PUBLISHED.`);
       }
       discipline = await api.request<Row>('POST', path, body, organizerToken);
@@ -123,8 +123,18 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     } else if (discipline.status !== 'PUBLISHED') throw new Error(`Неподходящий статус дисциплины ${spec.code}. Выполните reset.`);
   }
   if (event.status === 'DRAFT') event = await api.request<Row>('POST', `/events/${event.id}/publish`, undefined, organizerToken);
-  if (event.status === 'PUBLISHED') event = await api.request<Row>('POST', `/events/${event.id}/open-registration`, undefined, organizerToken);
-  if (event.status !== 'REGISTRATION_OPEN') throw new Error('API не подтвердил открытие регистрации.');
+  if (event.status === 'PUBLISHED') {
+    try {
+      event = await api.request<Row>('POST', `/events/${event.id}/open-registration`, undefined, organizerToken);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 400 || error.code !== 'events.invalid_transition') throw error;
+      const current = await api.request<Row>('GET', `/events/${event.id}`, undefined, organizerToken);
+      if (current.status !== 'REGISTRATION_OPEN') throw error;
+      event = current;
+    }
+  }
+  if (event.status === 'REGISTRATION_CLOSED') log('WARNING: регистрация закрыта; повторный сид продолжает импорт без открытия регистрации.');
+  if (!['REGISTRATION_OPEN', 'REGISTRATION_CLOSED'].includes(String(event.status))) throw new Error('API не подтвердил открытие регистрации.');
   if (options.skipImport) {
     log('Импорт пропущен (--skip-import). Заявки не загружены этим запуском; импортируйте набор M в UI или повторите seed без флага.');
   } else {

@@ -33,6 +33,9 @@ export function PublicEventPage() {
           </p>
         )}
         {event.description && <p>{event.description}</p>}
+        {!event.registrationOpen && <p>Регистрация закрыта</p>}
+        {event.maxParticipants != null && <p>Лимит: {event.participantsCount ?? 0}/{event.maxParticipants}</p>}
+        {event.registrationOpen && event.maxParticipants != null && (event.participantsCount ?? 0) >= event.maxParticipants && <p>Мест нет, запись в лист ожидания</p>}
         {event.registrationOpen && (
           <Link className={`${styles.button} fl-button-primary`} to={`${base}/register`}>
             Подать заявку

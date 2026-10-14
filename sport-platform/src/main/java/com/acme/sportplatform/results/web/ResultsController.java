@@ -182,7 +182,7 @@ public class ResultsController {
             @Valid @RequestBody CreateCompetitionUnitRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        resultsAccessService.assertDisciplineAccess(request.eventDisciplineId(), principal);
+        resultsAccessService.assertDisciplineModification(request.eventDisciplineId(), principal);
 
         CompetitionUnitResponse response =
                 createCompetitionUnitUseCase.execute(request);
@@ -204,7 +204,7 @@ public class ResultsController {
             @Valid @RequestBody AssignRegistrationRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        resultsAccessService.assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitModification(unitId, principal);
 
         UUID entryId = assignRegistrationToUnitUseCase.execute(
                 unitId,
@@ -231,7 +231,7 @@ public class ResultsController {
             @RequestParam String resultType,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(), principal);
+        resultsAccessService.assertEntryModification(request.competitionUnitEntryId(), principal);
 
         return recordResultUseCase.execute(
                 request,
@@ -256,7 +256,7 @@ public class ResultsController {
             @RequestParam(defaultValue = "TIME") String resultType,
             @RequestParam(defaultValue = "ASC") String rankingStrategy,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
-        resultsAccessService.assertUnitAccess(unitId,principal);
+        resultsAccessService.assertUnitModification(unitId,principal);
         if (body.isArray()) {
             var errors =
                     new
@@ -291,7 +291,7 @@ public class ResultsController {
         }
         if (request == null || request.competitionUnitEntryId() == null)
             throw new BusinessException("results.invalid_request", "Укажите участника заплыва");
-        resultsAccessService.assertEntryAccess(request.competitionUnitEntryId(),principal);
+        resultsAccessService.assertEntryModification(request.competitionUnitEntryId(),principal);
         recordResultUseCase.execute(request, resultType, recordedByUserId, unitId);
         recalculatePlacesUseCase.execute(unitId, rankingStrategy);
         return getCompetitionUnitDetailsUseCase.execute(unitId);
@@ -309,7 +309,7 @@ public class ResultsController {
             @RequestParam String rankingStrategy,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        resultsAccessService.assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitModification(unitId, principal);
 
         recalculatePlacesUseCase.execute(
                 unitId,
@@ -332,7 +332,7 @@ public class ResultsController {
             @RequestBody PublishCompetitionUnitRequest request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        resultsAccessService.assertUnitAccess(unitId, principal);
+        resultsAccessService.assertUnitModification(unitId, principal);
 
         if (!request.published() && principal.getAuthorities().stream().noneMatch(a ->
                 java.util.Set.of("ROLE_ORGANIZER", "ROLE_OPERATOR", "ROLE_PLATFORM_ADMIN")

@@ -34,7 +34,7 @@ export function OrganizerEventLayout() {
 
 function OrganizerEventContent() {
   const { eventId = '' } = useParams()
-  const { session, logout } = useAuth()
+  const { session, logout, isOrganizer, isPlatformAdmin } = useAuth()
   const token = session?.accessToken ?? ''
   const navigate = useNavigate()
   const location = useLocation()
@@ -195,6 +195,7 @@ function OrganizerEventContent() {
           </p>
         </div>
       </header>
+      {data.event.status === 'ARCHIVED' && <p role="status">Событие в архиве. Доступен только просмотр.</p>}
       <nav className={styles.tabs} aria-label="Разделы события">
         {[
           ['', 'Обзор'],
@@ -202,6 +203,8 @@ function OrganizerEventContent() {
           ['entries', 'Заявки'],
           ['heats', 'Заплывы'],
           ['results', 'Результаты'],
+          ['notifications', 'Уведомления'],
+          ...(isOrganizer || isPlatformAdmin ? [['analytics', 'Аналитика']] : []),
         ].map(([path, title]) => (
           <NavLink
             key={path}

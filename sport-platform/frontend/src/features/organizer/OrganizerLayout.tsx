@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import styles from './OrganizerLayout.module.css'
+import { useAuth } from '../../app/providers/AuthProvider'
 
 type NavigationItem = {
   to: string
@@ -26,9 +27,11 @@ const navigationItems: NavigationItem[] = [
     to: '/organizer/regulations/create',
     label: 'Регламенты',
   },
+  { to: '/organizer/notification-settings', label: 'Настройки уведомлений' },
 ]
 
 export function OrganizerLayout() {
+  const { isOrganizer, isPlatformAdmin } = useAuth()
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
@@ -38,7 +41,7 @@ export function OrganizerLayout() {
         </div>
 
         <nav className={styles.navigation} aria-label="Навигация организатора">
-          {navigationItems.map((item) => (
+          {[...navigationItems, ...(isOrganizer || isPlatformAdmin ? [{ to: '/organizer/organizations', label: 'Аналитика организаций' }] : [])].map((item) => (
             <NavLink
               key={item.to}
               className={({ isActive }) =>

@@ -34,6 +34,6 @@ public class EventMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 List.of(),
-                sessions.views(entity.getId()));
+                sessions.views(entity.getId()), entity.getMaxParticipants());
     }
 }

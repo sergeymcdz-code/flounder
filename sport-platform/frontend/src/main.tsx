@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import App from './app/App'
 import { AuthProvider } from './app/providers/AuthProvider'
+import { ThemeProvider } from './components/ThemeToggle'
 import './styles/globals.css'
 
 async function bootstrap() {
@@ -24,9 +25,11 @@ async function bootstrap() {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <BrowserRouter>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </StrictMode>,
   )

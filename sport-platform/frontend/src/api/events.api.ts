@@ -30,6 +30,8 @@ export type Event = {
   venueId?: string | null
   sportId: string
   regulationVersionId?: string | null
+  maxParticipants?: number | null
+  participantsCount?: number
   title: string
   description: string | null
   publicSlug: string
@@ -50,6 +52,8 @@ export type OrganizerEvent = Event
 export type PublicEvent = {
   id: string
   sportId: string
+  maxParticipants?: number | null
+  participantsCount?: number
   title: string
   description: string | null
   registrationOpenAt: string
@@ -69,6 +73,8 @@ export type CreateEventRequest = {
   venueId: string
   sportId: string
   regulationVersionId: string
+  maxParticipants?: number | null
+  participantsCount?: number
   title: string
   description?: string | null
   publicSlug?: string | null
@@ -179,3 +185,7 @@ export async function completeEvent(
     },
   )
 }
+export const archiveEvent = (id: string, accessToken: string) =>
+  apiFetch<EventResponse>(`/api/v1/events/${encodeURIComponent(id)}/archive`, { method: 'POST', accessToken })
+export const patchEvent = (id: string, input: { maxParticipants?: number | null; registrationCloseAt?: string | null }, accessToken: string) =>
+  apiFetch<EventResponse>(`/api/v1/events/${encodeURIComponent(id)}`, { method: 'PATCH', accessToken, body: JSON.stringify(input) })

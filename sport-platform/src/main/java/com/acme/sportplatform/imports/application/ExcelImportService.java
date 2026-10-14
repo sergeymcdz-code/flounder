@@ -44,7 +44,7 @@ public class ExcelImportService {
         if (name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
             throw new BusinessException("imports.invalid_file_type", "Поддерживаются только файлы .xlsx");
         }
-        if (file.getSize() > MAX_FILE_SIZE) throw new org.springframework.web.multipart.MaxUploadSizeExceededException(MAX_FILE_SIZE);
+        if (file.getSize() > MAX_FILE_SIZE) throw new BusinessException("imports.file_too_large", "Размер файла превышает 5 МБ");
         if (file.isEmpty()) throw new BusinessException("imports.empty_file", "Файл пуст");
         ExcelRowParser parser = new ExcelRowParser();
         // Validate the entire file structure before committing any rows.

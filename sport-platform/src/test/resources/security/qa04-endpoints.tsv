@@ -115,3 +115,18 @@ GET	/api/v1/public/events/{slug}/start-list.pdf	public	false	200
 GET	/api/v1/public/events/{slug}/results.pdf	public	false	200
 POST	/api/v1/events/{eventId}/schedule/shift	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
 POST	/api/v1/events/{eventId}/schedule/shift/preview	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
+POST	/api/v1/profiles/{profileId}/documents	documents	true	201	document
+GET	/api/v1/profiles/{profileId}/documents	documents	true	200	document
+DELETE	/api/v1/profiles/{profileId}/documents/{id}	participant	false	204	document
+GET	/api/v1/documents/{id}/download	documents	true	200	document
+GET	/api/v1/public/documents/{id}/content	signed-document	true	200	document
+GET	/api/v1/events/{eventId}/registrations	manage	true	200
+GET	/api/v1/organizations/{id}/notification-settings	owner	true	200
+PUT	/api/v1/organizations/{id}/notification-settings	owner	true	200		[{"templateCode":"registration_confirmed","enabled":false}]
+GET	/api/v1/events/{eventId}/notifications	manage	true	200
+GET	/api/v1/events/{eventId}/analytics	organize	true	200
+GET	/api/v1/events/{eventId}/analytics/export.xlsx	organize	true	200
+GET	/api/v1/organizations/{id}/analytics	owner	true	200
+GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
+PATCH	/api/v1/events/{id}	manage	true	200		{"maxParticipants":150}
+POST	/api/v1/events/{id}/archive	manage	true	200	event-completed	{}

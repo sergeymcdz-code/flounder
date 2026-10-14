@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 @Table(name = "events")
 public class EventEntity {
 
+    private Integer maxParticipants;
     @Id
     private UUID id;
 
@@ -64,6 +65,9 @@ public class EventEntity {
 
     @Column(nullable = false)
     private OffsetDateTime updatedAt;
+
+    public Integer getMaxParticipants() { return maxParticipants; }
+    public void setMaxParticipants(Integer value) { maxParticipants = value; }
 
     public UUID getId() {
         return id;

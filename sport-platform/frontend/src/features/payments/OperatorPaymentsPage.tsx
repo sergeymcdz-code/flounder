@@ -20,6 +20,7 @@ function getErrorMessage(error: unknown) {
 
 function registrationStatusLabel(status: Registration['status']) {
   const labels: Record<Registration['status'], string> = {
+    WAITLISTED: 'Лист ожидания',
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
     PAID: 'Оплачена',
@@ -33,6 +34,7 @@ function registrationStatusLabel(status: Registration['status']) {
 
 function registrationStatusClassName(status: Registration['status']) {
   const classes: Record<Registration['status'], string> = {
+    WAITLISTED: styles.statusCorrection,
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,

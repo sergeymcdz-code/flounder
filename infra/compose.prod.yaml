@@ -47,17 +47,27 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-sport_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in infra/.env.prod}
+      APP_FILES_ENCRYPTION_KEY: ${APP_FILES_ENCRYPTION_KEY:?APP_FILES_ENCRYPTION_KEY is required in infra/.env.prod (openssl rand -base64 32)}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://${DOMAIN}}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://${DOMAIN}}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@localhost}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
       APP_PAYMENTS_PROVIDER: ${APP_PAYMENTS_PROVIDER:-MANUAL}
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
+      FILES_STORAGE_DIR: ${FILES_STORAGE_DIR:-/data/files}
       DEMO_SEED: ${DEMO_SEED:-false}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: production
       TZ: ${TZ:-Europe/Samara}
       # 4 GB server: cap the JVM heap so that postgres + caddy + OS fit as well.
       JAVA_TOOL_OPTIONS: "-Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+    volumes:
+      - flounder_files:${FILES_STORAGE_DIR:-/data/files}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
       interval: 15s
@@ -104,6 +114,8 @@ services:
     logging: *default-logging
 
 volumes:
+  flounder_files:
+    name: flounder_files
   postgres_data:
   caddy_data:
   caddy_config:
