@@ -32,7 +32,7 @@ class MailRenderingTest {
         var previous = logger.getLevel(); logger.setLevel(ch.qos.logback.classic.Level.INFO);
         appender.start(); logger.addAppender(appender);
         try {
-            var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@example.org", false), sender, new LoggingMailSender());
+            var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@example.org", false, "auto"), sender, new LoggingMailSender());
             transport.send("test@example.org", renderer.render(NotificationTemplate.password_reset, payload));
             verifyNoInteractions(sender);
             assertThat(appender.list).hasSize(1);
@@ -43,7 +43,7 @@ class MailRenderingTest {
         var sender = mock(JavaMailSender.class);
         var mime = new MimeMessage(Session.getInstance(new Properties()));
         when(sender.createMimeMessage()).thenReturn(mime);
-        new MailTransport(new MailProperties("localhost", 1025, "", "", "noreply@example.org", true), sender, new LoggingMailSender())
+        new MailTransport(new MailProperties("localhost", 1025, "", "", "noreply@example.org", true, "none"), sender, new LoggingMailSender())
                 .send("test@example.org", renderer.render(NotificationTemplate.registration_confirmed, payload));
         verify(sender).send(mime);
         var mixed = (jakarta.mail.Multipart) mime.getContent();

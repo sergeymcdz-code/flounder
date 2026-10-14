@@ -6,4 +6,5 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("app.mail")
 public record MailProperties(@DefaultValue("") String host, @DefaultValue("587") int port,
         @DefaultValue("") String username, @DefaultValue("") String password,
-        @DefaultValue("noreply@localhost") String from, @DefaultValue("false") boolean enabled) {}
+        @DefaultValue("noreply@localhost") String from, @DefaultValue("false") boolean enabled,
+        @DefaultValue("auto") String security) {}

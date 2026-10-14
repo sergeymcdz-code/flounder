@@ -8,6 +8,7 @@
 - **Обязательно:** `APP_FILES_ENCRYPTION_KEY` в `infra/.env.prod` — без него `compose` откажется стартовать `api` (`:?` в `compose.prod.yaml`). Ключ = base64 от 32 случайных байт. **Потеря ключа = потеря всех загруженных документов** — сохранить копию в менеджере паролей отдельно от сервера.
 - Новый docker-том `flounder_files` (документы участников); `infra/backup.sh` по умолчанию берёт `FILES_VOLUME=flounder_files` — ничего задавать не нужно.
 - Письма (M05): без `MAIL_*` приложение стартует, письма складываются в outbox и помечаются отправленными через лог (`MAIL_ENABLED=false`). Для реальных писем нужны `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ENABLED=true` — решение и данные владельца.
+- Письма: `MAIL_SECURITY=auto` выбирает SSL для 465 и обязательный STARTTLS для остальных портов; для Timeweb `smtp.timeweb.ru` используйте 465/ssl или 587/starttls, логин — полный адрес ящика.
 - `APP_ADMIN_EMAIL`/`APP_ADMIN_PASSWORD` (QA04 r2, bootstrap второго platform_admin) — опционально; пароль `admin@flounder.demo` этим не меняется, ротация руками через UI.
 - Планировщики: `EventLifecycleScheduler` (раз в минуту, авто-закрытие регистрации по `registrationCloseAt`), outbox-воркер M05. Демо-событие с датой 24.10 закроется 24.10 09:30 Самары — не раньше.
 
