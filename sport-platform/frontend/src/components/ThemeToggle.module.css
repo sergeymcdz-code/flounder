@@ -1,0 +1,17 @@
+button.toggle.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+button.toggle.toggle:hover { background: var(--color-surface-muted); }
+button.toggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+@media print { button.toggle { display: none; } }

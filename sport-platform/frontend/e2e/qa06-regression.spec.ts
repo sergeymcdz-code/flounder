@@ -356,10 +356,10 @@ test('D01 review 1: login card retains the four-pixel primary top border', async
 })
 
 for (const route of ['live', 'results']) {
-  test(`D01 owner: ${route} uses dark tokens without a theme attribute and prints on white`, async ({ page }) => {
+  test(`D01/D02 owner: ${route} defaults to dark tokens and prints on white`, async ({ page }) => {
     await openAuditPage(page, `/e/demo/${route}`)
     await expect(page.locator(route === 'live' ? '.fl-lanes' : '.fl-results').first()).toBeVisible()
-    expect(await page.locator('html').getAttribute('data-theme')).toBeNull()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
     expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('dark')
     if (route === 'results') {
       await scenario(page, 'public/events/demo/results', { disciplines: [] })

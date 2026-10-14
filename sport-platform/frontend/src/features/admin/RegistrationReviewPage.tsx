@@ -234,7 +234,7 @@ export function OrganizationRegistrationReviewPage() {
   }
   return <section className={adminStyles.page}><h1>Заявки организаций</h1>
     {loading ? <p role="status">Загружаем заявки…</p> : error ? <p className={adminStyles.error} role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !requests.length ? <p>Заявок организаций на рассмотрении нет.</p> : <div className={adminStyles.queue}>
+      : !requests.length ? <p className="fl-empty">Заявок организаций на рассмотрении нет.</p> : <div className={adminStyles.queue}>
         {requests.map(request => <article key={request.id} className={adminStyles.card}>
           <h2>{request.organizationName}</h2><p>{request.legalName || request.organizationType} · ИНН: {request.inn || '—'}</p>
           <p>{request.contactEmail} {request.contactPhone}</p><p>Подана: {new Date(request.createdAt).toLocaleDateString('ru-RU')}</p>

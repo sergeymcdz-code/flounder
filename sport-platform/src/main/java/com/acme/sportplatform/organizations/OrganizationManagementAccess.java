@@ -10,4 +10,6 @@ public interface OrganizationManagementAccess {
     boolean isMember(UUID organizationId, UUID userId);
 
     boolean canManageOrganization(UUID organizationId, UUID userId);
+
+    boolean isOwnerOrAdmin(UUID organizationId, UUID userId);
 }

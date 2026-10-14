@@ -34,7 +34,7 @@ export function OrganizerEventLayout() {
 
 function OrganizerEventContent() {
   const { eventId = '' } = useParams()
-  const { session, logout } = useAuth()
+  const { session, logout, isOrganizer, isPlatformAdmin } = useAuth()
   const token = session?.accessToken ?? ''
   const navigate = useNavigate()
   const location = useLocation()
@@ -203,6 +203,8 @@ function OrganizerEventContent() {
           ['entries', 'Заявки'],
           ['heats', 'Заплывы'],
           ['results', 'Результаты'],
+          ['notifications', 'Уведомления'],
+          ...(isOrganizer || isPlatformAdmin ? [['analytics', 'Аналитика']] : []),
         ].map(([path, title]) => (
           <NavLink
             key={path}

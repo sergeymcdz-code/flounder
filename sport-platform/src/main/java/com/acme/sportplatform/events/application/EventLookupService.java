@@ -27,6 +27,12 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
+    public java.util.Map<UUID, java.time.LocalDate> startDates(java.util.Collection<UUID> eventIds) {
+        return eventRepository.findAllById(eventIds).stream().collect(java.util.stream.Collectors.toMap(
+                EventEntity::getId, event -> event.getEventStartAt().toLocalDate()));
+    }
+
+    @Override
     public java.util.Set<UUID> accessibleEventIds(UUID userId) {
         return eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
                         organizations.organizationIdsOf(userId), userId).stream()

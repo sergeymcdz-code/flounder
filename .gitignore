@@ -13,3 +13,6 @@ organizer-lk-dump.txt
 
 # server backups (infra/backup.sh)
 backups/
+
+# Encrypted participant documents
+**/data/files/

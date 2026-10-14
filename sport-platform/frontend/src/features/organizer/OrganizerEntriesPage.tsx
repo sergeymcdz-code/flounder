@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react'
+import { DocumentsPanel } from '../documents/DocumentsPanel'
+import { documentTypes, documentStatusLabels, type DocumentType } from '../../api/documents.api'
 import { Link } from 'react-router'
 import {
   reviewRegistration,
@@ -66,6 +68,8 @@ export function OrganizerEntriesPage() {
         : 'Заявка допущена по последнему результату формирования.',
     }
   }
+  const [missingMedical, setMissingMedical] = useState(false)
+  const [documentProfile, setDocumentProfile] = useState<OrganizerRegistration | null>(null)
   const [status, setStatus] = useState('')
   const [discipline, setDiscipline] = useState('')
   const [search, setSearch] = useState('')
@@ -83,6 +87,7 @@ export function OrganizerEntriesPage() {
           ? admission(r).excluded
           : r.status === status)) &&
       (!discipline || r.eventDisciplineId === discipline) &&
+      (!missingMedical || !r.documents?.MEDICAL_CERT || r.documents.MEDICAL_CERT === 'NOT_UPLOADED') &&
       `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''} ${r.participantSnapshot.clubName ?? ''}`
         .toLocaleLowerCase('ru')
         .includes(search.toLocaleLowerCase('ru')),
@@ -159,7 +164,14 @@ export function OrganizerEntriesPage() {
             ))}
           </select>
         </label>
+        <label className={styles.field}>
+          <span><input type="checkbox" checked={missingMedical} onChange={(e) => setMissingMedical(e.target.checked)} /> Нет справки</span>
+        </label>
       </div>
+      {documentProfile && <OrganizerDialog title={`Документы · ${documentProfile.participantSnapshot.lastName}`} onClose={() => setDocumentProfile(null)}>
+        <DocumentsPanel profileId={documentProfile.participantProfileId} eventId={event.id} accessToken={accessToken} manager
+          onChanged={() => { void run(async () => undefined, 'registrations') }} />
+      </OrganizerDialog>}
       <p className={styles.muted}>Найдено: {visible.length}</p>
       <div className={styles.table}>
         <table>
@@ -173,6 +185,7 @@ export function OrganizerEntriesPage() {
                 'Клуб',
                 'Вид',
                 'Допуск',
+                'Документы',
                 'Заявочное время',
                 'Статус',
                 'Оплата',
@@ -207,6 +220,17 @@ export function OrganizerEntriesPage() {
                 </td>
                 <td>
                   <span title={admission(r).title}>{admission(r).label}</span>
+                </td>
+                <td>
+                  <button type="button" onClick={() => setDocumentProfile(r)} aria-label={`Документы ${r.participantSnapshot.lastName}`}>
+                    {(Object.keys(documentTypes) as DocumentType[]).map((type) => {
+                      const status = r.documents?.[type] ?? 'NOT_UPLOADED'
+                      return <span key={type} title={`${documentTypes[type]}: ${documentStatusLabels[status]}`}>
+                        {status === 'ACCEPTED' ? '✓' : status === 'PENDING' ? '◷' : status === 'REJECTED' ? '✕' : '—'}{' '}
+                      </span>
+                    })}
+                  </button>
+                  {r.admissionWarnings?.map((warning) => <div key={warning} className={styles.error}>{warning}</div>)}
                 </td>
                 <td>
                   <SeedTimeEditor registration={r} />
@@ -277,7 +301,7 @@ export function OrganizerEntriesPage() {
         </table>
       </div>
       {!visible.length && (
-        <p className={styles.muted}>
+        <p className={`${styles.muted} fl-empty`}>
           Заявок не найдено. Измените фильтры или импортируйте заявки.
         </p>
       )}

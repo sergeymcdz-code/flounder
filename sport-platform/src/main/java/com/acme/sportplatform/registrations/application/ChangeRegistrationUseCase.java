@@ -134,7 +134,9 @@ public class ChangeRegistrationUseCase {
         entity.setReviewedByUserId(null);
         capacity.allocate(entity, "SUBMITTED");
         entity.setSubmittedAt(OffsetDateTime.now());
-        return save(entity);
+        var response = save(entity);
+        publisher.publishEvent(new RegistrationSubmittedEvent(id));
+        return response;
     }
 
     private void transition(RegistrationEntity e, RegistrationStatus target) {

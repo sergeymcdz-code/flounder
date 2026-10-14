@@ -20,14 +20,18 @@ public class ReviewRegistrationUseCase {
 
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
     private final RegistrationCapacityService capacity;
 
     public ReviewRegistrationUseCase(
             RegistrationRepository registrationRepository,
-            RegistrationMapper registrationMapper, RegistrationCapacityService capacity
+            RegistrationMapper registrationMapper,
+            org.springframework.context.ApplicationEventPublisher publisher,
+            RegistrationCapacityService capacity
     ) {
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
+        this.publisher = publisher;
         this.capacity = capacity;
     }
 
@@ -70,6 +74,10 @@ public class ReviewRegistrationUseCase {
         registrationRepository.saveAndFlush(registration);
         if (newStatus == RegistrationStatus.REJECTED || newStatus == RegistrationStatus.NEEDS_CORRECTION)
             capacity.promote(registration.getEventId());
+        if (newStatus == RegistrationStatus.CONFIRMED)
+            publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationConfirmedEvent(registrationId));
+        if (newStatus == RegistrationStatus.REJECTED)
+            publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationRejectedEvent(registrationId, request.reviewNote()));
         return registrationMapper.toResponse(registration);
         }
 

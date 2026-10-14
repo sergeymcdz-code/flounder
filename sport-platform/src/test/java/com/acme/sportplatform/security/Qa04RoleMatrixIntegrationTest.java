@@ -47,7 +47,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     }
     int expected(Endpoint e, String actor) {
         if (e.policy().equals("public")) return e.allowedStatus();
-        if (actor.equals("anonymous")) return 401;
+        if (actor.equals("anonymous")) return e.policy().equals("signed-document") ? 404 : 401;
         boolean allowed = switch (e.policy()) {
             case "authenticated" -> true;
             case "admin", "owner" -> actor.equals("platform_admin");
@@ -55,6 +55,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             case "organize" -> Set.of("organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "manage" -> Set.of("operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "manage-read" -> Set.of("judge", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
+            case "documents", "signed-document" -> Set.of("participant", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "withdraw" -> Set.of("participant", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             default -> throw new IllegalArgumentException("Unknown policy: " + e.policy());
         };
@@ -94,7 +95,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     }
     MockHttpServletRequestBuilder request(Endpoint e) throws Exception {
         String path = e.path();
-        String genericId = path.contains("organization-registration-requests/") ? "orgRequest"
+        String genericId = e.state().equals("document") ? "document" : path.contains("organization-registration-requests/") ? "orgRequest"
                 : path.contains("organizations/") ? "org"
                 : path.contains("venues/") ? "venue"
                 : path.contains("event-sessions/") ? "session"
@@ -110,9 +111,12 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
                 "eventDisciplineId", "discipline", "unitId", "unit", "registrationId", "registration",
                 "paymentId", "payment", "userId", "target", "slug", "slug");
         for (var p : parameters.entrySet()) path = path.replace("{" + p.getKey() + "}", ids.get(p.getValue()));
+        path = path.replace("{profileId}", ids.get("profile"));
         path = path.replace("{roleCode}", "participant");
         MockHttpServletRequestBuilder request;
-        if (e.path().endsWith("/import")) {
+        if (e.path().equals("/api/v1/profiles/{profileId}/documents") && e.method().equals("POST")) {
+            request = multipart(path).file(new MockMultipartFile("file", "medical.pdf", "application/pdf", "%PDF-1.7\nQA04".getBytes(StandardCharsets.UTF_8))).param("type", "MEDICAL_CERT");
+        } else if (e.path().endsWith("/import")) {
             try (var workbook = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
                 var header = workbook.createSheet("Заявки").createRow(0);
                 var names = com.acme.sportplatform.imports.domain.ExcelRowParser.HEADERS;
@@ -122,12 +126,35 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", output.toByteArray()));
             }
         } else request = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request(HttpMethod.valueOf(e.method()), path);
+        if (e.state().equals("document")) request.param("eventId", ids.get("event"));
+        if (e.policy().equals("signed-document") && ids.containsKey("documentSignature")) {
+            request.param("expires", ids.get("documentExpires")).param("signature", ids.get("documentSignature"));
+        }
         request.param("resultType", "TIME").param("rankingStrategy", "ASC").param("q", "Ива");
         if (e.path().equals("/api/v1/registrations") && e.method().equals("GET")) request.param("eventId", ids.get("event"));
         if (!e.body().isEmpty()) request.contentType(MediaType.APPLICATION_JSON).content(expand(e.body()));
         return request;
     }
+    @Autowired com.acme.sportplatform.registrations.application.ParticipantDocumentService documents;
+    @Autowired com.acme.sportplatform.files.FileLookup files;
     void prepare(Endpoint e, String actor) {
+        if (e.state().equals("document")) {
+            // REQUIRES_NEW denial audit must reference committed users, as it does in production.
+            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
+            org.springframework.test.context.transaction.TestTransaction.end();
+            org.springframework.test.context.transaction.TestTransaction.start();
+            var d = documents.upload(id("profile"), id("event"), com.acme.sportplatform.registrations.domain.DocumentType.MEDICAL_CERT,
+                    new MockMultipartFile("file", "medical.pdf", "application/pdf", "%PDF-1.7\nQA04".getBytes(StandardCharsets.UTF_8)),
+                    null, java.time.LocalDate.now().plusYears(1), principal("participant"));
+            em.flush();
+            ids.put("document", d.id().toString());
+            if (!actor.equals("anonymous")) {
+                String key = jdbc.queryForObject("select file_key from participant_documents where id=?", String.class, d.id());
+                var link = files.presignedUrl(key, d.id(), id(actor));
+                ids.put("documentExpires", Long.toString(link.expiresAt().getEpochSecond()));
+                ids.put("documentSignature", link.url().substring(link.url().indexOf("&signature=") + 11));
+            }
+        }
         switch (e.state()) {
             case "reset-token" -> jdbc.update("insert into password_reset_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '1 hour')",
                     UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-reset-token"));
