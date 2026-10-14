@@ -142,16 +142,36 @@ V029/V030 M02 уже в main; V032 не переименовывать. Согл
 | --- | --- | --- |
 | MAIL_HOST | app.mail.host | пусто |
 | MAIL_PORT | app.mail.port | 587 |
+| MAIL_SECURITY | app.mail.security | auto |
 | MAIL_USERNAME | app.mail.username | пусто |
 | MAIL_PASSWORD | app.mail.password | пусто |
 | MAIL_FROM | app.mail.from | noreply@localhost |
 | MAIL_ENABLED | app.mail.enabled | false |
 | APP_PUBLIC_URL | app.public-url | http://localhost:5173; production compose: https://${DOMAIN} |
 
-В infra/.env.prod.example все семь значений пустые, с комментариями.
-Compose подставляет defaults для пустых MAIL_* и передаёт настройки в API.
-SMTP использует STARTTLS, UTF-8, multipart plain-text + HTML, таймауты
-подключения/чтения/записи по 5 секунд. `app.mail.worker-enabled=false` отключает
+В infra/.env.prod.example MAIL_SECURITY=auto, остальные значения почты пустые,
+с комментариями. Compose подставляет defaults для пустых MAIL_* и передаёт
+настройки в API. MAIL_SECURITY принимает auto, starttls, ssl или none:
+
+- auto: порт 465 → implicit SSL/TLS, любой другой порт → обязательный STARTTLS;
+- ssl: TLS с начала соединения, разрешены TLSv1.2/TLSv1.3, STARTTLS выключен;
+- starttls: SSL с начала соединения выключен, STARTTLS включён и обязателен;
+- none: обе защиты выключены, только для локальных MailHog/Mailpit.
+
+Для Timeweb: MAIL_HOST=smtp.timeweb.ru, MAIL_PORT=465 и MAIL_SECURITY=ssl
+(либо auto); альтернатива — MAIL_PORT=587 и MAIL_SECURITY=starttls (либо auto).
+MAIL_USERNAME — полный адрес ящика, MAIL_PASSWORD — пароль этого ящика;
+MAIL_FROM — адрес отправителя. Для проверки на стенде после настройки SMTP
+включить MAIL_ENABLED=true, открыть «Забыли пароль?» для существующего тестового
+аккаунта, дождаться письма и перейти по ссылке восстановления. У outbox должна
+быть отметка SENT, payload после доставки очищен. Для смены порта/режима
+пересоздать API-контейнер с новой конфигурацией.
+
+Если MAIL_ENABLED=true и host пустой/состоит из пробелов, при старте выводится
+WARN без логина/пароля; приложение продолжает стартовать. Неизвестный режим
+security отклоняется при конфигурации, без неявного отключения защиты.
+SMTP использует UTF-8, multipart plain-text + HTML; таймауты подключения,
+чтения и записи сохраняются по 5 секунд. `app.mail.worker-enabled=false` отключает
 планировщик для тестов; ручной вызов worker при этом остаётся доступен в коде.
 
 V032__notification_outbox.sql добавляет notification_outbox и

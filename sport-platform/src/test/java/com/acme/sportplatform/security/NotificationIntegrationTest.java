@@ -98,7 +98,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     }
     @Test void loggingDeliveryKeepsOutboxWithoutSmtp() {
         confirmed(); commitQueue();
-        var loggingTransport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false), sender, new LoggingMailSender());
+        var loggingTransport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false, "auto"), sender, new LoggingMailSender());
         new NotificationWorker(outbox, new MailTemplateRenderer(), loggingTransport, clock, transactionManager).sendBatch();
         verifyNoInteractions(sender);
         assertThat(jdbc.queryForObject("select status from notification_outbox where event_id=?", String.class, id("event"))).isEqualTo("SENT");
@@ -195,7 +195,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
         appender.start(); logger.addAppender(appender);
         try {
-            var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false), sender, logging);
+            var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false, "auto"), sender, logging);
             new NotificationWorker(outbox, new MailTemplateRenderer(), transport, clock, transactionManager).sendBatch();
             verifyNoInteractions(sender);
             assertThat(appender.list).hasSize(1);
@@ -215,7 +215,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
                 super.sent(id, at);
             }
         };
-        var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", true), sender, new LoggingMailSender());
+        var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", true, "auto"), sender, new LoggingMailSender());
         var crashingWorker = new NotificationWorker(crashing, new MailTemplateRenderer(), transport, clock, transactionManager);
         assertThatThrownBy(crashingWorker::sendBatch).isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
         assertThat(jdbc.queryForMap("select status,payload::text from notification_outbox where id=?", ids.get(0)))

@@ -9,12 +9,17 @@ for file in infra/compose.prod.yaml infra/compose.staging.yaml infra/compose.mon
   docker compose --env-file /dev/null -f "$file" config --quiet
 done
 # Verify the actual production environment and the volume name consumed by M09 backups.
-docker compose --env-file /dev/null -f infra/compose.prod.yaml config --format json | python3 -c '
+env -u MAIL_SECURITY docker compose --env-file /dev/null -f infra/compose.prod.yaml config --format json | python3 -c '
 import json, sys
 config = json.load(sys.stdin)
+assert config["services"]["api"]["environment"]["MAIL_SECURITY"] == "auto"
 assert config["services"]["api"]["environment"]["APP_FILES_ENCRYPTION_KEY"] == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 assert config["volumes"]["flounder_files"]["name"] == "flounder_files"
 assert any(v.get("source") == "flounder_files" and v.get("target") == "/data/files" for v in config["services"]["api"]["volumes"])
+'
+MAIL_SECURITY=ssl docker compose --env-file /dev/null -f infra/compose.prod.yaml config --format json | python3 -c '
+import json, sys
+assert json.load(sys.stdin)["services"]["api"]["environment"]["MAIL_SECURITY"] == "ssl"
 '
 error_file="$(mktemp)"
 trap 'rm -f "$error_file"' EXIT
