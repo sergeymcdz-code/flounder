@@ -1,5 +1,8 @@
 package com.acme.sportplatform.results;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +19,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class Qa02ResultsPublicIntegrationTest extends Qa02ResultsFixture {
+    /** M07 section 3: estimatedStartAt; scheduledAt stays unchanged.
+     * Ordinary regression after M07 reconciled the contract in spec 5.7. */
+    @Test
+    void qa02_04_lateStartExposesDelayAndShiftsFollowingHeats() throws Exception {
+        OffsetDateTime planned = OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(10).withNano(0);
+        jdbc.update("update competition_units set scheduled_at=? where id=?", planned, first);
+        jdbc.update("update competition_units set scheduled_at=? where id=?", planned.plusSeconds(90), second);
+        liveAction(first, "start");
+        var live = read("/live");
+        assertAll(
+                () -> assertThat(live.path("delaySec").isNumber()).as("5.7: live.delaySec").isTrue(),
+                () -> {
+                    var next = read("/live").at("/next/0");
+                    assertThat(next.path("estimatedStartAt").isTextual()).as("M07: next.estimatedStartAt").isTrue();
+                    assertThat(OffsetDateTime.parse(next.path("estimatedStartAt").asText()))
+                            .isAfterOrEqualTo(OffsetDateTime.parse(next.path("scheduledAt").asText()));
+                });
+    }
+
+
     @org.springframework.beans.factory.annotation.Autowired
     com.acme.sportplatform.results.application.GetPublicCompetitionUnitResultsUseCase publicUnitResults;
     @org.springframework.beans.factory.annotation.Autowired

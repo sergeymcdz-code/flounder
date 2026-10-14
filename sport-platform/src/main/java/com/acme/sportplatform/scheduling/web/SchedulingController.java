@@ -20,18 +20,21 @@ public class SchedulingController {
     private final RecalculateScheduleUseCase recalculate;
     private final ValidateUnitsUseCase validate;
     private final PublishUnitsUseCase publish;
+    private final ShiftScheduleUseCase shift;
 
     public SchedulingController(
             GenerateCompetitionUnitsUseCase generate,
             GenerateForEventUseCase generateEvent,
             RecalculateScheduleUseCase recalculate,
             ValidateUnitsUseCase validate,
-            PublishUnitsUseCase publish) {
+            PublishUnitsUseCase publish,
+            ShiftScheduleUseCase shift) {
         this.generate = generate;
         this.generateEvent = generateEvent;
         this.recalculate = recalculate;
         this.validate = validate;
         this.publish = publish;
+        this.shift = shift;
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Сформировать заплывы дисциплины")
@@ -82,6 +85,20 @@ public class SchedulingController {
             @org.springframework.security.core.annotation.AuthenticationPrincipal
                     AuthenticatedUserPrincipal principal) {
         return recalculate.execute(eventId, principal);
+    }
+
+    @PostMapping("/events/{eventId}/schedule/shift")
+    public ShiftScheduleResponse shift(@PathVariable UUID eventId,
+            @jakarta.validation.Valid @RequestBody ShiftScheduleRequest request,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        return shift.execute(eventId, request, principal, false);
+    }
+
+    @PostMapping("/events/{eventId}/schedule/shift/preview")
+    public ShiftScheduleResponse previewShift(@PathVariable UUID eventId,
+            @jakarta.validation.Valid @RequestBody ShiftScheduleRequest request,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        return shift.execute(eventId, request, principal, true);
     }
 
     @io.swagger.v3.oas.annotations.Operation(

@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
+import { publicApi } from '../../api/public.api'
+import { usePublicData, LIVE_POLL_MS } from '../public/usePublicData'
+import { ScheduleShiftForm } from './ScheduleShiftForm'
 import {
   generateHeats,
   recalculateSchedule,
   publishStartList,
   validateHeats,
   changeLane,
+  shiftSchedule,
 } from '../../api/scheduling.api'
 import type { Violation } from '../../api/organizer.types'
-import { OrganizerConfirm } from './OrganizerDialog'
+import { OrganizerConfirm, OrganizerDialog } from './OrganizerDialog'
 import {
   formatDate,
   isHeatPublished,
@@ -29,6 +33,10 @@ export function OrganizerHeatsPage() {
     lastGeneration: last,
     saveGeneration,
   } = useOrganizerEvent()
+  const [showShift, setShowShift] = useState(false)
+  const hasPublicLive = ['PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'LIVE', 'COMPLETED'].includes(event.status)
+  const loadLive = useCallback((signal: AbortSignal) => hasPublicLive ? publicApi.live(event.publicSlug, signal) : Promise.resolve(null), [event.publicSlug, hasPublicLive])
+  const live = usePublicData(loadLive, LIVE_POLL_MS)
   const [confirm, setConfirm] = useState<{ disciplineId?: string } | null>(null)
   const [violations, setViolations] = useState<
     (Violation & { disciplineId: string })[] | null
@@ -104,7 +112,19 @@ export function OrganizerHeatsPage() {
         <p id="circle-seed-help" className={styles.muted}>
           Круговой посев выключен. Настройка доступна только для просмотра.
         </p>
+        <p aria-live="polite">
+          {live.data
+            ? (live.data.delaySec ?? 0) > 0
+              ? `Отставание: +${Math.ceil((live.data.delaySec ?? 0) / 60)} мин`
+              : 'Идём по расписанию'
+            : !hasPublicLive
+              ? 'Отставание появится после публикации события'
+              : live.error
+                ? 'Отставание временно недоступно'
+                : 'Загрузка отставания…'}
+        </p>
         <div className={styles.actions}>
+          <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status))} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           <button
             className={`${styles.primary} fl-button-primary`}
             disabled={busy || !event.disciplines.length}
@@ -345,6 +365,12 @@ export function OrganizerHeatsPage() {
           )}
         </div>
       ))}
+      {showShift && <OrganizerDialog title="Сдвинуть расписание" onClose={() => setShowShift(false)}>
+        <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy}
+          onClose={() => setShowShift(false)} onApply={(fromUnitId, deltaSec) => {
+            void run(() => shiftSchedule(event.id, fromUnitId, deltaSec, accessToken)).then(ok => { if (ok) setShowShift(false) })
+          }} />
+      </OrganizerDialog>}
       {confirm && (
         <OrganizerConfirm
           title="Переформировать опубликованные заплывы?"

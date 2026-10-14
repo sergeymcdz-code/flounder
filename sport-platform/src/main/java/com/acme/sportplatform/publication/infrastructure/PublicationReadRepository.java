@@ -18,7 +18,8 @@ public class PublicationReadRepository {
 
     private static final String PUBLIC_UNITS = "('PUBLISHED','IN_PROGRESS','FINISHED','COMPLETED')";
     private static final String UNIT_QUERY = """
-            select u.*, cast(row_number() over (partition by d.session_id
+            select u.*, (select max(l.executed_at) from rule_execution_logs l
+                where l.event_id=d.event_id and l.kind='SCHEDULE_SHIFT') as schedule_shifted_at, cast(row_number() over (partition by d.session_id
                 order by u.scheduled_at nulls last, d.order_in_session, u.sequence_number) as integer) as sequence_in_session
             from competition_units u join event_disciplines d on d.id = u.event_discipline_id
             where d.event_id = :eventId and d.status = 'PUBLISHED'
@@ -76,7 +77,7 @@ public class PublicationReadRepository {
         return rows("select * from (" + UNIT_QUERY + ") u where u.status in " + PUBLIC_UNITS +
                 " order by u.scheduled_at nulls last, u.sequence_in_session, u.id", Map.of("eventId",eventId))
                 .stream().map(t -> new Unit(uuid(t,"id"),uuid(t,"event_discipline_id"),integer(t,"sequence_number"),
-                        str(t,"age_group_code"),date(t,"scheduled_at"),integer(t,"sequence_in_session"),str(t,"status"))).toList();
+                        str(t,"age_group_code"),date(t,"scheduled_at"),integer(t,"sequence_in_session"),str(t,"status"),date(t,"actual_started_at"),date(t,"schedule_shifted_at"))).toList();
     }
     public List<Entry> entries(UUID eventId) { return entries(eventId, null); }
     public List<Entry> entries(UUID eventId, String prefix) {

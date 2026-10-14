@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
             case "files.storage_unavailable", "files.corrupt" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "scheduling.published_units_exist", "scheduling.validation_failed", "scheduling.active_units_exist", "results.lane_conflict" -> HttpStatus.CONFLICT;
             case "organizations.venue_not_found" -> HttpStatus.NOT_FOUND;
-            case "events.session_in_use", "events.session_order_conflict", "competition.discipline_in_use", "competition.discipline_code_already_exists", "identity.profile_already_attached", "results.unit_in_progress" -> HttpStatus.CONFLICT;
+            case "events.session_in_use", "events.session_order_conflict", "competition.discipline_in_use", "competition.discipline_code_already_exists", "identity.profile_already_attached", "results.unit_in_progress", "results.unit_already_started" -> HttpStatus.CONFLICT;
             case "events.session_not_found", "results.unit_not_found", "identity.profile_not_found" -> HttpStatus.NOT_FOUND;
             case "identity.access_denied", "identity.user_blocked", "identity.cannot_modify_self" -> HttpStatus.FORBIDDEN;
             case "organizations.member_not_found", "organizations.user_not_found" -> HttpStatus.NOT_FOUND;

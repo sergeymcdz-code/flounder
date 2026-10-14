@@ -11,6 +11,10 @@ public interface CompetitionUnitRepository
 
     boolean existsByEventDisciplineId(UUID id);
 
+    @org.springframework.data.jpa.repository.Query(value = "select d.event_id from competition_units u"
+            + " join event_disciplines d on d.id=u.event_discipline_id where u.id=:id", nativeQuery = true)
+    java.util.Optional<UUID> eventIdByUnitId(UUID id);
+
     interface SessionSummary {
         long getHeatsCount();
 

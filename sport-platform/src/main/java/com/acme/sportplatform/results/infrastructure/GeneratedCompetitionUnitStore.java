@@ -111,6 +111,11 @@ values(?,?,?,?,?,'ASSIGNED')
         }
     }
 
+    public void lockForEvent(UUID eventId) {
+        jdbc.queryForList("select u.id from competition_units u join event_disciplines d on d.id=u.event_discipline_id"
+                + " where d.event_id=? order by u.id for update of u", UUID.class, eventId);
+    }
+
     public void schedule(UUID unitId, Instant time) {
         jdbc.update(
                 "update competition_units set scheduled_at=?, updated_at=now(), version=version+1"

@@ -92,7 +92,7 @@ public class PublicPublicationService {
         Map<UUID,String> names = sessionViews(event.id()).stream().collect(Collectors.toMap(Session::id,Session::name));
         return reads.units(event.id()).stream().map(u -> {
             var discipline = disciplines.get(u.disciplineId());
-            return new Schedule(names.get(discipline.sessionId()),discipline.name(),u.number(),u.sequenceInSession(),u.scheduledAt(),u.status());
+            return new Schedule(names.get(discipline.sessionId()),discipline.name(),u.number(),u.sequenceInSession(),u.scheduledAt(),u.status(),u.scheduleShiftedAt());
         }).toList();
     }
 
@@ -107,13 +107,15 @@ public class PublicPublicationService {
         var disciplines = disciplineMap(event.id());
         var entries = reads.entries(event.id()).stream().collect(Collectors.groupingBy(ReadModels.Entry::unitId));
         int laneCount = json(event.venueMeta()).path("lanes").asInt(8);
+        long delaySec = current == null || current.actualStartedAt() == null || current.scheduledAt() == null
+                ? 0 : Math.max(0, java.time.Duration.between(current.scheduledAt(), current.actualStartedAt()).getSeconds());
         var candidates = current == null ? units.stream().filter(u -> upcoming(u,now))
                 : units.subList(units.indexOf(current) + 1,units.size()).stream().filter(PublicPublicationService::canRun);
         var next = candidates.limit(3)
-                .map(u -> liveUnit(u,disciplines.get(u.disciplineId()),entries.getOrDefault(u.id(),List.of()),laneCount)).toList();
+                .map(u -> liveUnit(u,disciplines.get(u.disciplineId()),entries.getOrDefault(u.id(),List.of()),laneCount,delaySec)).toList();
         return new Live(current == null ? null : liveUnit(current,disciplines.get(current.disciplineId()),
-                entries.getOrDefault(current.id(),List.of()),laneCount),next,
-                state.map(ReadModels.LiveState::updatedAt).orElse(now));
+                entries.getOrDefault(current.id(),List.of()),laneCount,delaySec),next,
+                state.map(ReadModels.LiveState::updatedAt).orElse(now),delaySec);
     }
     private boolean upcoming(ReadModels.Unit unit, OffsetDateTime now) {
         return "PUBLISHED".equals(unit.status()) && unit.scheduledAt() != null && !unit.scheduledAt().isBefore(now);
@@ -122,10 +124,11 @@ public class PublicPublicationService {
         return "PUBLISHED".equals(unit.status()) || "IN_PROGRESS".equals(unit.status());
     }
     private LiveUnit liveUnit(ReadModels.Unit unit, ReadModels.Discipline discipline,
-            List<ReadModels.Entry> entries, int laneCount) {
+            List<ReadModels.Entry> entries, int laneCount, long delaySec) {
         return new LiveUnit(unit.id(),unit.number(),unit.ageGroupCode(),unit.scheduledAt(),
                 unit.sequenceInSession(),unit.status(),lanes(entries,laneCount),
-                discipline.id(),discipline.number(),discipline.name());
+                discipline.id(),discipline.number(),discipline.name(),unit.actualStartedAt(),
+                unit.scheduledAt() == null ? null : unit.scheduledAt().plusSeconds(delaySec));
     }
 
     @Cacheable(cacheNames = "publicResults", cacheManager = "publicationCacheManager")

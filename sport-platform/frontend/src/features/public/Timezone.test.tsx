@@ -121,3 +121,19 @@ it.each(['', 'schedule'])('renders /e/demo/%s when the venue timezone is empty',
   expect((await screen.findAllByText(new RegExp(browserTime))).length).toBeGreaterThan(0)
   expect(screen.getAllByText(/время местное/)).toHaveLength(1)
 })
+
+it('shows the schedule shift timestamp in venue time without applying the live estimate', async () => {
+  server.use(
+    http.get('*/public/events/demo', () => HttpResponse.json({ ...demoEvent, venue: { ...demoEvent.venue, timezone: 'Europe/Samara' } })),
+    http.get('*/public/events/demo/schedule', () => HttpResponse.json([{
+      sessionName: 'Утро', disciplineName: '50 м', heatNumber: 1,
+      sequenceInSession: 1, scheduledAt: '2026-10-17T06:20:00Z', status: 'PUBLISHED',
+      scheduleShiftedAt: '2026-10-17T06:05:00Z',
+    }])),
+  )
+  render(<MemoryRouter initialEntries={['/e/demo/schedule']}><Routes>
+    <Route path="/e/:slug" element={<PublicLayout />}><Route path="schedule" element={<SchedulePage />} /></Route>
+  </Routes></MemoryRouter>)
+  expect(await screen.findByText('Расписание сдвинуто в 10:05')).toBeInTheDocument()
+  expect(screen.getByText('10:20 · Заплыв 1')).toBeInTheDocument()
+})

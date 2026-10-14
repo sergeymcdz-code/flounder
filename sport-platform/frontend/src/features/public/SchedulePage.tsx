@@ -20,6 +20,9 @@ export function SchedulePage() {
       <p className={styles.muted}>
         {localTimeLabel(event.eventStartAt, event.venue?.timezone)}. Время старта ориентировочное. Текущий заплыв выделен.
       </p>
+      {state.data?.find((item) => item.scheduleShiftedAt)?.scheduleShiftedAt && (
+        <p role="status">Расписание сдвинуто в {time(state.data.find((item) => item.scheduleShiftedAt)!.scheduleShiftedAt!, event.venue?.timezone)}</p>
+      )}
       <DataState {...state} />
       {state.data && !state.data.length && (
         <p>Расписание ещё не опубликовано.</p>

@@ -46,6 +46,7 @@ export type OrganizerEventDetails = Omit<Event, 'disciplines'> & {
     city: string
     lanes: number | null
     courseLength: number | null
+    timezone?: string
   }
 }
 export type OrganizerRegistration = Omit<Registration, 'status'> & {

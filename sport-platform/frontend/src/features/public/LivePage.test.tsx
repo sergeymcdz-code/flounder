@@ -52,6 +52,29 @@ describe('Public live', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
   })
 
+  it('shows delay and estimates following starts in venue time', () => {
+    render(<MemoryRouter><LiveBoard live={{
+      currentUnit: units[0],
+      next: [{ ...units[1], scheduledAt: '2026-10-17T06:00:00Z', estimatedStartAt: '2026-10-17T06:12:00Z' }],
+      updatedAt: '2026-10-17T06:00:00Z', delaySec: 720,
+    }} lanes={8} slug="demo" timeZone="Europe/Samara" /></MemoryRouter>)
+    expect(screen.getByRole('status')).toHaveTextContent('Соревнование идёт с задержкой 12 мин')
+    expect(screen.getByText(/10:12 · Заплыв/)).toBeInTheDocument()
+    expect(screen.getByText('Расчётное время старта')).toBeInTheDocument()
+  })
+
+  it.each([0, undefined])('uses the schedule without an estimate label when delaySec is %s', (delaySec) => {
+    render(<MemoryRouter><LiveBoard live={{
+      currentUnit: units[0],
+      next: [{ ...units[1], scheduledAt: '2026-10-17T06:00:00Z', estimatedStartAt: '2026-10-17T06:12:00Z' }],
+      updatedAt: '2026-10-17T06:00:00Z', delaySec,
+    }} lanes={8} slug="demo" timeZone="Europe/Samara" /></MemoryRouter>)
+    expect(screen.getByRole('listitem')).toHaveTextContent('10:00 · Заплыв')
+    expect(screen.queryByText(/10:12 · Заплыв/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Расчётное время старта')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('resolves an in-progress heat omitted from the published start-list through the schedule', () => {
     render(
       <MemoryRouter>

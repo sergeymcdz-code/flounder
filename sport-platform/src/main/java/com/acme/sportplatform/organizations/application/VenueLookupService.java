@@ -32,6 +32,12 @@ public class VenueLookupService implements VenueLookup {
     }
 
     @Override
+    public String getTimezone(UUID venueId) {
+        return venueRepository.findById(venueId).orElseThrow(() -> new com.acme.sportplatform.common.exception.BusinessException(
+                "organizations.venue_not_found", "Площадка не найдена")).getTimezone();
+    }
+
+    @Override
     public boolean existsById(UUID venueId) {
         return venueRepository.existsById(venueId);
     }

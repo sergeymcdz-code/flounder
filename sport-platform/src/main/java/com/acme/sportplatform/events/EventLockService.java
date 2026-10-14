@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
-/** Locks are held by the surrounding use-case transaction. */
+/** Locks are held by the surrounding use-case transaction; FK inserts remain compatible. */
 @Service
 public class EventLockService {
     private static final String LOCK_SQL = "select status from events where id = ? for no key update";
