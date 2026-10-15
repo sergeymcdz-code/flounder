@@ -59,6 +59,49 @@ timedatectl
 
 ## Сброс и подготовка трёх событий
 
+### Сервер без Node
+
+Выполняет deploy из корня checkout; предварительно владелец задаёт `DEMO_OWNER_EMAIL` в `scripts/demo/.env` вместе с API_URL=https://sportgate.pro, ADMIN_EMAIL/ADMIN_PASSWORD, DEMO_PASSWORD и DEMO_SEED_ENABLED=true. Адрес должен принадлежать отдельному участнику; по умолчанию `sergeymcdzkz@gmail.com`. Адрес администратора `sergeymcdz@yandex.ru` для участника не использовать. `.env` не выводить на экран.
+
+```bash
+cd /home/deploy/flounder
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -e DEMO_DATE=2026-10-19 -e DEMO_EVENTS=A,B,C \
+  -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
+  sh -eu -c 'npm ci && npx tsx seed.ts'
+```
+
+### До сида: удалить старое одиночное событие
+
+После резервной копии БД/файлов проверить UUID, название и slug прежнего события через публичный API. При 404 подтвердить, что оно уже удалено, и пропустить этот шаг. Новый `reset.ts` также может выбирать старое событие по `DEMO_SLUGS`, сохраняя проверку демо-организации/площадки. Прямой сброс тем же SQL через контейнерный psql:
+
+```bash
+cd /home/deploy/flounder
+./infra/backup.sh
+curl -fsS https://sportgate.pro/api/v1/public/events/otkrytyy-kubok-samary-po-plavaniyu-demo \
+  -o /tmp/s02-legacy-event.json
+python3 - <<'PYJSON' > /tmp/s02-legacy-targets.json
+import json
+with open('/tmp/s02-legacy-event.json') as source:
+    event = json.load(source)
+assert event['title'] == 'Открытый кубок Самары по плаванию (демо)'
+assert event['publicSlug'] == 'otkrytyy-kubok-samary-po-plavaniyu-demo'
+print(json.dumps([{'id': event['id'], 'title': event['title'], 'slug': event['publicSlug']}], ensure_ascii=False))
+PYJSON
+cat /tmp/s02-legacy-targets.json
+# Verify the UUID/title/slug JSON before stopping the API.
+LEGACY_DEMO_TARGETS="$(cat /tmp/s02-legacy-targets.json)"
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
+docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform \
+  -v ON_ERROR_STOP=1 -v "demo_targets=$LEGACY_DEMO_TARGETS" < scripts/demo/reset.sql
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
+# Wait for healthy in compose ps; then check the external endpoint:
+curl -fsS https://sportgate.pro/actuator/health
+```
+
+Формат `demo_targets`: `[{"id":"UUID из API","title":"Открытый кубок Самары по плаванию (демо)","slug":"otkrytyy-kubok-samary-po-plavaniyu-demo"}]`. SQL повторно сверяет эти значения и демо-организацию/площадку; при несовпадении откатывает всю транзакцию. Если psql завершился ошибкой, сохранить вывод и проверить откат до продолжения; API запустить обратно и проверить health. До удаления перенастроить keyword-монитор Uptime Kuma со старого slug на B либо согласовать окно обслуживания.
+
+
 | slug на чистой БД | Назначение | Статус |
 |---|---|---|
 | `kubok-sportgate-osen` (A, 11.10) | Прошедшее: медалисты, итоговый протокол, 2 CORRECTED, 3 DNS/DNF | COMPLETED |
@@ -92,7 +135,7 @@ DEMO_DATE=2026-10-19 DEMO_EVENTS=A,B,C npx tsx seed.ts
 - [ ] B: 200 заявок, 120 профилей, 4 вида/2 сессии, опубликованные заплывы/стартовый протокол; ровно первые два заплыва сессии 1 FINISHED с результатами, остальные PUBLISHED; live указывает на третий. UUID/slug: `________________`.
 - [ ] C: лимит события 150, 8 видов по 16; 124 заявки = 114 CONFIRMED + 6 NEEDS_CORRECTION + 4 WAITLISTED с позициями. Два MEDICAL_CERT/PENDING скачиваются через кабинет; PDF содержит пометку DEMO. UUID/slug: `________________`.
 - [ ] Всего 300 уникальных пловцов 2010–2016 г. р., 12 клубов; B/C используют 40 одинаковых profile ID без дублей ФИО/даты. Служебные аккаунты не включены в 300.
-- [ ] В C один аккаунт sergeymcdz@yandex.ru; SMTP/M05 и письмо проверены владельцем до показа. На локальном backend почта по умолчанию выключена. Другие созданные аккаунты @flounder.demo; импортированные профили без почты.
+- [ ] Владелец задал DEMO_OWNER_EMAIL для отдельного участника C (default sergeymcdzkz@gmail.com, не адрес platform_admin); SMTP/M05 и письмо проверены владельцем до показа. На локальном backend почта по умолчанию выключена. Другие созданные аккаунты @flounder.demo; импортированные профили без почты.
 - [ ] Если нужен резерв, выполнить полный сид с EVENT_TITLE_SUFFIX=" · резерв" и записать отдельные slug. Тот же суффикс использовать при reset. Сохранены PDF/видео, резерв явно подписан.
 
 ## Семь шагов — непрерывный показ 14 минут

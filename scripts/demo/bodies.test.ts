@@ -6,7 +6,7 @@ import {
 } from './bodies.ts';
 import { config } from './config.ts';
 
-import { demoEvents, eventDates } from './plan.ts';
+import { DEFAULT_OWNER_EMAIL, demoEvents, eventDates } from './plan.ts';
 describe('request bodies: existing API and specification §5', () => {
   it('takes passwords from its caller, and assigns roles and membership separately', () => {
     for (const account of accounts) {
@@ -86,6 +86,11 @@ describe('configuration guard', () => {
     expect(() => config({ ...env, DEMO_PASSWORD: '' })).toThrow('DEMO_PASSWORD');
     expect(config({ ...env, ORG_PASSWORD: 'unit-test-org' }).passwords.ORG).toBe('unit-test-org');
     expect(config({ ...env, REQUIRE_VENUE_META: 'true', EVENT_TITLE_SUFFIX: ' · резерв' })).toMatchObject({ requireVenueMeta: true, eventTitleSuffix: ' · резерв' });
+  });
+  it('reads DEMO_OWNER_EMAIL and defaults to the owner-approved separate mailbox', () => {
+    expect(config(env).ownerEmail).toBe(DEFAULT_OWNER_EMAIL);
+    expect(config({ ...env, DEMO_OWNER_EMAIL: ' Owner@Example.com ' }).ownerEmail).toBe('owner@example.com');
+    expect(() => config({ ...env, DEMO_OWNER_EMAIL: 'not-an-email' })).toThrow('DEMO_OWNER_EMAIL');
   });
   it('rejects URL credentials and a duplicated API prefix', () => {
     expect(() => config({ ...env, API_URL: 'https://user:pass@example.invalid' })).toThrow();

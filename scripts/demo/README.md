@@ -9,6 +9,48 @@ npm ci
 DEMO_SEED_ENABLED=true API_URL=http://localhost:8080 DEMO_DATE=2026-10-19 DEMO_EVENTS=A,B,C npx tsx seed.ts
 ```
 
+### Сервер без Node
+
+Выполняет deploy из корня checkout; предварительно владелец задаёт `DEMO_OWNER_EMAIL` в `scripts/demo/.env` вместе с API_URL=https://sportgate.pro, ADMIN_EMAIL/ADMIN_PASSWORD, DEMO_PASSWORD и DEMO_SEED_ENABLED=true. Адрес должен принадлежать отдельному участнику; по умолчанию `sergeymcdzkz@gmail.com`. Адрес администратора `sergeymcdz@yandex.ru` для участника не использовать. `.env` не выводить на экран.
+
+```bash
+cd /home/deploy/flounder
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -e DEMO_DATE=2026-10-19 -e DEMO_EVENTS=A,B,C \
+  -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
+  sh -eu -c 'npm ci && npx tsx seed.ts'
+```
+
+### До сида: удалить старое одиночное событие
+
+После резервной копии БД/файлов проверить UUID, название и slug прежнего события через публичный API. При 404 подтвердить, что оно уже удалено, и пропустить этот шаг. Новый `reset.ts` также может выбирать старое событие по `DEMO_SLUGS`, сохраняя проверку демо-организации/площадки. Прямой сброс тем же SQL через контейнерный psql:
+
+```bash
+cd /home/deploy/flounder
+./infra/backup.sh
+curl -fsS https://sportgate.pro/api/v1/public/events/otkrytyy-kubok-samary-po-plavaniyu-demo \
+  -o /tmp/s02-legacy-event.json
+python3 - <<'PYJSON' > /tmp/s02-legacy-targets.json
+import json
+with open('/tmp/s02-legacy-event.json') as source:
+    event = json.load(source)
+assert event['title'] == 'Открытый кубок Самары по плаванию (демо)'
+assert event['publicSlug'] == 'otkrytyy-kubok-samary-po-plavaniyu-demo'
+print(json.dumps([{'id': event['id'], 'title': event['title'], 'slug': event['publicSlug']}], ensure_ascii=False))
+PYJSON
+cat /tmp/s02-legacy-targets.json
+# Verify the UUID/title/slug JSON before stopping the API.
+LEGACY_DEMO_TARGETS="$(cat /tmp/s02-legacy-targets.json)"
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
+docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform \
+  -v ON_ERROR_STOP=1 -v "demo_targets=$LEGACY_DEMO_TARGETS" < scripts/demo/reset.sql
+docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
+# Wait for healthy in compose ps; then check the external endpoint:
+curl -fsS https://sportgate.pro/actuator/health
+```
+
+Формат `demo_targets`: `[{"id":"UUID из API","title":"Открытый кубок Самары по плаванию (демо)","slug":"otkrytyy-kubok-samary-po-plavaniyu-demo"}]`. SQL повторно сверяет эти значения и демо-организацию/площадку; при несовпадении откатывает всю транзакцию. Если psql завершился ошибкой, сохранить вывод и проверить откат до продолжения; API запустить обратно и проверить health. До удаления перенастроить keyword-монитор Uptime Kuma со старого slug на B либо согласовать окно обслуживания.
+
 DEMO_DATE — день показа, формат YYYY-MM-DD, любой день недели; по умолчанию 2026-10-19. DEMO_EVENTS — непустой список A/B/C без повторов, по умолчанию все три. Даты не зависят от текущего времени: начало события/сессии 1 — 10:00 Europe/Samara, сессии 2 — 15:00; регистрация открывается за 30 дней до демо, закрывается A за 9 дней, B за 1 день, C через 4 дня в 18:00 Самары. Запуск C после его окна регистрации завершится ошибкой, даты автоматически не подменяются.
 
 | Событие / slug на чистой БД | Дата / статус | Данные |
@@ -17,7 +59,7 @@ DEMO_DATE — день показа, формат YYYY-MM-DD, любой ден�
 | B `otkrytyy-kubok-samary-po-plavaniyu` | демо +1 / REGISTRATION_CLOSED | исходный set-M.xlsx: 120 пловцов, 200 заявок; первые 2 заплыва сессии 1 FINISHED, прочие PUBLISHED |
 | C `pervenstvo-oblasti-sredi-yunoshey` | демо +5 / REGISTRATION_OPEN | 124 пловца/заявки: 114 CONFIRMED + 6 NEEDS_CORRECTION + 4 WAITLISTED; 2 PDF документа |
 
-Всего 300 уникальных пловцов (без служебных аккаунтов), 40 общих B/C профилей, 12 клубов, годы рождения 2010–2016. B использует исходный набор M без изменения файлов. A/C детерминированно генерируются в памяти. У C восемь видов (50/100/200/400 вольным стилем, М/Ж), лимит 150 на событие и 16 на каждый вид. 120 заявок вне очереди включают 6 NEEDS_CORRECTION. Очередь создаётся обычной подачей сверх заполненного M-50; шесть на исправлении — подачей и модерацией. Импорт для этих состояний не используется. Один из шести аккаунтов — `sergeymcdz@yandex.ru`, пароль PARENT_PASSWORD/DEMO_PASSWORD; остальные дополнительные аккаунты `@flounder.demo`. Импортированные спортсмены без аккаунтов/e-mail. PDF в fixtures содержит только пометку DEMO, не медицинские сведения.
+Всего 300 уникальных пловцов (без служебных аккаунтов), 40 общих B/C профилей, 12 клубов, годы рождения 2010–2016. Пулы генератора содержат 48 мужских/48 женских имён и 120 фамилий с согласованием по полу; в A представлены 48 имён каждого пола. B использует исходный набор M без изменения файлов. A/C детерминированно генерируются в памяти. У C восемь видов (50/100/200/400 вольным стилем, М/Ж), лимит 150 на событие и 16 на каждый вид. 120 заявок вне очереди включают 6 NEEDS_CORRECTION. Очередь создаётся обычной подачей сверх заполненного M-50; шесть на исправлении — подачей и модерацией. Импорт для этих состояний не используется. Для одного из шести аккаунтов владелец задаёт `DEMO_OWNER_EMAIL` (default `sergeymcdzkz@gmail.com`), пароль PARENT_PASSWORD/DEMO_PASSWORD; остальные дополнительные аккаунты `@flounder.demo`. Существующий служебный аккаунт по этому адресу, в том числе platform_admin вместе с participant, отклоняется до создания демо-данных; роли и профиль не меняются. Для существующего отдельного участника пароль должен совпадать с PARENT_PASSWORD/DEMO_PASSWORD; иначе понятная ошибка предлагает проверить пароль или другой DEMO_OWNER_EMAIL. Изменение адреса/генератора имён для уже заполненных A/C требует reset соответствующих событий. Импортированные спортсмены без аккаунтов/e-mail. PDF в fixtures содержит только пометку DEMO, не медицинские сведения.
 
 Сид использует только HTTP API: создание, импорт, посев, расписание, публикация, судейский ввод/финиш, две правки секретарём, завершение A. При отсутствующем API или неожиданном состоянии останавливается; SQL-сидинга нет. Бюджет HTTP-клиента — 600 с, тайм-аут одного запроса — 15 с. В конце печатаются время и JSON-сводки `S02 A/B/C` с UUID, slug, статусами и количеством записей.
 
@@ -56,5 +98,7 @@ npm run typecheck
 cd ../../sport-platform/frontend
 PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:demo
 ```
+
+При MAIL_ENABLED=true сид создаёт уведомления и для вымышленных адресов @flounder.demo; это может приводить к возвратам SMTP. Для e2e после 18.10 требуется актуальный DEMO_DATE, чтобы окно регистрации отдельного QA05-события B оставалось открытым.
 
 Unit-тесты проверяют даты/границы календаря, состав, повторы, выбор событий, роли, ошибки и сброс без сети. E2e проверяет три жизненных цикла через настоящий API/браузер, общие profile ID и документы; прежний семишаговый тест использует отдельный пустой B с суффиксом QA05. Для удалённого API требуется явный QA05_ALLOW_REMOTE=1; рабочие данные для e2e не использовать. Подробный сценарий: [docs/demo-script.md](../../docs/demo-script.md), чек-лист: [репетиция 17.10](../../docs/qa/rehearsal-2026-10-17.md).

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, type Api, type Row } from './api.ts';
 import { accounts } from './bodies.ts';
-import { dataset, demoEvents, eventDates, profileKey, selectedEvents, shiftDate } from './plan.ts';
+import { dataset, DEFAULT_OWNER_EMAIL, demoEvents, eventDates, profileKey, selectedEvents, shiftDate } from './plan.ts';
 import { seed, type SeedOptions } from './seed.ts';
+import { femaleNames, maleNames, surnames } from './names.ts';
 import { resetPlan } from './reset.ts';
 
 // Model the existing API state machine; real Excel/API contracts are also checked by test:demo.
@@ -17,6 +18,9 @@ class FakeApi implements Api {
   supportsVenueMeta = true;
   lowercaseRegulations = false;
   openRaceStatus: string | undefined;
+  closeRaceStatus: string | undefined;
+  closeBeforeRead = false;
+  wrongPasswordEmail?: string;
   private serial = 0;
   private id() { return `00000000-0000-4000-8000-${String(++this.serial).padStart(12, '0')}`; }
   private add(path: string, data: Record<string, unknown>) {
@@ -36,7 +40,7 @@ class FakeApi implements Api {
     const data = body as Record<string, unknown>;
     const all = () => [...this.lists.values()].flat();
     if (path === '/auth/login') {
-      if (!this.users.has(String(data.email))) throw new ApiError(400, 'identity.invalid_credentials', method, path);
+      if (!this.users.has(String(data.email)) || data.email === this.wrongPasswordEmail) throw new ApiError(400, 'identity.invalid_credentials', method, path);
       return { accessToken: data.email } as T;
     }
     if (path === '/auth/me') return this.users.get(token!) as T;
@@ -72,7 +76,9 @@ class FakeApi implements Api {
       const discipline = this.lists.get(`/events/${event.id}/disciplines`)!.find(d => d.id === item.eventDisciplineId)!;
       const rows = this.lists.get(`/events/${event.id}/registrations`) ?? [];
       const status = rows.filter(row => row.eventDisciplineId === discipline.id && row.status !== 'NEEDS_CORRECTION').length >= 16 ? 'WAITLISTED' : 'SUBMITTED';
-      return [this.registration(event, { profile: data.profile as never, code: String(discipline.code), seedTimeMs: item.seedTimeMs }, status)] as T;
+      const registration = this.registration(event, { profile: data.profile as never, code: String(discipline.code), seedTimeMs: item.seedTimeMs }, status);
+      registration.participantUserId = this.users.get(token!)!.id;
+      return [registration] as T;
     }
     if (path.endsWith('/review')) {
       const row = all().find(row => row.id === path.split('/')[2])!;
@@ -120,13 +126,20 @@ class FakeApi implements Api {
       if (path.endsWith('open-registration') && this.openRaceStatus) {
         row.status = this.openRaceStatus; throw new ApiError(400, 'events.invalid_transition', method, path);
       }
+      if (path.endsWith('close-registration') && this.closeRaceStatus) {
+        row.status = this.closeRaceStatus; throw new ApiError(400, 'events.invalid_transition', method, path);
+      }
       row.status = path.endsWith('open-registration') ? 'REGISTRATION_OPEN' : path.endsWith('close-registration') ? 'REGISTRATION_CLOSED' : path.endsWith('complete') ? 'COMPLETED' :
         this.lowercaseRegulations && path.startsWith('/regulation-versions/') ? 'published' : 'PUBLISHED';
       return row as T;
     }
     if (path.startsWith('/regulation-templates/') && path.endsWith('/versions'))
       return this.add('/regulation-versions', { ...data, regulationTemplateId: path.split('/')[2], status: this.lowercaseRegulations ? 'draft' : 'DRAFT' }) as T;
-    if (method === 'GET' && /^\/(venues|organizations|events)\/[^/]+$/.test(path)) return all().find(row => row.id === path.split('/')[2]) as T;
+    if (method === 'GET' && /^\/(venues|organizations|events)\/[^/]+$/.test(path)) {
+      const row = all().find(row => row.id === path.split('/')[2])!;
+      if (this.closeBeforeRead && path.startsWith('/events/') && row.status === 'REGISTRATION_OPEN' && this.imports) row.status = 'REGISTRATION_CLOSED';
+      return row as T;
+    }
     if (method === 'GET') return (this.lists.get(path) ?? []) as T;
     if (method === 'POST') {
       if (path === '/venues' && !this.supportsVenueMeta) { const { venueMeta: _meta, ...rest } = data; return this.add(path, rest) as T; }
@@ -170,15 +183,65 @@ describe('dates and profile plan', () => {
     expect(new Set(Object.values(data).flat().map(entry => entry.profile.club)).size).toBe(12);
     expect(new Set(Object.values(data).flat().map(entry => Number(entry.profile.birthDate.slice(0, 4))))).toEqual(new Set([2010, 2011, 2012, 2013, 2014, 2015, 2016]));
   });
+  it('uses at least 40 first names per gender in A and at least 120 surnames across 300 swimmers', async () => {
+    expect(new Set(surnames).size).toBeGreaterThanOrEqual(120);
+    expect(new Set(maleNames).size).toBeGreaterThanOrEqual(40);
+    expect(new Set(femaleNames).size).toBeGreaterThanOrEqual(40);
+    const data = await dataset('2026-10-19');
+    for (const gender of ['M', 'F']) {
+      expect(new Set(data.A.filter(entry => entry.profile.gender === gender).map(entry => entry.profile.firstName)).size).toBeGreaterThanOrEqual(40);
+      for (const { profile } of [...data.A, ...data.C.filter(entry => !data.B.some(b => profileKey(b.profile) === profileKey(entry.profile)))]) {
+        const base = profile.gender === 'F' ? profile.lastName.slice(0, -1) : profile.lastName;
+        expect(surnames).toContain(base);
+      }
+    }
+    expect(new Set(Object.values(data).flat().map(entry => entry.profile.lastName)).size).toBeGreaterThanOrEqual(120);
+    expect(await dataset('2026-10-19')).toEqual(data);
+  });
+  it('uses the configured owner mailbox and rejects invalid addresses', async () => {
+    expect((await dataset('2026-10-19', ' Owner@Example.com ')).C.filter(entry => entry.email === 'owner@example.com')).toHaveLength(1);
+    await expect(dataset('2026-10-19', 'invalid')).rejects.toThrow('DEMO_OWNER_EMAIL');
+  });
   it('keeps C within discipline capacity and places exactly four overflow entries on M-50', async () => {
     const { C } = await dataset('2026-10-19');
     for (const code of new Set(C.map(entry => entry.code))) expect(C.filter(entry => entry.code === code && !entry.state).length).toBeLessThanOrEqual(16);
     expect(C.filter(entry => entry.state === 'NEEDS_CORRECTION')).toHaveLength(6);
     expect(C.filter(entry => entry.state === 'WAITLISTED').map(entry => entry.code)).toEqual(Array(4).fill('M-50-FREE'));
-    expect(C.filter(entry => entry.email === 'sergeymcdz@yandex.ru')).toHaveLength(1);
+    expect(C.filter(entry => entry.email === DEFAULT_OWNER_EMAIL)).toHaveLength(1);
   });
 });
 describe('seed and reset API orchestration', () => {
+  it.each([{ roles: ['platform_admin'] }, { roles: ['organizer'] }, { roles: ['participant', 'platform_admin'] }])('rejects an existing owner with roles %j before creating any demo data', async ({ roles }) => {
+    const api = new FakeApi(); api.users.set(DEFAULT_OWNER_EMAIL, { id: 'existing-owner', email: DEFAULT_OWNER_EMAIL, roles });
+    await expect(seed(api, options, quiet)).rejects.toThrow('Задайте другой DEMO_OWNER_EMAIL');
+    expect(api.calls.filter(call => call.method !== 'GET' && call.path !== '/auth/login')).toEqual([]);
+    expect(api.calls.some(call => call.path === '/auth/login' && (call.body as Row).email === DEFAULT_OWNER_EMAIL)).toBe(false);
+  });
+  it('explains an existing participant password mismatch before any data changes', async () => {
+    const api = new FakeApi(); api.users.set(DEFAULT_OWNER_EMAIL, { id: 'owner', email: DEFAULT_OWNER_EMAIL, roles: ['participant'] }); api.wrongPasswordEmail = DEFAULT_OWNER_EMAIL;
+    await expect(seed(api, options, quiet)).rejects.toThrow('Проверьте PARENT_PASSWORD/DEMO_PASSWORD или задайте другой DEMO_OWNER_EMAIL');
+    expect(api.lists.has('/events')).toBe(false);
+    expect(api.calls.some(call => call.path.includes('/public/events/'))).toBe(false);
+  });
+  it('uses a separate configured owner while the original owner is an administrator', async () => {
+    const api = new FakeApi(); api.users.set('sergeymcdz@yandex.ru', { id: 'real-admin', email: 'sergeymcdz@yandex.ru', roles: ['platform_admin'] });
+    await seed(api, { ...options, demoEvents: 'C', ownerEmail: 'owner@example.com' }, quiet);
+    expect(api.users.has('owner@example.com')).toBe(true);
+    expect(api.calls.some(call => call.path === '/auth/login' && (call.body as Row).email === 'sergeymcdz@yandex.ru')).toBe(false);
+  });
+  it('accepts a scheduler closure discovered before the close request', async () => {
+    const api = new FakeApi(); api.closeBeforeRead = true;
+    expect((await seed(api, { ...options, demoEvents: 'A' }, quiet))[0].status).toBe('COMPLETED');
+    expect(api.calls.some(call => call.path.endsWith('/close-registration'))).toBe(false);
+  });
+  it('accepts a scheduler closure racing with the close request', async () => {
+    const api = new FakeApi(); api.closeRaceStatus = 'REGISTRATION_CLOSED';
+    expect((await seed(api, { ...options, demoEvents: 'A' }, quiet))[0].status).toBe('COMPLETED');
+  });
+  it('does not swallow a close transition failure in an unexpected state', async () => {
+    const api = new FakeApi(); api.closeRaceStatus = 'PUBLISHED';
+    await expect(seed(api, { ...options, demoEvents: 'A' }, quiet)).rejects.toMatchObject({ code: 'events.invalid_transition' });
+  });
   it('reruns all three completed plans without duplicate entities, imports, generations or documents', async () => {
     const api = new FakeApi();
     await seed(api, options, quiet);

@@ -1,7 +1,14 @@
 import { readFile } from 'node:fs/promises';
+import { fullName } from './names.ts';
 import { validateDemoDate } from './bodies.ts';
 
 export const DEFAULT_DEMO_DATE = '2026-10-19';
+export const DEFAULT_OWNER_EMAIL = 'sergeymcdzkz@gmail.com';
+export function ownerEmail(value = DEFAULT_OWNER_EMAIL): string {
+  const email = value.trim().toLowerCase();
+  if (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('DEMO_OWNER_EMAIL должен содержать корректный e-mail отдельного участника.');
+  return email;
+}
 export const demoEvents = [
   { key: 'A', title: 'Кубок SportGate — осень', slug: 'kubok-sportgate-osen', offset: -8, status: 'COMPLETED' },
   { key: 'B', title: 'Открытый кубок Самары по плаванию', slug: 'otkrytyy-kubok-samary-po-plavaniyu', offset: 1, status: 'REGISTRATION_CLOSED' },
@@ -37,10 +44,11 @@ export const extraClubs = ['Олимп, Тольятти', 'Волга, Сызр
 // Plausible training times: age and distance affect pace; all values are deterministic.
 export function entryTime(profile: Profile, distance: number, index: number, demoDate: string): number {
   const age = Number(demoDate.slice(0, 4)) - Number(profile.birthDate.slice(0, 4));
-  const fifty = 29_000 + Math.max(0, 17 - age) * 2_800 + (profile.gender === 'F' ? 1_500 : 0) + index % 9 * 190;
+  const fifty = 29_000 + Math.max(0, 17 - age) * 2_800 + (profile.gender === 'F' ? 1_500 : 0) + index % 9 * 190 + index * 37 % 700;
   return Math.round(fifty * distance / 50 * (distance === 50 ? 1 : distance === 100 ? 1.12 : 1.24) / 10) * 10;
 }
-export async function dataset(demoDate: string): Promise<Record<EventKey, Entry[]>> {
+export async function dataset(demoDate: string, requestedOwnerEmail?: string): Promise<Record<EventKey, Entry[]>> {
+  const email = ownerEmail(requestedOwnerEmail);
   const source = JSON.parse(await readFile(new URL('../../docs/scripts/demo/out/set-M.json', import.meta.url), 'utf8')) as {
     athletes: (Omit<Profile, 'gender'> & { id: number; gender: string })[];
     entries: { athleteId: number; disciplineCode: string; seedTimeMs: number | null }[];
@@ -48,15 +56,10 @@ export async function dataset(demoDate: string): Promise<Record<EventKey, Entry[
   const originals = source.athletes.map(athlete => ({ ...athlete,
     birthDate: athlete.birthDate.split('.').reverse().join('-'), gender: athlete.gender === 'М' ? 'M' : 'F' }));
   const used = new Set(originals.map(profileKey));
-  const surnames = ['Авдеев', 'Агапов', 'Акимов', 'Быков', 'Вавилов', 'Верещагин', 'Гаврилов', 'Дементьев', 'Дьяков', 'Елисеев', 'Зимин', 'Зорин', 'Игнатьев', 'Капустин', 'Кириллов', 'Котов', 'Логинов', 'Лукин', 'Мартынов', 'Молчанов', 'Наумов', 'Нестеров', 'Овчинников', 'Панин', 'Родионов', 'Рыбаков', 'Савельев', 'Сафонов', 'Трофимов', 'Устинов'];
-  const male = ['Матвей', 'Роман', 'Артём', 'Никита', 'Илья', 'Михаил', 'Лев', 'Тимофей', 'Даниил', 'Максим'];
-  const female = ['Арина', 'Алиса', 'София', 'Мария', 'Полина', 'Варвара', 'Анна', 'Дарья', 'Ева', 'Кира'];
   const extra: Profile[] = [];
   for (let i = 0; extra.length < 180; i++) {
     const gender = extra.length >= 176 ? 'M' : i % 2 === 0 ? 'M' : 'F';
-    const profile = { lastName: surnames[Math.floor(i / 2) % surnames.length] + (gender === 'F' ? 'а' : ''),
-      firstName: (gender === 'M' ? male : female)[Math.floor(i / 60) % 10],
-      middleName: gender === 'M' ? ['Андреевич', 'Сергеевич', 'Дмитриевич'][i % 3] : ['Андреевна', 'Сергеевна', 'Дмитриевна'][i % 3],
+    const profile = { ...fullName(i, gender),
       birthDate: `${2010 + i % 7}-${String(1 + i % 12).padStart(2, '0')}-${String(1 + i % 28).padStart(2, '0')}`,
       gender, club: extraClubs[i % extraClubs.length] };
     if (!used.has(profileKey(profile))) { extra.push(profile); used.add(profileKey(profile)); }
@@ -71,7 +74,7 @@ export async function dataset(demoDate: string): Promise<Record<EventKey, Entry[
     const slot = counts[profile.gender as 'M' | 'F']++;
     const distance = slot < 16 ? 50 : slot < 31 ? 100 : slot < 46 ? 200 : 400;
     return { profile, code: `${profile.gender}-${distance}-FREE`, seedTimeMs: entryTime(profile, distance, i, demoDate),
-      ...(i >= 114 ? { state: 'NEEDS_CORRECTION' as const, email: i === 114 ? 'sergeymcdz@yandex.ru' : `s02-c-${i}@flounder.demo` } : {}) };
+      ...(i >= 114 ? { state: 'NEEDS_CORRECTION' as const, email: i === 114 ? email : `s02-c-${i}@flounder.demo` } : {}) };
   });
   C.push(...extra.slice(176).map((profile, i) => ({ profile, code: 'M-50-FREE', seedTimeMs: entryTime(profile, 50, i, demoDate), state: 'WAITLISTED' as const, email: `s02-wait-${i}@flounder.demo` })));
   return { A, B, C };

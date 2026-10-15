@@ -48,6 +48,25 @@ describe('explicit SQL reset without a process or database', () => {
     expect(execFile).not.toHaveBeenCalled();
     expect(messages.join()).toContain('данные ещё не удалены');
   });
+  it('selects the legacy demo event by slug without requiring a new S02 title', async () => {
+    const legacy = { ...targets[0], title: 'Открытый кубок Самары по плаванию (демо)', slug: 'otkrytyy-kubok-samary-po-plavaniyu-demo' };
+    const api: Api = { async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
+      if (path === '/events') return [{ id: legacy.id, title: legacy.title, publicSlug: legacy.slug, organizationId: 'org', venueId: 'venue' }] as T;
+      return fakeApi.request<T>(method, path, body, token);
+    } };
+    const messages: string[] = [];
+    await resetPlan(api, 'admin@example.invalid', 'unit-test-password', msg => messages.push(msg), { demoSlugs: legacy.slug });
+    expect(messages.join()).toContain(JSON.stringify([legacy]));
+    expect(execFile).not.toHaveBeenCalled();
+  });
+  it('rejects a selected slug from a foreign organization before applying SQL', async () => {
+    const api: Api = { async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
+      if (path.startsWith('/organizations/')) return { name: 'Чужая организация' } as T;
+      return fakeApi.request<T>(method, path, body, token);
+    } };
+    await expect(resetPlan(api, 'admin@example.invalid', 'unit-test-password', () => {}, { demoSlugs: 'demo-backup', apply: true, databaseUrl })).rejects.toThrow('не соответствует демо-организации');
+    expect(execFile).not.toHaveBeenCalled();
+  });
   it('redacts connection values from successful process output', async () => {
     processResult(null, databaseUrl, 'test-only-password');
     const output = await applyReset(targets, databaseUrl);

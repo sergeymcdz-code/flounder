@@ -3,7 +3,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { HttpApi, login, unique, type Api, type Row } from './api.ts';
 import { ORGANIZATION_NAME, VENUE_NAME } from './bodies.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
-import { demoEvents, selectedEvents } from './plan.ts';
+import { selectedEvents } from './plan.ts';
 
 export type ResetOptions = { apply?: boolean; databaseUrl?: string; eventTitleSuffix?: string; demoEvents?: string; demoSlugs?: string };
 export type ResetTarget = { id: string; title: string; slug: string };
@@ -37,11 +37,15 @@ export async function resetPlan(api: Api, adminEmail: string, adminPassword: str
   const token = await login(api, adminEmail, adminPassword);
   const events = await api.request<Row[]>('GET', '/events', undefined, token);
   const targets: ResetTarget[] = [];
-  const specs = selected ? demoEvents : selectedEvents(options.demoEvents);
-  for (const spec of specs) {
-    const title = spec.title + (options.eventTitleSuffix ?? '');
-    const event = unique(events, row => row.title === title, title);
-    if (!event || selected && !selected.includes(String(event.publicSlug))) continue;
+  const candidates = selected
+    ? selected.map(slug => unique(events, row => row.publicSlug === slug, slug))
+    : selectedEvents(options.demoEvents).map(spec => {
+      const title = spec.title + (options.eventTitleSuffix ?? '');
+      return unique(events, row => row.title === title, title);
+    });
+  for (const event of candidates) {
+    if (!event) continue;
+    const title = String(event.title);
     const [organization, venue] = await Promise.all([
       api.request<Row>('GET', `/organizations/${event.organizationId}`, undefined, token),
       api.request<Row>('GET', `/venues/${event.venueId}`, undefined, token),

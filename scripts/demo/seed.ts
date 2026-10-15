@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { ApiError, ensure, HttpApi, login, unique, type Api, type Row } from './api.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
-import { dataset, DEFAULT_DEMO_DATE, eventDates, profileKey, selectedEvents, type DemoEvent, type Entry } from './plan.ts';
+import { dataset, DEFAULT_DEMO_DATE, eventDates, ownerEmail, profileKey, selectedEvents, type DemoEvent, type Entry } from './plan.ts';
 import { workbook } from './workbook.ts';
 import {
   accounts, disciplineBody, disciplineSpecs, demoEventTitle, importBody, memberBody,
@@ -12,16 +12,22 @@ import {
 
 export type SeedOptions = {
   adminEmail: string; adminPassword: string; passwords: Record<string, string>;
-  requireVenueMeta?: boolean; eventTitleSuffix?: string; demoDate?: string; demoEvents?: string; skipImport: boolean; now?: Date; workbook?: Uint8Array;
+  requireVenueMeta?: boolean; eventTitleSuffix?: string; demoDate?: string; demoEvents?: string; ownerEmail?: string; skipImport: boolean; now?: Date; workbook?: Uint8Array;
 };
 export async function seed(api: Api, options: SeedOptions, log = console.log) {
   const started = Date.now();
   const demoDate = validateDemoDate(options.demoDate ?? DEFAULT_DEMO_DATE);
   const selected = selectedEvents(options.demoEvents);
-  const data = await dataset(demoDate);
+  const email = ownerEmail(options.ownerEmail);
+  const data = await dataset(demoDate, email);
   const adminToken = await login(api, options.adminEmail, options.adminPassword);
   const admin = await api.request<Row & { roles: string[] }>('GET', '/auth/me', undefined, adminToken);
   if (!admin.roles.includes('platform_admin')) throw new Error('ADMIN_EMAIL должен иметь роль platform_admin (T01).');
+  let ownerToken: string | undefined;
+  if (selected.some(event => event.key === 'C') && !options.skipImport) {
+    const existing = await findParticipant(api, email, adminToken);
+    if (existing) ownerToken = await participantLogin(api, email, options.passwords.PARENT);
+  }
   const organization = await ensure(api, adminToken, '/organizations', row => row.name === ORGANIZATION_NAME, organizationBody(), ORGANIZATION_NAME);
   const membersPath = `/organizations/${organization.id}/members`;
   const members = await api.request<Row[]>('GET', membersPath, undefined, adminToken);
@@ -78,7 +84,7 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     organizer: organizerToken,
     judge: await login(api, 'judge@flounder.demo', options.passwords.JUDGE),
     secretary: await login(api, 'sec@flounder.demo', options.passwords.SEC),
-    admin: adminToken,
+    admin: adminToken, owner: ownerToken,
   };
   const events: Row[] = [];
   for (const spec of selected) {
@@ -155,7 +161,18 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
           rows = await registrations(api, event.id, organizerToken);
         }
         assertEntries(rows, disciplines, data[spec.key]);
-        if (event.status === 'REGISTRATION_OPEN') event = await api.request<Row>('POST', `/events/${event.id}/close-registration`, undefined, organizerToken);
+        if (event.status === 'REGISTRATION_OPEN') {
+          event = await api.request<Row>('GET', `/events/${event.id}`, undefined, organizerToken);
+          if (event.status === 'REGISTRATION_OPEN') {
+            try { event = await api.request<Row>('POST', `/events/${event.id}/close-registration`, undefined, organizerToken); }
+            catch (error) {
+              if (!(error instanceof ApiError) || error.code !== 'events.invalid_transition') throw error;
+              event = await api.request<Row>('GET', `/events/${event.id}`, undefined, organizerToken);
+              if (event.status !== 'REGISTRATION_CLOSED') throw error;
+            }
+          }
+          if (event.status !== 'REGISTRATION_CLOSED') throw new Error(`Не удалось подтвердить закрытие регистрации ${spec.key}. Получен статус ${event.status}.`);
+        }
         statistics = await competition(api, event, disciplines, rows, spec, tokens);
         if (spec.key === 'A' && event.status !== 'COMPLETED') event = await api.request<Row>('POST', `/events/${event.id}/complete`, undefined, organizerToken);
       }
@@ -170,8 +187,8 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   return events;
 }
 
-type Tokens = { organizer: string; admin: string; judge: string; secretary: string };
-type Registration = Row & { participantProfileId: string; eventDisciplineId: string; participantSnapshot: Entry['profile']; seedTimeMs: number | null };
+type Tokens = { organizer: string; admin: string; judge: string; secretary: string; owner?: string };
+type Registration = Row & { participantProfileId: string; eventDisciplineId: string; participantUserId?: string; participantSnapshot: Entry['profile']; seedTimeMs: number | null };
 type HeatEntry = { entryId: string; registrationId: string; laneOrPosition?: number; resultStatus?: string; timeMs?: number | null };
 type Heat = Row & { entries: HeatEntry[] };
 const registrations = (api: Api, id: string, token: string) => api.request<Registration[]>('GET', `/events/${id}/registrations`, undefined, token);
@@ -186,6 +203,21 @@ async function importEntries(api: Api, id: string, bytes: Uint8Array, count: num
     throw new Error(`Импорт не подтвердил ${count} корректных строк без ошибок. Проверьте отчёт импорта. SQL-обход запрещён.`);
   log(`Импорт: всего ${report.total}, создано ${report.created}, обновлено ${report.updated}, пропущено ${report.skipped}, ошибок 0.`);
 }
+async function findParticipant(api: Api, email: string, adminToken: string) {
+  const users = await api.request<{ items: (Row & { roles: string[] })[] }>('GET', `/users?query=${encodeURIComponent(email)}&size=100`, undefined, adminToken);
+  const user = unique(users.items, row => String(row.email).toLowerCase() === email, email);
+  const roles = user?.roles;
+  if (user && (!Array.isArray(roles) || !roles.includes('participant') || roles.some(role => role !== 'participant')))
+    throw new Error(`Аккаунт ${email} уже существует и не является отдельным участником. Задайте другой DEMO_OWNER_EMAIL; роли и профиль существующего пользователя не изменяются.`);
+  return user;
+}
+async function participantLogin(api: Api, email: string, password: string) {
+  try { return await login(api, email, password); }
+  catch (error) {
+    if (!(error instanceof ApiError) || error.code !== 'identity.invalid_credentials') throw error;
+    throw new Error(`Аккаунт ${email} уже существует, но пароль не подходит. Проверьте PARENT_PASSWORD/DEMO_PASSWORD или задайте другой DEMO_OWNER_EMAIL. Пароль и профиль не изменяются.`);
+  }
+}
 async function registrationEvent(api: Api, event: Row, disciplines: Row[], entries: Entry[], options: SeedOptions, tokens: Tokens) {
   const imported = entries.filter(entry => !entry.state);
   let rows = await registrations(api, event.id, tokens.organizer);
@@ -196,13 +228,15 @@ async function registrationEvent(api: Api, event: Row, disciplines: Row[], entri
   for (const entry of entries.filter(entry => entry.state)) {
     const discipline = disciplines.find(d => d.code === entry.code)!;
     let registration = rows.find(row => profileKey(row.participantSnapshot) === profileKey(entry.profile) && row.eventDisciplineId === discipline.id);
+    const existing = await findParticipant(api, entry.email!, tokens.admin);
+    if (registration && (!existing || registration.participantUserId !== existing.id))
+      throw new Error('E-mail участника C изменился. Проверьте DEMO_OWNER_EMAIL и выполните reset C перед повторным сидом.');
     if (!registration) {
-      const users = await api.request<{ items: Row[] }>('GET', `/users?query=${encodeURIComponent(entry.email!)}&size=100`, undefined, tokens.admin);
-      if (!unique(users.items, row => row.email === entry.email, entry.email!)) {
+      if (!existing) {
         await api.request('POST', '/users', { ...entry.profile, clubName: entry.profile.club, countryCode: 'RU', city: 'Самара',
           email: entry.email, password: options.passwords.PARENT }, tokens.admin);
       }
-      const token = await login(api, entry.email!, options.passwords.PARENT);
+      const token = entry.email === ownerEmail(options.ownerEmail) && tokens.owner ? tokens.owner : await participantLogin(api, entry.email!, options.passwords.PARENT);
       const created = await api.request<Registration[]>('POST', `/public/events/${event.publicSlug}/registrations`, {
         profile: entry.profile, items: [{ eventDisciplineId: discipline.id, seedTimeMs: entry.seedTimeMs }],
       }, token);
