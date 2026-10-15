@@ -38,17 +38,21 @@ public class PdfRenderer {
     }
 
     public byte[] render(Protocol protocol, boolean results) {
+        return render(results ? "results" : "start-list", java.util.Map.of("protocol", protocol));
+    }
+
+    public byte[] render(String template, java.util.Map<String,Object> model) {
         try (var output = new ByteArrayOutputStream()) {
             var context = new Context(Locale.forLanguageTag("ru"));
-            context.setVariable("protocol", protocol);
+            context.setVariables(model);
             var builder = new PdfRendererBuilder();
             builder.useFastMode();
-            // Fonts are supplied directly; no URL, filesystem or network resources are permitted.
-            builder.useExternalResourceAccessControl((uri, type) -> false, ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
-            builder.useExternalResourceAccessControl((uri, type) -> false, ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
+            // Fonts and validated image bytes are supplied directly; filesystem and network access remain blocked.
+            builder.useExternalResourceAccessControl((uri, type) -> uri != null && (uri.startsWith("data:image/png;base64,") || uri.startsWith("data:image/jpeg;base64,")), ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
+            builder.useExternalResourceAccessControl((uri, type) -> uri != null && (uri.startsWith("data:image/png;base64,") || uri.startsWith("data:image/jpeg;base64,")), ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
             builder.useFont(() -> new ByteArrayInputStream(regularBytes), "Noto Sans", 400, FontStyle.NORMAL, true);
             builder.useFont(() -> new ByteArrayInputStream(boldBytes), "Noto Sans", 700, FontStyle.NORMAL, true);
-            builder.withHtmlContent(templates.process(results ? "results" : "start-list", context), null);
+            builder.withHtmlContent(templates.process(template, context), null);
             builder.toStream(output);
             if (!renderSlots.tryAcquire(10, TimeUnit.SECONDS)) throw busy();
             try {

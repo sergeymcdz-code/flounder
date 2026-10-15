@@ -7,11 +7,13 @@ export function PdfDownloadButton({
   filename,
   accessToken,
   disabled = false,
+  label = 'Скачать PDF',
 }: {
   path: string
   filename: string
   accessToken?: string
   disabled?: boolean
+  label?: string
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -29,7 +31,7 @@ export function PdfDownloadButton({
   return (
     <span className={styles.control}>
       <button type="button" disabled={disabled || busy} onClick={() => void download()}>
-        {busy ? 'Формируем PDF…' : 'Скачать PDF'}
+        {busy ? 'Формируем PDF…' : label}
       </button>
       {error && <span role="alert">{error}</span>}
     </span>

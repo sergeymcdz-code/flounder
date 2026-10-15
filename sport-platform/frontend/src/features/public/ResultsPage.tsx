@@ -26,6 +26,7 @@ export function ResultsPage() {
           filename="Итоговый-протокол.pdf"
           disabled={!state.data?.disciplines.length}
         />
+        {!!state.data?.disciplines.length && <PdfDownloadButton path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/awards.pdf`} filename="Лист-награждения.pdf" label="Лист награждения (PDF)" />}
       </div>
       <div
         className={`${styles.segment} ${styles.noPrint}`}

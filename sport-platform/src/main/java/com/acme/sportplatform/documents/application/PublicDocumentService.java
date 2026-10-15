@@ -8,17 +8,28 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PublicDocumentService {
+    private final PrintFormService forms;
     private final EventPublicLookup events;
     private final DocumentService documents;
     private final Cache<String, PdfDocument> cache;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public PublicDocumentService(EventPublicLookup events, DocumentService documents,
-            @Qualifier("publicPdfCache") Cache<String, PdfDocument> cache) {
+            @Qualifier("publicPdfCache") Cache<String, PdfDocument> cache, PrintFormService forms) {
+        this.forms = forms;
         this.events = events;
         this.documents = documents;
         this.cache = cache;
     }
 
+    public PublicDocumentService(EventPublicLookup events, DocumentService documents, Cache<String,PdfDocument> cache) {
+        this(events,documents,cache,null);
+    }
+    public PdfDocument awards(String slug, PrintFormService.Scope scope, int places, java.util.UUID disciplineId) {
+        var event=events.getPublicBySlug(slug);
+        return cache.get(slug+":"+event.id()+":awards:"+scope+":"+places+":"+disciplineId,
+                key -> forms.awards(event.id(),true,scope,places,disciplineId));
+    }
     public PdfDocument get(String slug, boolean results) {
         // Recheck event visibility even on a cache hit; never cache organizer drafts.
         var event = events.getPublicBySlug(slug);

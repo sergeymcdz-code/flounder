@@ -1,3 +1,4 @@
+import { AwardsPrintControls } from './PrintFormsControls'
 import { Link } from 'react-router'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publishDisciplineResults } from '../../api/scheduling.api'
@@ -19,6 +20,7 @@ export function OrganizerResultsPage() {
       ) ?? false
   return (
     <div className={styles.stack}>
+      <AwardsPrintControls />
       <div className={styles.toolbar}>
         <h2>Результаты соревнования</h2>
         <a

@@ -156,6 +156,11 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             }
         }
         switch (e.state()) {
+            case "bib-assigned" -> {
+                jdbc.update("insert into event_bib_numbers(event_id,profile_id,bib_number) values (?,?,1)",id("event"),id("profile"));
+                jdbc.update("update competition_units set status='PUBLISHED' where id=?",id("unit"));
+            }
+            case "diploma-enabled" -> jdbc.update("update events set settings_json='{\"diploma\":{\"enabled\":true}}' where id=?",id("event"));
             case "reset-token" -> jdbc.update("insert into password_reset_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '1 hour')",
                     UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-reset-token"));
             case "refresh-token" -> jdbc.update("insert into refresh_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '30 days')",

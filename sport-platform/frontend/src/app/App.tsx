@@ -1,3 +1,4 @@
+import { OrganizerDiplomaPage } from '../features/organizer/OrganizerDiplomaPage'
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 
@@ -192,6 +193,7 @@ export default function App() {
               <Route path="entries" element={<OrganizerEntriesPage />} />
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="diploma" element={<OrganizerDiplomaPage />} />
               <Route path="notifications" element={<OrganizerNotificationsPage />} />
               <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
                 <Route path="analytics" element={<EventAnalyticsPage />} />

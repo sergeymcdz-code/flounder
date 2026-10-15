@@ -1,0 +1,10 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" lang="ru"><head><meta charset="UTF-8" />
+<style>@page { size:A4 portrait; margin:15mm; } body { font-family:"Noto Sans"; font-size:10pt; }
+h1 { font-size:18pt; } h2,h3 { page-break-after:avoid; } table { border-collapse:collapse; width:100%; -fs-table-paginate:paginate; }
+th,td { border:0.2mm solid #999; padding:2mm; } tr { page-break-inside:avoid; } .box { display:inline-block; width:3mm; height:3mm; border:0.3mm solid #333; }</style></head><body>
+<h1>Лист награждения</h1><h2 th:text="${protocol.header.title}"></h2><p><span th:text="${protocol.header.date}"></span> · <span th:text="${protocol.header.venue}"></span></p>
+<p th:if="${protocol.disciplines.isEmpty()}">Результатов для награждения нет.</p>
+<section th:each="d : ${protocol.disciplines}"><h2>Вид № <span th:text="${d.number}"></span> · <span th:text="${d.name}"></span></h2>
+<div th:each="s : ${d.resultSections}"><h3 th:text="${s.name}"></h3><table><thead><tr><th>Место</th><th>№</th><th>Фамилия Имя</th><th>Год</th><th>Клуб</th><th>Результат</th><th>Вручено</th></tr></thead><tbody>
+<tr th:each="r : ${s.ranked}"><td th:text="${r.place}"></td><td th:text="${r.bib == null ? '—' : r.bib}"></td><td th:text="${r.athlete}"></td><td th:text="${r.year}"></td><td th:text="${r.club}"></td><td th:text="${r.result}"></td><td><span class="box"> </span></td></tr>
+</tbody></table></div></section></body></html>

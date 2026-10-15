@@ -1,0 +1,25 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" lang="ru"><head><meta charset="UTF-8" />
+<style th:inline="text">
+@page { size: [[${twoUp ? 'A4' : 'A5'}]] portrait; margin: 6mm; }
+body { font-family: "Noto Sans"; font-size: 7pt; margin:0; }
+.card { height: [[${twoUp ? '142mm' : '196mm'}]]; page-break-inside: avoid; overflow:hidden; }
+.card:last-child { page-break-after:auto; }
+.break { page-break-after:always; }
+.cut { border-bottom:0.2mm dashed #888;  }
+h1 { font-size:11pt; margin:0 0 1mm; } h2 { font-size:9pt; margin:1mm 0; }
+p { margin:1mm 0; } table { border-collapse:collapse; width:100%; table-layout:fixed; }
+th,td { border:0.2mm solid #777; padding:0.5mm; word-wrap:break-word; }
+td { height:9mm; } th { font-size:6pt; } .lane { width:5%; } .bib { width:6%; } .name { width:24%; }
+.year { width:7%; } .club { width:14%; } .seed { width:12%; } .result { width:19%; } .note { width:13%; }
+.signature { margin-top:3mm; font-size:7pt; }
+</style></head><body>
+<p th:if="${cards.isEmpty()}">Опубликованных заплывов нет.</p>
+<div th:each="card, iter : ${cards}" th:class="${'card' + (!iter.last and (!twoUp or iter.count % 2 == 0) ? ' break' : '') + (twoUp and iter.count % 2 == 1 and !iter.last ? ' cut' : '')}">
+<h1 th:text="${protocol.header.title}">Событие</h1>
+<p><span th:text="${protocol.header.date}"></span> · <span th:text="${card.discipline.session}"></span></p>
+<h2 th:text="${'Вид № ' + card.discipline.number + ' · ' + card.discipline.name + (card.heat.ageGroup.isEmpty() ? '' : ', ' + card.heat.ageGroup)}"></h2>
+<p th:text="${'Заплыв ' + card.heat.number + ' из ' + card.total + ' · план ' + card.heat.startsAt}"></p>
+<table><thead><tr><th class="lane">Дор.</th><th class="bib">№</th><th class="name">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="seed">Заяв. время</th><th class="result">Результат ______</th><th class="note">Прим.</th></tr></thead><tbody>
+<tr th:each="row : ${card.heat.rows}"><td th:text="${row.lane}"></td><td th:text="${row.bib == null ? '' : row.bib}"></td>
+<td><span th:text="${row.athlete}"></span><span th:if="${row.withdrawn}"> (снят)</span></td><td th:text="${row.year}"></td><td th:text="${row.club}"></td><td th:text="${row.seed}"></td><td></td><td></td></tr>
+</tbody></table><p class="signature">Старший судья ______ Секундометрист ______</p></div></body></html>

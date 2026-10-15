@@ -1,3 +1,4 @@
+import { HeatPrintControls } from './PrintFormsControls'
 import { useCallback, useState } from 'react'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publicApi } from '../../api/public.api'
@@ -104,6 +105,7 @@ export function OrganizerHeatsPage() {
   }
   return (
     <div className={styles.stack}>
+      <HeatPrintControls />
       <article className={styles.card}>
         <label>
           <input type="checkbox" checked={false} disabled aria-describedby="circle-seed-help" />
