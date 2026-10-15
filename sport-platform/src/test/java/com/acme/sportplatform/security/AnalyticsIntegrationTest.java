@@ -44,9 +44,9 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
         org.slf4j.LoggerFactory.getLogger(getClass()).info("M analytics uncached HTTP: {} ms",elapsed);
         assertSums(a);
         assertThat(a.sessions()).hasSize(2);
-        assertThat(a.sessions()).allMatch(s -> s.delaySec()==null);
+        assertThat(a.sessions()).allMatch(s -> s.delaySec()==0);
         assertThat(a.results().latencySamples()).isZero();
-        assertThat(a.results().latencySource()).isEqualTo("UNAVAILABLE_UNTIL_M07");
+        assertThat(a.results().latencySource()).isEqualTo("UNAVAILABLE");
         assertThat(a.results().medianPublicationSec()).isNull();assertThat(a.results().p95PublicationSec()).isNull();
         assertThat(a.importStats().available()).isFalse();assertThat(a.importStats().recent()).isEmpty();
         assertThat(a.validator().errors()).isEqualTo(2);assertThat(a.validator().warnings()).isEqualTo(1);
@@ -194,6 +194,71 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
         UUID empty=UUID.randomUUID();jdbc.update("insert into organizations(id,type,name,created_at,updated_at) values (?,'club','Empty',now(),now())",empty);
         var o=json.readTree(mvc.perform(get("/api/v1/organizations/{id}/analytics",empty).with(authentication(auth("platform_admin")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
         assertThat(o.path("events").asLong()).isZero();assertThat(o.path("averageEventSize").asDouble()).isZero();
+    }
+
+    @Test
+    void publicationLatencyUsesFirstEligibleRankingLogAndActualSessionStart() throws Exception {
+        var second = UUID.randomUUID();
+        var noFinish = UUID.randomUUID();
+        var finish = OffsetDateTime.parse("2026-10-19T06:10:00Z");
+        jdbc.update("update competition_units set scheduled_at=?,actual_started_at=?,actual_finished_at=? where id=?",
+                finish.minusMinutes(10), finish.minusMinutes(3), finish, id("unit"));
+        jdbc.update("insert into competition_units(id,event_discipline_id,label,sequence_number,status,actual_finished_at) values (?,?,'Second',2,'FINISHED',?), (?,?,'No finish',3,'PUBLISHED',null)",
+                second,id("discipline"),finish.plusMinutes(10),noFinish,id("discipline"));
+        for (var at : List.of(finish.minusSeconds(1),finish.plusSeconds(90),finish.plusSeconds(100),finish.plusSeconds(900)))
+            jdbc.update("insert into rule_execution_logs(id,event_id,event_discipline_id,kind,input_json,output_json,violations_json,duration_ms,executed_at) values (?,?,?,'RANKING','{}','{}','[]',1,?)",
+                    UUID.randomUUID(),id("event"),id("discipline"),at);
+        var a=reads.event(id("event"));
+        assertThat(a.results().medianPublicationSec()).isEqualTo(195);
+        assertThat(a.results().p95PublicationSec()).isCloseTo(300,org.assertj.core.data.Offset.offset(11.0));
+        assertThat(a.results().latencySamples()).isEqualTo(2);
+        assertThat(a.results().latencySource()).isEqualTo("RANKING_LOG");
+        assertThat(a.sessions().getFirst().delaySec()).isEqualTo(420);
+        var response=mvc.perform(get("/api/v1/events/{id}/analytics/export.xlsx",id("event"))
+                .with(authentication(auth("organizer")))).andExpect(status().isOk()).andReturn().getResponse();
+        try(var w=new XSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()))) {
+            assertThat(w.getSheet("Результаты").getRow(2).getCell(1).getNumericCellValue()).isEqualTo(195);
+            assertThat(w.getSheet("Сессии").getRow(1).getCell(5).getNumericCellValue()).isEqualTo(420);
+        }
+    }
+
+    @Test
+    void latencyFallsBackToLatestLaneUpdateAndExcludesMissingOrNegativeSamples() {
+        var finish=OffsetDateTime.parse("2026-10-19T06:10:00Z");
+        jdbc.update("update competition_units set actual_finished_at=? where id=?",finish,id("unit"));
+        jdbc.update("update results set updated_at=? where competition_unit_entry_id=?",finish.plusSeconds(120),id("entry"));
+        for(String key:List.of("fallbackRegistration","fallbackEntry")) ids.put(key,UUID.randomUUID().toString());
+        registration("fallbackRegistration","event","discipline","foreignProfile","target");
+        jdbc.update("insert into competition_unit_entries(id,competition_unit_id,registration_id,lane_or_position) values (?,?,?,2)",id("fallbackEntry"),id("unit"),id("fallbackRegistration"));
+        jdbc.update("insert into results(id,competition_unit_entry_id,result_type,status,time_ms,updated_at) values (?,?,'TIME','VALID',30000,?)",UUID.randomUUID(),id("fallbackEntry"),finish.plusSeconds(60));
+        var a=reads.results(id("event"));
+        assertThat(a.latencySamples()).isEqualTo(1);
+        assertThat(a.latencySource()).isEqualTo("RESULTS_UPDATED_AT");
+        assertThat(a.medianPublicationSec()).isEqualTo(120);
+        jdbc.update("update results set updated_at=? where competition_unit_entry_id in (?,?)",finish.minusSeconds(1),id("entry"),id("fallbackEntry"));
+        a=reads.results(id("event"));
+        assertThat(a.latencySamples()).isZero();assertThat(a.latencySource()).isEqualTo("UNAVAILABLE");
+        assertThat(a.medianPublicationSec()).isNull();assertThat(a.p95PublicationSec()).isNull();
+        jdbc.update("update competition_units set actual_finished_at=null where id=?",id("unit"));
+        jdbc.update("update results set updated_at=? where competition_unit_entry_id=?",finish.plusSeconds(120),id("entry"));
+        assertThat(reads.results(id("event")).latencySamples()).isZero();
+    }
+
+    @Test
+    void mixedLatencyReportsFallbackAndEarlyStartsDoNotProduceNegativeDelay() {
+        var finish=OffsetDateTime.parse("2026-10-19T06:10:00Z");
+        jdbc.update("update competition_units set scheduled_at=?,actual_started_at=?,actual_finished_at=? where id=?",finish,finish.minusSeconds(60),finish,id("unit"));
+        jdbc.update("update results set updated_at=? where competition_unit_entry_id=?",finish.plusSeconds(120),id("entry"));
+        UUID ranked=UUID.randomUUID();
+        jdbc.update("insert into competition_units(id,event_discipline_id,label,sequence_number,status,actual_finished_at) values (?,?,'Ranked',1,'FINISHED',?)",ranked,id("newDiscipline"),finish);
+        jdbc.update("insert into rule_execution_logs(id,event_id,event_discipline_id,kind,input_json,output_json,violations_json,duration_ms,executed_at) values (?,?,?,'RANKING','{}','{}','[]',1,?)",UUID.randomUUID(),id("event"),id("newDiscipline"),finish.plusSeconds(90));
+        var a=reads.event(id("event"));
+        assertThat(a.results().latencySamples()).isEqualTo(2);
+        assertThat(a.results().latencySource()).isEqualTo("RESULTS_UPDATED_AT");
+        assertThat(a.results().medianPublicationSec()).isEqualTo(105);
+        assertThat(a.sessions().getFirst().delaySec()).isZero();
+        jdbc.update("update competition_units set status='CANCELLED',actual_started_at=scheduled_at+interval '7 minutes' where id=?",id("unit"));
+        assertThat(reads.event(id("event")).sessions().getFirst().delaySec()).isEqualTo(420);
     }
 
     void setM() throws Exception {

@@ -108,14 +108,16 @@ public class AnalyticsReadRepository {
                   where d.event_id=:id and u.status<>'CANCELLED'),
                 loads as (select s.id,s.name,s.order_no,s.starts_at,count(h.session_id) as heats,
                   max(h.scheduled_at+make_interval(secs=>h.duration)) as scheduled_end,
+                  (select greatest(0,max(extract(epoch from u.actual_started_at-u.scheduled_at)))
+                    from competition_units u join event_disciplines d on d.id=u.event_discipline_id
+                    where d.event_id=:id and d.session_id=s.id) as delay_sec,
                   coalesce(sum(h.duration),0)+greatest(count(distinct h.discipline_id)-1,0)*s.break_between_events_sec as seconds
                   from event_sessions s left join h on h.session_id=s.id where s.event_id=:id
                   group by s.id)
                 select *,case when heats=0 then null else coalesce(scheduled_end,
                   starts_at+make_interval(secs=>seconds::double precision)) end as estimated_end from loads order by order_no
                 """, id).stream().map(t -> new Session(uuid(t,"id"),str(t,"name"),num(t,"heats"),
-                        num(t,"seconds")/60.0,date(t,"estimated_end"),null)).toList();
-        // TODO M07: actual start/delay fields are not available; never infer actual delay from scheduled_at.
+                        num(t,"seconds")/60.0,date(t,"estimated_end"),num(t,"delay_sec"))).toList();
         var results = results(id);
         var validation = rows("""
                 with latest as (select id,executed_at,violations_json from rule_execution_logs
@@ -135,16 +137,35 @@ public class AnalyticsReadRepository {
     }
 
     public Results results(UUID id) {
-        // TODO M08-2: define publication latency and session delay after M07 is merged.
         Tuple t = rows("""
-                select (select count(*) from competition_units u
+                with heats as (
+                  select u.id,u.actual_finished_at,
+                    (select min(l.executed_at) from rule_execution_logs l
+                      where l.event_id=d.event_id and l.event_discipline_id=d.id and l.kind='RANKING'
+                        and l.executed_at>=u.actual_finished_at) as ranking_at,
+                    (select max(r.updated_at) from results r
+                      join competition_unit_entries ce on ce.id=r.competition_unit_entry_id
+                      where ce.competition_unit_id=u.id) as results_at
+                  from competition_units u join event_disciplines d on d.id=u.event_discipline_id
+                  where d.event_id=:id and u.actual_finished_at is not null
+                ), samples as (
+                  select extract(epoch from coalesce(ranking_at,results_at)-actual_finished_at) as seconds,
+                    ranking_at is not null as ranking from heats
+                  where coalesce(ranking_at,results_at)>=actual_finished_at
+                )
+                select percentile_cont(0.5) within group(order by seconds) as median,
+                  percentile_cont(0.95) within group(order by seconds) as p95,
+                  count(*) as samples,
+                  case when count(*)=0 then 'UNAVAILABLE'
+                    when bool_and(ranking) then 'RANKING_LOG' else 'RESULTS_UPDATED_AT' end as source,
+                  (select count(*) from competition_units u
                   join event_disciplines d on d.id=u.event_discipline_id
                   where d.event_id=:id and d.status='PUBLISHED'
                     and u.status in ('FINISHED','COMPLETED')) as published_heats,
                   (select count(*) from results res join competition_unit_entries ce on ce.id=res.competition_unit_entry_id
-                    join registrations r on r.id=ce.registration_id where r.event_id=:id and res.status='CORRECTED') as corrected
+                    join registrations r on r.id=ce.registration_id where r.event_id=:id and res.status='CORRECTED') as corrected from samples
                 """, id).getFirst();
-        return new Results(num(t,"published_heats"),null,null,0,"UNAVAILABLE_UNTIL_M07",num(t,"corrected"));
+        return new Results(num(t,"published_heats"),decimal(t,"median"),decimal(t,"p95"),num(t,"samples"),str(t,"source"),num(t,"corrected"));
     }
 
     public OrganizationAnalytics organization(UUID id) {

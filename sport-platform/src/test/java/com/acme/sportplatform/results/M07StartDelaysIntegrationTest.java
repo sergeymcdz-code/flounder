@@ -30,6 +30,17 @@ class M07StartDelaysIntegrationTest extends Qa02ResultsFixture {
     }
 
     @Test
+    void archivedEventRejectsPreviewAndShiftWithoutChangingSchedule() throws Exception {
+        jdbc.update("update events set status='ARCHIVED' where id=?", event);
+        em.clear();
+        assertThat(shift(first, 600, true, 400).path("code").asText()).isEqualTo("events.archived");
+        assertThat(shift(first, 600, false, 400).path("code").asText()).isEqualTo("events.archived");
+        assertThat(timestamp(first, "scheduled_at")).isEqualTo(start);
+        assertThat(countLogs()).isZero();
+        assertThat(events.stream(ScheduleChangedEvent.class).count()).isZero();
+    }
+
+    @Test
     void lateStartPersistsFactAndOnlyChangesLiveEstimate() throws Exception {
         var planned = OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(10).withNano(0);
         jdbc.update("update competition_units set scheduled_at=? where id=?", planned, first);

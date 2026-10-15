@@ -18,15 +18,18 @@ import org.springframework.stereotype.Service;
 public class LoginAttemptLimiter {
     private final Duration window;
     private final int maxFailures;
+    private final int maxFailuresPerIp;
     private final Clock clock;
     private final Cache<String, List<Instant>> failures;
 
     public LoginAttemptLimiter(@Qualifier("identityClock") Clock clock,
             @Value("${app.auth.login.max-failures:5}") int maxFailures,
+            @Value("${app.auth.login.max-failures-per-ip:30}") int maxFailuresPerIp,
             @Value("${app.auth.login.window:PT15M}") Duration window) {
-        if (maxFailures < 1 || window.isZero() || window.isNegative())
+        if (maxFailures < 1 || maxFailuresPerIp < 1 || window.isZero() || window.isNegative())
             throw new IllegalArgumentException("Login limits must have a positive threshold and window");
         this.maxFailures = maxFailures;
+        this.maxFailuresPerIp = maxFailuresPerIp;
         this.window = window;
         this.clock = clock;
         failures = Caffeine.newBuilder().maximumSize(100_000).expireAfterWrite(window).build();
@@ -34,24 +37,24 @@ public class LoginAttemptLimiter {
 
     public synchronized void assertAllowed(String email, String ip) {
         Instant now = clock.instant();
-        long retryAfter = Math.max(retryAfter("email:" + normalize(email), now), retryAfter("ip:" + ip, now));
-        if (retryAfter > 0) throw new TooManyRequestsException("identity.too_many_attempts", "Слишком много попыток входа. Попробуйте позже", retryAfter);
+        long retryAfter = Math.max(retryAfter("email:" + normalize(email), maxFailures, now), retryAfter("ip:" + ip, maxFailuresPerIp, now));
+        if (retryAfter > 0) throw new TooManyRequestsException("identity.too_many_attempts", "Слишком много попыток входа. Повторите через " + ((retryAfter + 59) / 60) + " минут", retryAfter);
     }
 
     public synchronized void failed(String email, String ip) {
         Instant now = clock.instant();
-        add("email:" + normalize(email), now);
-        add("ip:" + ip, now);
+        add("email:" + normalize(email), maxFailures, now);
+        add("ip:" + ip, maxFailuresPerIp, now);
     }
 
     public synchronized void succeeded(String email) {
         failures.invalidate("email:" + normalize(email));
     }
 
-    private long retryAfter(String key, Instant now) {
+    private long retryAfter(String key, int threshold, Instant now) {
         List<Instant> recent = recent(key, now);
-        if (recent.size() < maxFailures) return 0;
-        long millis = Duration.between(now, recent.get(recent.size() - maxFailures).plus(window)).toMillis();
+        if (recent.size() < threshold) return 0;
+        long millis = Duration.between(now, recent.get(recent.size() - threshold).plus(window)).toMillis();
         return Math.max(1, (millis + 999) / 1000);
     }
 
@@ -60,10 +63,10 @@ public class LoginAttemptLimiter {
         return attempts == null ? List.of() : attempts.stream().filter(t -> t.plus(window).isAfter(now)).toList();
     }
 
-    private void add(String key, Instant now) {
+    private void add(String key, int threshold, Instant now) {
         var attempts = new ArrayList<>(recent(key, now));
         attempts.add(now);
-        if (attempts.size() > maxFailures) attempts.removeFirst();
+        if (attempts.size() > threshold) attempts.removeFirst();
         failures.put(key, List.copyOf(attempts));
     }
 
