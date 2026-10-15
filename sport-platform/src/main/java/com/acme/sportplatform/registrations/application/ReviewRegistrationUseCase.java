@@ -18,6 +18,7 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepos
 @Service
 public class ReviewRegistrationUseCase {
 
+    private final RegistrationFeeService fees;
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
     private final org.springframework.context.ApplicationEventPublisher publisher;
@@ -27,8 +28,11 @@ public class ReviewRegistrationUseCase {
             RegistrationRepository registrationRepository,
             RegistrationMapper registrationMapper,
             org.springframework.context.ApplicationEventPublisher publisher,
-            RegistrationCapacityService capacity
+            RegistrationCapacityService capacity,
+            RegistrationFeeService fees
     ) {
+        this.fees = fees;
+
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
         this.publisher = publisher;
@@ -71,6 +75,7 @@ public class ReviewRegistrationUseCase {
         registration.setReviewedAt(now);
         registration.setUpdatedAt(now);
 
+        if (newStatus == RegistrationStatus.CONFIRMED) fees.assign(registration);
         registrationRepository.saveAndFlush(registration);
         if (newStatus == RegistrationStatus.REJECTED || newStatus == RegistrationStatus.NEEDS_CORRECTION)
             capacity.promote(registration.getEventId());

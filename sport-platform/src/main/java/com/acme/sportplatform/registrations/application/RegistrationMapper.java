@@ -11,9 +11,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Component
 public class RegistrationMapper {
 
+    private final RegistrationFeeService fees;
+    private final com.acme.sportplatform.identity.UserLookup users;
     private final ObjectMapper objectMapper;
 
-    public RegistrationMapper(ObjectMapper objectMapper) {
+    public RegistrationMapper(ObjectMapper objectMapper, RegistrationFeeService fees, com.acme.sportplatform.identity.UserLookup users) {
+        this.fees = fees; this.users = users;
+
         this.objectMapper = objectMapper;
     }
 
@@ -36,7 +40,10 @@ public class RegistrationMapper {
                 entity.getSeedTimeMs(),
                 com.acme.sportplatform.common.TimeParser.format(entity.getSeedTimeMs()),
                 entity.getSource(),
-                entity.getPaymentStatus(), entity.getWaitlistPosition());
+                entity.getPaymentStatus(), java.util.Map.of(), java.util.List.of(), entity.getWaitlistPosition(),
+                entity.getFeeAmount(), entity.getFeeCurrency(), entity.getPaidAmount(), entity.getPaidAt(),
+                paidBy(entity), entity.getPaymentMethod(), entity.getPaymentReference(), entity.getPaymentComment(),
+                entity.getReviewedAt()==null ? null : entity.getReviewedAt().plusDays(fees.settings(entity.getEventId()).dueDays()));
     }
 
     private JsonNode readJson(String json) {
@@ -48,5 +55,11 @@ public class RegistrationMapper {
                     exception
             );
         }
+    }
+    private RegistrationResponse.PaidBy paidBy(RegistrationEntity entity) {
+        if (entity.getPaidByUserId()==null) return null;
+        String name = users.findById(entity.getPaidByUserId()).map(u ->
+                java.util.stream.Stream.of(u.firstName(),u.lastName()).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.joining(" "))).orElse("");
+        return new RegistrationResponse.PaidBy(entity.getPaidByUserId(), name);
     }
 }

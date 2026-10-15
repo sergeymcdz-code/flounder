@@ -76,6 +76,10 @@ public class EventPublicLookupService
                 event.getEventEndAt(),
                 event.getStatus(),
                 event.getPublicSlug(),
-                sessions.views(event.getId()));
+                sessions.views(event.getId()), publicPayment(event));
+    }
+    private com.acme.sportplatform.events.EventPaymentSettings publicPayment(EventEntity event) {
+        var payment = com.acme.sportplatform.events.EventPaymentSettings.fromJson(event.getSettingsJson(), new com.fasterxml.jackson.databind.ObjectMapper());
+        return payment.enabled() ? payment : null;
     }
 }

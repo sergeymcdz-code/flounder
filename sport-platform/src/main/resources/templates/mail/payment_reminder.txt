@@ -1,0 +1,8 @@
+Здравствуйте, [[${name}]]!
+
+Ожидается оплата взноса за участие в «[[${event}]]»: [[${amount}]] [[${currency}]].
+[[${instructions}]]
+Срок: [[${dueAt}]].
+
+Команда SportGate
+SportGate · sportgate.pro

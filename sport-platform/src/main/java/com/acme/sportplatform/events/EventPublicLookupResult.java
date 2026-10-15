@@ -14,4 +14,11 @@ public record EventPublicLookupResult(
         OffsetDateTime eventEndAt,
         String status,
         String publicSlug,
-        java.util.List<EventSessionView> sessions) {}
+        java.util.List<EventSessionView> sessions,
+        EventPaymentSettings payment) {
+    public EventPublicLookupResult(UUID id, UUID sportId, String title, String description,
+            OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt, OffsetDateTime eventStartAt,
+            OffsetDateTime eventEndAt, String status, String publicSlug, java.util.List<EventSessionView> sessions) {
+        this(id,sportId,title,description,registrationOpenAt,registrationCloseAt,eventStartAt,eventEndAt,status,publicSlug,sessions,null);
+    }
+}

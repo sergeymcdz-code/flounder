@@ -25,6 +25,7 @@ export type EventDiscipline = {
 }
 
 export type Event = {
+  payment?: import('./registration-payments.api').PaymentSettings
   id: string
   organizationId?: string | null
   venueId?: string | null

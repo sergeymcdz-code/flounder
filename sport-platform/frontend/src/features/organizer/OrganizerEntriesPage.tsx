@@ -1,3 +1,6 @@
+import { PaymentMutationDialog } from '../payments/PaymentMutationDialog'
+import { PaymentHistoryDialog } from '../payments/PaymentHistoryDialog'
+import { money, paymentLabels, type PaymentAction } from '../../api/registration-payments.api'
 import { useState, type FormEvent } from 'react'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { documentTypes, documentStatusLabels, type DocumentType } from '../../api/documents.api'
@@ -32,6 +35,10 @@ export function OrganizerEntriesPage() {
     busy,
     run,
   } = useOrganizerEvent()
+  const [paymentFilter, setPaymentFilter] = useState('')
+  const [selected, setSelected] = useState<string[]>([])
+  const [paymentDialog, setPaymentDialog] = useState<{ ids: string[]; action?: PaymentAction; amount?: number | null; bulk?: boolean } | null>(null)
+  const [historyId, setHistoryId] = useState<string | null>(null)
   const [withdrawNotice, setWithdrawNotice] = useState(false)
   function admission(r: OrganizerRegistration) {
     const result = generationResults[r.eventDisciplineId]
@@ -86,6 +93,7 @@ export function OrganizerEntriesPage() {
         (status === 'EXCLUDED'
           ? admission(r).excluded
           : r.status === status)) &&
+      (!paymentFilter || r.paymentStatus === paymentFilter) &&
       (!discipline || r.eventDisciplineId === discipline) &&
       (!missingMedical || !r.documents?.MEDICAL_CERT || r.documents.MEDICAL_CERT === 'NOT_UPLOADED') &&
       `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''} ${r.participantSnapshot.clubName ?? ''}`
@@ -119,7 +127,11 @@ export function OrganizerEntriesPage() {
           </Link>
         </p>
       )}
+      {paymentDialog && <PaymentMutationDialog {...paymentDialog} onClose={() => { setPaymentDialog(null); setSelected([]) }} />}
+      {historyId && <PaymentHistoryDialog id={historyId} token={accessToken} onClose={() => setHistoryId(null)} />}
+      <button disabled={busy || event.status === 'ARCHIVED' || !selected.length} onClick={() => setPaymentDialog({ ids: selected, bulk: true })}>Отметить оплату выбранных ({selected.length})</button>
       <div className={styles.filters}>
+        <label className={styles.field}>Статус оплаты<select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}><option value="">Все</option>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <label className={styles.field}>
           Поиск
           <input
@@ -178,6 +190,7 @@ export function OrganizerEntriesPage() {
           <thead>
             <tr>
               {[
+                'Выбор',
                 '№',
                 'ФИО',
                 'Год',
@@ -199,6 +212,7 @@ export function OrganizerEntriesPage() {
           <tbody>
             {visible.map((r, index) => (
               <tr key={r.id}>
+                <td><input aria-label={`Выбрать заявку ${r.participantSnapshot.lastName}`} type="checkbox" disabled={busy || event.status === 'ARCHIVED' || r.paymentStatus !== 'PENDING'} checked={selected.includes(r.id)} onChange={e => setSelected(previous => e.target.checked ? [...previous, r.id] : previous.filter(id => id !== r.id))} /></td>
                 <td>{index + 1}</td>
                 <td>
                   {r.participantSnapshot.lastName}{' '}
@@ -240,10 +254,17 @@ export function OrganizerEntriesPage() {
                     {statusLabels[r.status] ?? r.status}{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
                   </span>
                 </td>
-                <td>{statusLabels[r.paymentStatus] ?? 'Не указана'}</td>
+                <td>{money(r.feeAmount, r.feeCurrency ?? 'RUB')} <span className={styles.badge}>{paymentLabels[r.paymentStatus] ?? '—'}</span></td>
                 <td>{statusLabels[r.source] ?? r.source ?? '—'}</td>
                 <td>
                   <div className={styles.actions}>
+                    {['CONFIRMED', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <>
+                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button>
+                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>
+                    </>}
+                    {r.paymentStatus === 'PAID' && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
+                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
+                    <button onClick={() => setHistoryId(r.id)}>История оплаты</button>
                     {['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED'].includes(r.status) && (
                       <button
                         disabled={busy || event.status === 'ARCHIVED'}
@@ -270,24 +291,6 @@ export function OrganizerEntriesPage() {
                         >
                           Отклонить
                         </button>
-                        {r.status === 'CONFIRMED' && r.paymentStatus !== 'PAID' && (
-                            <button
-                              disabled={busy || event.status === 'ARCHIVED'}
-                              onClick={() => {
-                                void run(
-                                  () =>
-                                    registrationAction(
-                                      r.id,
-                                      'mark-paid',
-                                      accessToken,
-                                    ),
-                                  'registrations',
-                                )
-                              }}
-                            >
-                              Оплачено
-                            </button>
-                          )}
                         <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setWithdraw(r)}>
                           Снять
                         </button>

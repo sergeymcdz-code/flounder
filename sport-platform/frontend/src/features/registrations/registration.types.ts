@@ -31,7 +31,7 @@ export type RegistrationStatus =
   | 'NEEDS_CORRECTION'
   | 'CANCELLED'
 
-export type Registration = {
+export type Registration = import('../../api/registration-payments.api').PaymentDetails & {
   waitlistPosition?: number | null
   id: string
   eventId: string

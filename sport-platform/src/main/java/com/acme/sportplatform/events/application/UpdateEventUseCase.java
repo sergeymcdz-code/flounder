@@ -30,6 +30,18 @@ public class UpdateEventUseCase {
         entityManager.refresh(event);
         if ("ARCHIVED".equals(event.getStatus()))
             throw new com.acme.sportplatform.common.exception.BusinessException("events.archived", "Архивное событие доступно только для чтения");
+        if (fields.contains("payment")) {
+            if (request.payment() == null) throw RequestValidation.field("validation_error", "payment", "Укажите настройки оплаты");
+            if (request.payment().enabled() && request.payment().feeMode() == com.acme.sportplatform.events.EventPaymentSettings.FeeMode.PER_EVENT
+                    && request.payment().eventFeeAmount() == null)
+                throw RequestValidation.field("validation_error", "payment.eventFeeAmount", "Укажите взнос за событие");
+            try {
+                var json = new com.fasterxml.jackson.databind.ObjectMapper();
+                var settings = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(event.getSettingsJson());
+                settings.set("payment", json.valueToTree(request.payment()));
+                event.setSettingsJson(settings.toString());
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException(e); }
+        }
         Integer previousLimit = event.getMaxParticipants();
         if (fields.contains("maxParticipants")) event.setMaxParticipants(request.maxParticipants());
         if (fields.contains("registrationOpenAt")) event.setRegistrationOpenAt(request.registrationOpenAt());

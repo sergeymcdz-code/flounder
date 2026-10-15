@@ -48,6 +48,8 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     int expected(Endpoint e, String actor) {
         if (e.policy().equals("public")) return e.allowedStatus();
         if (actor.equals("anonymous")) return e.policy().equals("signed-document") ? 404 : 401;
+        // Financial summaries are organizer/operator-only, unlike other manage-read endpoints.
+        if (actor.equals("judge") && e.path().contains("/payments/summary")) return 403;
         boolean allowed = switch (e.policy()) {
             case "authenticated" -> true;
             case "admin", "owner" -> actor.equals("platform_admin");
@@ -171,6 +173,8 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             case "unit-draft" -> jdbc.update("update competition_units set status='DRAFT' where id=?", id("unit"));
             case "unit-published" -> jdbc.update("update competition_units set status='PUBLISHED' where id=?", id("unit"));
             case "unit-in-progress" -> jdbc.update("update competition_units set status='IN_PROGRESS' where id=?", id("unit"));
+            case "registration-confirmed" -> jdbc.update("update registrations set status='CONFIRMED',payment_status='PENDING',fee_amount=500,fee_currency='RUB' where id=?", id("registration"));
+            case "registration-paid" -> jdbc.update("update registrations set status='PAID',payment_status='PAID',fee_amount=500,paid_amount=500,fee_currency='RUB' where id=?", id("registration"));
             case "registration-submitted" -> jdbc.update("update registrations set status='SUBMITTED' where id=?", id("registration"));
             case "registration-correction" -> jdbc.update("update registrations set status='NEEDS_CORRECTION' where id=?", id("registration"));
             case "version-draft" -> jdbc.update("update regulation_versions set status='draft' where id=?", id("version"));

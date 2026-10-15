@@ -130,3 +130,12 @@ GET	/api/v1/organizations/{id}/analytics	owner	true	200
 GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
 PATCH	/api/v1/events/{id}	manage	true	200		{"maxParticipants":150}
 POST	/api/v1/events/{id}/archive	manage	true	200	event-completed	{}
+POST	/api/v1/registrations/{id}/waive-payment	manage	true	200	registration-confirmed	{"comment":"по решению организатора"}
+POST	/api/v1/registrations/{id}/refund-payment	manage	true	200	registration-paid	{"comment":"возврат"}
+POST	/api/v1/registrations/{id}/reset-payment	manage	true	200	registration-paid	{"comment":"ошибочно"}
+GET	/api/v1/registrations/{id}/payment-log	manage	true	200		
+POST	/api/v1/events/{eventId}/payments/mark-paid-bulk	manage	true	200		{"registrationIds":[],"method":"CLUB_INVOICE"}
+GET	/api/v1/events/{eventId}/payments/summary	manage-read	true	200		
+POST	/api/v1/events/{eventId}/payments/recalculate-fees	manage	true	200		
+GET	/api/v1/events/{eventId}/payment-instructions	authenticated	false	200		
+GET	/api/v1/events/{eventId}/payments/summary.xlsx	manage-read	true	200		

@@ -10,6 +10,7 @@ public interface RegistrationRepository
     @Query("select r.eventId from RegistrationEntity r where r.id=:id")
     Optional<UUID> findEventIdById(UUID id);
 
+    List<RegistrationEntity> findByEventIdInAndPaymentStatus(java.util.Collection<UUID> eventIds, String paymentStatus);
     boolean existsByEventDisciplineId(UUID id);
     boolean existsByEventIdAndParticipantProfileId(UUID eventId, UUID participantProfileId);
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)

@@ -16,11 +16,15 @@ import java.util.UUID;
 
 @Service
 public class RegistrationImportLookupService implements RegistrationImportLookup {
+    private final RegistrationFeeService fees;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
     private final RegistrationRepository registrations;
     private final ObjectMapper mapper;
     private final RegistrationCapacityService capacity;
 
-    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper, RegistrationCapacityService capacity) {
+    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper, RegistrationCapacityService capacity, RegistrationFeeService fees, org.springframework.context.ApplicationEventPublisher publisher) {
+        this.fees = fees; this.publisher = publisher;
+
         this.registrations = registrations;
         this.mapper = mapper;
         this.capacity = capacity;
@@ -61,7 +65,9 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
         }
         if (seedTimeMs != null) entity.setSeedTimeMs(seedTimeMs);
         entity.setUpdatedAt(now);
+        if (created) { entity.setReviewedAt(now); fees.assign(entity); }
         registrations.saveAndFlush(entity);
+        if (created) publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationConfirmedEvent(entity.getId()));
         return created;
     }
 

@@ -1,3 +1,4 @@
+import { money } from '../../api/registration-payments.api'
 import { Link } from 'react-router'
 import { usePublicEvent } from './publicContext'
 import { date, localTimeLabel, time } from './format'
@@ -6,6 +7,10 @@ import eventStyles from './EventPage.module.css'
 
 export function PublicEventPage() {
   const event = usePublicEvent()
+  const fees = event.disciplines.map(d => d.entryFeeAmount).filter((v): v is number => v != null)
+  const minimumFee = fees.length ? Math.min(...fees) : null
+  const feeCopy = event.payment?.feeMode === 'PER_EVENT' ? money(event.payment.eventFeeAmount, event.payment.currency)
+    : minimumFee != null ? `${new Set(fees).size > 1 ? 'от ' : ''}${money(minimumFee, event.disciplines.find(d => d.entryFeeAmount === minimumFee)?.entryFeeCurrency ?? event.payment?.currency ?? 'RUB')}` : 'по видам программы'
   const startDate = date(event.eventStartAt, event.venue?.timezone)
   const endDate = date(event.eventEndAt, event.venue?.timezone)
   const base = `/e/${encodeURIComponent(event.publicSlug)}`
@@ -32,6 +37,7 @@ export function PublicEventPage() {
               : 'длина бассейна не указана'}
           </p>
         )}
+        {event.payment?.enabled && <p>Взнос: {feeCopy} {event.payment.feeMode === 'PER_EVENT' ? 'за событие' : 'за дистанцию'}</p>}
         {event.description && <p>{event.description}</p>}
         {!event.registrationOpen && <p>Регистрация закрыта</p>}
         {event.maxParticipants != null && <p>Лимит: {event.participantsCount ?? 0}/{event.maxParticipants}</p>}

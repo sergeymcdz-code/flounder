@@ -69,7 +69,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         pendingReview();
         review.execute(id("registration"), id("organizer"), new ReviewRegistrationRequest(RegistrationReviewDecision.CONFIRMED, null));
         assertThat(jdbc.queryForList("select template_code from notification_outbox where event_id=?", String.class, id("event")))
-                .containsExactlyInAnyOrder("registration_submitted", "registration_confirmed");
+                .containsExactlyInAnyOrder("registration_submitted", "registration_confirmed", "payment_reminder");
     }
     @Test void rejectionIncludesReasonAndParticipantName() {
         pendingReview();
@@ -82,7 +82,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         TestTransaction.flagForCommit(); TestTransaction.end();
         assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
             review.execute(id("registration"), id("organizer"), new ReviewRegistrationRequest(RegistrationReviewDecision.CONFIRMED, null));
-            assertThat(count()).isEqualTo(1);
+            assertThat(count()).isEqualTo(2);
             throw new IllegalStateException("rollback");
         })).isInstanceOf(IllegalStateException.class);
         assertThat(count()).isZero();
@@ -285,7 +285,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         jdbc.update("update organization_members set member_role='admin' where organization_id=? and user_id=?", id("org"), id("organizer"));
         em.clear();
         mvc.perform(get("/api/v1/organizations/" + id("org") + "/notification-settings").with(authentication(auth("organizer"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(5));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(6));
     }
     @Test void invalidSettingsAreAtomicAndResetCannotBeDisabled() throws Exception {
         String path = "/api/v1/organizations/" + id("org") + "/notification-settings";

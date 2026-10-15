@@ -25,6 +25,7 @@ logging:
 app:
   mail:
     worker-enabled: false
+    reminders-cron: "-"
   security:
     jwt:
       secret: "change-me-change-me-change-me-change-me-change-me-please"

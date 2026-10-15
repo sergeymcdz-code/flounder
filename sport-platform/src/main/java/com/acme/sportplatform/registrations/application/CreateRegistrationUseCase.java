@@ -145,7 +145,8 @@ public class CreateRegistrationUseCase {
         entity.setSeedTimeMs(seed);
         entity.setSource("FORM");
         entity.setPaymentStatus(
-                discipline.entryFeeAmount() == null || discipline.entryFeeAmount().signum() == 0
+                !com.acme.sportplatform.events.EventPaymentSettings.fromJson(event.settingsJson(), objectMapper).enabled()
+                        || discipline.entryFeeAmount() == null || discipline.entryFeeAmount().signum() == 0
                         ? "NOT_REQUIRED"
                         : "PENDING");
         entity.setParticipantSnapshot(createParticipantSnapshot(profile));

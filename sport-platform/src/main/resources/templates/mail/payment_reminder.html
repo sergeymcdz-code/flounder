@@ -1,0 +1,6 @@
+<!doctype html><html lang="ru" xmlns:th="http://www.thymeleaf.org"><body>
+<p>Здравствуйте, <span th:text="${name}"></span>!</p>
+<p>Ожидается оплата взноса за участие в «<span th:text="${event}"></span>»: <strong th:text="${amount} + ' ' + ${currency}"></strong>.</p>
+<p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${instructions}"></p>
+<p>Срок: <span th:text="${dueAt}"></span>.</p><p>Команда SportGate</p><p>SportGate · sportgate.pro</p>
+</body></html>

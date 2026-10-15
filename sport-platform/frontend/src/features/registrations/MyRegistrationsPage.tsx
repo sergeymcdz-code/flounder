@@ -1,3 +1,5 @@
+import { RegistrationPaymentBlock } from '../payments/RegistrationPaymentBlock'
+import { paymentInstructions, type PaymentSettings } from '../../api/registration-payments.api'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
@@ -93,6 +95,7 @@ export function MyRegistrationsPage() {
   const accessToken = session?.accessToken
   const [searchParams] = useSearchParams()
 
+  const [instructions, setInstructions] = useState<Record<string, PaymentSettings>>({})
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -109,6 +112,9 @@ export function MyRegistrationsPage() {
     try {
       const response = await getMyRegistrations(accessToken)
       setRegistrations(response)
+      const events = [...new Set(response.map(r => r.eventId))]
+      const settings = await Promise.all(events.map(async id => [id, await paymentInstructions(id, accessToken).catch(() => undefined)] as const))
+      setInstructions(Object.fromEntries(settings.filter((entry): entry is readonly [string, PaymentSettings] => entry[1] !== undefined)))
     } catch (error) {
       const message =
         error instanceof ApiError && error.status === 401
@@ -218,7 +224,8 @@ export function MyRegistrationsPage() {
                   ) : null}
                 </dl>
 
-                {statusHint ? (
+                <RegistrationPaymentBlock registration={registration} settings={instructions[registration.eventId]} />
+                {statusHint && registration.paymentStatus == null ? (
                   <p
                     className={getStatusHintClassName(
                       registration.status,
@@ -235,7 +242,7 @@ export function MyRegistrationsPage() {
                   </div>
                 ) : null}
 
-                {registration.status === 'CONFIRMED' ? (
+                {registration.status === 'CONFIRMED' && (!registration.paymentStatus || registration.paymentStatus === 'PENDING') ? (
                   <div className={styles.actions}>
                     <Link
                       className={styles.primaryButton}
