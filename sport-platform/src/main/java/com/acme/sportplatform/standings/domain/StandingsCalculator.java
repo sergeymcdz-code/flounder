@@ -35,7 +35,7 @@ public final class StandingsCalculator {
             if (discipline == null) continue;
             if (!Set.of("FINISHED", "COMPLETED").contains(heat.status())) { pending++; continue; }
             for (var entry : heat.entries()) {
-                if (entry.withdrawn()) continue;
+                if (entry.withdrawn() || entry.outcome() == null || "PENDING".equals(entry.outcome().status())) continue;
                 String name = normalize(entry.club());
                 var club = clubs.computeIfAbsent(name.toLowerCase(Locale.ROOT), key -> new Club());
                 club.spellings.merge(name, 1, Integer::sum);

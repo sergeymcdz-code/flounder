@@ -107,6 +107,16 @@ class StandingsCalculatorTest {
         assertThat(json.writeValueAsString(result)).isEqualTo(json.writeValueAsString(calculator.calculate(config,heats,program)));
     }
     @Test
+    void pendingAndMissingOutcomesDoNotCreatePublicClubRowsEvenInFinishedHeats() {
+        var missing = new Entry(1,"Не финишировал","Иван",2014,"M","Черновой клуб",null,false,null);
+        var pending = new Entry(2,"Ожидает","Иван",2014,"M","Ожидающий клуб",null,false,
+                new Outcome(null,"PENDING",null,null,null));
+        var result = calculator.calculate(config(StandingsConfig.Scope.AGE_GROUP,null,null),
+                List.of(heat(first,"young","FINISHED",missing,pending)),List.of(discipline(first,"BY_AGE_GROUP")));
+        assertThat(result.team()).isEmpty();
+        assertThat(result.medals()).isEmpty();
+    }
+    @Test
     void pointsUseLongAndRankingBreaksTiesByMedalsThenClubName() {
         var config = new StandingsConfig(true, StandingsConfig.Scope.AGE_GROUP,List.of(Integer.MAX_VALUE,Integer.MAX_VALUE),null,null,true,null);
         var result = calculator.calculate(config,List.of(heat(first,"young","FINISHED",entry("Б",2014,1,1),entry("А",2014,2,2),entry("Б",2014,3,2))),

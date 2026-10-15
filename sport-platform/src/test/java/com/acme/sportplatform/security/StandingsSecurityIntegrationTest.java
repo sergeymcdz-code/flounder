@@ -111,7 +111,7 @@ class StandingsSecurityIntegrationTest extends Qa04SecurityFixture {
             var response = mvc.perform(get(path).with(authentication(auth("organizer")))).andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_PDF)).andReturn();
             try (var pdf = PDDocument.load(response.getResponse().getContentAsByteArray())) {
-                assertThat(new PDFTextStripper().getText(pdf)).contains("Волна","QA04 кубок","Медальный зачёт","Командный зачёт");
+                assertThat(new PDFTextStripper().getText(pdf)).contains("Волна","QA04 кубок","Бассейн","Самара","Медальный зачёт","Командный зачёт");
             }
         }
         jdbc.update("update competition_units set status='PUBLISHED' where id=?",id("unit")); em.clear();

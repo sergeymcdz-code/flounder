@@ -39,7 +39,7 @@ public class DocumentService {
 
     private PdfDocument standingsPdf(UUID eventId, StandingsView view) {
         var header = events.protocolHeader(eventId);
-        return new PdfDocument(renderer.renderStandings(header, view), "Зачёт-" +
+        return new PdfDocument(renderer.renderStandings(data.header(eventId), view), "Зачёт-" +
                 (header.publicSlug() == null ? eventId : header.publicSlug()) + ".pdf");
     }
 

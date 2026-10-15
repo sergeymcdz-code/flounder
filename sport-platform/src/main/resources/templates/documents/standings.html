@@ -9,7 +9,8 @@ th, td { border: 1px solid #ccd3dc; padding: 6pt; text-align: left; } thead { di
 </style></head>
 <body>
 <h1 th:text="${event.title()}">Соревнование</h1>
-<p th:if="${event.startsAt() != null}" th:text="${#temporals.format(event.startsAt(), 'dd.MM.yyyy')}">Дата</p>
+<p><span th:text="${event.date()}">Дата</span> · <span th:text="${event.venue()}">Площадка</span></p>
+<p th:text="${event.organization()}">Организация</p>
 <h2 th:text="${standings.title() ?: 'Командный и медальный зачёт'}">Зачёт</h2>
 <p th:text="${standings.scope() == 'AGE_GROUP' ? 'Места в возрастных группах' : 'Места в абсолюте'}">Область</p>
 <p th:if="${standings.preliminary()}" th:text="${'Предварительный зачёт, не завершено ' + standings.unitsPending() + ' заплывов'}">Предварительный</p>
@@ -23,4 +24,5 @@ th, td { border: 1px solid #ccd3dc; padding: 6pt; text-align: left; } thead { di
 </tbody></table>
 <p th:if="${#lists.isEmpty(standings.team())}">Опубликованных результатов пока нет.</p>
 <p th:text="${'Рассчитано: ' + #temporals.format(standings.calculatedAt(), 'dd.MM.yyyy HH:mm', 'UTC') + ' UTC'}">Рассчитано</p>
+<p th:text="${'Сформировано: ' + event.generatedAt()}">Сформировано</p>
 </body></html>

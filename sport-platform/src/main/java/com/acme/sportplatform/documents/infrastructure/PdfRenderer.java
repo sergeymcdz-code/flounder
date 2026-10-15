@@ -43,7 +43,7 @@ public class PdfRenderer {
         return renderTemplate(results ? "results" : "start-list", context);
     }
 
-    public byte[] renderStandings(com.acme.sportplatform.events.EventProtocolHeader event,
+    public byte[] renderStandings(Protocol.Header event,
             com.acme.sportplatform.standings.StandingsView standings) {
         var context = new Context(Locale.forLanguageTag("ru"));
         context.setVariable("event", event);
