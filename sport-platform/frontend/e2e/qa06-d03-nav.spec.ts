@@ -6,6 +6,7 @@ const screens = [
   ['home', `/organizer/events/${eventId}`, 'organizer'],
   ['entries', `/organizer/events/${eventId}/entries`, 'organizer'],
   ['heats', `/organizer/events/${eventId}/heats`, 'organizer'],
+  ['organizer-results', `/organizer/events/${eventId}/results`, 'organizer'],
   ['judging', '/operator/results', 'judge'],
   ['judge', `/operator/competition-units/${unitId}?eventId=${eventId}`, 'judge'],
   ['registrations', '/my/registrations', 'participant'],
@@ -19,6 +20,7 @@ for (const width of [1366, 375]) test(`D03 navigation matrix ${width}`, async ({
     page.on('pageerror', error => errors.push(error.message))
     await openAuditPage(page, path, role)
     await page.evaluate(() => document.fonts.ready)
+    if (name === 'judge') await expect(page.getByText(/^Вид № [1-9]/)).toBeVisible()
     expect(errors, name).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth), name).toBeLessThanOrEqual(width)
     if (process.env.D03_CAPTURE === '1') { await mkdir('work/d03-nav', { recursive: true }); await page.screenshot({ path: `work/d03-nav/${name}-${width}.png` }) }

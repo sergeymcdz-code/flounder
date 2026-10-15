@@ -28,7 +28,7 @@ export function PdfDownloadButton({
   }
   return (
     <span className={styles.control}>
-      <button type="button" disabled={disabled || busy} onClick={() => void download()}>
+      <button className="fl-btn fl-btn-ghost" type="button" disabled={disabled || busy} onClick={() => void download()}>
         {busy ? 'Формируем PDF…' : 'Скачать PDF'}
       </button>
       {error && <span role="alert">{error}</span>}

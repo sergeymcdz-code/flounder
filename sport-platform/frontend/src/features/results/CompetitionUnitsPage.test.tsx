@@ -18,6 +18,6 @@ it('restores the selected competition and discipline and opens the current heat 
   expect(await screen.findByRole('link', { name: 'Открыть текущий заплыв' }, { timeout: 5000 })).toHaveAttribute('href', `/operator/competition-units/current?eventId=${event.id}`)
   expect(screen.getByRole('combobox', { name: 'Соревнование' })).toHaveValue(event.id)
   expect(screen.getByRole('combobox', { name: 'Вид программы' })).toHaveValue(event.disciplines[0].id)
-  expect(screen.getByRole('table')).toBeInTheDocument()
+  expect(screen.getAllByRole('table').length).toBeGreaterThan(0)
   localStorage.clear(); setAuthSession(null)
 })

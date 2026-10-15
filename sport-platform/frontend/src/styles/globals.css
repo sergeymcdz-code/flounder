@@ -26,6 +26,31 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
+  --surface-page: var(--color-page);
+  --surface-1: var(--color-surface);
+  --surface-2: var(--color-surface-muted);
+  --surface-3: var(--color-primary-soft);
+  --surface-sidebar: var(--color-surface);
+  --surface-overlay: rgb(24 33 38 / .48);
+  --border-subtle: var(--color-border);
+  --border-strong: var(--color-border-strong);
+  --border-rule: var(--color-text);
+  --border-width-rule: 3px;
+  --shadow-sticky: 0 1px 0 var(--color-border);
+  --shadow-drawer: -8px 0 24px rgb(24 33 38 / .16);
+  --radius-pill: 999px;
+  --focus-ring: 0 0 0 3px var(--color-surface), 0 0 0 5px var(--color-focus);
+  --focus-ring-inset: inset 0 0 0 2px var(--color-focus);
+  --control-h: 44px;
+  --control-h-sm: 36px;
+  --control-h-lg: 56px;
+  --header-h: 56px;
+  --sidebar-w: 232px;
+  --content-max: 1280px;
+  --z-sticky: 10; --z-header: 20; --z-drawer: 30; --z-dialog: 40; --z-toast: 50;
+  --motion-fast: 120ms; --motion-base: 200ms; --ease: cubic-bezier(.2,0,0,1);
+  --space-10: 40px; --space-12: 48px;
+
   --color-page: #eef0ee;
   --color-surface: #ffffff;
   --color-surface-muted: #f3f5f3;
@@ -95,6 +120,8 @@
   :root:not([data-theme]):has(.fl-live-page),
   :root:not([data-theme]):has(.fl-results-page) {
     color-scheme: dark;
+    --surface-overlay: rgb(0 0 0 / .6);
+    --shadow-pop: 0 4px 16px rgb(0 0 0 / .5);
     --color-page: #11181d;
     --color-surface: #182126;
     --color-surface-muted: #222e35;
@@ -159,7 +186,8 @@ img {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-focus);
+  box-shadow: var(--focus-ring);
+  outline: 2px solid transparent;
   outline-offset: 3px;
 }
 
@@ -174,12 +202,14 @@ img {
   }
 }
 
-.page-content section {
+.fl-prose {
   max-width: 760px;
 }
 @media print {
   :root,
   [data-theme="dark"] {
+    --border-rule: #000;
+    --shadow-card: none; --shadow-pop: none; --shadow-sticky: none; --shadow-drawer: none;
     color-scheme: light;
     --color-page: #ffffff;
     --color-surface: #ffffff;

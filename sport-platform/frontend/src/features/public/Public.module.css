@@ -699,6 +699,28 @@
   }
 }
 
+@media screen {
+ .header { min-height: var(--header-h); height: var(--header-h); display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 12px; padding-block: 4px; border-bottom: 3px solid var(--border-rule); }
+ .header > button { grid-column: auto; grid-row: auto; }
+ .eventMeta { padding: 12px max(16px, calc((100% - 960px) / 2)); background: var(--surface-1); font-size: 14px; }
+ .eventMeta p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 12px; }
+}
+@media print { .eventMeta { display: none; } }
+@media screen and (min-width: 768px) {
+  .root { position: relative; }
+  .eventMeta {
+    position: absolute;
+    top: 0;
+    left: calc(max(16px, (100% - 960px) / 2) + 220px);
+    right: calc(max(16px, (100% - 960px) / 2) + 124px);
+    height: var(--header-h);
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
+
 .brand { cursor: pointer; }
 .brand:hover { color: var(--color-primary); }
 .brand:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }

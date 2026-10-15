@@ -271,8 +271,8 @@ export function PublicDisciplineResultsPage() {
                       результатов.
                     </p>
                   ) : (
-                    <div className={styles.tableWrap}>
-                      <table className={styles.table}>
+                    <div className={`${styles.tableWrap} fl-table-scroll`}>
+                      <table className={`${styles.table} fl-table`}>
                         <thead>
                           <tr>
                             <th scope="col">Место</th>

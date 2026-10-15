@@ -1,19 +1,21 @@
+import { useAuth } from '../../app/providers/AuthProvider'
+import { Link } from 'react-router'
+import { JudgingHeatList } from '../results/JudgingHeatList'
 import { useState } from 'react'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { StatusBadge } from '../../components/ui/StatusBadge'
 import { useToast } from '../../components/ui/Toast'
 import { CurrentHeatButton } from '../results/CurrentHeatButton'
-import { Link } from 'react-router'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publishDisciplineResults } from '../../api/scheduling.api'
 import {
-  formatDate,
   useOrganizerEvent,
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
 export function OrganizerResultsPage() {
-  const { event, heats, accessToken, busy, run, error, clearError } = useOrganizerEvent()
+  const { event, heats, sessions, accessToken, busy, run, error, clearError } = useOrganizerEvent()
   const toast = useToast()
+  const { isOrganizer, isPlatformAdmin, isOperator } = useAuth()
+  const canManage = isOrganizer || isPlatformAdmin || isOperator
   const [publishId, setPublishId] = useState<string | null>(null)
   const publishDiscipline = event.disciplines.find(d => d.id === publishId)
   const hasResults = (id: string) =>
@@ -31,7 +33,7 @@ export function OrganizerResultsPage() {
       <div className={styles.toolbar}>
         <h2>Результаты соревнования</h2>
         <a
-          className={styles.button}
+          className="fl-btn fl-btn-secondary"
           href={`/e/${encodeURIComponent(event.publicSlug)}/results?print=1`}
           target="_blank"
           rel="noreferrer"
@@ -45,7 +47,8 @@ export function OrganizerResultsPage() {
           disabled={busy || !heats.some((heat) => hasResults(heat.id))}
         />
       </div>
-      {event.disciplines.map((d, index) => {
+      <JudgingHeatList eventId={event.id} sessions={sessions} disciplines={event.disciplines} units={heats} timeZone={event.venue?.timezone} />
+      {canManage && event.disciplines.map((d, index) => {
         const units = heats.filter((h) => h.eventDisciplineId === d.id)
         return (
           <article className={styles.card} key={d.id}>
@@ -54,7 +57,7 @@ export function OrganizerResultsPage() {
                 Вид № {d.number ?? index + 1}. {d.name}
               </h2>
               <button
-                disabled={
+                className="fl-btn fl-btn-secondary" disabled={
                   busy ||
                   !units.some(
                     (h) =>
@@ -76,45 +79,8 @@ export function OrganizerResultsPage() {
                 Опубликовать результаты вида
               </button>
             </div>
-            <div className={styles.table}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Заплыв</th>
-                    <th>Время</th>
-                    <th>Статус</th>
-                    <th>Результаты</th>
-                    <th>Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {units.map((h) => (
-                    <tr key={h.id}>
-                      <td>{h.sequenceNumber ?? h.label}</td>
-                      <td>{formatDate(h.scheduledAt, event.venue?.timezone)}</td>
-                      <td>
-                        <StatusBadge kind="heat" code={h.status} />
-                      </td>
-                      <td>
-                        {['FINISHED', 'COMPLETED'].includes(h.status)
-                          ? 'Опубликованы'
-                          : hasResults(h.id) ? 'Внесены' : 'Нет'}
-                      </td>
-                      <td>
-                        <Link
-                          className={styles.link}
-                          to={`/operator/competition-units/${h.id}?eventId=${event.id}`}
-                        >
-                          Ввести
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
             {units.length === 0 && (
-              <p className={styles.muted}>Сначала сформируйте заплывы.</p>
+              <p className="fl-empty">Сначала сформируйте заплывы. <Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${event.id}/heats`}>Сформировать заплывы</Link></p>
             )}
           </article>
         )

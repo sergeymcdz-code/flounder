@@ -1,3 +1,4 @@
+import { Notice } from '../../components/ui/Notice'
 import { Link } from 'react-router'
 import { useCallback, useState } from 'react'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
@@ -20,24 +21,25 @@ export function ResultsPage() {
   return (
     <>
       <PrintHeader event={event} title="Итоговый протокол" />
+      <Notice tone="warning" className="fl-unofficial">Неофициальные результаты — публикуются сразу после заплыва и могут быть исправлены до утверждения судейской коллегией</Notice>
       <div className={`${styles.titleRow} fl-results-page`}>
         <h1>Результаты</h1>
-        <PrintButton ready={!!state.data} />
+        <div className="fl-actionbar fl-print-actions"><PrintButton ready={!!state.data} />
         <PdfDownloadButton
           path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/results.pdf`}
           filename="Итоговый-протокол.pdf"
           disabled={!state.data?.disciplines.length}
-        />
+        /></div>
       </div>
       <div
         className={`${styles.segment} ${styles.noPrint}`}
         role="group"
         aria-label="Вид результатов"
       >
-        <button className="fl-button-ghost" aria-pressed={!showGroups} onClick={() => setGrouped(false)}>
+        <button className="fl-btn fl-btn-ghost fl-btn-sm" aria-pressed={!showGroups} onClick={() => setGrouped(false)}>
           Абсолют
         </button>
-        <button className="fl-button-ghost" aria-pressed={showGroups} onClick={() => setGrouped(true)}>
+        <button className="fl-btn fl-btn-ghost fl-btn-sm" aria-pressed={showGroups} onClick={() => setGrouped(true)}>
           По группам
         </button>
       </div>

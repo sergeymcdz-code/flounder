@@ -1,5 +1,5 @@
 import styles from './EventChecklist.module.css'
-import eventStyles from './OrganizerEventPage.module.css'
+import { StepIcon } from '../../components/ui/icons'
 import { Link } from 'react-router'
 import type { EventContext } from './organizer-event-context'
 import { formatDate, isHeatPublished } from './organizer-event-context'
@@ -28,10 +28,10 @@ export function EventChecklist({ context, onTransition }: { context: Pick<EventC
   const base = `/organizer/events/${context.event.id}`
   return <article className="fl-checklist" aria-label="Что дальше"><h2>Что дальше</h2><ol className={styles.list}>
     {steps.map((step, index) => <li className={styles.row} key={step.title} aria-current={index === current ? 'step' : undefined}>
-      <span aria-label={step.done ? 'выполнено' : index === current ? 'текущий шаг' : 'не начато'}>{step.done ? '✓' : index === current ? '●' : '○'}</span>{' '}
-      <span>{index + 1}. {step.title}</span>{' '}<small>{step.summary}</small>{' '}
-      {index === current && [1, 6].includes(index) ? <button className={`${eventStyles.primary} fl-button-primary`} onClick={() => onTransition(index)} disabled={index === 6 && !steps[5].done}>{step.action}</button>
-        : <Link className={index === current ? `${eventStyles.primary} fl-button-primary` : 'fl-button-ghost'} to={`${base}${step.path}`}>{index === current ? step.action : 'Открыть →'}</Link>}
+      <StepIcon state={step.done ? 'done' : index === current ? 'current' : 'pending'} />
+      <Link className={styles.stepLink} to={`${base}${step.path}`}><span className={styles.number}>{index + 1}.</span>{' '}<span>{step.title}<small>{step.summary}</small></span></Link>
+      {index === current && [1, 6].includes(index) ? <button className={'fl-btn fl-btn-primary'} onClick={() => onTransition(index)} disabled={index === 6 && !steps[5].done}>{step.action}</button>
+        : <Link className={index === current ? 'fl-btn fl-btn-primary' : 'fl-btn fl-btn-ghost'} to={`${base}${step.path}`}>{index === current ? step.action : 'Открыть →'}</Link>}
     </li>)}
   </ol></article>
 }

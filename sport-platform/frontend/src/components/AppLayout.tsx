@@ -4,11 +4,14 @@ import { useAuth } from '../app/providers/AuthProvider'
 import { apiFetch } from '../api/http'
 import styles from './AppLayout.module.css'
 import { roleHomeTarget } from '../utils/authReturn'
+import { MenuIcon } from './ui/icons'
 
 export function AppLayout() {
   useEffect(() => { document.title = 'SportGate' }, [])
   const { isAuthenticated, isPlatformAdmin, isOrganizer, isOperator, isParticipant, hasRole, logout, sessionMessage, session, roles } = useAuth()
   const [name, setName] = useState('')
+  const [mobile, setMobile] = useState(() => window.innerWidth <= 767)
+  useEffect(() => { const resize = () => setMobile(window.innerWidth <= 767); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize) }, [])
   useEffect(() => {
     if (!session) return
     let active = true
@@ -28,7 +31,7 @@ export function AppLayout() {
   return <div className={styles.shell}>
     <header className={styles.header}>
       <NavLink className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">SportGate</NavLink>
-      <nav className={styles.navigation} aria-label="Основная навигация">
+      <details className={styles.mobileMenu} open={!mobile ? true : undefined}><summary aria-label="Меню"><MenuIcon /></summary><nav className={styles.navigation} aria-label="Основная навигация">
         <NavLink className={navLinkClassName} to="/" end>Соревнования</NavLink>
         {canManageEvents ? <NavLink className={navLinkClassName} to="/organizer/events">Мои соревнования</NavLink>
           : isJudge ? <NavLink className={navLinkClassName} to="/operator/results">Судейство</NavLink>
@@ -43,6 +46,9 @@ export function AppLayout() {
             <NavLink className={navLinkClassName} to="/admin/registrations/review">Проверка заявок</NavLink>
           </div>
         </details>}
+
+      </nav></details>
+      <div className={styles.userMenu}>
         {isAuthenticated ? <details className={styles.adminMenu}>
           <summary className={styles.navLink}>{name || 'Профиль'} <small>{roleLabel}</small></summary>
           <div className={styles.adminLinks}>
@@ -50,7 +56,7 @@ export function AppLayout() {
             <button className={`${styles.navLink} ${styles.navButton}`} type="button" onClick={handleLogout}>Выйти</button>
           </div>
         </details> : <NavLink className={navLinkClassName} to="/login">Войти</NavLink>}
-      </nav>
+      </div>
     </header>
     <main className={styles.content}>{sessionMessage && <p role="alert">{sessionMessage}</p>}<Outlet /></main>
   </div>

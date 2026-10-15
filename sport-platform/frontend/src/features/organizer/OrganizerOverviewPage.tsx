@@ -1,3 +1,4 @@
+import { KeyValue } from '../../components/ui/KeyValue'
 import { useState } from 'react'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -25,7 +26,7 @@ export function OrganizerOverviewPage() {
   const { event, registrations, heats, accessToken, busy, run, error, clearError } = context
   const toast = useToast()
   const { isOrganizer, isPlatformAdmin } = useAuth()
-  const [confirmation, setConfirmation] = useState<{ label: string; title: string; description: string; action: () => Promise<unknown> } | null>(null)
+  const [confirmation, setConfirmation] = useState<{ label: string; title: string; description: string; action: () => Promise<unknown> } | null>(() => new URLSearchParams(window.location.search).get('archive') === '1' && event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) ? { label: 'В архив', title: 'Отправить соревнование в архив?', description: 'Соревнование будет доступно только для просмотра.', action: () => archiveEvent(event.id, accessToken) } : null)
   const [limit, setLimit] = useState<string>(String(event.maxParticipants ?? ''))
   const [closeAt, setCloseAt] = useState('')
   const [copied, setCopied] = useState(false)
@@ -84,7 +85,7 @@ export function OrganizerOverviewPage() {
           <h2>Регистрация</h2>
           <StatusBadge kind="event" code={event.status} />
         </div>
-        <p>Регистрация: {formatDate(event.registrationOpenAt, event.venue?.timezone)} — {formatDate(event.registrationCloseAt, event.venue?.timezone)}</p>
+        <dl><KeyValue label="Регистрация">{formatDate(event.registrationOpenAt, event.venue?.timezone)} — {formatDate(event.registrationCloseAt, event.venue?.timezone)}</KeyValue></dl>
         <p>
           {event.venue?.name ?? 'Площадка не указана'}
           {event.venue &&
@@ -92,13 +93,13 @@ export function OrganizerOverviewPage() {
         </p>
         <p className={styles.muted}>{event.description}</p>
         {event.maxParticipants != null && <p className={styles.badge}>Лимит: {new Set(registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW', 'CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status)).map(r => r.participantProfileId)).size}/{event.maxParticipants}</p>}
-        {event.status !== 'ARCHIVED' && <form className={styles.form} onSubmit={(e) => { e.preventDefault(); void run(() => patchEvent(event.id, { maxParticipants: limit ? Number(limit) : null }, accessToken)) }}>
-          <label className={styles.field}>Лимит участников (необязательно)
+        {event.status !== 'ARCHIVED' && <form className={`${styles.form} fl-form`} onSubmit={(e) => { e.preventDefault(); void run(() => patchEvent(event.id, { maxParticipants: limit ? Number(limit) : null }, accessToken)) }}>
+          <label className="fl-field">Лимит участников (необязательно)
             <input type="number" min="1" step="1" value={limit} placeholder="Без лимита" onChange={e => setLimit(e.target.value)} />
           </label>
-          <button disabled={busy}>Сохранить</button>
+          <button className="fl-btn fl-btn-secondary" disabled={busy}>Сохранить</button>
         </form>}
-        {['REGISTRATION_CLOSED', 'REGISTRATIONCLOSED'].includes(event.status) && <label className={styles.field}>Новая дата закрытия регистрации
+        {['REGISTRATION_CLOSED', 'REGISTRATIONCLOSED'].includes(event.status) && <label className="fl-field">Новая дата закрытия регистрации
           <input type="datetime-local" value={closeAt} onChange={e => setCloseAt(e.target.value)} />
         </label>}
         <div className={styles.actions}>
@@ -106,7 +107,7 @@ export function OrganizerOverviewPage() {
             .filter((t) => t.states.includes(event.status) && (t.action !== archiveEvent || isOrganizer || isPlatformAdmin))
             .map((t) => (
               <button
-                className={styles.button}
+                className="fl-btn fl-btn-secondary"
                 key={t.label}
                 disabled={busy}
                 onClick={() => requestTransition(t)}
@@ -128,7 +129,7 @@ export function OrganizerOverviewPage() {
           </a>
           <p className={styles.muted}>Ссылка для участников и зрителей</p>
           <button
-            onClick={() => {
+            className="fl-btn fl-btn-secondary" onClick={() => {
               void navigator.clipboard
                 .writeText(url)
                 .then(() => {
@@ -146,10 +147,10 @@ export function OrganizerOverviewPage() {
           </button>
           <p role="status">{copied ? 'Ссылка скопирована' : copyError}</p>
         </div>
-        <QRCodeSVG value={url} size={140} title="QR-код публичной страницы" />
+        <Link className="fl-btn fl-btn-ghost" to={`/e/${event.publicSlug}/poster`}>QR-плакат A4</Link><QRCodeSVG value={url} size={140} title="QR-код публичной страницы" />
       </div>
       </article>
-      <div className={styles.metrics}>
+      <article className={styles.card}><h2>Сводка</h2><div className={styles.metrics}>
         {[
           ['Заявок всего', registrations.length, '/entries'],
           [
@@ -168,12 +169,12 @@ export function OrganizerOverviewPage() {
             heats.filter((h) => isHeatPublished(h.status)).length, '/heats',
           ],
         ].map(([label, value, path]) => (
-          <article className={styles.card} key={label}>
+          <div className="fl-summary-cell" key={label}>
             <p className={styles.muted}>{label}</p>
             <Link to={`/organizer/events/${event.id}${path}`} className={styles.metric}>{value}</Link>
-          </article>
+          </div>
         ))}
-      </div>
+      </div></article>
 
     </div>
   )

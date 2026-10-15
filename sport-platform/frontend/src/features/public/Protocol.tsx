@@ -54,7 +54,7 @@ export function PrintButton({ ready }: { ready: boolean }) {
   }, [ready, search])
   return (
     <button
-      className={`${styles.noPrint} fl-button-ghost`}
+      className={`${styles.noPrint} fl-btn fl-btn-ghost`}
       onClick={() => window.print()}
       disabled={!ready}
     >

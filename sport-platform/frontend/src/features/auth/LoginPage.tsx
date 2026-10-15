@@ -76,8 +76,8 @@ export function LoginPage() {
           Войдите в кабинет организатора, секретаря, судьи или участника
         </p>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <label className={styles.field}>
+        <form className={`${styles.form} fl-form`} onSubmit={handleSubmit}>
+          <label className="fl-field">
             <span>Email</span>
             <input
               autoComplete="email"
@@ -90,7 +90,7 @@ export function LoginPage() {
             />
           </label>
 
-          <label className={styles.field}>
+          <label className="fl-field">
             <span>Пароль</span>
             <input
               autoComplete="current-password"
@@ -110,7 +110,7 @@ export function LoginPage() {
           ) : null}
 
           <button
-            className={`${styles.submitButton} fl-button-primary`}
+            className="fl-btn fl-btn-primary"
             disabled={isSubmitting}
             type="submit"
           >

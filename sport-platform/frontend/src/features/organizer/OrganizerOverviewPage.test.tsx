@@ -25,8 +25,8 @@ vi.mock('../../app/providers/AuthProvider', () => ({ useAuth: () => ({ isOrganiz
 vi.mock('./OrganizerDialog', () => ({
   OrganizerConfirm: ({ title, onConfirm, onClose }: { title: string; onConfirm: () => void; onClose: () => void }) => (
     <div role="dialog" aria-label={title}>
-      <button onClick={onConfirm}>Подтвердить</button>
-      <button onClick={onClose}>Отмена</button>
+      <button className="fl-btn fl-btn-secondary" onClick={onConfirm}>Подтвердить</button>
+      <button className="fl-btn fl-btn-secondary" onClick={onClose}>Отмена</button>
     </div>
   ),
 }))

@@ -38,7 +38,7 @@ export function DataState({
         {data !== undefined &&
           ' Показаны последние данные. Обновление продолжится при подключении.'}
       </p>
-      {retry && <button className="fl-button-ghost" onClick={retry}>Повторить</button>}
+      {retry && <button className="fl-btn fl-btn-ghost" onClick={retry}>Повторить</button>}
     </div>
   )
 }
@@ -89,7 +89,7 @@ export function PublicLayout() {
     return (
       <main className={styles.main}>
         <h1>Соревнование не найдено</h1>
-        <Link className={styles.button} to="/">
+        <Link className="fl-btn fl-btn-secondary" to="/">
           К соревнованиям
         </Link>
       </main>
@@ -108,7 +108,9 @@ export function PublicLayout() {
             </span>{' '}
             SportGate
           </Link>
-          <div>
+          <ThemeToggle />
+        </header>
+        <div className={styles.eventMeta}>
             <Link to={base}>
               <strong>{eventState.data?.title ?? 'Соревнование'}</strong>
             </Link>
@@ -118,8 +120,7 @@ export function PublicLayout() {
                 : 'Загружаем сведения…'}
             </p>
           </div>
-          <ThemeToggle />
-        </header>
+
         {(offline || cached) && (
           <div className={`${styles.notice} ${styles.noPrint}`} role="status">
             Нет связи, показаны последние данные. Табло обновится после

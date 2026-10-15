@@ -102,7 +102,7 @@ export function MyRegistrationsPage() {
 
           <p>Выберите соревнование и подайте первую заявку.</p>
 
-          <Link className={styles.primaryButton} to="/">
+          <Link className="fl-btn fl-btn-primary" to="/">
             Найти соревнование
           </Link>
         </div>
@@ -166,7 +166,7 @@ export function MyRegistrationsPage() {
                 {registration.status === 'CONFIRMED' && !['PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus ?? '') ? (
                   <div className={styles.actions}>
                     <Link
-                      className={styles.primaryButton}
+                      className="fl-btn fl-btn-primary"
                       to={`/my/registrations/${registration.id}/payment`}
                     >
                       К оплате
