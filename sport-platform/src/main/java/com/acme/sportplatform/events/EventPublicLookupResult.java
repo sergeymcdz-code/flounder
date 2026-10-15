@@ -14,4 +14,4 @@ public record EventPublicLookupResult(
         OffsetDateTime eventEndAt,
         String status,
         String publicSlug,
-        java.util.List<EventSessionView> sessions) {}
+        java.util.List<EventSessionView> sessions, UUID organizationId, UUID venueId, String city) {}

@@ -27,6 +27,7 @@ const navigationItems: NavigationItem[] = [
     to: '/organizer/regulations/create',
     label: 'Регламенты',
   },
+  { to: '/organizer/organization/public', label: 'Публичная страница организации' },
   { to: '/organizer/notification-settings', label: 'Настройки уведомлений' },
 ]
 

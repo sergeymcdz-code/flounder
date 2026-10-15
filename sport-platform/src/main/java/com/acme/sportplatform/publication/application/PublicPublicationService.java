@@ -21,10 +21,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Transactional(readOnly = true)
 public class PublicPublicationService {
     private final PublicationReadRepository reads;
+    private final com.acme.sportplatform.organizations.OrganizationLookup organizations;
     private final ObjectMapper mapper;
     private final Clock clock;
     public PublicPublicationService(PublicationReadRepository reads, ObjectMapper mapper,
-            @Qualifier("publicationClock") Clock clock) {
+            @Qualifier("publicationClock") Clock clock, com.acme.sportplatform.organizations.OrganizationLookup organizations) {
+        this.organizations = organizations;
         this.reads = reads;
         this.mapper = mapper; this.clock = clock;
     }
@@ -38,11 +40,13 @@ public class PublicPublicationService {
         JsonNode meta = json(event.venueMeta());
         Venue venue = event.venueName() == null ? null : new Venue(event.venueName(), event.venueCity(),
                 meta.path("lanes").asInt(8), nullableInt(meta,"courseLength"), event.venueTimezone());
+        var organization = event.organizationId() == null ? null : organizations.cards(List.of(event.organizationId())).get(event.organizationId());
         return new Event(event.id(), event.sportId(), event.title(), event.description(), event.registrationOpenAt(),
                 event.registrationCloseAt(), event.eventStartAt(), event.eventEndAt(), event.status(), event.slug(),
                 registrationOpen(event), venue, sessionViews(event.id()),
                 disciplines.stream().map(d -> new Discipline(d.id(), d.number(), d.name(), d.distanceM(), d.stroke(),
-                        d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()))).toList(), capacity.maxParticipants(), capacity.participantsCount());
+                        d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()))).toList(), capacity.maxParticipants(), capacity.participantsCount(),
+                organization == null ? null : new Organization(organization.name(), organization.publicSlug(), organization.hasLogo()));
     }
 
     @Cacheable(cacheNames = "publicStartList", cacheManager = "publicationCacheManager")

@@ -6,6 +6,8 @@ public interface VenueLookup {
 
     boolean existsById(UUID venueId);
 
+    java.util.Map<UUID,String> cities(java.util.Collection<UUID> ids);
+
     String getMetadata(UUID venueId);
 
     ProtocolVenue protocolVenue(UUID venueId);

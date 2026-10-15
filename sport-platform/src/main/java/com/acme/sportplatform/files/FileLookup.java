@@ -4,8 +4,11 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Public boundary for encrypted streaming storage and signed downloads. */
+/** Public boundary for encrypted documents, signed downloads and separate public image storage. */
 public interface FileLookup {
+    StoredFile putPublic(InputStream input, long size, String originalName, String contentType);
+    InputStream getPublic(String key);
+    void deletePublic(String key);
     StoredFile put(InputStream input, long size, String originalName, String contentType, UUID documentId, UUID userId);
     InputStream get(String key, UUID documentId, UUID userId);
     void delete(String key, UUID documentId, UUID userId);
