@@ -27,6 +27,7 @@ export type RegistrationStatus =
   | 'SUBMITTED'
   | 'CONFIRMED'
   | 'PAID'
+  | 'ADMITTED'
   | 'REJECTED'
   | 'NEEDS_CORRECTION'
   | 'CANCELLED'

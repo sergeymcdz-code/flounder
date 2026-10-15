@@ -86,7 +86,8 @@ public class RegistrationPaymentJournal {
                         from registrations r left join
                           (select distinct on (registration_id) registration_id,amount from registration_payment_log where action='REFUND' order by registration_id,performed_at desc,id desc) f
                           on f.registration_id=r.id
-                        where r.event_id=? and r.status in ('CONFIRMED','PAID','ADMITTED')
+                        where r.event_id=? and (r.status in ('CONFIRMED','PAID','ADMITTED')
+                            or r.payment_status in ('PAID','WAIVED','REFUNDED'))
                         group by 1 order by 1
                         """,
                         eventId);

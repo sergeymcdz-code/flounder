@@ -28,6 +28,7 @@ function getStatusLabel(status: RegistrationStatus) {
   SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
     PAID: 'Оплачена',
+    ADMITTED: 'Допущена',
     REJECTED: 'Отклонена',
     NEEDS_CORRECTION: 'Требует уточнения',
     CANCELLED: 'Отменена',
@@ -42,6 +43,7 @@ function getStatusClassName(status: RegistrationStatus) {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,
+    ADMITTED: styles.statusConfirmed,
     REJECTED: styles.statusRejected,
     NEEDS_CORRECTION: styles.statusCorrection,
     CANCELLED: styles.statusCancelled,
@@ -65,6 +67,7 @@ function getStatusHint(status: RegistrationStatus) {
     CONFIRMED:
       'Заявка подтверждена. Перейдите к оплате участия.',
     PAID: 'Оплата участия подтверждена.',
+    ADMITTED: 'Заявка допущена к участию.',
     NEEDS_CORRECTION:
       'Организатор запросил уточнение данных. Ознакомьтесь с комментарием и свяжитесь с организатором при необходимости.',
     REJECTED:
@@ -82,6 +85,7 @@ function getStatusHintClassName(status: RegistrationStatus) {
     SUBMITTED: styles.hintSubmitted,
     CONFIRMED: styles.hintConfirmed,
     PAID: styles.hintConfirmed,
+    ADMITTED: styles.hintConfirmed,
     NEEDS_CORRECTION: styles.hintCorrection,
     REJECTED: styles.hintRejected,
     CANCELLED: styles.hintCancelled,
@@ -225,7 +229,7 @@ export function MyRegistrationsPage() {
                 </dl>
 
                 <RegistrationPaymentBlock registration={registration} settings={instructions[registration.eventId]} />
-                {statusHint && registration.paymentStatus == null ? (
+                {statusHint && (!['CONFIRMED', 'PAID', 'ADMITTED'].includes(registration.status) || registration.paymentStatus == null) ? (
                   <p
                     className={getStatusHintClassName(
                       registration.status,
@@ -242,7 +246,7 @@ export function MyRegistrationsPage() {
                   </div>
                 ) : null}
 
-                {registration.status === 'CONFIRMED' && (!registration.paymentStatus || registration.paymentStatus === 'PENDING') ? (
+                {['CONFIRMED', 'ADMITTED'].includes(registration.status) && instructions[registration.eventId]?.enabled !== false && (!registration.paymentStatus || registration.paymentStatus === 'PENDING') ? (
                   <div className={styles.actions}>
                     <Link
                       className={styles.primaryButton}

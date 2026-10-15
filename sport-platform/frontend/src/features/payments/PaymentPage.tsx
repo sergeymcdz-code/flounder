@@ -61,6 +61,7 @@ function registrationStatusLabel(status: RegistrationStatus) {
     SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
     PAID: 'Оплачена',
+    ADMITTED: 'Допущена',
     REJECTED: 'Отклонена',
     NEEDS_CORRECTION: 'Требует уточнения',
     CANCELLED: 'Отменена',
@@ -322,7 +323,7 @@ export function PaymentPage() {
     return null
   }
 
-  const isConfirmed = registration.status === 'CONFIRMED' || registration.status === 'PAID'
+  const isConfirmed = ['CONFIRMED', 'PAID', 'ADMITTED'].includes(registration.status)
   const unavailableCopy = getPaymentUnavailableCopy(registration)
 
   const isManualAwaitingConfirmation =
@@ -408,7 +409,7 @@ export function PaymentPage() {
           </div>
 
           <RegistrationPaymentBlock registration={registration} settings={instructions} />
-          {!onlineEnabled && registration.paymentStatus === 'PENDING' && <p>Оплатите по реквизитам организатора. Организатор подтвердит оплату в кабинете.</p>}
+          {!onlineEnabled && instructions?.enabled && (registration.feeAmount ?? 0) > 0 && registration.paymentStatus === 'PENDING' && <p>Оплатите по реквизитам организатора. Организатор подтвердит оплату в кабинете.</p>}
           {!isConfirmed ? (
             <div className={styles.paymentUnavailable}>
               <strong>{unavailableCopy.title}</strong>
@@ -482,7 +483,7 @@ export function PaymentPage() {
             </>
           ) : null}
 
-          {onlineEnabled && instructions?.enabled && instructions.feeMode !== 'PER_EVENT' && isConfirmed && !payment && registration.status !== 'PAID' && registration.paymentStatus !== 'WAIVED' && registration.paymentStatus !== 'NOT_REQUIRED' ? (
+          {onlineEnabled && instructions?.enabled && instructions.feeMode !== 'PER_EVENT' && registration.status === 'CONFIRMED' && !payment && registration.paymentStatus !== 'WAIVED' && registration.paymentStatus !== 'NOT_REQUIRED' ? (
             <>
               <p className={styles.paymentDescription}>
                 Создайте платёж, чтобы оплатить участие в соревновании.

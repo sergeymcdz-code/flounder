@@ -305,4 +305,27 @@ class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("registrations.payment_disabled"));
     }
+
+    @Test
+    void withdrawalDoesNotEraseSettledMoneyOrRefundsFromClubSummary() throws Exception {
+        fee();
+        action("mark-paid", null).andExpect(status().isOk());
+        jdbc.update("update registrations set status='WITHDRAWN' where id=?", id("registration"));
+        em.clear();
+        mvc.perform(
+                        get("/api/v1/events/{id}/payments/summary", id("event"))
+                                .with(authentication(auth("organizer"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totals.paid").value(500));
+        action("refund-payment", "{\"comment\":\"возврат после снятия\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("WITHDRAWN"));
+        mvc.perform(
+                        get("/api/v1/events/{id}/payments/summary", id("event"))
+                                .with(authentication(auth("organizer"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totals.paid").value(0))
+                .andExpect(jsonPath("$.totals.refunded").value(500))
+                .andExpect(jsonPath("$.byClub.length()").value(1));
+    }
 }
