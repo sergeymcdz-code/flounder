@@ -36,11 +36,13 @@ class EventAccessServiceTest {
     }
 
     @Test
-    void permitsAnyOrganizationMember() {
+    void permitsOperatorMembership() {
         existingEvent();
         UUID member = UUID.randomUUID();
-        when(organizations.isMember(organizationId, member)).thenReturn(true);
-        access.assertCanManage(eventId, () -> member);
+        var principal = new PlatformUserPrincipal(member, "member@example.com", "", "active", List.of(),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "operator")));
+        access.assertCanManage(eventId, principal);
+        assertThrows(BusinessException.class, () -> access.assertCanAdminister(eventId, principal));
     }
 
     @Test
@@ -58,5 +60,15 @@ class EventAccessServiceTest {
                 List.of(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN")));
         access.assertCanManage(eventId, principal);
         verifyNoInteractions(organizations);
+    }
+    @Test
+    void memberCanViewButCannotManageEvenWithGlobalOperatorRole() {
+        existingEvent();
+        var principal = new PlatformUserPrincipal(UUID.randomUUID(), "member@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "member")));
+        access.assertCanView(eventId, principal);
+        assertThrows(BusinessException.class, () -> access.assertCanManage(eventId, principal));
+        assertThrows(BusinessException.class, () -> access.assertCanAdminister(eventId, principal));
     }
 }

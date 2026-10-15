@@ -17,7 +17,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.ArgumentCaptor;
 import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
+import com.acme.sportplatform.identity.UserMembershipLookup;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -43,7 +43,7 @@ class JwtAuthenticationFilterTest {
     @MethodSource("downstreamFailures")
     void downstreamExceptionsAreNotHandledAsJwtAuthenticationFailures(RuntimeException failure) throws Exception {
         var jwtService = mock(JwtService.class);
-        var users = mock(UserRepository.class);
+        var users = mock(UserMembershipLookup.class);
         var entryPoint = mock(RestAuthenticationEntryPoint.class);
         var filter = new JwtAuthenticationFilter(jwtService, users, entryPoint);
         var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/v1/auth/me");
@@ -56,10 +56,11 @@ class JwtAuthenticationFilterTest {
         var user = new com.acme.sportplatform.identity.infrastructure.persistence.entity.UserEntity();
         user.setEmail("active@test.example");
         user.setStatus("active");
-        var row = mock(com.acme.sportplatform.identity.infrastructure.persistence.projection.UserAuthenticationRow.class);
-        when(row.getUser()).thenReturn(user);
+        var row = mock(UserMembershipLookup.AuthenticationRow.class);
+        when(row.getEmail()).thenReturn(user.getEmail());
+        when(row.getStatus()).thenReturn(user.getStatus());
         when(row.getRoleCode()).thenReturn("participant");
-        when(users.findAuthenticationById(id)).thenReturn(java.util.List.of(row));
+        when(users.authenticationOf(id)).thenReturn(java.util.List.of(row));
         doAnswer(invocation -> {
             assertThat(SecurityContextHolder.getContext().getAuthentication().isAuthenticated()).isTrue();
             response.flushBuffer();
@@ -83,7 +84,7 @@ class JwtAuthenticationFilterTest {
     void rejectsTokenWithoutRolesClaim() throws ServletException, IOException {
         JwtService jwtService = mock(JwtService.class);
         var entryPoint = mock(RestAuthenticationEntryPoint.class);
-        var users = mock(UserRepository.class);
+        var users = mock(UserMembershipLookup.class);
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, users, entryPoint);
 
         HttpServletRequest request = mock(HttpServletRequest.class);
@@ -118,7 +119,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void missingUserGetsOrdinaryAuthenticationErrorWithoutContinuingTheRequest() throws ServletException, IOException {
         var jwtService = mock(JwtService.class);
-        var users = mock(com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository.class);
+        var users = mock(com.acme.sportplatform.identity.UserMembershipLookup.class);
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
         var filter = new JwtAuthenticationFilter(jwtService, users, new com.acme.sportplatform.common.web.RestAuthenticationEntryPoint(mapper));
         var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/v1/auth/me");
@@ -128,7 +129,7 @@ class JwtAuthenticationFilterTest {
         request.addHeader("Authorization", "Bearer missing-user-token");
         when(jwtService.parse("missing-user-token")).thenReturn(io.jsonwebtoken.Jwts.claims()
                 .subject("missing@test.example").add("uid", id.toString()).add("roles", java.util.List.of("participant")).build());
-        when(users.findAuthenticationById(id)).thenReturn(java.util.List.of());
+        when(users.authenticationOf(id)).thenReturn(java.util.List.of());
 
         filter.doFilter(request, response, chain);
 

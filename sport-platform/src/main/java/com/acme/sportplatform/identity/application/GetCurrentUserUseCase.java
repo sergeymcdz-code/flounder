@@ -25,7 +25,9 @@ public class GetCurrentUserUseCase {
                 principal.getUserId(),
                 principal.getUsername(),
                 principal.getStatus().toUpperCase(Locale.ROOT),
-                roles
+                roles,
+                principal.getMemberships(),
+                principal.getAuthorities().stream().map(a -> a.getAuthority().replaceFirst("^ROLE_", "").toLowerCase(Locale.ROOT)).distinct().sorted().toList()
         );
     }
 }

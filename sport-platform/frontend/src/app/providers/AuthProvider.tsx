@@ -1,7 +1,7 @@
 import {
   createContext,
+  useEffect, useState, useCallback,
   useContext,
-  useMemo,
   useSyncExternalStore,
   type PropsWithChildren,
 } from 'react'
@@ -23,7 +23,15 @@ type JwtPayload = {
   roles?: unknown
 }
 
+export type Membership = { organizationId: string; organizationName: string; memberRole: string }
+type Profile = { id: string; roles: string[]; effectiveRoles: string[]; memberships: Membership[] }
 type AuthContextValue = {
+  memberships: Membership[]
+  currentOrgId: string
+  selectOrg: (id: string) => void
+  userId: string | null
+  authLoading: boolean
+  refreshProfile: () => Promise<void>
   session: AuthSession | null
   isAuthenticated: boolean
   roles: string[]
@@ -82,6 +90,31 @@ function getRoles(accessToken: string | null): string[] {
 export function AuthProvider({ children }: PropsWithChildren) {
   const { session, message: sessionMessage } = useSyncExternalStore(subscribeAuth, getAuthState)
 
+  const [profile, setProfile] = useState<{ token: string; user: Profile | null } | null>(null)
+  const [selectedOrg, setSelectedOrg] = useState(() => localStorage.getItem('flounder.current-org') ?? '')
+  const token = session?.accessToken ?? ''
+  const refreshProfile = useCallback(async () => {
+    if (!token) return
+    const user = await apiFetch<Profile>('/api/v1/auth/me', { accessToken: token })
+    setProfile({ token, user })
+  }, [token])
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    apiFetch<Profile>('/api/v1/auth/me', { accessToken: token })
+      .then(user => { if (active) setProfile({ token, user }) })
+      .catch(() => { if (active) setProfile({ token, user: null }) })
+    return () => { active = false }
+  }, [token])
+  const currentProfile = profile?.token === token ? profile.user : null
+  const memberships = currentProfile?.memberships ?? []
+  const currentOrgId = memberships.some(m => m.organizationId === selectedOrg) ? selectedOrg : memberships[0]?.organizationId ?? ''
+  function selectOrg(id: string) {
+    localStorage.setItem('flounder.current-org', id)
+    setSelectedOrg(id)
+  }
+  const authLoading = !!token && profile?.token !== token
+
   async function login(request: LoginRequest): Promise<void> {
     const response = await loginRequest(request)
 
@@ -105,7 +138,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
-  const roles = getRoles(session?.accessToken ?? null)
+  const roles = currentProfile?.effectiveRoles ?? getRoles(session?.accessToken ?? null)
 
   function hasRole(role: string) {
     return roles.includes(role.toLowerCase())
@@ -121,9 +154,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const isParticipant = roles.includes(ROLE_PARTICIPANT)
   const isAdmin = isPlatformAdmin || isOrganizer
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
+  const value: AuthContextValue = {
       session,
+      memberships, currentOrgId, selectOrg, userId: currentProfile?.id ?? null, authLoading, refreshProfile,
       isAuthenticated: session !== null,
       roles,
       hasRole,
@@ -136,18 +169,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       logout,
       sessionMessage,
-    }),
-    [
-      session,
-      sessionMessage,
-      roles,
-      isPlatformAdmin,
-      isOrganizer,
-      isOperator,
-      isParticipant,
-      isAdmin,
-    ],
-  )
+  }
 
   return (
     <AuthContext.Provider value={value}>
