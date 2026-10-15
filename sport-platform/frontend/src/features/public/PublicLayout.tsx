@@ -48,6 +48,8 @@ export function PublicLayout() {
     [slug],
   )
   const eventState = usePublicData(load)
+  const loadStandings = useCallback((signal: AbortSignal) => publicApi.standings(slug, signal), [slug])
+  const standingsState = usePublicData(loadStandings, 30_000)
   const [offline, setOffline] = useState(() => !navigator.onLine)
   const [cached, setCached] = useState(false)
   useEffect(() => {
@@ -80,6 +82,7 @@ export function PublicLayout() {
     ['schedule', 'Расписание'],
     ['live', 'Табло'],
     ['results', 'Результаты'],
+    ...(standingsState.data && !standingsState.errorStatus ? [['standings', 'Зачёт']] : []),
     ['live#find-me', 'Найти себя'],
   ]
   if (eventState.errorStatus === 404) {

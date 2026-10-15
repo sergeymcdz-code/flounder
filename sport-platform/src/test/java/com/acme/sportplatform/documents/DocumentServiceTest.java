@@ -23,7 +23,8 @@ class DocumentServiceTest {
         var data = mock(DocumentDataService.class);
         var renderer = mock(PdfRenderer.class);
         var events = mock(EventLookup.class);
-        var service = new DocumentService(data, renderer, events);
+        var service = new DocumentService(data, renderer, events, mock(com.acme.sportplatform.standings.StandingsLookup.class),
+                mock(com.acme.sportplatform.events.EventPublicLookup.class));
         var id = UUID.randomUUID();
         var start = OffsetDateTime.parse("2026-10-16T21:00:00Z");
         var header = new EventProtocolHeader(id, "Кубок", UUID.randomUUID(), UUID.randomUUID(),

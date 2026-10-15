@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head><meta charset="UTF-8" /><title>Зачёт</title>
+<style>
+@page { size: A4; margin: 18mm 14mm; @bottom-right { content: counter(page); } }
+body { font-family: 'Noto Sans'; font-size: 10pt; color: #172435; }
+h1 { font-size: 18pt; } h2 { font-size: 14pt; } table { width: 100%; border-collapse: collapse; margin-bottom: 20pt; }
+th, td { border: 1px solid #ccd3dc; padding: 6pt; text-align: left; } thead { display: table-header-group; } tr { page-break-inside: avoid; }
+</style></head>
+<body>
+<h1 th:text="${event.title()}">Соревнование</h1>
+<p th:if="${event.startsAt() != null}" th:text="${#temporals.format(event.startsAt(), 'dd.MM.yyyy')}">Дата</p>
+<h2 th:text="${standings.title() ?: 'Командный и медальный зачёт'}">Зачёт</h2>
+<p th:text="${standings.scope() == 'AGE_GROUP' ? 'Места в возрастных группах' : 'Места в абсолюте'}">Область</p>
+<p th:if="${standings.preliminary()}" th:text="${'Предварительный зачёт, не завершено ' + standings.unitsPending() + ' заплывов'}">Предварительный</p>
+<h2>Медальный зачёт</h2>
+<table><thead><tr><th>Клуб</th><th>Золото</th><th>Серебро</th><th>Бронза</th></tr></thead><tbody>
+<tr th:each="row : ${standings.medals()}"><td th:text="${row.club()}">Клуб</td><td th:text="${row.gold()}">0</td><td th:text="${row.silver()}">0</td><td th:text="${row.bronze()}">0</td></tr>
+</tbody></table>
+<h2>Командный зачёт</h2>
+<table><thead><tr><th>Клуб</th><th>Очки</th><th>Зачтено результатов</th></tr></thead><tbody>
+<tr th:each="row : ${standings.team()}"><td th:text="${row.club()}">Клуб</td><td th:text="${row.points()}">0</td><td th:text="${row.scoredResults()}">0</td></tr>
+</tbody></table>
+<p th:if="${#lists.isEmpty(standings.team())}">Опубликованных результатов пока нет.</p>
+<p th:text="${'Рассчитано: ' + #temporals.format(standings.calculatedAt(), 'dd.MM.yyyy HH:mm', 'UTC') + ' UTC'}">Рассчитано</p>
+</body></html>

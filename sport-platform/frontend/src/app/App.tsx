@@ -5,6 +5,7 @@ import { AppLayout } from '../components/AppLayout'
 import { RequireRole } from '../components/RequireRole'
 
 import { LegacyEventRedirect, PublicLayout } from '../features/public/PublicLayout'
+import { StandingsPage } from '../features/public/StandingsPage'
 import { PublicEventPage } from '../features/public/EventPage'
 import { StartListPage } from '../features/public/StartListPage'
 import { SchedulePage } from '../features/public/SchedulePage'
@@ -103,6 +104,8 @@ const PublicDisciplineResultsPage = lazy(() =>
   import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })),
 )
 
+const OrganizerStandingsPage = lazy(() => import('../features/organizer/OrganizerStandingsPage').then(m => ({ default: m.OrganizerStandingsPage })))
+
 const EventAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.EventAnalyticsPage })))
 const OrganizationAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationAnalyticsPage })))
 const OrganizationsAnalyticsListPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationsAnalyticsListPage })))
@@ -116,6 +119,7 @@ export default function App() {
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="live" element={<LivePage />} />
         <Route path="results" element={<ResultsPage />} />
+        <Route path="standings" element={<StandingsPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />
       </Route>
@@ -192,6 +196,7 @@ export default function App() {
               <Route path="entries" element={<OrganizerEntriesPage />} />
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="standings" element={<OrganizerStandingsPage />} />
               <Route path="notifications" element={<OrganizerNotificationsPage />} />
               <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
                 <Route path="analytics" element={<EventAnalyticsPage />} />
