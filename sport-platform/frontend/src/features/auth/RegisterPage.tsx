@@ -95,7 +95,7 @@ export function RegisterPage() {
         clubName: clubName.trim() || null,
       })
 
-      sessionStorage.setItem(`sportgate.profile.${normalizedEmail}`, JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), middleName: middleName.trim(), birthDate, gender: 'M', club: clubName.trim() }))
+      sessionStorage.setItem(`sportgate.profile.${normalizedEmail}`, JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), middleName: middleName.trim(), birthDate, club: clubName.trim() }))
       await login({
         email: normalizedEmail,
         password,
@@ -112,7 +112,7 @@ export function RegisterPage() {
   return (
     <section className={styles.page}>
       <Link className={styles.backLink} to="/">
-        ← К событиям
+        ← К соревнованиям
       </Link>
 
       <div className={styles.card}>

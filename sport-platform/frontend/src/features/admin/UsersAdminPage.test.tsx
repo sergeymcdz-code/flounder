@@ -84,7 +84,7 @@ it('keeps scoped assignments separate from editable global roles', async () => {
   const row = (await screen.findByText('user@flounder.demo')).closest('tr')!
   await userEvent.click(within(row).getByRole('button', { name: 'Роли' }))
   const dialog = screen.getByRole('dialog')
-  expect(await within(dialog).findByText(/Роли в отдельных организациях или событиях/)).toBeInTheDocument()
+  expect(await within(dialog).findByText(/Роли в отдельных организациях или соревнованиях/)).toBeInTheDocument()
   expect(within(dialog).getByLabelText('Участник')).toBeChecked()
   expect(within(dialog).getByLabelText('Судья')).not.toBeChecked()
 })

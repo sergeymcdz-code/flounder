@@ -226,7 +226,7 @@ export function OrganizerDashboardPage() {
                       {event.publicSlug ? (
                         <NavLink
                           className={styles.textLink}
-                          to={`/events/${encodeURIComponent(event.publicSlug)}`}
+                          to={`/e/${encodeURIComponent(event.publicSlug)}`}
                         >
                           Открыть публичную страницу
                         </NavLink>

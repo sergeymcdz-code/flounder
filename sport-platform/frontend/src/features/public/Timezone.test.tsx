@@ -18,7 +18,7 @@ const startsAt = '2026-10-17T06:00:00Z'
 it('formats public time and date in the venue timezone', () => {
   expect(time(startsAt, 'Europe/Samara')).toBe('10:00')
   expect(time(startsAt, 'Europe/Moscow')).toBe('09:00')
-  expect(date('2026-10-16T22:00:00Z', 'Europe/Samara')).toBe('17 октября 2026 г.')
+  expect(date('2026-10-16T22:00:00Z', 'Europe/Samara')).toBe('17.10.2026')
   expect(time(null, 'Europe/Samara')).toBe('Время уточняется')
 })
 
@@ -84,7 +84,7 @@ it.each(pages)('passes the venue timezone from PublicLayout to /e/demo/%s', asyn
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByText('17 октября 2026 г. · Самара')).toBeInTheDocument()
+  expect(await screen.findByText('17.10.2026 · Самара')).toBeInTheDocument()
   if (path !== 'results') {
     expect((await screen.findAllByText(/10:00/)).length).toBeGreaterThan(0)
   }

@@ -132,7 +132,7 @@ export function OrganizerHeatsPage() {
           </details>
           <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => setPublishOpen(true)}>Опубликовать протокол</button>
           <details><summary>Печать ▾</summary>
-            <a className={styles.button} href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a>
+            {heats.length > 0 && heats.every(heat => isHeatPublished(heat.status)) ? <a className={styles.button} href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
             <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
           </details>
         </div>

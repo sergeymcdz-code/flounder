@@ -115,7 +115,7 @@ export function OperatorPaymentsPage() {
               <thead>
                 <tr>
                   <th scope="col">Заявка</th>
-                  <th scope="col">Событие</th>
+                  <th scope="col">Соревнование</th>
                   <th scope="col">Статус</th>
                   <th scope="col">
                     <span className={styles.visuallyHidden}>Действия</span>
@@ -137,7 +137,7 @@ export function OperatorPaymentsPage() {
                     </td>
 
                     <td>
-                      <strong className={styles.eventLabel}>Событие</strong>
+                      <strong className={styles.eventLabel}>Соревнование</strong>
 
                       <span className={styles.registrationId}>
                         {registration.eventId}

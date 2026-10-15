@@ -19,7 +19,7 @@ function getRegistrationErrorMessage(error: unknown) {
     'registrations.discipline_not_available':
       'Эта дисциплина сейчас недоступна для регистрации.',
     'registrations.registration_not_open':
-      'Регистрация на это событие сейчас не открыта.',
+      'Регистрация на это соревнование сейчас не открыта.',
   }
 
   return knownMessages[error.code ?? ''] ?? error.message

@@ -294,7 +294,7 @@ export function OperatorRegistrationPage() {
             </div>
 
             <div>
-              <dt>ID события</dt>
+              <dt>ID соревнования</dt>
               <dd className={styles.technicalValue}>
                 {registration.eventId}
               </dd>

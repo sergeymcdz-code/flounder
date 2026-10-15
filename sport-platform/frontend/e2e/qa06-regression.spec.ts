@@ -5,8 +5,6 @@ declare global {
   interface Window { __qa06Scroll: unknown[]; __qa06LiveCalls: number }
 }
 
-// Expected failures keep the audit runnable. QA06_EXPECT_FIX=1 exposes the red tests.
-function knownDefect() { test.fail(process.env.QA06_EXPECT_FIX !== '1') }
 const base = `/organizer/events/${eventId}`
 
 for (const path of ['/organizer/events?all=1', '/operator/payments', '/events/demo/disciplines/M-50-FREE/results']) {
@@ -53,7 +51,6 @@ test('QA06-04 table headings use the readable muted token', async ({ page }) => 
 test('QA06-06 dates use DD.MM.YYYY', async ({ page }) => {
   await openAuditPage(page, '/e/demo')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Осенний кубок')
-  knownDefect()
   await expect(page.locator('header')).toContainText('15.10.2026')
 })
 
@@ -225,8 +222,7 @@ test('QA06-18 payment loading is announced as a status', async ({ page }) => {
     dispatchEvent(new PopStateEvent('popstate'))
   })
   await expect(page.getByRole('heading', { name: 'Загружаем оплату', exact: true })).toBeVisible()
-  knownDefect()
-  await expect(page.getByRole('status')).toContainText('Загружаем оплату')
+  await expect(page.getByRole('status').filter({ hasText: 'Загружаем оплату' })).toContainText('Загружаем оплату')
 })
 
 test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page }) => {

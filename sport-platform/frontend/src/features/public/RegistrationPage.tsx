@@ -184,10 +184,10 @@ export function PublicRegistrationPage() {
             <legend>Данные спортсмена (ребёнка)</legend>
             <button type="button" onClick={() => { void (async () => {
               const cached = email && sessionStorage.getItem(`sportgate.profile.${email}`)
-              if (cached) { setProfile(JSON.parse(cached) as typeof profile); return }
+              if (cached) { setProfile(previous => ({ ...previous, ...JSON.parse(cached) as Partial<typeof profile> })); return }
               const rows = await getMyRegistrations(auth.session!.accessToken)
               const own = rows[0]?.participantSnapshot
-              if (own) setProfile({ firstName: own.firstName, lastName: own.lastName, middleName: own.middleName ?? '', birthDate: own.birthDate ?? '', gender: own.gender === 'F' ? 'F' : 'M', club: own.clubName ?? '' })
+              if (own) setProfile({ firstName: own.firstName, lastName: own.lastName, middleName: own.middleName ?? '', birthDate: own.birthDate ?? '', gender: own.gender === 'F' ? 'F' : own.gender === 'M' ? 'M' : profile.gender, club: own.clubName ?? '' })
               else setErrors(previous => ({ ...previous, form: 'В профиле пока нет данных спортсмена. Заполните их ниже.' }))
             })().catch(() => setErrors(previous => ({ ...previous, form: 'Не удалось загрузить профиль. Заполните данные ниже.' }))) }}>Это я</button>
             {[

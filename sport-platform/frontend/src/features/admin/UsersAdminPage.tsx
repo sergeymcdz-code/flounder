@@ -148,7 +148,7 @@ export function UsersAdminPage() {
         </>}
         {action.type === 'password' && passwordFields}
         {action.type === 'roles' && <><p>Глобальные роли пользователя</p>{roleCheckboxes}
-          {scopedRoles.length > 0 && <p>Роли в отдельных организациях или событиях: {scopedRoles.join(', ')}. Они сохраняются при изменении глобальных ролей.</p>}
+          {scopedRoles.length > 0 && <p>Роли в отдельных организациях или соревнованиях: {scopedRoles.join(', ')}. Они сохраняются при изменении глобальных ролей.</p>}
         </>}
         {removesAdmin && <label><span><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /> Подтверждаю снятие роли администратора платформы</span></label>}
         {action.type === 'status' && <p>{action.user.status === 'ACTIVE' ? 'Заблокировать пользователя? Вход и существующие токены станут недоступны.' : 'Разблокировать пользователя?'}</p>}

@@ -64,7 +64,7 @@ export function LoginPage() {
   return (
     <section className={styles.page}>
       <Link className={styles.backLink} to="/">
-        ← К событиям
+        ← К соревнованиям
       </Link>
 
       <div className={styles.card}>

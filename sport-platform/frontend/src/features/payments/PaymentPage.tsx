@@ -278,7 +278,7 @@ export function PaymentPage() {
   if (isLoading) {
     return (
       <section className={styles.page}>
-        <div className={styles.stateCard}>
+        <div className={styles.stateCard} role="status" aria-live="polite">
           <h2>Загружаем оплату</h2>
           <p>Проверяем статус заявки и данные платежа.</p>
         </div>
