@@ -77,10 +77,10 @@ export function PublicLayout() {
   }, [eventState.data, eventState.errorStatus])
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
+    ['start-list', 'Протокол'],
     ['schedule', 'Расписание'],
     ['live', 'Табло'],
     ['results', 'Результаты'],
-    ['live#find-me', 'Найти себя'],
   ]
   if (eventState.errorStatus === 404) {
     return (

@@ -81,12 +81,12 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.soft(org.locator('svg').filter({ has: org.locator('title', { hasText: 'QR-код публичной страницы' }) })).toHaveCount(1)
       await expect.soft(org.locator(`a[href$="${publicBase}"]`)).toBeVisible()
       await screenshots(org, '01-organizer-overview')
-      await org.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
+      await org.getByRole('link', { name: 'Программа', exact: true }).click()
       await expect(org.getByRole('heading', { name: 'Сессии соревнования' })).toBeVisible()
       await screenshots(org, '01-program')
       await org.getByRole('row').filter({ has: org.getByText('M-50-FREE', { exact: true }) }).getByRole('button', { name: 'Изменить', exact: true }).click()
       const dialog = org.getByRole('dialog')
-      await dialog.getByRole('button', { name: 'Добавить пресет', exact: true }).click()
+      await expect(dialog.getByRole('button', { name: 'Применить', exact: true })).toBeVisible()
       await expect.soft(dialog.getByRole('combobox', { name: 'Пресет' })).toContainText(/Детские.*2 года/i)
       await screenshots(org, '01-discipline-settings')
       await dialog.getByRole('button', { name: /Закрыть|Отмена/ }).first().click()
@@ -130,7 +130,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       expect.soft(good.errors).toEqual([])
       expect.soft(timings['set-M.xlsx']).toBeLessThanOrEqual(10_000)
       await screenshots(org, '02-import-corrected')
-      await dialog.getByRole('button', { name: 'Закрыть и обновить' }).click()
+      await dialog.getByRole('button', { name: 'Закрыть', exact: true }).last().click()
       await expect.soft(org.getByRole('heading', { name: 'Заявки участников · 200', exact: true })).toBeVisible()
       expect.soft(await registrations()).toHaveLength(200)
       await screenshots(org, '02-entries')
@@ -168,16 +168,18 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         const name = event.disciplines.find(d => d.id === registration.eventDisciplineId)!.name
         const row = org.locator('tbody tr').filter({ hasText: name })
         await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
-        await org.getByRole('dialog').getByRole('button', { name: 'Сохранить решение' }).click()
+        await org.getByRole('dialog').getByRole('button', { name: 'Подтвердить' }).click()
         await expect(org.getByRole('dialog')).toHaveCount(0)
       }
       await screenshots(org, '03-parent-confirmed')
-      await expect.soft(org.getByRole('button', { name: 'Оплачено', exact: true }), 'QA05: zero-fee mark-paid action').toHaveCount(2)
+      const pendingPayments = (await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов' && r.paymentStatus === 'PENDING').length
+      await expect.soft(org.getByRole('button', { name: 'Оплачено', exact: true }), 'D03: only pending payments offer a payment action').toHaveCount(pendingPayments)
       await login(sec, 'sec@flounder.demo', `${base}/entries`)
       // The operator is allowed by the route, but /venues currently returns 403.
       await expect.soft(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
       await screenshots(sec, '03-secretary-cabinet')
       for (const registration of rows) {
+        if (registration.paymentStatus === 'NOT_REQUIRED') continue
         if (await sec.getByLabel('Поиск', { exact: true }).count()) {
           await sec.getByLabel('Поиск', { exact: true }).fill('Демов')
           const row = sec.locator('tbody tr').filter({ hasText: event.disciplines.find(d => d.id === registration.eventDisciplineId)!.name })
@@ -190,7 +192,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         // Explicit diagnostic continuation; the failed UI assertions remain red.
         await test.step('Continue payment via real secretary API after blocked UI', () => api(sec, `/registrations/${registration.id}/mark-paid`, 'POST'))
       }
-      expect.soft((await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов').map(r => r.paymentStatus)).toEqual(['PAID', 'PAID'])
+      expect.soft((await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов').every(r => ['PAID', 'NOT_REQUIRED'].includes(r.paymentStatus))).toBe(true)
       await org.reload()
       await org.getByLabel('Поиск', { exact: true }).fill('Демов')
       await screenshots(org, '03-paid-api-continuation')
@@ -200,11 +202,12 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await org.getByRole('link', { name: 'Заплывы', exact: true }).click()
       // circleSeedTopHeats is a generation option, not a discipline form field.
       const circle = org.getByRole('checkbox', { name: /circleSeedTopHeats|круговой посев/i })
-      await expect.soft(circle, 'QA05-01: review the disabled generation option').toHaveCount(1)
+      await expect.soft(circle, 'D03: the future circle seeding option belongs in the program editor').toHaveCount(0)
       if (await circle.count()) await expect.soft(circle).not.toBeChecked()
       const responsePromise = org.waitForResponse(r => r.url().endsWith('/generate-competition-units') && r.request().method() === 'POST')
       const start = Date.now()
-      await org.getByRole('button', { name: 'Сформировать заплывы (всё событие)', exact: true }).click()
+      await org.getByText('Сформировать заплывы ▾', { exact: true }).click()
+      await org.getByRole('button', { name: 'Всё соревнование', exact: true }).click()
       const response = await responsePromise
       const generation = await response.json() as EventGenerationResult
       const results = generation.disciplines.map(d => 'result' in d ? d.result : d)
@@ -244,7 +247,8 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.soft(printPage.locator('article').filter({ has: printPage.locator('table') }), 'QA05-03: draft print contains generated heats').toHaveCount(heats.length)
       await screenshots(printPage, '04-draft-print')
       await pdf(printPage, 'draft-start-list')
-      await org.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
+      await org.getByRole('button', { name: 'Опубликовать протокол', exact: true }).click()
+      await org.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
       await settle(org)
       // T06 intentionally caches reads for 10 seconds; wait for the new snapshot.
       await expect.poll(async () => {
@@ -309,11 +313,11 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await org.getByRole('combobox', { name: /^Вид программы/ }).selectOption(discipline.id)
       const row = org.getByRole('row').filter({ hasText: registration.participantSnapshot.firstName })
       await row.getByRole('button', { name: 'Снять', exact: true }).click()
-      await org.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+      await org.getByRole('dialog').getByRole('button', { name: 'Снять', exact: true }).click()
       await expect(org.getByRole('dialog')).toHaveCount(0)
       expect.soft((await registrations()).find(r => r.id === target.registrationId)?.status).toBe('WITHDRAWN')
       await screenshots(org, '06-withdrawn-entry')
-      await org.getByRole('navigation', { name: 'Разделы события' }).getByRole('link', { name: 'Заплывы', exact: true }).click()
+      await org.getByRole('navigation', { name: 'Разделы соревнования' }).getByRole('link', { name: 'Заплывы', exact: true }).click()
       await org.getByRole('button', { name: 'Пересчитать расписание', exact: true }).click()
       await settle(org)
       await expect.poll(async () => {
@@ -364,6 +368,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         await sec.getByRole('button', { name: 'Сохранить и пересчитать', exact: true }).click()
         expect.soft((await responsePromise).status()).toBe(200)
         await sec.getByRole('button', { name: 'Опубликовать результаты', exact: true }).click()
+        await sec.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
         await expect.soft(sec.getByRole('status').filter({ hasText: 'Результаты опубликованы' })).toBeVisible()
         await expect.soft(sec.getByRole('alert')).toHaveCount(0)
         await screenshots(sec, `07-results-published-${index + 1}`)

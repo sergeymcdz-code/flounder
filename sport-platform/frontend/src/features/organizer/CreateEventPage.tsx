@@ -66,7 +66,7 @@ function getErrorMessage(error: unknown) {
     }
 
     if (error.status === 403) {
-      return 'У вашей учётной записи нет прав на создание мероприятий.'
+      return 'У вашей учётной записи нет прав на создание соревнований.'
     }
 
     if (error.status === 400) {
@@ -74,7 +74,7 @@ function getErrorMessage(error: unknown) {
     }
 
     if (error.status === 409) {
-      return error.message || 'Мероприятие с такими данными уже существует.'
+      return error.message || 'Соревнование с такими данными уже существует.'
     }
 
     return error.message || 'Не удалось выполнить запрос.'
@@ -84,7 +84,7 @@ function getErrorMessage(error: unknown) {
     return error.message
   }
 
-  return 'Не удалось создать мероприятие.'
+  return 'Не удалось создать соревнование.'
 }
 
 function parseTime(value: string): number | null {
@@ -120,7 +120,7 @@ function validateForm(form: FormState): FormErrors {
   const errors: FormErrors = {}
 
   if (!form.title.trim()) {
-    errors.title = 'Укажите название мероприятия.'
+    errors.title = 'Укажите название соревнования.'
   }
 
   if (!form.organizationId) {
@@ -150,11 +150,11 @@ function validateForm(form: FormState): FormErrors {
   }
 
   if (!form.eventStartAt) {
-    errors.eventStartAt = 'Укажите дату начала события.'
+    errors.eventStartAt = 'Укажите дату начала соревнования.'
   }
 
   if (!form.eventEndAt) {
-    errors.eventEndAt = 'Укажите дату окончания события.'
+    errors.eventEndAt = 'Укажите дату окончания соревнования.'
   }
 
   const registrationOpenAt = parseTime(
@@ -184,12 +184,12 @@ function validateForm(form: FormState): FormErrors {
 
   if (form.eventStartAt && eventStartAt === null) {
     errors.eventStartAt =
-      'Укажите корректную дату начала события.'
+      'Укажите корректную дату начала соревнования.'
   }
 
   if (form.eventEndAt && eventEndAt === null) {
     errors.eventEndAt =
-      'Укажите корректную дату окончания события.'
+      'Укажите корректную дату окончания соревнования.'
   }
 
   if (
@@ -207,7 +207,7 @@ function validateForm(form: FormState): FormErrors {
     eventStartAt < registrationCloseAt
   ) {
     errors.eventStartAt =
-      'Начало события не может быть раньше закрытия регистрации.'
+      'Начало соревнования не может быть раньше закрытия регистрации.'
   }
 
   if (
@@ -216,7 +216,7 @@ function validateForm(form: FormState): FormErrors {
     eventEndAt < eventStartAt
   ) {
     errors.eventEndAt =
-      'Окончание события не может быть раньше его начала.'
+      'Окончание соревнования не может быть раньше его начала.'
   }
 
   return errors
@@ -294,6 +294,7 @@ export function CreateEventPage() {
         setVenues(loadedVenues)
         setSports(loadedSports.filter((sport) => sport.isActive))
         setRegulationVersions(publishedRegulationVersions)
+        if (publishedRegulationVersions.length === 1) setForm(current => ({ ...current, regulationVersionId: current.regulationVersionId || publishedRegulationVersions[0].id }))
 
         if (
           createdRegulationVersionId &&
@@ -395,17 +396,10 @@ export function CreateEventPage() {
       )
 
       setSuccessMessage(
-        `Мероприятие «${created.title}» успешно создано.`,
+        `Соревнование «${created.title}» успешно создано.`,
       )
 
-      window.setTimeout(() => {
-        navigate('/organizer/events', {
-          replace: true,
-          state: {
-            createdEventId: created.id,
-          },
-        })
-      }, 800)
+      navigate(`/organizer/events/${created.id}/program`, { replace: true, state: { createdEventId: created.id } })
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     } finally {
@@ -419,7 +413,7 @@ export function CreateEventPage() {
         className={styles.backLink}
         to="/organizer/events"
       >
-        ← Назад к моим событиям
+        ← Назад к моим соревнованиям
       </NavLink>
 
       <p className={styles.eyebrow}>
@@ -429,13 +423,13 @@ export function CreateEventPage() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>
-            Создание мероприятия
+            Создать соревнование
           </h1>
 
           <p className={styles.description}>
-            Заполните обязательные поля события. После
+            Заполните обязательные поля соревнования. После
             создания вы сможете настроить дисциплины и
-            опубликовать мероприятие.
+            опубликовать соревнование.
           </p>
         </div>
       </div>
@@ -497,9 +491,13 @@ export function CreateEventPage() {
                     event.target.value,
                   )
                 }
-                placeholder="Описание события, формат участия, ключевая информация."
+                placeholder="Описание соревнования, формат участия, ключевая информация."
               />
             </label>
+          <label>Лимит участников (необязательно)
+            <input type="number" min="1" step="1" value={form.maxParticipants} placeholder="Без лимита"
+              onChange={e => setForm(previous => ({ ...previous, maxParticipants: e.target.value }))} />
+          </label>
           </div>
         </article>
 
@@ -562,7 +560,7 @@ export function CreateEventPage() {
 
             <label className={styles.field}>
               <span className={styles.label}>
-                Начало события
+                Начало соревнования
               </span>
 
               <input
@@ -589,7 +587,7 @@ export function CreateEventPage() {
 
             <label className={styles.field}>
               <span className={styles.label}>
-                Окончание события
+                Окончание соревнования
               </span>
 
               <input
@@ -804,11 +802,12 @@ export function CreateEventPage() {
                   )}
                 </select>
 
+                <p className={styles.fieldHint}>Положение можно прикрепить позже. Для создания нужна опубликованная версия регламента.</p>
                 {regulationVersions.length === 0 ? (
                   <p className={styles.fieldHint}>
                     Нет опубликованных регламентов.
                     Создайте и опубликуйте версию, чтобы
-                    использовать её в мероприятии.
+                    использовать её в соревновании.
                   </p>
                 ) : null}
 
@@ -848,10 +847,7 @@ export function CreateEventPage() {
             Отмена
           </NavLink>
 
-          <label>Лимит участников события (необязательно)
-            <input type="number" min="1" step="1" value={form.maxParticipants} placeholder="Без лимита"
-              onChange={e => setForm(previous => ({ ...previous, maxParticipants: e.target.value }))} />
-          </label>
+
           <button
             className={styles.primaryButton}
             type="submit"
@@ -866,7 +862,7 @@ export function CreateEventPage() {
           >
             {isSubmitting
               ? 'Создаём…'
-              : 'Создать мероприятие'}
+              : 'Создать соревнование'}
           </button>
         </div>
       </form>

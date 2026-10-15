@@ -69,6 +69,28 @@ public class ParticipantDocumentService {
                 .filter(d -> owner && eventId == null || d.getEventId() == null || d.getEventId().equals(eventId))
                 .map(this::response).toList();
     }
+    public ParticipantDocumentResponse review(UUID profileId, UUID id, UUID eventId,
+            com.acme.sportplatform.registrations.api.ReviewParticipantDocumentRequest request,
+            AuthenticatedUserPrincipal principal) {
+        assertManager(profileId, eventId, principal);
+        var d = documents.lockById(id).orElseThrow(this::notFound);
+        if (!d.getProfileId().equals(profileId) || d.getEventId() != null && !d.getEventId().equals(eventId)) throw notFound();
+        if (!DocumentStatus.PENDING.name().equals(d.getStatus()))
+            throw new BusinessException("documents.not_pending", "Документ уже проверен");
+        if (request.status() != DocumentStatus.ACCEPTED && request.status() != DocumentStatus.REJECTED)
+            throw new BusinessException("documents.invalid_status", "Выберите принятие или отклонение документа");
+        String reason = request.rejectReason() == null ? null : request.rejectReason().trim();
+        if (request.status() == DocumentStatus.REJECTED && (reason == null || reason.isBlank()))
+            throw new BusinessException("documents.reason_required", "Укажите причину отклонения");
+        if (reason != null && reason.length() > 500)
+            throw new BusinessException("documents.invalid_reason", "Причина должна содержать не более 500 символов");
+        d.setStatus(request.status().name());
+        d.setRejectReason(request.status() == DocumentStatus.REJECTED ? reason : null);
+        d.setReviewedBy(principal.getUserId());
+        d.setReviewedAt(OffsetDateTime.now());
+        documents.save(d);
+        return response(d);
+    }
     public void delete(UUID profileId, UUID id, AuthenticatedUserPrincipal principal) {
         var d = documents.lockById(id).orElseThrow(this::notFound);
         if (!d.getProfileId().equals(profileId)) throw notFound();

@@ -113,7 +113,7 @@ it('keeps loaded live data with a single polling error message', async () => {
     ).toBeInTheDocument(),
   )
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(5000)
+    await vi.advanceTimersByTimeAsync(15000)
   })
   await vi.waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1))
   expect(screen.getAllByText(/Показаны последние данные/)).toHaveLength(1)

@@ -1,3 +1,5 @@
+import { MemoryRouter } from 'react-router'
+import { ToastProvider } from '../../components/ui/Toast'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -37,19 +39,13 @@ beforeEach(() => {
   vi.mocked(useOrganizerEvent).mockReturnValue(context)
 })
 
-it('QA05-01: displays the disabled circle seeding option in Russian', async () => {
+it('QA05-01: circle seeding is removed from heat actions and kept for the program editor', () => {
   render(<OrganizerHeatsPage />)
-  const option = screen.getByRole('checkbox', { name: 'Круговой посев трёх сильнейших заплывов' })
-  expect(screen.getAllByRole('checkbox')).toHaveLength(1)
-  expect(option).not.toBeChecked()
-  expect(option).toBeDisabled()
-  expect(option).toHaveAccessibleDescription('Круговой посев выключен. Настройка доступна только для просмотра.')
-  await userEvent.click(option)
-  expect(option).not.toBeChecked()
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
 })
 
 it.each([
-  ['Сформировать заплывы (всё событие)', 'events', 'event'],
+  ['Всё соревнование', 'events', 'event'],
   ['Сформировать по виду', 'event-disciplines', 'discipline'],
 ])('keeps circle seeding off when clicking %s', async (button, scope, id) => {
   const requestBody = vi.fn()
@@ -60,9 +56,22 @@ it.each([
       ? { disciplines: [{ eventDisciplineId: 'discipline', result }], durationMs: 12 }
       : result)
   }))
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  if (button === 'Всё соревнование') await userEvent.click(screen.getByText('Сформировать заплывы ▾'))
   await userEvent.click(screen.getByRole('button', { name: button }))
   await waitFor(() => expect(context.saveGeneration).toHaveBeenCalledOnce())
   expect(requestBody).toHaveBeenCalledExactlyOnceWith({ force: false, circleSeedTopHeats: false })
-  expect(screen.getByRole('checkbox')).not.toBeChecked()
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+})
+
+it('does not publish before confirmation, then shows a toast with a public link', async () => {
+  vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, heats: [{ id: 'heat', eventDisciplineId: 'discipline', label: '1', sequenceNumber: 1, status: 'DRAFT', scheduledAt: null, entries: [] }] })
+  const publish = vi.fn()
+  server.use(http.post('*/api/v1/events/event/competition-units/publish', () => { publish(); return HttpResponse.json({}) }))
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  await userEvent.click(screen.getByRole('button', { name: 'Опубликовать протокол' }))
+  expect(publish).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Опубликовать' }))
+  await waitFor(() => expect(publish).toHaveBeenCalledOnce())
+  expect(await screen.findByRole('link', { name: 'Открыть публичную страницу ↗' })).toHaveAttribute('href', '/e/cup/start-list')
 })

@@ -31,7 +31,7 @@ function setup(count = 1, fillTimes = true) {
   for (let index = 0; index < count; index++) fireEvent.click(screen.getByLabelText(`Вид ${index + 1} · Бесплатно`))
   if (fillTimes) screen.getAllByPlaceholderText('мм:сс.сс').forEach((input, index) =>
     fireEvent.change(input, { target: { value: `0032${15 + index}` } }))
-  fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных (демо)'))
+  fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных'))
   return view.container.querySelector('form')!
 }
 
@@ -71,7 +71,7 @@ describe('QA03 public registration submission', () => {
 
   it('does not submit without consent', async () => {
     const element = setup()
-    fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных (демо)'))
+    fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных'))
     fireEvent.submit(element)
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Необходимо согласие'))
     expect(publicApi.register).not.toHaveBeenCalled()

@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useCallback, useState } from 'react'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publicApi } from '../../api/public.api'
@@ -9,12 +10,13 @@ import styles from './Public.module.css'
 
 export function ResultsPage() {
   const event = usePublicEvent()
-  const [grouped, setGrouped] = useState(false)
+  const [grouped, setGrouped] = useState<boolean | null>(null)
   const load = useCallback(
     (signal: AbortSignal) => publicApi.results(event.publicSlug, signal),
     [event.publicSlug],
   )
   const state = usePublicData(load, RESULTS_POLL_MS)
+  const showGroups = grouped ?? Boolean(state.data?.disciplines[0]?.byAgeGroup?.length)
   return (
     <>
       <PrintHeader event={event} title="Итоговый протокол" />
@@ -32,24 +34,24 @@ export function ResultsPage() {
         role="group"
         aria-label="Вид результатов"
       >
-        <button className="fl-button-ghost" aria-pressed={!grouped} onClick={() => setGrouped(false)}>
+        <button className="fl-button-ghost" aria-pressed={!showGroups} onClick={() => setGrouped(false)}>
           Абсолют
         </button>
-        <button className="fl-button-ghost" aria-pressed={grouped} onClick={() => setGrouped(true)}>
+        <button className="fl-button-ghost" aria-pressed={showGroups} onClick={() => setGrouped(true)}>
           По группам
         </button>
       </div>
       <DataState {...state} />
       {state.data &&
         (!state.data.disciplines.length ? (
-          <p className="fl-empty">Результаты ещё не опубликованы.</p>
+          <p className="fl-empty">Результаты ещё не опубликованы. <Link to={`/e/${event.publicSlug}/live`}>Открыть табло</Link></p>
         ) : (
           state.data.disciplines.map((discipline) => (
             <section key={discipline.id} className={styles.results}>
               <h2>
                 Вид № {discipline.number}. {discipline.name}
               </h2>
-              {grouped ? (
+              {showGroups && discipline.byAgeGroup.length ? (
                 discipline.byAgeGroup.map((group) => (
                   <div key={group.code}>
                     <h3>{group.name}</h3>

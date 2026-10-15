@@ -72,7 +72,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await login(page)
-  await page.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
+  await page.getByRole('link', { name: 'Программа', exact: true }).click()
   await page
     .getByRole('button', { name: 'Добавить сессию', exact: true })
     .click()
@@ -123,12 +123,12 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .click()
   await dialog.getByRole('heading', { name: 'Отчёт импорта' }).waitFor()
   expect(await dialog.innerText()).toMatch(/Создано: 3/)
-  await dialog.getByRole('button', { name: 'Закрыть и обновить' }).click()
+  await dialog.getByRole('button', { name: 'Закрыть' }).click()
   await dialog.waitFor({ state: 'hidden' })
   await page.getByRole('link', { name: 'Заплывы', exact: true }).click()
   await page
     .getByRole('button', {
-      name: 'Сформировать заплывы (всё событие)',
+      name: 'Всё соревнование',
       exact: true,
     })
     .click()
@@ -174,7 +174,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor({ state: 'hidden' })
   await page
     .getByRole('button', {
-      name: 'Опубликовать стартовый протокол',
+      name: 'Опубликовать протокол',
       exact: true,
     })
     .click()
@@ -184,7 +184,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor({ state: 'hidden' })
   await page
     .getByRole('button', {
-      name: 'Сформировать заплывы (всё событие)',
+      name: 'Всё соревнование',
       exact: true,
     })
     .click()
@@ -237,7 +237,7 @@ test('backend field errors stay beside inputs; event and result publication refr
       .waitFor({ state: 'hidden' })
   }
   await expect(page.getByText('Завершено', { exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
+  await page.getByRole('link', { name: 'Программа', exact: true }).click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('textbox', { name: /^Код вида/ }).fill('F-50-FREE')
@@ -259,7 +259,7 @@ test('backend field errors stay beside inputs; event and result publication refr
   await expect(dialog).not.toBeVisible()
   // Results publication requires an already published start list.
   await page.getByRole('link', { name: 'Заплывы', exact: true }).last().click()
-  await page.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
+  await page.getByRole('button', { name: 'Опубликовать протокол', exact: true }).click()
   await page.getByRole('status').filter({ hasText: 'Выполняем действие' }).waitFor({ state: 'hidden' })
   await page
     .getByRole('link', { name: 'Результаты', exact: true })
@@ -330,7 +330,7 @@ for (const width of [1280, 1024]) {
     await login(page)
     const tabs = [
       ['Обзор', 'overview'],
-      ['Сессии и виды', 'program'],
+      ['Программа', 'program'],
       ['Заявки', 'entries'],
       ['Заплывы', 'heats'],
       ['Результаты', 'results'],
@@ -370,7 +370,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   await login(page)
   await page
     .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page
     .getByRole('button', { name: 'Добавить сессию', exact: true })
@@ -485,7 +485,7 @@ test('template selection, optional code, explicit payloads and registration refr
   })
   await page
     .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   let dialog = page.getByRole('dialog')
@@ -637,7 +637,7 @@ test('generation admission persists across tabs with nested and flat summaries',
       .getByRole('link', { name: 'Заплывы', exact: true })
       .click()
     await page
-      .getByRole('button', { name: 'Сформировать заплывы (всё событие)' })
+      .getByRole('button', { name: 'Всё соревнование' })
       .click()
     await expect(
       page.getByRole('heading', { name: 'Последнее формирование' }),
@@ -712,9 +712,9 @@ test('missing pool dimensions retain lane editing and refresh only the changed h
     venues[0].venueMeta.courseLength = '25'
     worker.use(http.get('*/api/v1/venues', () => HttpResponse.json(venues)))
   })
-  await page.getByRole('link', { name: '← Мои события', exact: true }).click()
+  await page.getByRole('link', { name: '← Мои соревнования', exact: true }).click()
   await page
-    .getByRole('link', { name: 'Управлять событием', exact: true })
+    .getByRole('link', { name: 'Открыть', exact: true })
     .click()
   await page
     .getByRole('navigation', { name: 'Разделы события' })
@@ -758,7 +758,7 @@ test('session estimates honor server values and browser timezone; violations tar
     await login(page)
     await page
       .getByRole('navigation', { name: 'Разделы события' })
-      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .getByRole('link', { name: 'Программа', exact: true })
       .click()
     await expect(
       page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
@@ -808,13 +808,13 @@ test('session estimates honor server values and browser timezone; violations tar
         ),
       )
     })
-    await page.getByRole('link', { name: '← Мои события', exact: true }).click()
+    await page.getByRole('link', { name: '← Мои соревнования', exact: true }).click()
     await page
-      .getByRole('link', { name: 'Управлять событием', exact: true })
+      .getByRole('link', { name: 'Открыть', exact: true })
       .click()
     await page
       .getByRole('navigation', { name: 'Разделы события' })
-      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .getByRole('link', { name: 'Программа', exact: true })
       .click()
     await expect(
       page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
@@ -850,7 +850,7 @@ test('empty sport-filtered template list explains why saving is unavailable', as
   await mockTemplates(page, 'empty')
   await page
     .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   const dialog = page.getByRole('dialog')
@@ -875,7 +875,7 @@ for (const mode of ['failure', 'forbidden', 'unauthorized'] as const) {
     await mockTemplates(page, mode)
     await page
       .getByRole('navigation', { name: 'Разделы события' })
-      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .getByRole('link', { name: 'Программа', exact: true })
       .click()
     await page
       .getByRole('button', { name: 'Добавить вид', exact: true })
@@ -913,7 +913,7 @@ test('editing an existing discipline remains possible when template loading fail
   await mockTemplates(page, 'failure')
   await page
     .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page
     .getByRole('row')

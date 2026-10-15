@@ -1,3 +1,6 @@
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { useToast } from '../../components/ui/Toast'
 import { useCallback, useState } from 'react'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publicApi } from '../../api/public.api'
@@ -18,7 +21,6 @@ import {
   isHeatPublished,
   normalizeGeneration,
   formatSeed,
-  statusLabels,
   useOrganizerEvent,
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
@@ -28,11 +30,13 @@ export function OrganizerHeatsPage() {
     heats,
     registrations,
     accessToken,
-    busy,
+    busy, error,
     run,
     lastGeneration: last,
     saveGeneration,
   } = useOrganizerEvent()
+  const toast = useToast()
+  const [publishOpen, setPublishOpen] = useState(false)
   const [showShift, setShowShift] = useState(false)
   const hasPublicLive = ['PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'LIVE', 'COMPLETED'].includes(event.status)
   const loadLive = useCallback((signal: AbortSignal) => hasPublicLive ? publicApi.live(event.publicSlug, signal) : Promise.resolve(null), [event.publicSlug, hasPublicLive])
@@ -105,69 +109,38 @@ export function OrganizerHeatsPage() {
   return (
     <div className={styles.stack}>
       <article className={styles.card}>
-        <label>
-          <input type="checkbox" checked={false} disabled aria-describedby="circle-seed-help" />
-          Круговой посев трёх сильнейших заплывов
-        </label>
-        <p id="circle-seed-help" className={styles.muted}>
-          Круговой посев выключен. Настройка доступна только для просмотра.
-        </p>
-        <p aria-live="polite">
+        {event.status === 'LIVE' && <p aria-live="polite">
           {live.data
             ? (live.data.delaySec ?? 0) > 0
               ? `Отставание: +${Math.ceil((live.data.delaySec ?? 0) / 60)} мин`
               : 'Идём по расписанию'
             : !hasPublicLive
-              ? 'Отставание появится после публикации события'
+              ? 'Отставание появится после публикации соревнования'
               : live.error
                 ? 'Отставание временно недоступно'
                 : 'Загрузка отставания…'}
-        </p>
+        </p>}
         <div className={styles.actions}>
-          <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status))} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
-          <button
-            className={`${styles.primary} fl-button-primary`}
-            disabled={busy || !event.disciplines.length}
-            onClick={() => requestGenerate()}
-          >
-            Сформировать заплывы (всё событие)
-          </button>
-          <button
-            disabled={busy || !heats.length}
-            onClick={() => {
-              void run(() => recalculateSchedule(event.id, accessToken))
-            }}
-          >
-            Пересчитать расписание
-          </button>
-          <button
-            disabled={busy || !heats.length}
-            onClick={() => {
-              void run(() => publishStartList(event.id, accessToken))
-            }}
-          >
-            Опубликовать стартовый протокол
-          </button>
-          <a
-            className={styles.button}
-            href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Открыть печатную форму
-          </a>
-          <PdfDownloadButton
-            path={`/api/v1/events/${event.id}/documents/start-list.pdf`}
-            filename="Стартовый-протокол.pdf"
-            accessToken={accessToken}
-            disabled={busy || !heats.length}
-          />
+          <details><summary className="fl-button-primary">Сформировать заплывы ▾</summary>
+            <button disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
+            {event.disciplines.map(d => <button key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
+          </details>
+          <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => void validate()}>Проверить</button>
+          <details><summary>Расписание ▾</summary>
+            <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
+            <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
+          </details>
+          <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => setPublishOpen(true)}>Опубликовать протокол</button>
+          <details><summary>Печать ▾</summary>
+            <a className={styles.button} href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a>
+            <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
+          </details>
         </div>
         {last && (
           <div aria-live="polite">
             <h2>Последнее формирование</h2>
             <p>
-              Длительность: {last.durationMs} мс · Исключено заявок:{' '}
+              за {(last.durationMs / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} с · Исключено заявок:{' '}
               {last.excludedRegistrationIds.length}
             </p>
             {last.violations.map((v, i) => (
@@ -229,7 +202,7 @@ export function OrganizerHeatsPage() {
                     if (id) {
                       setHighlight(id)
                       document.getElementById(`heat-${id}`)?.scrollIntoView({
-                        behavior: 'smooth',
+                        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
                         block: 'center',
                       })
                     }
@@ -264,13 +237,11 @@ export function OrganizerHeatsPage() {
                 <div className={styles.toolbar}>
                   <h2>
                     Заплыв {h.sequenceNumber ?? h.label} ·{' '}
-                    {formatDate(h.scheduledAt)}
+                    {formatDate(h.scheduledAt, event.venue?.timezone)}
                     {h.ageGroupCode &&
                       ` · группа ${d.ageGroups?.find((g) => g.code === h.ageGroupCode)?.name ?? h.ageGroupCode}`}
                   </h2>
-                  <span className={`${styles.badge} fl-status fl-status-${h.status.toLowerCase()}`}>
-                    {statusLabels[h.status] ?? h.status}
-                  </span>
+                  <StatusBadge kind="heat" code={h.status} />
                 </div>
                 <div className={styles.table}>
                   <table>
@@ -365,6 +336,8 @@ export function OrganizerHeatsPage() {
           )}
         </div>
       ))}
+      {publishOpen && <ConfirmDialog title="Опубликовать стартовый протокол?" description={`${heats.length} заплывов станут видны на /e/${event.publicSlug}/start-list и в PDF. Повторный посев потребует подтверждения.`} confirmLabel="Опубликовать" busy={busy} error={error}
+        onClose={() => setPublishOpen(false)} onConfirm={() => { void run(() => publishStartList(event.id, accessToken)).then(ok => { if (ok) { setPublishOpen(false); toast({ text: 'Опубликовано', href: `/e/${event.publicSlug}/start-list` }) } }) }} />}
       {showShift && <OrganizerDialog title="Сдвинуть расписание" onClose={() => setShowShift(false)}>
         <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy}
           onClose={() => setShowShift(false)} onApply={(fromUnitId, deltaSec) => {

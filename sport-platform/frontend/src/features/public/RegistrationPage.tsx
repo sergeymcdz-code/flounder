@@ -1,3 +1,5 @@
+import { apiFetch } from '../../api/http'
+import { getMyRegistrations } from '../../api/registrations.api'
 import { useCallback, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
@@ -23,9 +25,11 @@ export function PublicRegistrationPage() {
   const event = usePublicEvent()
   const auth = useAuth()
   const load = useCallback(
-    (signal: AbortSignal) =>
-      publicApi.registrationForm(event.publicSlug, signal),
-    [event.publicSlug],
+    async (signal: AbortSignal) => {
+      if (auth.session) { const user = await apiFetch<{ email: string }>('/api/v1/auth/me', { accessToken: auth.session.accessToken, signal }).catch(() => null); if (user && !signal.aborted) setEmail(user.email) }
+      return publicApi.registrationForm(event.publicSlug, signal)
+    },
+    [event.publicSlug, auth.session],
   )
   const state = usePublicData(load)
   const [profile, setProfile] = useState<RegistrationRequest['profile']>({
@@ -41,6 +45,7 @@ export function PublicRegistrationPage() {
   const [consent, setConsent] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [email, setEmail] = useState('')
   const [success, setSuccess] = useState<string[]>()
   const returnTo = `/e/${encodeURIComponent(event.publicSlug)}/register`
   if (!event.registrationOpen || state.data?.registrationOpen === false)
@@ -85,17 +90,16 @@ export function PublicRegistrationPage() {
       <section className={styles.card} role="status">
         <h1>Заявка отправлена</h1>
         <p>
-          Заявка принята сервером. Статус каждой дисциплины доступен в личном
-          кабинете.
+          Заявка отправлена. Организатор проверит её и подтвердит; письмо придёт на {email || 'ваш email'}. После подтверждения появится оплата.
         </p>
         <ul>
           {success.map((name) => (
             <li key={name}>{name} — отправлена</li>
           ))}
         </ul>
-        <Link className={`${styles.button} fl-button-ghost`} to="/my/registrations">
+        <Link className={`${styles.button} fl-button-primary`} to="/my/registrations">
           Мои заявки
-        </Link>
+        </Link><Link className={`${styles.button} fl-button-ghost`} to={`/e/${event.publicSlug}`}>Вернуться к соревнованию</Link>
       </section>
     )
   function updateProfile(
@@ -177,7 +181,15 @@ export function PublicRegistrationPage() {
       {state.data && (
         <form className={styles.form} onSubmit={submit}>
           <fieldset disabled={submitting}>
-            <legend>Данные спортсмена</legend>
+            <legend>Данные спортсмена (ребёнка)</legend>
+            <button type="button" onClick={() => { void (async () => {
+              const cached = email && sessionStorage.getItem(`sportgate.profile.${email}`)
+              if (cached) { setProfile(JSON.parse(cached) as typeof profile); return }
+              const rows = await getMyRegistrations(auth.session!.accessToken)
+              const own = rows[0]?.participantSnapshot
+              if (own) setProfile({ firstName: own.firstName, lastName: own.lastName, middleName: own.middleName ?? '', birthDate: own.birthDate ?? '', gender: own.gender === 'F' ? 'F' : 'M', club: own.clubName ?? '' })
+              else setErrors(previous => ({ ...previous, form: 'В профиле пока нет данных спортсмена. Заполните их ниже.' }))
+            })().catch(() => setErrors(previous => ({ ...previous, form: 'Не удалось загрузить профиль. Заполните данные ниже.' }))) }}>Это я</button>
             {[
               ['lastName', 'Фамилия', 'family-name'],
               ['firstName', 'Имя', 'given-name'],
@@ -230,7 +242,7 @@ export function PublicRegistrationPage() {
           </fieldset>
           <fieldset disabled={submitting}>
             <legend>Виды программы</legend>
-            <p>Укажите пол и дату рождения, чтобы увидеть доступные виды.</p>
+            <p>Можно выбрать до 3 видов. Укажите пол и дату рождения — покажем подходящие виды</p>
             <label className={styles.check}>
               <input
                 type="checkbox"
@@ -311,7 +323,7 @@ export function PublicRegistrationPage() {
               disabled={submitting}
               onChange={(e) => setConsent(e.target.checked)}
             />
-            Я даю согласие на обработку персональных данных (демо)
+            Я даю согласие на обработку персональных данных
           </label>
           {Object.entries(errors)
             .filter(
