@@ -60,6 +60,7 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         String url = json.readTree(signed.getContentAsString()).get("url").asText();
         mvc.perform(get(url).with(authentication(auth("participant")))).andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "private, no-store"))
+                .andExpect(header().doesNotExist("ETag"))
                 .andExpect(header().longValue("Content-Length", PDF.length)).andExpect(content().bytes(PDF));
         em.flush();
         assertThat(jdbc.queryForList("select action from file_access_log where file_key=? order by at", String.class, key))

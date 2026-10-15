@@ -251,13 +251,24 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(jdbc.queryForObject("select status from notification_outbox where event_id=?", String.class, id("event"))).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("select last_error from notification_outbox where event_id=?", String.class, id("event"))).doesNotContain("secret", "password", "body");
     }
-    @Test void workerBatchIsLimitedToFiftyAndContinuesAfterFailure() {
+    @Test void workerBatchIsLimitedToTwentyAndContinuesAfterFailure() {
         for (int n = 0; n < 51; n++) mail.send("batch@example.org", "Восстановление пароля SportGate", "Тестовое письмо " + n);
         commitQueue();
         doThrow(new MailSendException("test")).doNothing().when(sender).send(any(MimeMessage.class));
-        worker.sendBatch(); verify(sender, times(50)).send(any(MimeMessage.class));
-        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email='batch@example.org'", Long.class)).isEqualTo(49);
+        worker.sendBatch(); verify(sender, times(20)).send(any(MimeMessage.class));
+        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email='batch@example.org'", Long.class)).isEqualTo(19);
+        worker.sendBatch(); verify(sender, times(40)).send(any(MimeMessage.class));
         worker.sendBatch(); verify(sender, times(51)).send(any(MimeMessage.class));
+    }
+    @Test void workerStopsStartingDeliveriesAtThirtySecondsAndResumesNextPass() {
+        for (int n = 0; n < 10; n++) mail.send("deadline@example.org", "Проверка", "Письмо " + n);
+        commitQueue();
+        doAnswer(call -> { now = now.plusSeconds(10); return null; }).when(sender).send(any(MimeMessage.class));
+        worker.sendBatch();
+        verify(sender, times(3)).send(any(MimeMessage.class));
+        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='PENDING' and recipient_email='deadline@example.org'", Long.class)).isEqualTo(7);
+        worker.sendBatch();
+        verify(sender, times(6)).send(any(MimeMessage.class));
     }
     @Test void concurrentWorkersSkipLockedRows() throws Exception {
         confirmed(); TestTransaction.flagForCommit(); TestTransaction.end();

@@ -3,6 +3,8 @@
 #   docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod up -d --build
 # Variables (${...}) are read from infra/.env.prod, see infra/.env.prod.example.
 
+# Memory budget (4 GB): OS/Docker ~0.5 + api 1.66 + postgres 0.64 + caddy/web 0.25 GB.
+# The remainder is available for the page cache and image builds.
 name: flounder
 
 x-logging: &default-logging
@@ -14,6 +16,33 @@ x-logging: &default-logging
 services:
   postgres:
     image: postgres:16
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=40
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - log_min_duration_statement=300
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+    shm_size: 256m
+    mem_limit: 640m
+    stop_grace_period: 30s
     container_name: flounder-postgres
     restart: unless-stopped
     environment:
@@ -24,7 +53,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sport_user} -d ${POSTGRES_DB:-sport_platform}"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 10
       start_period: 20s
@@ -36,6 +65,9 @@ services:
       context: ../sport-platform
       dockerfile: Dockerfile
     image: flounder-api:latest
+    mem_limit: 1664m
+    memswap_limit: 1664m
+    stop_grace_period: 40s
     container_name: flounder-api
     restart: unless-stopped
     depends_on:
@@ -65,16 +97,19 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: production
       TZ: ${TZ:-Europe/Samara}
-      # 4 GB server: cap the JVM heap so that postgres + caddy + OS fit as well.
-      JAVA_TOOL_OPTIONS: "-Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=30
+        -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication
+        -Xss512k -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m
+        -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom
     volumes:
       - flounder_files:${FILES_STORAGE_DIR:-/data/files}
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
-      interval: 15s
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 30s
       timeout: 5s
-      retries: 10
-      start_period: 90s
+      retries: 6
+      start_period: 120s
     logging: *default-logging
 
   web:
@@ -86,12 +121,14 @@ services:
         VITE_API_BASE_URL: https://${DOMAIN:?DOMAIN is required in infra/.env.prod}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     image: flounder-web:latest
+    mem_limit: 128m
     container_name: flounder-web
     restart: unless-stopped
     logging: *default-logging
 
   caddy:
     image: caddy:2
+    mem_limit: 128m
     container_name: flounder-caddy
     restart: unless-stopped
     ports:

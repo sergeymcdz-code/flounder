@@ -23,11 +23,13 @@ public class EventLifecycleScheduler {
 
     @Scheduled(cron = "${events.lifecycle.cron:0 * * * * *}")
     public void advanceDueEvents() {
+        int processed = 0;
         for (var event : events.findDueLifecycleEvents(OffsetDateTime.now(clock))) {
-            try { lifecycle.advanceDue(event.getId()); }
+            try { lifecycle.advanceDue(event.getId()); processed++; }
             catch (RuntimeException exception) {
                 LoggerFactory.getLogger(getClass()).error("Event {} automatic transition failed", event.getId(), exception);
             }
         }
+        LoggerFactory.getLogger(getClass()).debug("Lifecycle processed {} events", processed);
     }
 }
