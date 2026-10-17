@@ -88,6 +88,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         for(String payload:payloads) {
             var data=json.readTree(payload);
             assertThat(data.path("changes")).hasSize(2);
+            assertThat(data.path("changes")).allSatisfy(line -> assertThat(line.path("participant").asText()).isEqualTo("Иванов Иван"));
             assertThat(data.path("link").asText()).endsWith("/e/"+ids.get("slug")+"/schedule");
         }
         assertThat(payloads).anyMatch(p -> p.contains("10:00") && p.contains("10:10") && p.contains("10:02") && p.contains("10:12"));

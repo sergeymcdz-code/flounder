@@ -3,7 +3,7 @@
 Изменилось расписание «[(${event})]». Дата: [(${date})].
 Время указано в часовом поясе площадки.
 [# th:each="change : ${changes}"]
-Ваш заплыв: [(${change.discipline})], № [(${change.number})], было [(${change.before})] → стало [(${change.after})]
+Ваш заплыв: [(${change.participant})] — [(${change.discipline})], № [(${change.number})], было [(${change.before})] → стало [(${change.after})]
 [/]
 
 [(${link})]

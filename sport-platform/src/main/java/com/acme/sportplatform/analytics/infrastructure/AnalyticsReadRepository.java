@@ -108,7 +108,8 @@ public class AnalyticsReadRepository {
                   where d.event_id=:id and u.status<>'CANCELLED'),
                 loads as (select s.id,s.name,s.order_no,s.starts_at,count(h.session_id) as heats,
                   max(h.scheduled_at+make_interval(secs=>h.duration)) as scheduled_end,
-                  (select greatest(0,max(extract(epoch from u.actual_started_at-u.scheduled_at)))
+                  (select case when max(extract(epoch from u.actual_started_at-u.scheduled_at)) is null then null
+                    else greatest(0,max(extract(epoch from u.actual_started_at-u.scheduled_at))) end
                     from competition_units u join event_disciplines d on d.id=u.event_discipline_id
                     where d.event_id=:id and d.session_id=s.id) as delay_sec,
                   coalesce(sum(h.duration),0)+greatest(count(distinct h.discipline_id)-1,0)*s.break_between_events_sec as seconds
@@ -117,7 +118,7 @@ public class AnalyticsReadRepository {
                 select *,case when heats=0 then null else coalesce(scheduled_end,
                   starts_at+make_interval(secs=>seconds::double precision)) end as estimated_end from loads order by order_no
                 """, id).stream().map(t -> new Session(uuid(t,"id"),str(t,"name"),num(t,"heats"),
-                        num(t,"seconds")/60.0,date(t,"estimated_end"),num(t,"delay_sec"))).toList();
+                        num(t,"seconds")/60.0,date(t,"estimated_end"),nullableLong(t,"delay_sec"))).toList();
         var results = results(id);
         var validation = rows("""
                 with latest as (select id,executed_at,violations_json from rule_execution_logs
@@ -205,6 +206,7 @@ public class AnalyticsReadRepository {
     private static String str(Tuple t,String key) { return Objects.toString(t.get(key),null); }
     private static UUID uuid(Tuple t,String key) { return (UUID)t.get(key); }
     private static long num(Tuple t,String key) { return ((Number)t.get(key)).longValue(); }
+    private static Long nullableLong(Tuple t,String key) { return t.get(key)==null ? null : ((Number)t.get(key)).longValue(); }
     private static Double decimal(Tuple t,String key) { return t.get(key)==null ? null : ((Number)t.get(key)).doubleValue(); }
     private static LocalDate localDate(Tuple t,String key) {
         Object v=t.get(key);return v instanceof LocalDate d ? d : ((java.sql.Date)v).toLocalDate();

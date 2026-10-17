@@ -3,6 +3,6 @@
 <p>Здравствуйте, <span th:text="${name}"></span>!</p>
 <p>Изменилось расписание «<span th:text="${event}"></span>». Дата: <span th:text="${date}"></span>.</p>
 <p>Время указано в часовом поясе площадки.</p>
-<ul><li th:each="change : ${changes}">Ваш заплыв: <span th:text="${change.discipline}"></span>, № <span th:text="${change.number}"></span>, было <span th:text="${change.before}"></span> → стало <span th:text="${change.after}"></span></li></ul>
+<ul><li th:each="change : ${changes}">Ваш заплыв: <span th:text="${change.participant}"></span> — <span th:text="${change.discipline}"></span>, № <span th:text="${change.number}"></span>, было <span th:text="${change.before}"></span> → стало <span th:text="${change.after}"></span></li></ul>
 <p><a th:href="${link}">Открыть расписание</a></p>
 <p>Команда SportGate<br />SportGate · sportgate.pro</p></body></html>

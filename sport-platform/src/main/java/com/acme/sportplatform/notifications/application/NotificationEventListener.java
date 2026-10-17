@@ -64,37 +64,57 @@ public class NotificationEventListener {
                         .filter(r -> e.disciplineId().equals(r.eventDisciplineId())).toList(),
                 NotificationTemplate.results_published, e.competitionUnitId()));
     }
+    private record ScheduledRegistration(UUID disciplineId, Map<String, Object> change) {}
+
     @EventListener
     public void scheduleChanged(ScheduleChangedEvent e) {
         events.findNotificationContext(e.eventId()).ifPresent(event -> {
             if (!settings.enabled(event.organizationId(), NotificationTemplate.schedule_changed.name())) return;
             var changed = new HashMap<UUID, ScheduleChangedEvent.UnitChange>();
-            e.changes().stream().filter(c -> e.unitIds().contains(c.unitId())).forEach(c -> changed.put(c.unitId(), c));
-            var rows = new LinkedHashMap<UUID, List<Map<String, Object>>>();
-            var recipients = new HashMap<UUID, UserLookup.User>();
+            var unitIds = Set.copyOf(e.unitIds());
+            e.changes().stream().filter(c -> unitIds.contains(c.unitId())).forEach(c -> changed.put(c.unitId(), c));
+            var changesByRegistration = new LinkedHashMap<UUID, List<ScheduledRegistration>>();
             var zone = ZoneId.of(event.venueId() == null ? "UTC" : venues.getTimezone(event.venueId()));
             var time = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("ru")).withZone(zone);
             for (var discipline : disciplines.findByEventId(e.eventId())) {
                 for (var unit : units.findByDisciplineId(discipline.id())) {
                     var change = changed.get(unit.id());
                     if (change == null) continue;
-                    var entries = unit.entries().stream().filter(entry -> "ASSIGNED".equals(entry.status())).toList();
-                    for (var r : registrations.findByIdIn(entries.stream().map(CompetitionUnitStore.Entry::registrationId).toList())) {
-                        if (!e.eventId().equals(r.eventId()) || !discipline.id().equals(r.eventDisciplineId())
-                                || !Set.of("CONFIRMED", "PAID", "ADMITTED").contains(r.status())) continue;
-                        recipient(r).ifPresent(user -> {
-                            recipients.put(user.id(), user);
-                            rows.computeIfAbsent(user.id(), ignored -> new ArrayList<>()).add(Map.of(
-                                    "discipline", discipline.name(), "number", unit.number(),
-                                    "before", time.format(change.previousScheduledAt()), "after", time.format(change.scheduledAt())));
-                        });
-                    }
+                    var line = new ScheduledRegistration(discipline.id(), Map.of(
+                            "discipline", discipline.name(), "number", unit.number(),
+                            "before", time.format(change.previousScheduledAt()), "after", time.format(change.scheduledAt())));
+                    unit.entries().stream().filter(entry -> "ASSIGNED".equals(entry.status())).forEach(entry ->
+                            changesByRegistration.computeIfAbsent(entry.registrationId(), ignored -> new ArrayList<>()).add(line));
+                }
+            }
+            if (changesByRegistration.isEmpty()) return;
+            var eligible = registrations.findByIdIn(new ArrayList<>(changesByRegistration.keySet())).stream()
+                    .filter(r -> e.eventId().equals(r.eventId()) && r.participantUserId() != null
+                            && Set.of("CONFIRMED", "PAID", "ADMITTED").contains(r.status()))
+                    .filter(r -> changesByRegistration.get(r.id()).stream().anyMatch(line -> line.disciplineId().equals(r.eventDisciplineId())))
+                    .toList();
+            var userIds = eligible.stream().map(RegistrationLookupResult::participantUserId).distinct().toList();
+            var usersById = new HashMap<UUID, UserLookup.User>();
+            if (!userIds.isEmpty()) users.findAllByIds(userIds).forEach(user -> usersById.put(user.id(), user));
+            var rows = new LinkedHashMap<String, List<Map<String, Object>>>();
+            var recipients = new HashMap<String, UserLookup.User>();
+            for (var registration : eligible) {
+                var user = usersById.get(registration.participantUserId());
+                if (user == null || user.email() == null || user.email().isBlank()) continue;
+                String email = user.email().trim().toLowerCase(Locale.ROOT);
+                recipients.putIfAbsent(email, user);
+                String participant = participantName(registration);
+                for (var line : changesByRegistration.get(registration.id())) {
+                    if (!line.disciplineId().equals(registration.eventDisciplineId())) continue;
+                    var change = new HashMap<>(line.change());
+                    change.put("participant", participant);
+                    rows.computeIfAbsent(email, ignored -> new ArrayList<>()).add(change);
                 }
             }
             // Each shift is a separate delivery, including repeated shifts within ten minutes.
             String delivery = UUID.randomUUID().toString();
-            rows.forEach((userId, changes) -> {
-                var user = recipients.get(userId);
+            rows.forEach((email, changes) -> {
+                var user = recipients.get(email);
                 var payload = new HashMap<String, Object>();
                 payload.put("name", user.firstName() == null ? "Участник" : user.firstName());
                 payload.put("event", event.title());
@@ -102,10 +122,21 @@ public class NotificationEventListener {
                         .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))));
                 payload.put("link", publicUrl + "/e/" + event.publicSlug() + "/schedule");
                 payload.put("changes", changes);
-                outbox.enqueue(event.id(), user.email(), "schedule_changed", payload,
-                        "schedule_changed:" + delivery + ":" + userId, clock.instant());
+                outbox.enqueue(event.id(), email, "schedule_changed", payload,
+                        "schedule_changed:" + delivery + ":" + user.id(), clock.instant());
             });
         });
+    }
+    private String participantName(RegistrationLookupResult registration) {
+        try {
+            var snapshot = json.readTree(registration.participantSnapshot());
+            if (snapshot != null) {
+                String name = (snapshot.path("lastName").asText("").trim() + " "
+                        + snapshot.path("firstName").asText("").trim()).trim();
+                if (!name.isBlank()) return name;
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException ignored) { }
+        return "Участник";
     }
     private void registration(UUID id, NotificationTemplate template, String reason) {
         registrations.findById(id).ifPresent(r -> events.findNotificationContext(r.eventId()).ifPresent(event -> {

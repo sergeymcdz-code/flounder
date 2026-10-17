@@ -44,7 +44,7 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
         org.slf4j.LoggerFactory.getLogger(getClass()).info("M analytics uncached HTTP: {} ms",elapsed);
         assertSums(a);
         assertThat(a.sessions()).hasSize(2);
-        assertThat(a.sessions()).allMatch(s -> s.delaySec()==0);
+        assertThat(a.sessions()).allMatch(s -> s.delaySec()==null);
         assertThat(a.results().latencySamples()).isZero();
         assertThat(a.results().latencySource()).isEqualTo("UNAVAILABLE");
         assertThat(a.results().medianPublicationSec()).isNull();assertThat(a.results().p95PublicationSec()).isNull();
@@ -127,6 +127,7 @@ class AnalyticsIntegrationTest extends Qa04SecurityFixture {
             for(String sheet:List.of("Обзор","Статусы заявок","Заявки по дням","Воронка","Виды","Возрастные группы","Клубы","Пол","Сессии","Результаты","Валидатор","Импорты")) assertThat(w.getSheet(sheet)).isNotNull();
             assertThat(w.getSheet("Обзор").getRow(5).getCell(1).getNumericCellValue()).isEqualTo(a.registrations().total());
             assertThat(w.getSheet("Результаты").getRow(2).getCell(1).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.BLANK);
+            assertThat(w.getSheet("Сессии").getRow(1).getCell(5).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.BLANK);
         }
         var org=mvc.perform(get("/api/v1/organizations/{id}/analytics/export.xlsx",id("org"))
                 .with(authentication(auth("organizer")))).andExpect(status().isOk()).andReturn().getResponse();

@@ -38,7 +38,7 @@ public class LoginAttemptLimiter {
     public synchronized void assertAllowed(String email, String ip) {
         Instant now = clock.instant();
         long retryAfter = Math.max(retryAfter("email:" + normalize(email), maxFailures, now), retryAfter("ip:" + ip, maxFailuresPerIp, now));
-        if (retryAfter > 0) throw new TooManyRequestsException("identity.too_many_attempts", "Слишком много попыток входа. Повторите через " + ((retryAfter + 59) / 60) + " минут", retryAfter);
+        if (retryAfter > 0) throw new TooManyRequestsException("identity.too_many_attempts", "Слишком много попыток входа. Повторите через " + minutes((retryAfter + 59) / 60), retryAfter);
     }
 
     public synchronized void failed(String email, String ip) {
@@ -68,6 +68,13 @@ public class LoginAttemptLimiter {
         attempts.add(now);
         if (attempts.size() > threshold) attempts.removeFirst();
         failures.put(key, List.copyOf(attempts));
+    }
+
+    private String minutes(long value) {
+        long lastTwo = value % 100;
+        String word = lastTwo >= 11 && lastTwo <= 14 ? "минут"
+                : value % 10 == 1 ? "минуту" : value % 10 >= 2 && value % 10 <= 4 ? "минуты" : "минут";
+        return value + " " + word;
     }
 
     private String normalize(String email) { return email.trim().toLowerCase(Locale.ROOT); }

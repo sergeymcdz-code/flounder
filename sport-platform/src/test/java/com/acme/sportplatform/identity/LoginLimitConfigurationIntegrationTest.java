@@ -39,7 +39,7 @@ class LoginLimitConfigurationIntegrationTest extends AbstractPostgresIntegration
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"new-ip-limit@example.org\",\"password\":\"wrong\"}"))
                 .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After","120"))
-                .andExpect(jsonPath("$.message").value("Слишком много попыток входа. Повторите через 2 минут"));
+                .andExpect(jsonPath("$.message").value("Слишком много попыток входа. Повторите через 2 минуты"));
     }
 
     @Test
