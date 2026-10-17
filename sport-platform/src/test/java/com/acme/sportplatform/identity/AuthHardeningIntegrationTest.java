@@ -156,34 +156,50 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void rateLimitByNormalizedEmailIgnoresIpChangesAndResetsAt15Minutes() throws Exception {
+    void pairLimitAllowsAnotherIpAndExpiresAt15Minutes() throws Exception {
         for (int i = 0; i < 5; i++)
-            send("/login", Map.of("email", email.toUpperCase(Locale.ROOT), "password", "wrong"), null, ip + i).andExpect(status().isUnauthorized());
+            send("/login", Map.of("email", email.toUpperCase(Locale.ROOT), "password", "wrong"), null, ip)
+                    .andExpect(status().isUnauthorized());
         send("/login", Map.of("email", email, "password", PASSWORD), null, "203.0.113.9")
-                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "900"))
-                .andExpect(jsonPath("$.code").value("identity.too_many_attempts"));
+                .andExpect(status().isOk());
+        send("/login", Map.of("email", email, "password", PASSWORD), null, ip)
+                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "900"));
         now = now.plusSeconds(899);
         send("/login", Map.of("email", email, "password", PASSWORD), null, ip)
                 .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "1"));
         now = now.plusSeconds(1);
         login();
-        // Change IPs to isolate the email counter; success must not clear IP failures.
-        for (int i = 0; i < 4; i++)
-            send("/login", Map.of("email", email.toUpperCase(Locale.ROOT), "password", "wrong"), null, "198.51.100." + (10 + i))
+        for (int round = 0; round < 2; round++) {
+            for (int i = 0; i < 4; i++)
+                send("/login", Map.of("email", email, "password", "wrong"), null, ip)
+                        .andExpect(status().isUnauthorized());
+            login();
+        }
+    }
+
+    @Test
+    void globalEmailLimitDelaysWithoutBlockingCorrectCredentials() throws Exception {
+        for (int i = 0; i < 20; i++)
+            send("/login", Map.of("email", email, "password", "wrong"), null, "198.51.100." + i)
+                    .andExpect(status().isUnauthorized());
+        long started = System.nanoTime();
+        login();
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isGreaterThanOrEqualTo(Duration.ofSeconds(2));
+        now = now.plusSeconds(900);
+        login();
+    }
+
+    @Test
+    void fiveFailuresForDifferentEmailsDoNotBlockAnotherAccountOnTheSameIp() throws Exception {
+        for (int i=0;i<5;i++)
+            send("/login", Map.of("email", "other"+i+"@example.org", "password", "wrong"), null, ip)
                     .andExpect(status().isUnauthorized());
         login();
-        for (int i = 0; i < 4; i++)
-            send("/login", Map.of("email", email, "password", "wrong"), null, "198.51.100." + (20 + i))
-                    .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.invalid_credentials"));
-        // Five recorded failures are allowed; the following attempt is rate-limited.
-        send("/login", Map.of("email", email, "password", "wrong"), null, "198.51.100.24").andExpect(status().isUnauthorized());
-        send("/login", Map.of("email", email, "password", PASSWORD), null, "198.51.100.25")
-                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "900"));
     }
 
     @Test
     void rateLimitByIpIgnoresEmailAndForwardedHeaderChangesAndDoesNotLimitOtherEndpoints() throws Exception {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 30; i++)
             send("/login", Map.of("email", "unknown" + i + "@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/login").with(r -> { r.setRemoteAddr(ip); return r; })
                 .header("X-Forwarded-For", "198.51.100.8").contentType(MediaType.APPLICATION_JSON)
@@ -225,10 +241,10 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void successfulLoginDoesNotClearIpFailures() throws Exception {
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 29; i++)
             send("/login", Map.of("email", "unknown" + i + "@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
         login();
-        send("/login", Map.of("email", "fifth@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
+        send("/login", Map.of("email", "thirtieth@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
         send("/login", Map.of("email", email, "password", PASSWORD), null, ip).andExpect(status().isTooManyRequests());
     }
 

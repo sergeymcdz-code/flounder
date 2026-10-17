@@ -125,10 +125,17 @@ class Qa04Round2M02IntegrationTest extends Qa04M02Fixture {
             mvc.perform(r).andExpect(status().isUnauthorized());
         }
         call("/login",Map.of("email","another@qa04.example","password","wrong"),null)
+                .andExpect(status().isUnauthorized());
+        for(int i=0;i<24;i++)
+            call("/login",Map.of("email","ip-limit-"+i+"@qa04.example","password","wrong"),null)
+                    .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(Map.of("email","new-ip-limit@qa04.example","password","wrong")))
+                .with(q->{q.setRemoteAddr(remoteIp);return q;}).header("X-Forwarded-For","198.51.100.8"))
                 .andExpect(status().isTooManyRequests()).andExpect(header().exists("Retry-After"));
         remoteIp="203.0.113.200";
-        call("/login",Map.of("email",ids.get("participantEmail").toUpperCase(Locale.ROOT),"password","wrong"),null)
-                .andExpect(status().isTooManyRequests());
+        call("/login",Map.of("email",ids.get("participantEmail").toUpperCase(Locale.ROOT),"password",PASSWORD),null)
+                .andExpect(status().isOk());
     }
     @Test void resetTimingIsMeasuredWithoutFlakySecurityThreshold() throws Exception {
         List<Long> known=new ArrayList<>(),missing=new ArrayList<>();

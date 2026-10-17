@@ -93,6 +93,7 @@ app:
   auth:
     login:
       max-failures: ${APP_AUTH_LOGIN_MAX_FAILURES:5}
+      max-failures-per-ip: ${APP_AUTH_LOGIN_MAX_FAILURES_PER_IP:30}
       window: ${APP_AUTH_LOGIN_WINDOW:PT15M}
   public-url: ${APP_PUBLIC_URL:http://localhost:5173}
   files:

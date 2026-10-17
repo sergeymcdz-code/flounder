@@ -48,7 +48,7 @@ class LoginUseCaseTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").value("refresh"));
         var order = inOrder(manager, limiter, sessions);
         order.verify(manager).authenticate(any());
-        order.verify(limiter).succeeded("user@qa04.example");
+        order.verify(limiter).succeeded("user@qa04.example", "127.0.0.1");
         order.verify(sessions).issue(principal, null);
         verify(limiter, never()).failed(anyString(), anyString());
     }
@@ -66,7 +66,7 @@ class LoginUseCaseTest {
                 .andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("internal_error"))
                 .andExpect(jsonPath("$.message").value("Непредвиденная внутренняя ошибка сервера"));
         verifyNoInteractions(users, sessions, encoder);
-        verify(limiter, never()).succeeded(anyString());
+        verify(limiter, never()).succeeded(anyString(), anyString());
         verify(limiter, never()).failed(anyString(), anyString());
     }
     static Stream<AuthenticationException> credentialFailures() {
@@ -81,7 +81,7 @@ class LoginUseCaseTest {
                 .content("{\"email\":\"user@qa04.example\",\"password\":\"test-password\"}"))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.invalid_credentials"));
         verifyNoInteractions(users, sessions, encoder);
-        verify(limiter, never()).succeeded(anyString());
+        verify(limiter, never()).succeeded(anyString(), anyString());
         verify(limiter).failed("user@qa04.example", "127.0.0.1");
     }
     @ParameterizedTest
@@ -97,7 +97,7 @@ class LoginUseCaseTest {
                 .andExpect(jsonPath("$.code").value(correctPassword ? "identity.user_blocked" : "identity.invalid_credentials"));
         verify(encoder).matches("test-password", "test-hash");
         verifyNoInteractions(sessions);
-        verify(limiter, never()).succeeded(anyString());
+        verify(limiter, never()).succeeded(anyString(), anyString());
         verify(limiter, correctPassword ? never() : times(1)).failed("user@qa04.example", "127.0.0.1");
     }
 }
