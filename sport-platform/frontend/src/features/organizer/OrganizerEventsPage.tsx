@@ -75,7 +75,7 @@ export function OrganizerEventsPage() {
         setErrorMessage(null)
 
         try {
-          const data = await getMyEvents(authenticatedAccessToken, currentOrgId)
+          const data = await getMyEvents(authenticatedAccessToken, isPlatformAdmin ? undefined : currentOrgId)
 
           if (isMounted) {
             setEvents(data)
@@ -96,7 +96,7 @@ export function OrganizerEventsPage() {
       return () => {
         isMounted = false
       }
-    }, [accessToken, currentOrgId])
+    }, [accessToken, currentOrgId, isPlatformAdmin])
 
   return (
     <section className={styles.page}>

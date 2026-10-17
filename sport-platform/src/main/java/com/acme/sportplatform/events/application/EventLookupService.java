@@ -35,7 +35,7 @@ public class EventLookupService implements EventLookup {
     @Override
     public java.util.Set<UUID> accessibleEventIds(UUID userId) {
         return eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
-                        organizations.organizationIdsOf(userId), userId).stream()
+                        organizations.manageableOrganizationIdsOf(userId), userId).stream()
                 .map(EventEntity::getId).collect(java.util.stream.Collectors.toSet());
     }
 

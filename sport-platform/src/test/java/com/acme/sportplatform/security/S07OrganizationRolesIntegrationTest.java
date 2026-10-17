@@ -57,6 +57,78 @@ class S07OrganizationRolesIntegrationTest extends Qa04SecurityFixture {
         mvc.perform(get("/api/v1/events/{id}", id("event")).header("Authorization", bearer)).andExpect(status().isForbidden());
     }
     @Test
+    void globalOperatorCannotReadObserverOrganizationRegistrationsInUnfilteredList() throws Exception {
+        jdbc.update("update organization_members set member_role='member' where user_id=?", id("operator"));
+        member("foreignOrg", "operator", "operator");
+        String bearer = "Bearer " + token("operator");
+        for (String statusFilter : List.of("", "CONFIRMED")) {
+            var request = get("/api/v1/registrations").header("Authorization", bearer);
+            if (!statusFilter.isEmpty()) request.param("status", statusFilter);
+            mvc.perform(request).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(ids.get("foreignRegistration")));
+        }
+        mvc.perform(get("/api/v1/registrations").param("eventId", ids.get("event")).header("Authorization", bearer))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("events.access_denied"));
+        mvc.perform(get("/api/v1/organizer/events").header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+        jdbc.update("delete from organization_members where organization_id=? and user_id=?", id("foreignOrg"), id("operator"));
+        mvc.perform(get("/api/v1/registrations").header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+        jdbc.update("update events set created_by_user_id=? where id=?", id("operator"), id("event"));
+        mvc.perform(get("/api/v1/registrations").header("Authorization", bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(ids.get("registration")));
+    }
+
+    @Test
+    void optionalOrganizationDetailsAreStoredAsNullWhenCleared() throws Exception {
+        owner();
+        jdbc.update("update organizations set legal_name='Полное название',inn='123',contact_email='club@example.org',contact_phone='123',meta='{\"city\":\"Москва\"}' where id=?", id("org"));
+        mvc.perform(patch("/api/v1/organizations/{id}", id("org")).header("Authorization", "Bearer " + token("organizer"))
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(Map.of("type", "club", "name", "Клуб",
+                        "legalName", "  ", "inn", "", "contactEmail", "", "contactPhone", "  ", "city", ""))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.legalName").doesNotExist()).andExpect(jsonPath("$.city").doesNotExist());
+        em.flush(); em.clear();
+        var row = jdbc.queryForMap("select legal_name,inn,contact_email,contact_phone,meta::text from organizations where id=?", id("org"));
+        for (String field : List.of("legal_name", "inn", "contact_email", "contact_phone")) assertThat(row.get(field)).isNull();
+        assertThat(json.readTree((String) row.get("meta")).get("city").isNull()).isTrue();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"   "})
+    void invitationUsesOrganizationNameInsteadOfInviterEmailWhenFirstNameIsMissing(String firstName) throws Exception {
+        owner();
+        if (firstName != null) jdbc.update("insert into profiles(id,user_id,first_name,last_name,birth_date) values (?,?,?,'Приглашающий','2000-01-01')",
+                UUID.randomUUID(), id("organizer"), firstName);
+        createInvite(email("target"), "operator").andExpect(status().isCreated());
+        String payload = jdbc.queryForObject("select payload::text from notification_outbox where template_code='organization_invitation' and recipient_email=?", String.class, email("target"));
+        assertThat(json.readTree(payload).get("inviter").asText()).isEqualTo("Организация QA04");
+        assertThat(payload).doesNotContain(email("organizer"));
+    }
+
+    @Test
+    void invitationPayloadIsClearedAfterSentAndTerminalFailureButKeptForRetries() throws Exception {
+        owner();
+        createInvite(email("target"), "operator").andExpect(status().isCreated());
+        var outbox = new com.acme.sportplatform.notifications.infrastructure.NotificationOutboxRepository(jdbc, json);
+        var now = java.time.Instant.now().plusSeconds(1);
+        UUID invitationId = jdbc.queryForObject("select id from notification_outbox where template_code='organization_invitation' and recipient_email=?", UUID.class, email("target"));
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            var pending = outbox.lockPending(invitationId, now).orElseThrow();
+            outbox.failed(pending, now, "Тестовая ошибка доставки");
+            String payload = jdbc.queryForObject("select payload::text from notification_outbox where id=?", String.class, invitationId);
+            if (attempt < 5) assertThat(payload).contains("/invitations/"); else assertThat(payload).isEqualTo("{}");
+            now = now.plusSeconds(10L * (1L << (attempt - 1)));
+        }
+        assertThat(jdbc.queryForObject("select status from notification_outbox where id=?", String.class, invitationId)).isEqualTo("FAILED");
+        createInvite(email("participant"), "judge").andExpect(status().isCreated());
+        UUID sentId = jdbc.queryForObject("select id from notification_outbox where template_code='organization_invitation' and recipient_email=?", UUID.class, email("participant"));
+        outbox.sent(sentId, now);
+        assertThat(jdbc.queryForMap("select status,payload::text from notification_outbox where id=?", sentId))
+                .containsEntry("status", "SENT").containsEntry("payload", "{}");
+    }
+
+    @Test
     void judgeEntersResultsButCannotAdministerEventWithoutGlobalRoles() throws Exception {
         noGlobalRoles("judge");
         String bearer = "Bearer " + token("judge");

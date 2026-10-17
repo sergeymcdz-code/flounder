@@ -7,16 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
-import com.acme.sportplatform.organizations.OrganizationManagementAccess;
 
 @Service
 public class EventAccessService {
     private final EventRepository events;
-    private final OrganizationManagementAccess organizations;
 
-    public EventAccessService(EventRepository events, OrganizationManagementAccess organizations) {
+    public EventAccessService(EventRepository events) {
         this.events = events;
-        this.organizations = organizations;
     }
 
     @Transactional(readOnly = true)

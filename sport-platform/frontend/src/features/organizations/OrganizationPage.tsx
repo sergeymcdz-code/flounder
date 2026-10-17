@@ -6,6 +6,7 @@ import { getInvitations, createInvitation, revokeInvitation, memberRoleNames, in
 import { AdminDialog } from '../admin/AdminDialog'
 import styles from './Organization.module.css'
 
+const optionalFields = new Set(['legalName', 'inn', 'contactEmail', 'contactPhone', 'city'])
 const editableRoles = Object.entries(memberRoleNames).filter(([code]) => code !== 'owner')
 export function OrganizationPage() {
   const { currentOrgId } = useAuth()
@@ -45,7 +46,8 @@ function OrganizationEditor() {
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const values = new FormData(event.currentTarget)
-    const body = Object.fromEntries(values)
+    const body = Object.fromEntries(Array.from(values, ([name, value]) => [name,
+      optionalFields.has(name) && typeof value === 'string' ? value.trim() || null : value]))
     void mutate(async () => {
       await apiFetch(`/api/v1/organizations/${currentOrgId}`, { accessToken: token, method: 'PATCH', body: JSON.stringify(body) })
       await refreshProfile()

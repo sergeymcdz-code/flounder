@@ -119,11 +119,11 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public OrganizationResponse updateOrganization(UUID id, CreateOrganizationRequest request, UUID actor, boolean admin) {
         assertOwner(id, actor, admin);
         var entity = organizationRepository.findById(id).orElseThrow(this::organizationNotFound);
-        entity.setType(request.type()); entity.setName(request.name()); entity.setLegalName(request.legalName());
-        entity.setInn(request.inn()); entity.setContactEmail(request.contactEmail()); entity.setContactPhone(request.contactPhone());
+        entity.setType(request.type()); entity.setName(request.name()); entity.setLegalName(nullIfBlank(request.legalName()));
+        entity.setInn(nullIfBlank(request.inn())); entity.setContactEmail(nullIfBlank(request.contactEmail())); entity.setContactPhone(nullIfBlank(request.contactPhone()));
         try {
             var meta = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(entity.getMeta());
-            if (request.city() == null) meta.remove("city"); else meta.put("city", request.city());
+            meta.put("city", nullIfBlank(request.city()));
             entity.setMeta(meta.toString());
         } catch (JsonProcessingException e) { throw new IllegalStateException(e); }
         entity.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
@@ -176,6 +176,14 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     @Transactional(readOnly = true)
     public Set<UUID> organizationIdsOf(UUID userId) {
         return organizationMemberRepository.findAllByUserId(userId).stream()
+                .map(OrganizationMemberEntity::getOrganizationId).collect(java.util.stream.Collectors.toSet());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<UUID> manageableOrganizationIdsOf(UUID userId) {
+        return organizationMemberRepository.findAllByUserId(userId).stream()
+                .filter(member -> UserMembershipLookup.effectiveRole(member.getMemberRole()) != null)
                 .map(OrganizationMemberEntity::getOrganizationId).collect(java.util.stream.Collectors.toSet());
     }
 
@@ -270,6 +278,10 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
         var member = requireMember(organizationId, targetUserId);
         if (!admin) assertMutableMember(member, actor);
         organizationMemberRepository.delete(member);
+    }
+
+    private static String nullIfBlank(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String normalizeMemberRole(String role) {

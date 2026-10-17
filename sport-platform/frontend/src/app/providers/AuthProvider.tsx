@@ -1,6 +1,6 @@
 import {
   createContext,
-  useEffect, useState, useCallback,
+  useEffect, useState, useCallback, useMemo,
   useContext,
   useSyncExternalStore,
   type PropsWithChildren,
@@ -24,6 +24,7 @@ type JwtPayload = {
 }
 
 export type Membership = { organizationId: string; organizationName: string; memberRole: string }
+const EMPTY_MEMBERSHIPS: Membership[] = []
 type Profile = { id: string; roles: string[]; effectiveRoles: string[]; memberships: Membership[] }
 type AuthContextValue = {
   memberships: Membership[]
@@ -107,15 +108,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => { active = false }
   }, [token])
   const currentProfile = profile?.token === token ? profile.user : null
-  const memberships = currentProfile?.memberships ?? []
+  const memberships = currentProfile?.memberships ?? EMPTY_MEMBERSHIPS
   const currentOrgId = memberships.some(m => m.organizationId === selectedOrg) ? selectedOrg : memberships[0]?.organizationId ?? ''
-  function selectOrg(id: string) {
+  const selectOrg = useCallback((id: string) => {
     localStorage.setItem('flounder.current-org', id)
     setSelectedOrg(id)
-  }
+  }, [])
   const authLoading = !!token && profile?.token !== token
 
-  async function login(request: LoginRequest): Promise<void> {
+  const login = useCallback(async (request: LoginRequest): Promise<void> => {
     const response = await loginRequest(request)
 
     const nextSession: AuthSession = {
@@ -126,9 +127,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     setAuthSession(nextSession)
-  }
+  }, [])
 
-  async function logout() {
+  const logout = useCallback(async () => {
     const current = getAuthState().session
     setAuthSession(null)
     if (current?.refreshToken) {
@@ -136,17 +137,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         method: 'POST', body: JSON.stringify({ refreshToken: current.refreshToken }), skipRefresh: true,
       })
     }
-  }
+  }, [])
 
-  const roles = currentProfile?.effectiveRoles ?? getRoles(session?.accessToken ?? null)
+  const roles = useMemo(() => currentProfile?.effectiveRoles ?? getRoles(token || null), [currentProfile?.effectiveRoles, token])
 
-  function hasRole(role: string) {
-    return roles.includes(role.toLowerCase())
-  }
-
-  function hasAnyRole(requiredRoles: string[]) {
-    return requiredRoles.some((role) => roles.includes(role.toLowerCase()))
-  }
+  const hasRole = useCallback((role: string) => roles.includes(role.toLowerCase()), [roles])
+  const hasAnyRole = useCallback((requiredRoles: string[]) =>
+    requiredRoles.some(role => roles.includes(role.toLowerCase())), [roles])
 
   const isPlatformAdmin = roles.includes(ROLE_PLATFORM_ADMIN)
   const isOrganizer = roles.includes(ROLE_ORGANIZER)
@@ -154,9 +151,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const isParticipant = roles.includes(ROLE_PARTICIPANT)
   const isAdmin = isPlatformAdmin || isOrganizer
 
-  const value: AuthContextValue = {
+  const userId = currentProfile?.id ?? null
+  const value = useMemo<AuthContextValue>(() => ({
       session,
-      memberships, currentOrgId, selectOrg, userId: currentProfile?.id ?? null, authLoading, refreshProfile,
+      memberships, currentOrgId, selectOrg, userId, authLoading, refreshProfile,
       isAuthenticated: session !== null,
       roles,
       hasRole,
@@ -169,7 +167,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       logout,
       sessionMessage,
-  }
+  }), [session, memberships, currentOrgId, selectOrg, userId, authLoading, refreshProfile,
+    roles, hasRole, hasAnyRole, isPlatformAdmin, isOrganizer, isOperator, isParticipant,
+    isAdmin, login, logout, sessionMessage])
 
   return (
     <AuthContext.Provider value={value}>

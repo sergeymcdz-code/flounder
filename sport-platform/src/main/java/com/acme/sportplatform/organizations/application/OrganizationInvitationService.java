@@ -46,9 +46,12 @@ public class OrganizationInvitationService {
         byte[] bytes = new byte[32]; random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         var invitation = invitations.create(organizationId, email, request.memberRole(), hash(token), principal.getUserId(), now);
-        String name = users.findById(principal.getUserId()).map(u -> u.firstName() == null ? u.email() : u.firstName()).orElse("Администратор");
+        String organizationName = organizations.nameById(organizationId);
+        String name = users.findById(principal.getUserId()).map(UserLookup.User::firstName)
+                .filter(firstName -> !firstName.isBlank()).map(String::trim)
+                .orElse("Организация " + organizationName);
         events.publishEvent(new OrganizationInvitationCreatedEvent(invitation.id(), email, name,
-                organizations.nameById(organizationId), request.memberRole(), token));
+                organizationName, request.memberRole(), token));
         return invitation.response();
     }
     public List<OrganizationInvitationResponse> list(UUID organizationId, String status, AuthenticatedUserPrincipal principal) {

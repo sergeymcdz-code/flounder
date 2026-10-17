@@ -52,3 +52,28 @@ it('restores a valid selection and shows a single organization as text', async (
   expect(await screen.findByText('Первый клуб')).toBeInTheDocument()
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 })
+
+it('shows all events for a platform administrator even with a selected membership', async () => {
+  const filters: (string | null)[] = []
+  server.use(
+    http.get('*/api/v1/auth/me', () => HttpResponse.json({ id: 'admin', roles: ['platform_admin'], effectiveRoles: ['platform_admin'], memberships })),
+    http.get('*/api/v1/organizer/events', ({ request }) => {
+      const organization = new URL(request.url).searchParams.get('organizationId')
+      filters.push(organization)
+      const events = [
+        { id: 'one', title: 'Первый старт', organizationId: 'one', status: 'DRAFT', eventStartAt: '2030-01-01T10:00:00Z' },
+        { id: 'two', title: 'Второй старт', organizationId: 'two', status: 'DRAFT', eventStartAt: '2030-01-01T10:00:00Z' },
+      ]
+      return HttpResponse.json(organization ? events.filter(event => event.organizationId === organization) : events)
+    }),
+  )
+  render(<MemoryRouter><AuthProvider><OrganizationSwitcher /><OrganizerEventsPage /></AuthProvider></MemoryRouter>)
+  const selector = await screen.findByRole('combobox', { name: 'Организация' })
+  await screen.findByText('Второй старт')
+  expect(screen.getByText('Первый старт')).toBeInTheDocument()
+  await userEvent.selectOptions(selector, 'two')
+  await vi.waitFor(() => expect(filters.length).toBeGreaterThanOrEqual(2))
+  expect(filters.every(filter => filter === null)).toBe(true)
+  expect(screen.getByText('Первый старт')).toBeInTheDocument()
+  expect(screen.getByText('Второй старт')).toBeInTheDocument()
+})

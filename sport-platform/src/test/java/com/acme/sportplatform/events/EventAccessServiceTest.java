@@ -9,14 +9,12 @@ import com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrinc
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.events.infrastructure.persistence.entity.EventEntity;
 import com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository;
-import com.acme.sportplatform.organizations.OrganizationManagementAccess;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class EventAccessServiceTest {
     private final EventRepository events = mock(EventRepository.class);
-    private final OrganizationManagementAccess organizations = mock(OrganizationManagementAccess.class);
-    private final EventAccessService access = new EventAccessService(events, organizations);
+    private final EventAccessService access = new EventAccessService(events);
     private final UUID eventId = UUID.randomUUID();
     private final UUID organizationId = UUID.randomUUID();
     private final UUID creator = UUID.randomUUID();
@@ -32,7 +30,6 @@ class EventAccessServiceTest {
     void permitsCreatorWithoutMembership() {
         existingEvent();
         access.assertCanManage(eventId, () -> creator);
-        verifyNoInteractions(organizations);
     }
 
     @Test
@@ -59,7 +56,6 @@ class EventAccessServiceTest {
         var principal = new PlatformUserPrincipal(UUID.randomUUID(), "admin@example.com", "", "active",
                 List.of(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN")));
         access.assertCanManage(eventId, principal);
-        verifyNoInteractions(organizations);
     }
     @Test
     void memberCanViewButCannotManageEvenWithGlobalOperatorRole() {
