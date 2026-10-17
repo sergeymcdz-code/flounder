@@ -34,7 +34,7 @@ export function OrganizerEventLayout() {
 
 function OrganizerEventContent() {
   const { eventId = '' } = useParams()
-  const { session, logout, isOrganizer, isPlatformAdmin } = useAuth()
+  const { session, logout, isOrganizer, isPlatformAdmin, isOperator } = useAuth()
   const token = session?.accessToken ?? ''
   const navigate = useNavigate()
   const location = useLocation()
@@ -201,6 +201,7 @@ function OrganizerEventContent() {
           ['', 'Обзор'],
           ['program', 'Сессии и виды'],
           ['entries', 'Заявки'],
+          ...(isOrganizer || isPlatformAdmin || isOperator ? [['payments', 'Оплата']] : []),
           ['heats', 'Заплывы'],
           ['results', 'Результаты'],
           ['notifications', 'Уведомления'],

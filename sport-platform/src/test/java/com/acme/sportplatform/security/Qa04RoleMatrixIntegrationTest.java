@@ -53,7 +53,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             case "admin", "owner" -> actor.equals("platform_admin");
             case "participant" -> actor.equals("participant");
             case "organize" -> Set.of("organizer", "foreign_organizer", "platform_admin").contains(actor);
-            case "manage" -> Set.of("operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
+            case "manage", "manage-finance" -> Set.of("operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "manage-read" -> Set.of("judge", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "documents", "signed-document" -> Set.of("participant", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "withdraw" -> Set.of("participant", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
@@ -171,6 +171,8 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             case "unit-draft" -> jdbc.update("update competition_units set status='DRAFT' where id=?", id("unit"));
             case "unit-published" -> jdbc.update("update competition_units set status='PUBLISHED' where id=?", id("unit"));
             case "unit-in-progress" -> jdbc.update("update competition_units set status='IN_PROGRESS' where id=?", id("unit"));
+            case "registration-confirmed" -> jdbc.update("update registrations set status='CONFIRMED',payment_status='PENDING',fee_amount=500,fee_currency='RUB' where id=?", id("registration"));
+            case "registration-paid" -> jdbc.update("update registrations set status='PAID',payment_status='PAID',fee_amount=500,paid_amount=500,fee_currency='RUB' where id=?", id("registration"));
             case "registration-submitted" -> jdbc.update("update registrations set status='SUBMITTED' where id=?", id("registration"));
             case "registration-correction" -> jdbc.update("update registrations set status='NEEDS_CORRECTION' where id=?", id("registration"));
             case "version-draft" -> jdbc.update("update regulation_versions set status='draft' where id=?", id("version"));

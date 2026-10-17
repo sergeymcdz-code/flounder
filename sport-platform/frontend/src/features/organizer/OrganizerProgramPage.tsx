@@ -370,6 +370,8 @@ function DisciplineEditor({
   const { event, sessions, accessToken, busy, run } = useOrganizerEvent()
   const [form, setForm] = useState<DisciplineInput>(
     discipline ? { ...discipline, maxParticipants: discipline.maxParticipants ?? null, limitsByAgeGroup: discipline.limitsByAgeGroup ?? {} } : {
+      entryFeeAmount: 0,
+      entryFeeCurrency: 'RUB',
       maxParticipants: null,
       limitsByAgeGroup: {},
       code: '',
@@ -479,6 +481,8 @@ function DisciplineEditor({
       onClose={onClose}
     >
       <form className={styles.form} onSubmit={submit}>
+        <label className={styles.field}>Взнос за дистанцию<input disabled={busy || event.status === 'ARCHIVED'} type="number" min="0" step="0.01" value={form.entryFeeAmount ?? ''} onChange={e => patch('entryFeeAmount', e.target.value === '' ? null : Number(e.target.value))} /></label>
+        <label className={styles.field}>Валюта взноса<input disabled={busy || event.status === 'ARCHIVED'} pattern="[A-Z]{3}" maxLength={3} value={form.entryFeeCurrency ?? 'RUB'} onChange={e => patch('entryFeeCurrency', e.target.value.toUpperCase())} /></label>
         <label className={styles.field}>
           Шаблон
           <select

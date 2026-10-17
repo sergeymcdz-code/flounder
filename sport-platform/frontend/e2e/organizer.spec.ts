@@ -13,6 +13,19 @@ async function login(page: Page) {
   ).toBeVisible()
 }
 
+// Set up the submitted/re-submitted state through the existing MSW fixture API.
+async function submitMockRegistration(page: Page, index: number) {
+  await page.evaluate(async (index) => {
+    const { accessToken } = JSON.parse(sessionStorage.getItem('flounder.auth-session')!)
+    const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+    const rows = await (await fetch('/api/v1/registrations', { headers })).json()
+    const response = await fetch(`/api/v1/registrations/${rows[index].id}/review`, {
+      method: 'POST', headers, body: JSON.stringify({ decision: 'SUBMITTED', reviewNote: null }),
+    })
+    if (!response.ok) throw new Error('Could not prepare submitted registration fixture')
+  }, index)
+}
+
 async function mockTemplates(
   page: Page,
   mode: 'mixed' | 'empty' | 'failure' | 'forbidden' | 'unauthorized',
@@ -231,6 +244,8 @@ test('backend field errors stay beside inputs; event and result publication refr
     'Завершить соревнование',
   ]) {
     await page.getByRole('button', { name: action, exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await page
       .getByRole('status')
       .filter({ hasText: 'Выполняем действие' })
@@ -368,6 +383,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   page,
 }) => {
   await login(page)
+  await submitMockRegistration(page, 1)
   await page
     .getByRole('navigation', { name: 'Разделы события' })
     .getByRole('link', { name: 'Сессии и виды', exact: true })
@@ -400,7 +416,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .getByRole('navigation', { name: 'Разделы события' })
     .getByRole('link', { name: 'Заявки', exact: true })
     .click()
-  row = page.getByRole('row').nth(1)
+  row = page.getByRole('row').nth(2)
   await row.getByRole('button', { name: 'Вернуть', exact: true }).click()
   await page
     .getByRole('dialog')
@@ -411,26 +427,23 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .getByRole('button', { name: 'Сохранить решение' })
     .click()
   await expect(row).toContainText('На исправлении')
-  await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Сохранить решение' })
-    .click()
-  await expect(row).toContainText('Подтверждена')
-  const timeButton = row.getByRole('button', { name: '00:32.15', exact: true })
+  await submitMockRegistration(page, 1)
+  const timeButton = row.getByRole('button', { name: '00:32.73', exact: true })
   await timeButton.click()
   await row.getByRole('textbox').fill('00:31.25')
   await row.getByRole('button', { name: 'Сохранить', exact: true }).click()
   await expect(
     row.getByRole('button', { name: '00:31.25', exact: true }),
   ).toBeVisible()
+  await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Сохранить решение' }).click()
+  await expect(row).toContainText('Подтверждена')
   const paymentRow = page.getByRole('row').nth(2)
   await paymentRow
-    .getByRole('button', { name: 'Оплачено', exact: true })
+    .getByRole('button', { name: 'Отметить оплату…', exact: true })
     .click()
-  await expect(
-    paymentRow.getByRole('cell', { name: 'Оплачено', exact: true }),
-  ).toHaveCount(2)
+  await page.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  await expect(paymentRow.getByTitle('Статус оплаты')).toHaveText('Оплачено')
   const rejectedRow = page.getByRole('row').nth(3)
   await rejectedRow
     .getByRole('button', { name: 'Отклонить', exact: true })
@@ -444,6 +457,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .getByRole('button', { name: 'Сохранить решение' })
     .click()
   await expect(rejectedRow).toContainText('Отклонена')
+  row = page.getByRole('row').nth(1)
   await row.getByRole('button', { name: 'Снять', exact: true }).click()
   await page
     .getByRole('dialog')
@@ -462,9 +476,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   })
   await expect(violation).toBeVisible()
   await violation.click()
-  await expect(page.locator('article[id^="heat-"]').first()).toHaveClass(
-    /highlight/,
-  )
+  await expect(page.locator('article[id^="heat-"][class*="highlight"]')).toHaveCount(1)
 })
 
 test('template selection, optional code, explicit payloads and registration refresh scope', async ({
@@ -661,10 +673,10 @@ test('generation admission persists across tabs with nested and flat summaries',
         /[А-Яа-я]/,
       )
     await page
-      .getByRole('combobox', { name: /^Статус/ })
+      .getByRole('combobox', { name: /^Статус(?! оплаты)/ })
       .selectOption('EXCLUDED')
     await expect(page.getByRole('row')).toHaveCount(5)
-    await page.getByRole('combobox', { name: /^Статус/ }).selectOption('')
+    await page.getByRole('combobox', { name: /^Статус(?! оплаты)/ }).selectOption('')
     await expect(page.getByText('✓', { exact: true }).first()).toBeVisible()
   }
   await expect(

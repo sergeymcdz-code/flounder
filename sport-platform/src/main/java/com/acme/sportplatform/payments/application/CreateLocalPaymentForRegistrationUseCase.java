@@ -22,6 +22,7 @@ import com.acme.sportplatform.registrations.RegistrationLookupResult;
 @Service
 public class CreateLocalPaymentForRegistrationUseCase {
 
+    private final com.acme.sportplatform.registrations.RegistrationPaymentLookup registrationPayments;
     private final RegistrationLookup registrationLookup;
     private final EventDisciplineLookup eventDisciplineLookup;
     private final PaymentRepository paymentRepository;
@@ -32,7 +33,9 @@ public class CreateLocalPaymentForRegistrationUseCase {
             EventDisciplineLookup eventDisciplineLookup,
             PaymentRepository paymentRepository,
             PaymentProviderProperties paymentProviderProperties
-    ) {
+    , com.acme.sportplatform.registrations.RegistrationPaymentLookup registrationPayments) {
+        this.registrationPayments = registrationPayments;
+
         this.registrationLookup = registrationLookup;
         this.eventDisciplineLookup = eventDisciplineLookup;
         this.paymentRepository = paymentRepository;
@@ -62,12 +65,19 @@ public class CreateLocalPaymentForRegistrationUseCase {
             );
         }
 
+        var fee = registrationPayments.paymentFee(registrationId);
+        if (!fee.enabled() || fee.perEvent())
+            throw new BusinessException("payments.not_required","Онлайн-оплата для этой заявки не требуется");
         if (paymentRepository.findByRegistrationId(registrationId).isPresent()) {
             throw new BusinessException(
                     "payments.already_exists",
                     "Платёж для этой заявки уже существует"
             );
         }
+
+        if (java.util.Set.of("PAID", "WAIVED").contains(fee.paymentStatus())
+                || fee.amount() != null && fee.amount().signum() <= 0)
+            throw new BusinessException("payments.not_required", "Оплата для этой заявки не требуется");
 
         if (!"CONFIRMED".equals(registration.status())) {
             throw new BusinessException(
@@ -89,7 +99,7 @@ public class CreateLocalPaymentForRegistrationUseCase {
             );
         }
 
-        BigDecimal amount = discipline.entryFeeAmount();
+        BigDecimal amount = fee.amount()==null ? discipline.entryFeeAmount() : fee.amount();
 
         if (amount == null || amount.signum() <= 0) {
             throw new BusinessException(
@@ -104,7 +114,7 @@ public class CreateLocalPaymentForRegistrationUseCase {
         payment.setId(UUID.randomUUID());
         payment.setRegistrationId(registration.id());
         payment.setAmount(amount);
-        payment.setCurrency(discipline.entryFeeCurrency());
+        payment.setCurrency(fee.currency()==null ? discipline.entryFeeCurrency() : fee.currency());
         payment.setStatus(PaymentStatus.CREATED.name());
         payment.setProvider(
                 paymentProviderProperties.getProvider().name()

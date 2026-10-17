@@ -27,6 +27,8 @@ export type Session = {
   breakBetweenEventsSec: number
 }
 export type Discipline = {
+  entryFeeAmount?: number | null
+  entryFeeCurrency?: string | null
   id: string
   number: number
   name: string
@@ -38,6 +40,7 @@ export type Discipline = {
   unitsPublished: boolean
 }
 export type PublicEvent = {
+  payment?: import('../../api/registration-payments.api').PaymentSettings | null
   id: string
   sportId: string
   status: EventStatus

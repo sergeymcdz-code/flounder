@@ -208,4 +208,28 @@ public class RegistrationEntity {
         this.reviewedAt = reviewedAt; 
     }
 
+    private java.math.BigDecimal feeAmount;
+    public java.math.BigDecimal getFeeAmount() { return feeAmount; }
+    public void setFeeAmount(java.math.BigDecimal value) { feeAmount = value; }
+    private String feeCurrency;
+    public String getFeeCurrency() { return feeCurrency; }
+    public void setFeeCurrency(String value) { feeCurrency = value; }
+    private java.math.BigDecimal paidAmount;
+    public java.math.BigDecimal getPaidAmount() { return paidAmount; }
+    public void setPaidAmount(java.math.BigDecimal value) { paidAmount = value; }
+    private OffsetDateTime paidAt;
+    public OffsetDateTime getPaidAt() { return paidAt; }
+    public void setPaidAt(OffsetDateTime value) { paidAt = value; }
+    private UUID paidByUserId;
+    public UUID getPaidByUserId() { return paidByUserId; }
+    public void setPaidByUserId(UUID value) { paidByUserId = value; }
+    private String paymentMethod;
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String value) { paymentMethod = value; }
+    private String paymentComment;
+    public String getPaymentComment() { return paymentComment; }
+    public void setPaymentComment(String value) { paymentComment = value; }
+    private String paymentReference;
+    public String getPaymentReference() { return paymentReference; }
+    public void setPaymentReference(String value) { paymentReference = value; }
 }

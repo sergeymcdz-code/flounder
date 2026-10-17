@@ -20,11 +20,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 @Transactional(readOnly = true)
 public class PublicPublicationService {
+    private final com.acme.sportplatform.events.EventPublicLookup events;
+    private final com.acme.sportplatform.competition.EventDisciplineLookup eventDisciplines;
     private final PublicationReadRepository reads;
     private final ObjectMapper mapper;
     private final Clock clock;
     public PublicPublicationService(PublicationReadRepository reads, ObjectMapper mapper,
-            @Qualifier("publicationClock") Clock clock) {
+            @Qualifier("publicationClock") Clock clock, com.acme.sportplatform.events.EventPublicLookup events, com.acme.sportplatform.competition.EventDisciplineLookup eventDisciplines) {
+        this.events = events; this.eventDisciplines = eventDisciplines;
+
         this.reads = reads;
         this.mapper = mapper; this.clock = clock;
     }
@@ -34,6 +38,7 @@ public class PublicPublicationService {
         var event = requireEvent(slug);
         var disciplines = reads.disciplines(event.id());
         var capacity = reads.capacity(event.id());
+        var fees = eventDisciplines.findPublishedByEventId(event.id()).stream().collect(Collectors.toMap(com.acme.sportplatform.competition.EventDisciplineSummary::id,Function.identity()));
         Set<UUID> published = reads.units(event.id()).stream().map(ReadModels.Unit::disciplineId).collect(Collectors.toSet());
         JsonNode meta = json(event.venueMeta());
         Venue venue = event.venueName() == null ? null : new Venue(event.venueName(), event.venueCity(),
@@ -42,7 +47,7 @@ public class PublicPublicationService {
                 event.registrationCloseAt(), event.eventStartAt(), event.eventEndAt(), event.status(), event.slug(),
                 registrationOpen(event), venue, sessionViews(event.id()),
                 disciplines.stream().map(d -> new Discipline(d.id(), d.number(), d.name(), d.distanceM(), d.stroke(),
-                        d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()))).toList(), capacity.maxParticipants(), capacity.participantsCount());
+                        d.gender(), d.sessionId(), d.orderInSession(), published.contains(d.id()), fees.containsKey(d.id()) ? fees.get(d.id()).entryFeeAmount() : null, fees.containsKey(d.id()) ? fees.get(d.id()).entryFeeCurrency() : null)).toList(), capacity.maxParticipants(), capacity.participantsCount(), events.getPublicBySlug(slug).payment());
     }
 
     @Cacheable(cacheNames = "publicStartList", cacheManager = "publicationCacheManager")

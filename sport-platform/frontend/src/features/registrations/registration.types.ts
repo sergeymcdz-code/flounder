@@ -27,11 +27,12 @@ export type RegistrationStatus =
   | 'SUBMITTED'
   | 'CONFIRMED'
   | 'PAID'
+  | 'ADMITTED'
   | 'REJECTED'
   | 'NEEDS_CORRECTION'
   | 'CANCELLED'
 
-export type Registration = {
+export type Registration = import('../../api/registration-payments.api').PaymentDetails & {
   waitlistPosition?: number | null
   id: string
   eventId: string

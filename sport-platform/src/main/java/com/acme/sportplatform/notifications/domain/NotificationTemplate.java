@@ -7,6 +7,7 @@ import java.util.List;
 public enum NotificationTemplate {
     registration_submitted("Заявка принята"),
     registration_confirmed("Заявка подтверждена"),
+    payment_reminder("Напоминание об оплате участия"),
     registration_rejected("Заявка отклонена"),
     start_list_published("Стартовый протокол опубликован"),
     results_published("Результаты опубликованы"),

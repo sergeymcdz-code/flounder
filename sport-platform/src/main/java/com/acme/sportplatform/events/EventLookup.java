@@ -7,6 +7,8 @@ public interface EventLookup {
 
     java.util.Map<UUID, java.time.LocalDate> startDates(java.util.Collection<UUID> eventIds);
 
+    java.util.Map<UUID, String> settingsJson(java.util.Collection<UUID> eventIds);
+
     Set<UUID> accessibleEventIds(UUID userId);
 
     EventLookupResult getById(UUID eventId);

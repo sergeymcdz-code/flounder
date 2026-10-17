@@ -813,7 +813,7 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
         assertEquals("PAID", paid.path("status").asText());
         assertEquals("PAID", paid.path("paymentStatus").asText());
         assertEquals(
-                "registrations.payment_not_applicable",
+                "registrations.already_paid",
                 call(
                                 post("/api/v1/registrations/{id}/mark-paid", id),
                                 owner("OPERATOR", a),

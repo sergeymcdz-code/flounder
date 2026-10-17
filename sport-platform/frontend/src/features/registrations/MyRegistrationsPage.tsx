@@ -1,3 +1,5 @@
+import { RegistrationPaymentBlock } from '../payments/RegistrationPaymentBlock'
+import { paymentInstructions, type PaymentSettings } from '../../api/registration-payments.api'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
@@ -26,6 +28,7 @@ function getStatusLabel(status: RegistrationStatus) {
   SUBMITTED: 'На рассмотрении',
     CONFIRMED: 'Подтверждена',
     PAID: 'Оплачена',
+    ADMITTED: 'Допущена',
     REJECTED: 'Отклонена',
     NEEDS_CORRECTION: 'Требует уточнения',
     CANCELLED: 'Отменена',
@@ -40,6 +43,7 @@ function getStatusClassName(status: RegistrationStatus) {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,
+    ADMITTED: styles.statusConfirmed,
     REJECTED: styles.statusRejected,
     NEEDS_CORRECTION: styles.statusCorrection,
     CANCELLED: styles.statusCancelled,
@@ -63,6 +67,7 @@ function getStatusHint(status: RegistrationStatus) {
     CONFIRMED:
       'Заявка подтверждена. Перейдите к оплате участия.',
     PAID: 'Оплата участия подтверждена.',
+    ADMITTED: 'Заявка допущена к участию.',
     NEEDS_CORRECTION:
       'Организатор запросил уточнение данных. Ознакомьтесь с комментарием и свяжитесь с организатором при необходимости.',
     REJECTED:
@@ -80,6 +85,7 @@ function getStatusHintClassName(status: RegistrationStatus) {
     SUBMITTED: styles.hintSubmitted,
     CONFIRMED: styles.hintConfirmed,
     PAID: styles.hintConfirmed,
+    ADMITTED: styles.hintConfirmed,
     NEEDS_CORRECTION: styles.hintCorrection,
     REJECTED: styles.hintRejected,
     CANCELLED: styles.hintCancelled,
@@ -93,6 +99,7 @@ export function MyRegistrationsPage() {
   const accessToken = session?.accessToken
   const [searchParams] = useSearchParams()
 
+  const [instructions, setInstructions] = useState<Record<string, PaymentSettings>>({})
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -109,6 +116,9 @@ export function MyRegistrationsPage() {
     try {
       const response = await getMyRegistrations(accessToken)
       setRegistrations(response)
+      const events = [...new Set(response.map(r => r.eventId))]
+      const settings = await Promise.all(events.map(async id => [id, await paymentInstructions(id, accessToken).catch(() => undefined)] as const))
+      setInstructions(Object.fromEntries(settings.filter((entry): entry is readonly [string, PaymentSettings] => entry[1] !== undefined)))
     } catch (error) {
       const message =
         error instanceof ApiError && error.status === 401
@@ -218,7 +228,8 @@ export function MyRegistrationsPage() {
                   ) : null}
                 </dl>
 
-                {statusHint ? (
+                <RegistrationPaymentBlock registration={registration} settings={instructions[registration.eventId]} />
+                {statusHint && (!['CONFIRMED', 'PAID', 'ADMITTED'].includes(registration.status) || registration.paymentStatus == null) ? (
                   <p
                     className={getStatusHintClassName(
                       registration.status,
@@ -235,7 +246,7 @@ export function MyRegistrationsPage() {
                   </div>
                 ) : null}
 
-                {registration.status === 'CONFIRMED' ? (
+                {['CONFIRMED', 'ADMITTED'].includes(registration.status) && instructions[registration.eventId]?.enabled !== false && (!registration.paymentStatus || registration.paymentStatus === 'PENDING') ? (
                   <div className={styles.actions}>
                     <Link
                       className={styles.primaryButton}

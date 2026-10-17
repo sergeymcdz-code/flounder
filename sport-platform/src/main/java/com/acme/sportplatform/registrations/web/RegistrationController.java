@@ -30,6 +30,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/v1/registrations")
 public class RegistrationController {
+    private final com.acme.sportplatform.registrations.application.RegistrationPaymentService payments;
     private final CreateRegistrationUseCase createRegistrationUseCase;
     private final ReviewRegistrationUseCase reviewRegistrationUseCase;
     private final ListMyRegistrationsUseCase listMyRegistrationsUseCase;
@@ -43,7 +44,9 @@ public class RegistrationController {
             ListMyRegistrationsUseCase listMyRegistrationsUseCase,
             ListRegistrationsForReviewUseCase listRegistrationsForReviewUseCase,
             GetRegistrationByIdUseCase getRegistrationByIdUseCase,
-            EventAccessService eventAccessService, RegistrationPaymentLookup registrationPaymentLookup) {
+            EventAccessService eventAccessService, RegistrationPaymentLookup registrationPaymentLookup, com.acme.sportplatform.registrations.application.RegistrationPaymentService payments) {
+        this.payments = payments;
+
         this.createRegistrationUseCase = createRegistrationUseCase;
         this.reviewRegistrationUseCase = reviewRegistrationUseCase;
         this.listMyRegistrationsUseCase = listMyRegistrationsUseCase;
@@ -74,9 +77,10 @@ public class RegistrationController {
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     @Operation(summary = "Отметить заявку как оплаченную")
     public RegistrationResponse markPaid(@PathVariable UUID registrationId,
+            @RequestBody(required=false) @Valid com.acme.sportplatform.registrations.api.PaymentRequests.MarkPaid request,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         eventAccessService.assertCanModify(registrationPaymentLookup.eventId(registrationId), principal);
-        registrationPaymentLookup.markPaid(registrationId);
+        payments.markPaid(registrationId, principal.getUserId(), request);
         return getRegistrationByIdUseCase.execute(registrationId);
     }
 
@@ -104,5 +108,33 @@ public class RegistrationController {
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         eventAccessService.assertCanManage(registrationPaymentLookup.eventId(registrationId), principal);
         return ResponseEntity.ok(getRegistrationByIdUseCase.execute(registrationId));
+    }
+
+    @PostMapping("/{id}/waive-payment")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
+    public RegistrationResponse waive(@PathVariable UUID id, @RequestBody @Valid com.acme.sportplatform.registrations.api.PaymentRequests.Comment request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        eventAccessService.assertCanModify(registrationPaymentLookup.eventId(id),principal);
+        payments.change(id,principal.getUserId(),"WAIVE",null,request.comment());return getRegistrationByIdUseCase.execute(id);
+    }
+    @PostMapping("/{id}/refund-payment")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
+    public RegistrationResponse refund(@PathVariable UUID id, @RequestBody @Valid com.acme.sportplatform.registrations.api.PaymentRequests.Refund request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        eventAccessService.assertCanModify(registrationPaymentLookup.eventId(id),principal);
+        payments.change(id,principal.getUserId(),"REFUND",request.amount(),request.comment());return getRegistrationByIdUseCase.execute(id);
+    }
+    @PostMapping("/{id}/reset-payment")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
+    public RegistrationResponse reset(@PathVariable UUID id, @RequestBody @Valid com.acme.sportplatform.registrations.api.PaymentRequests.Comment request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        eventAccessService.assertCanModify(registrationPaymentLookup.eventId(id),principal);
+        payments.change(id,principal.getUserId(),"RESET",null,request.comment());return getRegistrationByIdUseCase.execute(id);
+    }
+    @GetMapping("/{id}/payment-log")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
+    public java.util.List<com.acme.sportplatform.registrations.api.PaymentLogEntry> paymentLog(@PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        eventAccessService.assertCanManage(registrationPaymentLookup.eventId(id),principal); return payments.history(id);
     }
 }
