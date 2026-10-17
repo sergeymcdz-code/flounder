@@ -167,7 +167,7 @@ $ nano infra/.env.prod
 | `DOMAIN` | ваш домен без `https://`, например `demo.flounder.kz` |
 | `ACME_EMAIL` | ваша почта — Let's Encrypt пришлёт письмо, если сертификат не продлится |
 | `POSTGRES_PASSWORD` | строка из `openssl rand -hex 24` |
-| `JWT_SECRET` | строка из `openssl rand -base64 48` (минимум 32 символа) |
+| `JWT_SECRET` | строка из `openssl rand -base64 48` (Base64 от ≥32 случайных байт; проверяется при старте) |
 | `APP_CORS_ALLOWED_ORIGINS` | `https://` + домен, например `https://demo.flounder.kz` |
 | `APP_PAYMENTS_PROVIDER` | `MANUAL` (оставить) |
 | `DEMO_SEED` | `true` (оставить) |

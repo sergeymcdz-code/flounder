@@ -27,7 +27,8 @@ app:
     worker-enabled: false
   security:
     jwt:
-      secret: "change-me-change-me-change-me-change-me-change-me-please"
+      # Explicitly test-only: Base64 of a fixed 32-byte fixture.
+      secret: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
       issuer: "sport-platform-test"
       access-token-ttl: ${app.jwt.access-ttl:PT2H}
 

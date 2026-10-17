@@ -25,6 +25,7 @@ public class JwtService {
 
     private final JwtProperties jwtProperties;
     private final java.time.Clock clock;
+    private SecretKey key;
 
     public JwtService(JwtProperties jwtProperties,
             @org.springframework.beans.factory.annotation.Qualifier("identityClock") java.time.Clock clock) {
@@ -101,15 +102,17 @@ public class JwtService {
         return roles;
     }
 
-    private SecretKey signingKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.secret());
-
-        if (keyBytes.length < 32) {
+    @jakarta.annotation.PostConstruct
+    void initializeSigningKey() {
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.secret());
+            if (keyBytes.length < 32) throw new IllegalArgumentException("После Base64-декодирования ключ короче 32 байт");
+            key = Keys.hmacShaKeyFor(keyBytes);
+        } catch (RuntimeException ex) {
             throw new IllegalStateException(
-                    "JWT secret must decode to at least 32 bytes for HS256."
-            );
+                    "JWT_SECRET должен быть Base64 от не менее 32 случайных байт. Сгенерируйте: openssl rand -base64 48", ex);
         }
-
-        return Keys.hmacShaKeyFor(keyBytes);
     }
+
+    private SecretKey signingKey() { return key; }
 }
