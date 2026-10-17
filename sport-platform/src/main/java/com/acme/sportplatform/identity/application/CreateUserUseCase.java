@@ -56,7 +56,7 @@ public class CreateUserUseCase {
 
         String email = com.acme.sportplatform.identity.EmailAddress.normalize(request.email());
         if (userRepository.existsByEmail(email)) {
-            throw new UserAlreadyExistsException(request.email());
+            throw new UserAlreadyExistsException();
         }
 
         String externalKey =
@@ -80,7 +80,7 @@ public class CreateUserUseCase {
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
             String detail = ex.getMostSpecificCause().getMessage();
             if (detail != null && (detail.contains("ux_users_email_lower") || detail.contains("users_email_key")))
-                throw new UserAlreadyExistsException(email);
+                throw new UserAlreadyExistsException();
             throw ex;
         }
 

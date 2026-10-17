@@ -125,7 +125,8 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     void registrationRejectsExistingNormalizedEmailWith409() throws Exception {
         send("/register", Map.of("email", "  " + email.toUpperCase(Locale.ROOT) + "  ", "password", PASSWORD,
                 "firstName", "Иван", "lastName", "Петров", "birthDate", "2000-01-01", "gender", "M"), null, ip)
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("identity.user_already_exists"));
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("identity.user_already_exists"))
+                .andExpect(jsonPath("$.message").value("Не удалось зарегистрироваться с этим email. Если это ваш адрес — восстановите пароль"));
     }
 
     @Test
