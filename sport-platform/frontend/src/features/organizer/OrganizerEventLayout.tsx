@@ -34,8 +34,9 @@ export function OrganizerEventLayout() {
 
 function OrganizerEventContent() {
   const { eventId = '' } = useParams()
-  const { session, logout, isOrganizer, isPlatformAdmin } = useAuth()
+  const { session, logout, isOrganizer, isPlatformAdmin, isOperator, hasRole } = useAuth()
   const token = session?.accessToken ?? ''
+  const judgeOnly = hasRole('judge') && !isOrganizer && !isPlatformAdmin && !isOperator
   const navigate = useNavigate()
   const location = useLocation()
   const [data, setData] = useState<{
@@ -84,6 +85,7 @@ function OrganizerEventContent() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const clearError = useCallback(() => setError(''), [])
   const reportError = useCallback(
     (cause: unknown) => {
       if (cause instanceof ApiError && cause.status === 401) {
@@ -96,7 +98,8 @@ function OrganizerEventContent() {
       }
       setError(
         cause instanceof ApiError && cause.status === 403
-          ? 'Нет доступа к этому событию.'
+          ? 'Нет доступа к этому соревнованию.'
+          : cause instanceof ApiError && cause.status === 404 ? 'Соревнование не найдено.'
           : cause instanceof Error
             ? cause.message
             : 'Не удалось выполнить действие.',
@@ -106,15 +109,15 @@ function OrganizerEventContent() {
   )
   const load = useCallback(async () => {
     const [event, registrations, sessions] = await Promise.all([
-      getOrganizerEvent(eventId, token),
-      getOrganizerRegistrations(eventId, token),
+      getOrganizerEvent(eventId, token, isOrganizer || isPlatformAdmin),
+      judgeOnly ? Promise.resolve([]) : getOrganizerRegistrations(eventId, token),
       getSessions(eventId, token),
     ])
     const heats = (
       await Promise.all(event.disciplines.map((d) => getHeats(d.id, token)))
     ).flat()
     return { event, registrations, sessions, heats }
-  }, [eventId, token])
+  }, [eventId, token, judgeOnly, isOrganizer, isPlatformAdmin])
   const refresh = useCallback(async () => {
     setData(await load())
   }, [load])
@@ -170,11 +173,12 @@ function OrganizerEventContent() {
       setBusy(false)
     }
   }
-  if (loading) return <LoadingState message="Загружаем событие…" />
+  useEffect(() => { if (data?.event) document.title = `${data.event.title} · Соревнование · SportGate` }, [data?.event.title])
+  if (loading) return <LoadingState message="Загружаем соревнование…" />
   if (!data)
     return (
       <ErrorState
-        message={error || 'Событие не найдено.'}
+        message={error || 'Соревнование не найдено.'}
         onRetry={() => {
           void run(refresh)
         }}
@@ -182,30 +186,30 @@ function OrganizerEventContent() {
     )
   return (
     <div className={styles.page}>
-      <Link to="/organizer/events" className={styles.muted}>
-        ← Мои события
+      <Link to={judgeOnly ? '/operator/results' : '/organizer/events?all=1'} className={styles.muted}>
+        {judgeOnly ? '← Судейство' : '← Все соревнования'}
       </Link>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Кабинет организатора</p>
+          <p className={styles.eyebrow}>{judgeOnly ? 'Судейство' : isOrganizer || isPlatformAdmin ? 'Кабинет организатора' : 'Кабинет секретаря'}</p>
           <h1>{data.event.title}</h1>
           <p className={styles.muted}>
-            {formatDate(data.event.eventStartAt)} ·{' '}
-            {data.event.venue?.name ?? 'Площадка события'}
+            {formatDate(data.event.eventStartAt, data.event.venue?.timezone)} ·{' '}
+            {data.event.venue?.name ?? 'Площадка соревнования'}
           </p>
         </div>
       </header>
-      {data.event.status === 'ARCHIVED' && <p role="status">Событие в архиве. Доступен только просмотр.</p>}
-      <nav className={styles.tabs} aria-label="Разделы события">
+      {data.event.status === 'ARCHIVED' && <p role="status">Соревнование в архиве. Доступен только просмотр.</p>}
+      <nav className={styles.tabs} aria-label="Разделы соревнования">
         {[
-          ['', 'Обзор'],
-          ['program', 'Сессии и виды'],
+          ['', 'Главная'],
+          ['program', 'Программа'],
           ['entries', 'Заявки'],
           ['heats', 'Заплывы'],
           ['results', 'Результаты'],
           ['notifications', 'Уведомления'],
           ...(isOrganizer || isPlatformAdmin ? [['analytics', 'Аналитика']] : []),
-        ].map(([path, title]) => (
+        ].filter(([path]) => !judgeOnly || path === 'results').map(([path, title]) => (
           <NavLink
             key={path}
             end
@@ -229,6 +233,7 @@ function OrganizerEventContent() {
             accessToken: token,
             busy,
             error,
+            clearError,
             generationResults,
             lastGeneration,
             saveGeneration,

@@ -130,3 +130,4 @@ GET	/api/v1/organizations/{id}/analytics	owner	true	200
 GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
 PATCH	/api/v1/events/{id}	manage	true	200		{"maxParticipants":150}
 POST	/api/v1/events/{id}/archive	manage	true	200	event-completed	{}
+POST	/api/v1/profiles/{profileId}/documents/{id}/review	documents	true	200	document	{"status":"ACCEPTED"}

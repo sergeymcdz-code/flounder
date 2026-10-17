@@ -38,6 +38,8 @@ export type Discipline = {
   unitsPublished: boolean
 }
 export type PublicEvent = {
+  organization?: { name: string }
+
   id: string
   sportId: string
   status: EventStatus

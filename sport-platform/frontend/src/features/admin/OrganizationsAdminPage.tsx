@@ -49,9 +49,9 @@ export function OrganizationsAdminPage() {
     <div className={styles.heading}><h1>Организации</h1><button onClick={() => { setOpen(true); setFormError('') }}>Создать организацию</button></div>
     {loading ? <p role="status">Загружаем организации…</p> : error ? <p role="alert" className={styles.error}>{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
       : !organizations.length ? <p className="fl-empty">Организаций пока нет — создайте первую.</p> : <table className={styles.table}>
-        <thead><tr><th>Название</th><th>Город</th><th>Владелец</th><th>Членов / события</th></tr></thead>
+        <thead><tr><th>Название</th><th>Город</th><th>Владелец</th><th>Членов / соревнования</th></tr></thead>
         <tbody>{organizations.map(org => <tr key={org.id}><td><Link to={`/admin/organizations/${org.id}`}>{org.name}</Link></td>
-          <td>{org.city || '—'}</td><td>{org.owner || 'Не назначен'}</td><td>{org.memberCount ?? '—'}<br /><Link to={`/admin/organizations/${org.id}#events`}>События</Link></td></tr>)}</tbody>
+          <td>{org.city || '—'}</td><td>{org.owner || 'Не назначен'}</td><td>{org.memberCount ?? '—'}<br /><Link to={`/admin/organizations/${org.id}#events`}>Соревнования</Link></td></tr>)}</tbody>
       </table>}
     {open && <AdminDialog title="Создать организацию" busy={busy} onClose={() => setOpen(false)}>
       <form className={styles.form} onSubmit={submit}><fieldset className={styles.form} disabled={busy}>
@@ -123,9 +123,9 @@ export function OrganizationAdminPage() {
           <td>{memberRoles.find(([code]) => code === member.memberRole)?.[1] ?? member.memberRole}</td><td className={styles.actions}>
             <button onClick={() => open({ type: 'edit', member })}>Изменить роль</button><button onClick={() => open({ type: 'delete', member })}>Удалить</button></td></tr>)}</tbody>
       </table>}
-    <h2 id="events">События организации</h2>
+    <h2 id="events">Соревнования организации</h2>
     {eventError ? <p role="alert" className={styles.error}>{eventError}</p> : events.length ? <ul>{events.map(event =>
-      <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p className="fl-empty">Событий пока нет.</p>}
+      <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p className="fl-empty">Соревнований пока нет.</p>}
     {action && <AdminDialog title={action.type === 'add' ? 'Добавить участника' : action.type === 'edit' ? 'Изменить роль' : 'Удалить участника'} busy={busy} onClose={() => setAction(null)}>
       <form className={styles.form} onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
         {action.type === 'add' ? <label>Email пользователя<input name="email" type="email" required /></label> : <p>{action.member.email}</p>}

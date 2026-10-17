@@ -85,3 +85,7 @@
 .adminLinks { position: absolute; right: 0; top: 100%; z-index: 10; display: grid; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface, white); box-shadow: var(--shadow-pop); }
 
 .brand::before { content: ""; width: 32px; height: 32px; background: url("/favicon.svg") center / contain no-repeat; }
+
+.brand { cursor: pointer; }
+.brand:hover { color: var(--color-primary); }
+.brand:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }

@@ -1,14 +1,21 @@
+import { useState } from 'react'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { useToast } from '../../components/ui/Toast'
+import { CurrentHeatButton } from '../results/CurrentHeatButton'
 import { Link } from 'react-router'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publishDisciplineResults } from '../../api/scheduling.api'
 import {
   formatDate,
-  statusLabels,
   useOrganizerEvent,
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
 export function OrganizerResultsPage() {
-  const { event, heats, accessToken, busy, run } = useOrganizerEvent()
+  const { event, heats, accessToken, busy, run, error, clearError } = useOrganizerEvent()
+  const toast = useToast()
+  const [publishId, setPublishId] = useState<string | null>(null)
+  const publishDiscipline = event.disciplines.find(d => d.id === publishId)
   const hasResults = (id: string) =>
     heats
       .find((h) => h.id === id)
@@ -19,6 +26,8 @@ export function OrganizerResultsPage() {
       ) ?? false
   return (
     <div className={styles.stack}>
+      <CurrentHeatButton eventId={event.id} slug={event.publicSlug} />
+      {publishDiscipline && <ConfirmDialog title={`Опубликовать результаты «${publishDiscipline.name}»?`} description={`Места и времена появятся на /e/${event.publicSlug}/results как неофициальные.`} confirmLabel="Опубликовать" busy={busy} error={error} onClose={() => setPublishId(null)} onConfirm={() => { void run(() => publishDisciplineResults(heats.filter(h => h.eventDisciplineId === publishId), accessToken)).then(ok => { if (ok) { setPublishId(null); toast({ text: 'Опубликовано', href: `/e/${event.publicSlug}/results` }) } }) }} />}
       <div className={styles.toolbar}>
         <h2>Результаты соревнования</h2>
         <a
@@ -60,7 +69,8 @@ export function OrganizerResultsPage() {
                   )
                 }
                 onClick={() => {
-                  void run(() => publishDisciplineResults(units, accessToken))
+                  clearError()
+                  setPublishId(d.id)
                 }}
               >
                 Опубликовать результаты вида
@@ -81,11 +91,9 @@ export function OrganizerResultsPage() {
                   {units.map((h) => (
                     <tr key={h.id}>
                       <td>{h.sequenceNumber ?? h.label}</td>
-                      <td>{formatDate(h.scheduledAt)}</td>
+                      <td>{formatDate(h.scheduledAt, event.venue?.timezone)}</td>
                       <td>
-                        <span className={styles.badge}>
-                          {statusLabels[h.status] ?? h.status}
-                        </span>
+                        <StatusBadge kind="heat" code={h.status} />
                       </td>
                       <td>
                         {['FINISHED', 'COMPLETED'].includes(h.status)
@@ -95,7 +103,7 @@ export function OrganizerResultsPage() {
                       <td>
                         <Link
                           className={styles.link}
-                          to={`/operator/competition-units/${h.id}`}
+                          to={`/operator/competition-units/${h.id}?eventId=${event.id}`}
                         >
                           Ввести
                         </Link>

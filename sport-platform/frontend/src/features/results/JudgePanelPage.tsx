@@ -1,3 +1,10 @@
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { useToast } from '../../components/ui/Toast'
+import { getSessions } from '../../api/sessions.api'
+import { getEvent } from '../../api/events.api'
+import { publicApi } from '../../api/public.api'
+import { formatDateTime } from '../../utils/formatDateTime'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { getEventDisciplines } from '../../api/organizer.api'
@@ -8,7 +15,7 @@ import {
 } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { maskTime, normalizeTime } from './time-input'
-import { heatStatusLabel, resultErrorMessage } from './results-ui'
+import { resultErrorMessage } from './results-ui'
 import styles from './JudgePanelPage.module.css'
 
 type Draft = { time: string; status: HeatResultRequest['status'] }
@@ -24,6 +31,9 @@ export function JudgePanelPage() {
   const location = useLocation()
   const { session, hasAnyRole } = useAuth()
   const token = session?.accessToken
+  const toast = useToast()
+  const [publicationOpen, setPublicationOpen] = useState(false)
+  const [context, setContext] = useState({ name: '', number: 0, total: 0, sequence: 0, time: '', session: '', slug: '' })
   const [unit, setUnit] = useState<CompetitionUnitDetailsResponse | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -40,7 +50,8 @@ export function JudgePanelPage() {
   const eventId = unit?.eventId ?? params.get('eventId')
   const resultsPublished = ['FINISHED', 'COMPLETED'].includes(unit?.status ?? '')
   const canCorrect = hasAnyRole(['operator', 'organizer', 'platform_admin', 'platformadmin'])
-  const canEdit = !resultsPublished || canCorrect
+  const canJudge = hasAnyRole(['judge', 'operator', 'organizer', 'platform_admin', 'platformadmin'])
+  const canEdit = canJudge && (!resultsPublished || canCorrect)
   const loadedUnitId = unit?.id
   const disciplineId = unit?.eventDisciplineId
   const navigationWarning = (location.state as { liveWarning?: string } | null)?.liveWarning
@@ -54,6 +65,7 @@ export function JudgePanelPage() {
       time: e.display ?? e.rawValue ?? '', status: statusMap[e.resultStatus ?? ''] ?? 'VALID',
     }])))
     setDirty(false)
+    setSavedAt('')
     setErrors({})
   }
 
@@ -78,7 +90,15 @@ export function JudgePanelPage() {
       if (!active) return
       setNextId(null); setNextError('')
       const local = await getCompetitionUnitsByDiscipline(resolvedDisciplineId, token!)
+      const ordered = [...local].sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0))
       const currentSummary = local.find(u => u.id === loadedUnitId)
+      if (active) setContext(previous => ({ ...previous, total: local.length, sequence: ordered.findIndex(u => u.id === loadedUnitId) + 1, time: formatDateTime(currentSummary?.scheduledAt) }))
+      if (eventId) {
+        const [disciplines, sessions, event] = await Promise.all([getEventDisciplines(eventId, token!), getSessions(eventId, token!).catch(() => []), getEvent(eventId, token!).catch(() => null)])
+        const discipline = disciplines.find(d => d.id === resolvedDisciplineId)
+        const publicEvent = event?.publicSlug ? await publicApi.event(event.publicSlug).catch(() => null) : null
+        if (active) setContext(previous => ({ ...previous, name: discipline?.name ?? '', number: discipline?.number ?? disciplines.findIndex(d => d.id === resolvedDisciplineId) + 1, session: sessions.find(s => s.id === discipline?.sessionId)?.name ?? publicEvent?.sessions.find(s => s.id === discipline?.sessionId)?.name ?? '', time: formatDateTime(currentSummary?.scheduledAt, publicEvent?.venue?.timezone), slug: event?.publicSlug ?? '' }))
+      }
       let next = local.filter(u => (u.sequenceNumber ?? 0) > (currentSummary?.sequenceNumber ?? Infinity))
         .sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0))[0]
       if (eventId && currentSummary?.scheduledAt) {
@@ -135,30 +155,27 @@ export function JudgePanelPage() {
   }
 
   return <section className={styles.page}>
-    <Link className={styles.backLink} to="/operator/results">← К списку заплывов</Link>
+    <Link className={styles.backLink} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
     <div className={styles.titleRow}><div><p className={styles.eyebrow}>Судейская панель</p>
-      <h1 className={styles.title}>{unit?.label ?? 'Результаты'}</h1></div>
-      {unit && <span className={styles.unitStatus}>{heatStatusLabel(unit.status)}</span>}
+      <p>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</p><h1 className={styles.title}>{context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}</h1><p>{context.time} · {context.session || 'Сессия'}</p></div>
+      {unit && <StatusBadge kind="heat" code={unit.status} />}
     </div>
-    <p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p>
+    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p></details>
     {loading && <p role="status">Загрузка…</p>}
     {error && <p className={styles.errorMessage} role="alert">{error}</p>}
     {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
     {unit && !loading && <>
-      <div className={styles.toolbarControls}>
-        <button className={styles.saveButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
-        {(!resultsPublished || canCorrect) && <button className={styles.publishButton} disabled={busy || dirty || (resultsPublished
+      {!canJudge ? <p role="status">Нет прав для ввода результатов.</p> : <div className={styles.toolbarControls}>
+        <button className={unit.status === 'IN_PROGRESS' && (!savedAt || dirty) ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
+        {(!resultsPublished || canCorrect) && <button className={unit.status === 'IN_PROGRESS' && savedAt && !dirty ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} disabled={busy || dirty || (resultsPublished
           ? unit.status !== 'FINISHED'
-          : !['PUBLISHED', 'IN_PROGRESS'].includes(unit.status) || !entries.length || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? '']))} onClick={() => void run(async () => {
-          applyUnit(await changeCompetitionUnitPublication(unit.id, !resultsPublished, token!))
-          setNotice(resultsPublished ? 'Публикация результатов снята.' : 'Результаты опубликованы.')
-        })}>{resultsPublished ? 'Снять результаты с публикации' : 'Опубликовать результаты'}</button>}
-        {(['start', 'finish'] as const).map(action => <button key={action} className={styles.unpublishButton} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
+          : !['PUBLISHED', 'IN_PROGRESS'].includes(unit.status) || !entries.length || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? '']))} onClick={() => setPublicationOpen(true)}>{resultsPublished ? 'Снять результаты с публикации' : 'Опубликовать результаты'}</button>}
+        {(['start', 'finish'] as const).map(action => <button key={action} className={action === 'start' && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(unit.status) ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
           await changeHeatState(unit.id, action, token!)
           const data = await getCompetitionUnitDetails(unit.id, token!)
           applyUnit(data); setNotice(action === 'start' ? 'Заплыв начат.' : 'Заплыв завершён.')
         })}>{action === 'start' ? 'Старт' : 'Финиш'}</button>)}
-        <button className={styles.unpublishButton} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
+        <button className={resultsPublished ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
           let liveWarning: string | undefined
           if (eventId) {
             try { await setLiveHeat(eventId, nextId!, token!) } catch (error) {
@@ -166,11 +183,16 @@ export function JudgePanelPage() {
             }
           }
           navigate(`/operator/competition-units/${nextId}${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`, { state: { liveWarning } })
-        })}>Следующий заплыв</button>
-      </div>
+        })}>Следующий заплыв →</button>
+      </div>}
       <p role="status" aria-live="polite" aria-atomic="true">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
       <p className={notice ? styles.successMessage : undefined} role="status" aria-live="polite" aria-atomic="true">{notice}</p>
       {nextError && <p role="status">{nextError}</p>}
+      {publicationOpen && <ConfirmDialog title={resultsPublished ? 'Снять результаты с публикации?' : `Опубликовать результаты «${unit.label}»?`} description={resultsPublished ? 'Результаты перестанут быть видны зрителям.' : 'Места и времена появятся на публичной странице результатов как неофициальные.'} confirmLabel={resultsPublished ? 'Снять' : 'Опубликовать'} tone={resultsPublished ? 'danger' : 'primary'} busy={busy} error={error} onClose={() => setPublicationOpen(false)} onConfirm={() => void run(async () => {
+        applyUnit(await changeCompetitionUnitPublication(unit.id, !resultsPublished, token!)); setPublicationOpen(false)
+        setNotice(resultsPublished ? 'Публикация результатов снята.' : 'Результаты опубликованы.')
+        toast({ text: resultsPublished ? 'Публикация снята' : 'Опубликовано', href: context.slug ? `/e/${context.slug}/results` : undefined })
+      })} />}
       <div className={styles.tableWrap}><table className={styles.resultsTable}>
         <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>
         <tbody>{entries.map((entry, index) => {
@@ -202,9 +224,9 @@ export function JudgePanelPage() {
               }} />
               {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
             </td>
-            <td><div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={status === 'DSQ' ? styles.resultStatusDanger : styles.resultStatusPending} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
+            <td>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={status === 'DSQ' ? styles.resultStatusDanger : styles.resultStatusPending} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
               ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
-              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
+              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
             <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>
           </tr>
         })}</tbody>

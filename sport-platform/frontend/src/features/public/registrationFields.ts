@@ -1,14 +1,12 @@
-import type {
-  RegistrationDiscipline,
-  RegistrationRequest,
-} from './public.types'
+import type { RegistrationDiscipline } from './public.types'
 
 export function eligible(
   discipline: RegistrationDiscipline,
-  profile: RegistrationRequest['profile'],
+  profile: { birthDate: string; gender: string },
 ) {
   const year = Number(profile.birthDate.slice(0, 4))
   return (
+    (profile.gender === 'M' || profile.gender === 'F') &&
     (discipline.gender === 'X' || discipline.gender === profile.gender) &&
     !!year &&
     (!discipline.ageGroups.length ||

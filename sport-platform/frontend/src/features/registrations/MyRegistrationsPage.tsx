@@ -1,3 +1,6 @@
+import { apiFetch } from '../../api/http'
+import { formatDateTime } from '../../utils/formatDateTime'
+import { StatusBadge } from '../../components/ui/StatusBadge'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
@@ -8,91 +11,28 @@ import { ErrorState } from '../../components/ErrorState'
 import { LoadingState } from '../../components/LoadingState'
 import type {
   Registration,
-  RegistrationStatus,
 } from './registration.types'
 import styles from './MyRegistrationsPage.module.css'
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-    timeZone: 'Europe/Moscow',
-  }).format(new Date(value))
-}
-
-function getStatusLabel(status: RegistrationStatus) {
-  const labels: Record<RegistrationStatus, string> = {
-    WAITLISTED: 'Лист ожидания',
-  SUBMITTED: 'На рассмотрении',
-    CONFIRMED: 'Подтверждена',
-    PAID: 'Оплачена',
-    REJECTED: 'Отклонена',
-    NEEDS_CORRECTION: 'Требует уточнения',
-    CANCELLED: 'Отменена',
-  }
-
-  return labels[status]
-}
-
-function getStatusClassName(status: RegistrationStatus) {
-  const classes: Record<RegistrationStatus, string> = {
-    WAITLISTED: styles.statusCorrection,
-    SUBMITTED: styles.statusSubmitted,
-    CONFIRMED: styles.statusConfirmed,
-    PAID: styles.statusConfirmed,
-    REJECTED: styles.statusRejected,
-    NEEDS_CORRECTION: styles.statusCorrection,
-    CANCELLED: styles.statusCancelled,
-  }
-
-  return `${styles.statusBadge} ${classes[status]}`
-}
-
 function getParticipantName(registration: Registration) {
-  const { firstName, lastName, middleName } =
-    registration.participantSnapshot
-
+  const { firstName, lastName, middleName } = registration.participantSnapshot
   return [lastName, firstName, middleName].filter(Boolean).join(' ')
 }
-
-function getStatusHint(status: RegistrationStatus) {
-  const hints: Record<RegistrationStatus, string | null> = {
-    WAITLISTED: 'Вы в листе ожидания. Заявка поступит на рассмотрение, когда освободится место.',
-    SUBMITTED:
-      'Организатор проверяет данные заявки. Оплата станет доступна после подтверждения.',
-    CONFIRMED:
-      'Заявка подтверждена. Перейдите к оплате участия.',
-    PAID: 'Оплата участия подтверждена.',
-    NEEDS_CORRECTION:
-      'Организатор запросил уточнение данных. Ознакомьтесь с комментарием и свяжитесь с организатором при необходимости.',
-    REJECTED:
-      'Заявка отклонена. Оплата для неё недоступна.',
-    CANCELLED:
-      'Заявка отменена. Оплата для неё недоступна.',
-  }
-
-  return hints[status]
+function getStatusHint(registration: Registration, email: string) {
+  if (['SUBMITTED', 'UNDER_REVIEW'].includes(registration.status)) return `Организатор проверит заявку, письмо придёт на ${email || 'ваш email'}`
+  if (registration.status === 'WAITLISTED') return 'Место освободится — сообщим письмом'
+  if (['PAID', 'ADMITTED'].includes(registration.status) || registration.status === 'CONFIRMED' && ['PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus ?? '')) return 'Ждите стартовый протокол'
+  if (registration.status === 'CONFIRMED') return 'Оплатите участие'
+  if (['REJECTED', 'NEEDS_CORRECTION'].includes(registration.status)) return registration.reviewNote ?? 'Свяжитесь с организатором'
+  return 'Участие отменено'
 }
-
-function getStatusHintClassName(status: RegistrationStatus) {
-  const classes: Record<RegistrationStatus, string> = {
-    WAITLISTED: styles.hintCorrection,
-    SUBMITTED: styles.hintSubmitted,
-    CONFIRMED: styles.hintConfirmed,
-    PAID: styles.hintConfirmed,
-    NEEDS_CORRECTION: styles.hintCorrection,
-    REJECTED: styles.hintRejected,
-    CANCELLED: styles.hintCancelled,
-  }
-
-  return `${styles.statusHint} ${classes[status]}`
-}
-
 export function MyRegistrationsPage() {
   const { session } = useAuth()
   const accessToken = session?.accessToken
   const [searchParams] = useSearchParams()
 
+  const [email, setEmail] = useState('')
+  useEffect(() => { if (!accessToken) return; let active = true; apiFetch<{ email: string }>('/api/v1/auth/me', { accessToken }).then(user => { if (active) setEmail(user.email) }).catch(() => {}); return () => { active = false } }, [accessToken])
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -133,7 +73,7 @@ export function MyRegistrationsPage() {
     <section className={styles.page}>
       <p className={styles.eyebrow}>Личный кабинет</p>
 
-      <h1 className={styles.title}>Мои заявки</h1>
+      <h1 className={styles.title}>Мои заявки</h1><Link to="/">Подать ещё заявку</Link>
 
       <p className={styles.description}>
         Здесь отображается актуальный статус ваших заявок на соревнования.
@@ -170,37 +110,27 @@ export function MyRegistrationsPage() {
 
       {!isLoading && !errorMessage && registrations.length > 0 ? (
         <div className={styles.list}>
-          {accessToken && [...new Map(registrations.map((r) => [r.participantProfileId, r])).values()].map((r) => (
-            <div key={r.participantProfileId}>
-              <h2>{getParticipantName(r)}</h2>
-              <DocumentsPanel profileId={r.participantProfileId} accessToken={accessToken} />
-            </div>
-          ))}
           {registrations.map((registration) => {
-            const statusHint = getStatusHint(registration.status)
+            const statusHint = getStatusHint(registration, email)
 
             return (
               <article className={styles.card} key={registration.id}>
                 <div className={styles.cardHeader}>
                   <div>
-                    <p className={styles.cardLabel}>Заявка</p>
+                    <h2>{registration.eventTitle || 'Соревнование'}</h2><p>{registration.disciplineName || 'Вид программы'} · {formatDateTime(registration.eventStartAt, registration.venueTimezone)}</p>
 
-                    <h2 className={styles.participantName}>
+                    <h3 className={styles.participantName}>
                       {getParticipantName(registration)}
-                    </h2>
+                    </h3>
                   </div>
 
-                  <span
-                    className={getStatusClassName(registration.status)}
-                  >
-                    {getStatusLabel(registration.status)}
-                  </span>
+                  <StatusBadge kind="registration" code={registration.status} /><StatusBadge kind="payment" code={registration.paymentStatus ?? (registration.status === 'PAID' ? 'PAID' : 'PENDING')} />
                 </div>
 
                 <dl className={styles.facts}>
                   <div>
                     <dt>Отправлена</dt>
-                    <dd>{formatDate(registration.submittedAt)}</dd>
+                    <dd>{formatDateTime(registration.submittedAt, registration.venueTimezone)}</dd>
                   </div>
 
                   {registration.participantSnapshot.clubName ? (
@@ -220,11 +150,9 @@ export function MyRegistrationsPage() {
 
                 {statusHint ? (
                   <p
-                    className={getStatusHintClassName(
-                      registration.status,
-                    )}
+                    className={styles.statusHint}
                   >
-                    {statusHint}
+                    Что дальше: {statusHint}
                   </p>
                 ) : null}
 
@@ -235,23 +163,29 @@ export function MyRegistrationsPage() {
                   </div>
                 ) : null}
 
-                {registration.status === 'CONFIRMED' ? (
+                {registration.status === 'CONFIRMED' && !['PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus ?? '') ? (
                   <div className={styles.actions}>
                     <Link
                       className={styles.primaryButton}
                       to={`/my/registrations/${registration.id}/payment`}
                     >
-                      Перейти к оплате
+                      К оплате
                     </Link>
                   </div>
                 ) : null}
 
-                <p className={styles.technicalId}>
-                  ID дисциплины: {registration.eventDisciplineId}
-                </p>
+
               </article>
             )
           })}
+          <details><summary>Документы спортсмена</summary>
+          {accessToken && [...new Map(registrations.map((r) => [r.participantProfileId, r])).values()].map((r) => (
+            <div key={r.participantProfileId}>
+              <h2>{getParticipantName(r)}</h2>
+              <DocumentsPanel profileId={r.participantProfileId} accessToken={accessToken} />
+            </div>
+          ))}
+          </details>
         </div>
       ) : null}
     </section>

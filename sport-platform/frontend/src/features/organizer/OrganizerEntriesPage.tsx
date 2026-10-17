@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { documentTypes, documentStatusLabels, type DocumentType } from '../../api/documents.api'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { statusLabel } from '../../components/ui/status-dictionary'
 import {
   reviewRegistration,
   type RegistrationReviewDecision,
@@ -15,10 +18,9 @@ import type {
   OrganizerRegistration,
   ImportReport,
 } from '../../api/organizer.types'
-import { OrganizerDialog, OrganizerConfirm } from './OrganizerDialog'
+import { OrganizerDialog } from './OrganizerDialog'
 import {
   formatSeed,
-  statusLabels,
   useOrganizerEvent,
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
@@ -29,7 +31,7 @@ export function OrganizerEntriesPage() {
     heats,
     generationResults,
     accessToken,
-    busy,
+    busy, error, clearError,
     run,
   } = useOrganizerEvent()
   const [withdrawNotice, setWithdrawNotice] = useState(false)
@@ -70,7 +72,9 @@ export function OrganizerEntriesPage() {
   }
   const [missingMedical, setMissingMedical] = useState(false)
   const [documentProfile, setDocumentProfile] = useState<OrganizerRegistration | null>(null)
-  const [status, setStatus] = useState('')
+  const [params, setParams] = useSearchParams()
+  const status = params.get('status') ?? ''
+  const setStatus = (value: string) => setParams(previous => { const next = new URLSearchParams(previous); if (value) next.set('status', value); else next.delete('status'); return next })
   const [discipline, setDiscipline] = useState('')
   const [search, setSearch] = useState('')
   const [importOpen, setImportOpen] = useState(false)
@@ -78,22 +82,22 @@ export function OrganizerEntriesPage() {
     id: string
     decision: RegistrationReviewDecision
   } | null>(null)
-  const [note, setNote] = useState('')
   const [withdraw, setWithdraw] = useState<OrganizerRegistration | null>(null)
   const visible = registrations.filter(
     (r) =>
       (!status ||
         (status === 'EXCLUDED'
           ? admission(r).excluded
-          : r.status === status)) &&
+          : r.status === status || status === 'SUBMITTED' && r.status === 'UNDER_REVIEW')) &&
       (!discipline || r.eventDisciplineId === discipline) &&
+      (!params.get('payment') || r.paymentStatus === params.get('payment')) &&
       (!missingMedical || !r.documents?.MEDICAL_CERT || r.documents.MEDICAL_CERT === 'NOT_UPLOADED') &&
       `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''} ${r.participantSnapshot.clubName ?? ''}`
         .toLocaleLowerCase('ru')
         .includes(search.toLocaleLowerCase('ru')),
   )
   function openReview(id: string, decision: RegistrationReviewDecision) {
-    setNote('')
+    clearError()
     setReview({ id, decision })
   }
   return (
@@ -145,7 +149,7 @@ export function OrganizerEntriesPage() {
               'CANCELLED',
             ].map((s) => (
               <option key={s} value={s}>
-                {statusLabels[s]}
+                {statusLabel('registration', s)}
               </option>
             ))}
           </select>
@@ -168,6 +172,7 @@ export function OrganizerEntriesPage() {
           <span><input type="checkbox" checked={missingMedical} onChange={(e) => setMissingMedical(e.target.checked)} /> Нет справки</span>
         </label>
       </div>
+      <p className={styles.muted}>✓ принят · ◷ на проверке · ✕ отклонён · — нет</p>
       {documentProfile && <OrganizerDialog title={`Документы · ${documentProfile.participantSnapshot.lastName}`} onClose={() => setDocumentProfile(null)}>
         <DocumentsPanel profileId={documentProfile.participantProfileId} eventId={event.id} accessToken={accessToken} manager
           onChanged={() => { void run(async () => undefined, 'registrations') }} />
@@ -181,7 +186,6 @@ export function OrganizerEntriesPage() {
                 '№',
                 'ФИО',
                 'Год',
-                'Пол',
                 'Клуб',
                 'Вид',
                 'Допуск',
@@ -189,7 +193,6 @@ export function OrganizerEntriesPage() {
                 'Заявочное время',
                 'Статус',
                 'Оплата',
-                'Источник',
                 'Действия',
               ].map((h) => (
                 <th key={h}>{h}</th>
@@ -204,15 +207,10 @@ export function OrganizerEntriesPage() {
                   {r.participantSnapshot.lastName}{' '}
                   {r.participantSnapshot.firstName}{' '}
                   {r.participantSnapshot.middleName}
+                  <details><summary>Подробнее</summary><p>Пол: {r.participantSnapshot.gender ?? '—'} · Источник: {r.source === 'IMPORT' ? 'Импорт' : 'Форма'} · Допуск: {admission(r).label}</p></details>
                 </td>
                 <td>{r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'}</td>
-                <td>
-                  {r.participantSnapshot.gender === 'F'
-                    ? 'Ж'
-                    : r.participantSnapshot.gender === 'M'
-                      ? 'М'
-                      : '—'}
-                </td>
+
                 <td>{r.participantSnapshot.clubName || '—'}</td>
                 <td>
                   {event.disciplines.find((d) => d.id === r.eventDisciplineId)
@@ -236,63 +234,20 @@ export function OrganizerEntriesPage() {
                   <SeedTimeEditor registration={r} />
                 </td>
                 <td>
-                  <span className={styles.badge}>
-                    {statusLabels[r.status] ?? r.status}{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
-                  </span>
+                  <StatusBadge kind="registration" code={r.status} />{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
                 </td>
-                <td>{statusLabels[r.paymentStatus] ?? 'Не указана'}</td>
-                <td>{statusLabels[r.source] ?? r.source ?? '—'}</td>
+                <td><StatusBadge kind="payment" code={r.paymentStatus} /></td>
                 <td>
                   <div className={styles.actions}>
-                    {['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED'].includes(r.status) && (
-                      <button
-                        disabled={busy || event.status === 'ARCHIVED'}
-                        onClick={() => openReview(r.id, 'CONFIRMED')}
-                      >
-                        {r.status === 'WAITLISTED' ? 'Подтвердить вне лимита' : 'Подтвердить'}
-                      </button>
-                    )}
-                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED', 'PAID', 'ADMITTED'].includes(
-                      r.status,
-                    ) && (
-                      <>
-                        {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && (
-                          <button
-                            disabled={busy || event.status === 'ARCHIVED'}
-                            onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}
-                          >
-                            Вернуть
-                          </button>
-                        )}
-                        <button
-                          disabled={busy || event.status === 'ARCHIVED'}
-                          onClick={() => openReview(r.id, 'REJECTED')}
-                        >
-                          Отклонить
-                        </button>
-                        {r.status === 'CONFIRMED' && r.paymentStatus !== 'PAID' && (
-                            <button
-                              disabled={busy || event.status === 'ARCHIVED'}
-                              onClick={() => {
-                                void run(
-                                  () =>
-                                    registrationAction(
-                                      r.id,
-                                      'mark-paid',
-                                      accessToken,
-                                    ),
-                                  'registrations',
-                                )
-                              }}
-                            >
-                              Оплачено
-                            </button>
-                          )}
-                        <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setWithdraw(r)}>
-                          Снять
-                        </button>
-                      </>
-                    )}
+                    {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
+                      : ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) ? r.paymentStatus !== 'PAID' ? <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => void run(() => registrationAction(r.id, 'mark-paid', accessToken), 'registrations')}>Оплачено</button>
+                      : <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
+                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <details><summary>Ещё ▾</summary>
+                      {r.status === 'WAITLISTED' && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
+                      {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
+                      {!['PAID', 'ADMITTED'].includes(r.status) && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
+                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>
+                    </details>}
                   </div>
                 </td>
               </tr>
@@ -305,53 +260,15 @@ export function OrganizerEntriesPage() {
           Заявок не найдено. Измените фильтры или импортируйте заявки.
         </p>
       )}
-      {review && (
-        <OrganizerDialog
-          title={
-            review.decision === 'CONFIRMED'
-              ? 'Подтвердить заявку'
-              : review.decision === 'REJECTED'
-                ? 'Отклонить заявку'
-                : 'Вернуть на исправление'
-          }
-          onClose={() => setReview(null)}
-        >
-          <form
-            className={styles.form}
-            onSubmit={(e) => {
-              e.preventDefault()
-              void run(
-                () =>
-                  reviewRegistration(
-                    review.id,
-                    { decision: review.decision, reviewNote: note },
-                    accessToken,
-                  ),
-                'registrations',
-              ).then((ok) => {
-                if (ok) setReview(null)
-              })
-            }}
-          >
-            <label className={styles.field}>
-              Комментарий
-              <input
-                required={review.decision !== 'CONFIRMED'}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
-            <button disabled={busy || event.status === 'ARCHIVED'} className={styles.primary}>
-              Сохранить решение
-            </button>
-          </form>
-        </OrganizerDialog>
-      )}
+      {review && <ConfirmDialog title={review.decision === 'CONFIRMED' ? 'Подтвердить заявку?' : review.decision === 'REJECTED' ? 'Отклонить заявку?' : 'Вернуть на исправление?'}
+        description={review.decision === 'CONFIRMED' ? 'Участник получит подтверждение и сможет оплатить участие.' : review.decision === 'REJECTED' ? 'Участник получит причину отклонения. Оплата станет недоступна.' : 'Участник получит комментарий и сможет исправить данные.'}
+        confirmLabel={review.decision === 'CONFIRMED' ? 'Подтвердить' : review.decision === 'REJECTED' ? 'Отклонить' : 'Вернуть'} tone={review.decision === 'REJECTED' ? 'danger' : 'primary'} reason reasonRequired={review.decision !== 'CONFIRMED'} busy={busy} error={error}
+        onClose={() => setReview(null)} onConfirm={note => { void run(() => reviewRegistration(review.id, { decision: review.decision, reviewNote: note }, accessToken), 'registrations').then(ok => { if (ok) setReview(null) }) }} />}
       {withdraw && (
-        <OrganizerConfirm
+        <ConfirmDialog
           title="Снять заявку?"
-          message={`${withdraw.participantSnapshot.lastName} ${withdraw.participantSnapshot.firstName} не будет участвовать в этом виде.`}
-          busy={busy}
+          confirmLabel="Снять" tone="danger" busy={busy} error={error}
+          description={`${withdraw.participantSnapshot.lastName} ${withdraw.participantSnapshot.firstName} не будет участвовать в этом виде.`}
           onClose={() => setWithdraw(null)}
           onConfirm={() => {
             void run(
@@ -431,6 +348,7 @@ function SeedTimeEditor({
     <button
       disabled={busy || event.status === 'ARCHIVED'}
       title="Изменить заявочное время"
+      aria-label="Изменить заявочное время"
       onClick={() => {
         setValue(
           registration.seedTimeMs == null
@@ -441,7 +359,7 @@ function SeedTimeEditor({
         setEditing(true)
       }}
     >
-      {formatSeed(registration.seedTimeMs)}
+      {formatSeed(registration.seedTimeMs)} ✎
     </button>
   )
 }
@@ -555,12 +473,10 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
         <button
           disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => {
-            void run(async () => undefined, 'registrations').then((ok) => {
-              if (ok) onClose()
-            })
+            onClose()
           }}
         >
-          Закрыть и обновить
+          Закрыть
         </button>
       </div>
     </OrganizerDialog>

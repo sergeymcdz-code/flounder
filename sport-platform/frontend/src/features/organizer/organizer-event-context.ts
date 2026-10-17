@@ -1,3 +1,5 @@
+import { formatDateTime } from '../../utils/formatDateTime'
+import { statusLabel, statusLabelsFor } from '../../components/ui/status-dictionary'
 import { useOutletContext } from 'react-router'
 import type {
   OrganizerEventDetails,
@@ -18,6 +20,7 @@ export type EventContext = {
   sessions: Session[]
   heats: Heat[]
   accessToken: string
+  clearError: () => void
   error: string
   busy: boolean
   generationResults: Record<string, GenerationResult>
@@ -35,47 +38,17 @@ export type EventContext = {
   ) => Promise<boolean>
 }
 export const useOrganizerEvent = () => useOutletContext<EventContext>()
-export function formatDate(value: string | null) {
-  return value
-    ? new Intl.DateTimeFormat('ru-RU', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value))
-    : 'Не назначено'
-}
+export const formatDate = formatDateTime
 export function formatSeed(value: number | null | undefined) {
   if (value == null) return '—'
   return `${Math.floor(value / 60000)
     .toString()
     .padStart(2, '0')}:${((value % 60000) / 1000).toFixed(2).padStart(5, '0')}`
 }
+// Compatibility alias for consumers with mixed entities. New UI uses an explicit kind.
 export const statusLabels: Record<string, string> = {
-  DRAFT: 'Черновик',
-  PUBLISHED: 'Опубликовано',
-  REGISTRATIONOPEN: 'Регистрация открыта',
-  REGISTRATIONCLOSED: 'Регистрация закрыта',
-  REGISTRATION_OPEN: 'Регистрация открыта',
-  REGISTRATION_CLOSED: 'Регистрация закрыта',
-  LIVE: 'Идёт соревнование',
-  COMPLETED: 'Завершено',
-  ARCHIVED: 'В архиве',
-  WAITLISTED: 'Лист ожидания',
-  SUBMITTED: 'На рассмотрении',
-  CONFIRMED: 'Подтверждена',
-  NEEDS_CORRECTION: 'На исправлении',
-  REJECTED: 'Отклонена',
-  CANCELLED: 'Отменена',
-  WITHDRAWN: 'Снята',
-  ADMITTED: 'Допущена',
-  PAID: 'Оплачено',
-  PENDING: 'Ожидает оплаты',
-  NOT_REQUIRED: 'Без оплаты',
-  IN_PROGRESS: 'Идёт заплыв',
-  FINISHED: 'Завершён',
-  SCHEDULED: 'В расписании',
-  REFUNDED: 'Возврат оплаты',
-  IMPORT: 'Импорт',
-  FORM: 'Форма',
+  ...statusLabelsFor('heat'), ...statusLabelsFor('registration'), ...statusLabelsFor('payment'), ...statusLabelsFor('event'),
+  REGISTRATIONOPEN: statusLabel('event', 'REGISTRATION_OPEN'), REGISTRATIONCLOSED: statusLabel('event', 'REGISTRATION_CLOSED'), IMPORT: 'Импорт', FORM: 'Форма',
 }
 
 export const isHeatPublished = (status: string) =>

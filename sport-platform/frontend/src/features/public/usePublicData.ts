@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export const LIVE_POLL_MS = 5_000
+export const LIVE_POLL_MS = 15_000
 export const SCHEDULE_POLL_MS = 30_000
 // Together with the public API cache TTL (10s), corrections appear within 15s.
 export const RESULTS_POLL_MS = 5_000

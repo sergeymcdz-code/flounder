@@ -11,7 +11,7 @@ import styles from './PublicDisciplineResultsPage.module.css'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.status === 404) {
-    return 'Событие, дисциплина или опубликованные результаты не найдены.'
+    return 'Соревнование, дисциплина или опубликованные результаты не найдены.'
   }
 
   if (error instanceof ApiError) {
@@ -130,7 +130,7 @@ export function PublicDisciplineResultsPage() {
   async function loadResults() {
     if (!publicSlug || !disciplineId) {
       setErrorMessage(
-        'Не указана ссылка на событие или идентификатор дисциплины.',
+        'Не указана ссылка на соревнование или идентификатор дисциплины.',
       )
       setIsLoading(false)
       return
@@ -178,7 +178,7 @@ export function PublicDisciplineResultsPage() {
         className={styles.backLink}
         to={publicSlug ? `/events/${publicSlug}` : '/'}
       >
-        ← К событию
+        ← К соревнованию
       </Link>
 
       <p className={styles.eyebrow}>Опубликованные результаты</p>

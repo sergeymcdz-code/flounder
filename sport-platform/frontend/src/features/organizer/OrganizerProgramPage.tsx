@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router'
 import { useState, useEffect, useEffectEvent, type FormEvent } from 'react'
 import { ApiError, type FieldViolation } from '../../api/http'
 import {
@@ -7,8 +8,8 @@ import {
 } from '../../api/sessions.api'
 import {
   saveDiscipline,
-  deleteDiscipline,
   publishDiscipline,
+  deleteDiscipline,
   getDisciplineTemplates,
 } from '../../api/organizer.api'
 import type {
@@ -36,8 +37,8 @@ const strokes: Record<string, string> = {
   MEDLEY: 'Комплекс',
 }
 const genders: Record<string, string> = {
-  F: 'Женский',
-  M: 'Мужской',
+  F: 'Девушки',
+  M: 'Юноши',
   X: 'Смешанный',
 }
 function disciplineLimit(d: SwimDiscipline) {
@@ -50,6 +51,7 @@ function localDateTime(value: string) {
   return local.toISOString().slice(0, 16)
 }
 export function OrganizerProgramPage() {
+  const location = useLocation()
   const ctx = useOrganizerEvent()
   const { event, sessions, heats, registrations, accessToken, busy, run } = ctx
   const [sessionEdit, setSessionEdit] = useState<Session | 'new' | null>(null)
@@ -62,6 +64,7 @@ export function OrganizerProgramPage() {
   } | null>(null)
   return (
     <div className={styles.stack}>
+      {(location.state as { createdEventId?: string } | null)?.createdEventId === event.id && <p role="status">Соревнование создано как черновик. Добавьте сессии и виды программы</p>}
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Сессии соревнования</h2>
@@ -207,18 +210,12 @@ export function OrganizerProgramPage() {
                       >
                         Удалить
                       </button>
-                      {d.status !== 'PUBLISHED' && (
-                        <button
-                          disabled={busy || event.status === 'ARCHIVED'}
-                          onClick={() => {
-                            void run(() =>
-                              publishDiscipline(event.id, d.id, accessToken),
-                            )
-                          }}
-                        >
-                          Опубликовать вид
-                        </button>
-                      )}
+
+                      {d.status !== 'PUBLISHED' && <button
+                        disabled={busy || event.status === 'ARCHIVED'}
+                        title="Вид появится в форме заявки, импорте и результатах"
+                        onClick={() => void run(() => publishDiscipline(event.id, d.id, accessToken))}
+                      >Показать на публичной странице</button>}
                     </div>
                   </td>
                 </tr>
@@ -424,6 +421,7 @@ function DisciplineEditor({
   })
   useEffect(() => {
     let active = true
+    void loadPresets()
     getDisciplineTemplates(accessToken)
       .then((items) => {
         if (active) onTemplatesLoaded(items)
@@ -480,9 +478,9 @@ function DisciplineEditor({
     >
       <form className={styles.form} onSubmit={submit}>
         <label className={styles.field}>
-          Шаблон
+          Дистанция и стиль
           <select
-            aria-label="Шаблон"
+            aria-label="Дистанция и стиль"
             required
             disabled={templatesLoading}
             value={form.disciplineTemplateId ?? ''}
@@ -511,7 +509,7 @@ function DisciplineEditor({
           )}
           {templatesState === 'loaded' && templates.length === 0 && (
             <span className={styles.muted}>
-              Для вида спорта события нет шаблонов дисциплин
+              Для вида спорта соревнования нет шаблонов дисциплин
             </span>
           )}
           <span className={styles.error}>{error('disciplineTemplateId')}</span>
@@ -576,6 +574,7 @@ function DisciplineEditor({
           </select>
           <span className={styles.error}>{error('gender')}</span>
         </label>
+        <label><input type="checkbox" disabled checked={false} /> Круговой посев — этап 2</label>
         <label className={styles.field}>
           Режим посева
           <select
@@ -636,15 +635,7 @@ function DisciplineEditor({
         </label>
         <div className={styles.toolbar}>
           <h2>Возрастные группы</h2>
-          <button
-            type="button"
-            disabled={presetBusy}
-            onClick={() => {
-              void loadPresets()
-            }}
-          >
-            {presetBusy ? 'Загружаем…' : 'Добавить пресет'}
-          </button>
+          {presetBusy && <p role="status">Загружаем пресеты…</p>}
         </div>
         {presets.length > 0 && (
           <div className={styles.actions}>
@@ -676,10 +667,9 @@ function DisciplineEditor({
                       ),
                   ),
                 ])
-                setPresets([])
               }}
             >
-              Применить пресет
+              Применить
             </button>
           </div>
         )}
@@ -700,12 +690,12 @@ function DisciplineEditor({
                     {
                       code: 'Код',
                       name: 'Название',
-                      gender: 'Пол (M/F/X)',
+                      gender: 'Пол',
                       birthYearFrom: 'От года',
                       birthYearTo: 'До года',
                     }[key]
                   }
-                  <input
+                  {key === 'gender' ? <select aria-label={`Пол группы ${index + 1}`} value={g.gender} onChange={e => patch('ageGroups', form.ageGroups.map((item, i) => i === index ? { ...item, gender: e.target.value } : item))}>{Object.entries(genders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <input
                     required={!key.startsWith('birth')}
                     type={key.startsWith('birth') ? 'number' : 'text'}
                     min={key.startsWith('birth') ? 1900 : undefined}
@@ -728,7 +718,7 @@ function DisciplineEditor({
                         ),
                       )
                     }
-                  />
+                  />}
                   <span className={styles.error}>
                     {error(`ageGroups[${index}].${key}`)}
                   </span>
