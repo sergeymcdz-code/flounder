@@ -8,6 +8,7 @@ public record YooKassaPaymentResponse(
         String id,
         String status,
         boolean paid,
+        YooKassaAmount amount,
         YooKassaConfirmationResponse confirmation,
         @JsonProperty("expires_at")
         OffsetDateTime expiresAt
