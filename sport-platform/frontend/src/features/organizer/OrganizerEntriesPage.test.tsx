@@ -56,3 +56,21 @@ it('confirms bulk review, runs sequentially, retains failed selection and refres
   expect(screen.getByRole('checkbox', { name: 'Выбрать заявку Второй Иван' })).toBeChecked()
   review.mockRestore()
 })
+
+it('includes confirmed zero-fee entries in bulk payment', async () => {
+  const user = (await import('@testing-library/user-event')).default.setup()
+  const { within, waitFor } = await import('@testing-library/react')
+  const action = vi.spyOn(await import('../../api/organizer.api'), 'registrationAction').mockResolvedValue({} as never)
+  context.registrations = [{ ...context.registrations[0], id: 'zero-fee', status: 'CONFIRMED', paymentStatus: 'NOT_REQUIRED' }]
+  Object.assign(context, { refresh: vi.fn().mockResolvedValue(undefined) })
+  try {
+    render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+    await user.click(screen.getByRole('checkbox', { name: 'Выбрать все видимые заявки' }))
+    const bar = document.querySelector('.fl-bulk-bar') as HTMLElement
+    await user.click(within(bar).getByRole('button', { name: 'Оплачено' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Подходящих заявок: 1 из 1')
+    expect(action).not.toHaveBeenCalled()
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Применить' }))
+    await waitFor(() => expect(action).toHaveBeenCalledWith('zero-fee', 'mark-paid', 'test'))
+  } finally { action.mockRestore() }
+})

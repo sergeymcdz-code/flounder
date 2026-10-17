@@ -66,10 +66,16 @@ export function CompetitionUnitsPage() {
     return () => { active = false }
   }, [token, disciplineId])
 
+  const todayEvents = events.filter(event => {
+    if (!['LIVE', 'REGISTRATION_CLOSED', 'REGISTRATIONCLOSED'].includes(event.status)) return false
+    const day = new Intl.DateTimeFormat('sv-SE', { timeZone: event.venue?.timezone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' })
+    const current = day.format(new Date(today))
+    return day.format(new Date(event.eventStartAt)) <= current && current <= day.format(new Date(event.eventEndAt))
+  })
   return <section className={styles.page}>
     <h1 className={styles.title}>Судейство</h1>
     <CurrentHeatButton eventId={eventId} slug={events.find(event => event.id === eventId)?.publicSlug} />
-    {events.some(event => ['LIVE','REGISTRATION_CLOSED','REGISTRATIONCLOSED'].includes(event.status) && formatDateTime(event.eventStartAt, event.venue?.timezone).slice(0,10) === formatDateTime(today, event.venue?.timezone).slice(0,10)) && <section><h2>Сегодня</h2><div className="fl-actionbar">{events.filter(event => ['LIVE','REGISTRATION_CLOSED','REGISTRATIONCLOSED'].includes(event.status) && formatDateTime(event.eventStartAt, event.venue?.timezone).slice(0,10) === formatDateTime(today, event.venue?.timezone).slice(0,10)).map(event => <button className="fl-btn fl-btn-secondary" key={event.id} onClick={() => { setEventId(event.id); localStorage.setItem('sportgate.judge.eventId', event.id); setDisciplineId(''); setUnitId(''); setUnits([]); localStorage.removeItem('sportgate.judge.disciplineId') }}>{event.title}</button>)}</div></section>}
+    {todayEvents.length > 0 && <section><h2>Сегодня</h2><div className="fl-actionbar">{todayEvents.map(event => <button className="fl-btn fl-btn-secondary" key={event.id} onClick={() => { setEventId(event.id); localStorage.setItem('sportgate.judge.eventId', event.id); setDisciplineId(''); setUnitId(''); setUnits([]); localStorage.removeItem('sportgate.judge.disciplineId') }}>{event.title}</button>)}</div></section>}
     {list?.eventId === eventId && <JudgingHeatList eventId={eventId} sessions={list.sessions} disciplines={list.disciplines} units={list.units} timeZone={events.find(event => event.id === eventId)?.venue?.timezone} />}
     {listError && <p role="alert">{listError}</p>}
     <details open={!list || list.eventId !== eventId}><summary>Выбрать соревнование и заплыв с клавиатуры</summary><form className={styles.searchForm} onSubmit={e => {

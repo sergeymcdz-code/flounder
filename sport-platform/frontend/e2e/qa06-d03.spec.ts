@@ -86,3 +86,22 @@ test('D03 public poster uses a named A4 page and results warning survives print 
  await expect(page.locator('.fl-unofficial')).toBeVisible()
  await expect(page.locator('.fl-unofficial')).toHaveText('Неофициальные результаты — публикуются сразу после заплыва и могут быть исправлены до утверждения судейской коллегией')
 })
+
+for (const theme of ['light', 'dark']) test(`D03 public header rule and current heat link stay visible in ${theme}`, async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openAuditPage(page, '/e/demo/live')
+  await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme)
+  const link = page.getByRole('link', { name: 'Открыть заплыв', exact: true })
+  await expect(link).toBeVisible()
+  const meta = page.locator('[class*="eventMeta"]')
+  const header = page.getByRole('banner')
+  const metaBox = (await meta.boundingBox())!
+  const headerBox = (await header.boundingBox())!
+  expect(metaBox.y + metaBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height - 3)
+  expect(await meta.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+  expect(await link.evaluate(el => getComputedStyle(el).color)).not.toBe(await link.evaluate(el => getComputedStyle(el).backgroundColor))
+  await page.setViewportSize({ width: 768, height: 900 })
+  const brandBox = (await header.getByRole('link', { name: 'SportGate' }).boundingBox())!
+  const smallMetaBox = (await meta.boundingBox())!
+  expect(smallMetaBox.x).toBeGreaterThanOrEqual(brandBox.x + brandBox.width)
+})

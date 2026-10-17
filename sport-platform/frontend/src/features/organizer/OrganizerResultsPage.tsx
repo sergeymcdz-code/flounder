@@ -32,6 +32,7 @@ export function OrganizerResultsPage() {
       {publishDiscipline && <ConfirmDialog title={`Опубликовать результаты «${publishDiscipline.name}»?`} description={`Места и времена появятся на /e/${event.publicSlug}/results как неофициальные.`} confirmLabel="Опубликовать" busy={busy} error={error} onClose={() => setPublishId(null)} onConfirm={() => { void run(() => publishDisciplineResults(heats.filter(h => h.eventDisciplineId === publishId), accessToken)).then(ok => { if (ok) { setPublishId(null); toast({ text: 'Опубликовано', href: `/e/${event.publicSlug}/results` }) } }) }} />}
       <div className={styles.toolbar}>
         <h2>Результаты соревнования</h2>
+        {canManage && <>
         <a
           className="fl-btn fl-btn-secondary"
           href={`/e/${encodeURIComponent(event.publicSlug)}/results?print=1`}
@@ -46,6 +47,7 @@ export function OrganizerResultsPage() {
           accessToken={accessToken}
           disabled={busy || !heats.some((heat) => hasResults(heat.id))}
         />
+        </>}
       </div>
       <JudgingHeatList eventId={event.id} sessions={sessions} disciplines={event.disciplines} units={heats} timeZone={event.venue?.timezone} />
       {canManage && event.disciplines.map((d, index) => {

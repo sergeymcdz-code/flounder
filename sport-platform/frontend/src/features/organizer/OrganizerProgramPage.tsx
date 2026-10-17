@@ -1,3 +1,4 @@
+import { plural } from '../../utils/plural'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useLocation } from 'react-router'
 import { useState, useEffect, useEffectEvent, type FormEvent } from 'react'
@@ -96,13 +97,14 @@ export function OrganizerProgramPage() {
                     <td>{s.orderNo}</td>
                     <td>{s.name}</td>
                     <td>
-                      {formatDate(s.startsAt)} —{' '}
+                      {formatDate(s.startsAt, event.venue?.timezone)} —{' '}
                       {formatDate(
                         sessionSummary(s, event.disciplines, heats)
                           .estimatedEndsAt,
+                        event.venue?.timezone,
                       )}{' '}
                       · {sessionSummary(s, event.disciplines, heats).heatsCount}{' '}
-                      заплывов
+                      {plural(sessionSummary(s, event.disciplines, heats).heatsCount, ['заплыв', 'заплыва', 'заплывов'])}
                     </td>
                     <td>{s.breakBetweenEventsSec} с</td>
                     <td>
@@ -212,7 +214,7 @@ export function OrganizerProgramPage() {
                         Удалить
                       </button>
 
-                      {d.status !== 'PUBLISHED' && <button
+                      {d.status !== 'PUBLISHED' && <button className="fl-btn fl-btn-secondary"
                         disabled={busy || event.status === 'ARCHIVED'}
                         title="Вид появится в форме заявки, импорте и результатах"
                         onClick={() => void run(() => publishDiscipline(event.id, d.id, accessToken))}
@@ -482,7 +484,7 @@ function DisciplineEditor({
         <label className="fl-field">
           Дистанция и стиль
           <select
-            aria-label="Дистанция и стиль"
+            aria-label="Дистанция и стиль" aria-invalid={!!error('disciplineTemplateId')} aria-describedby={error('disciplineTemplateId') ? 'editor-disciplineTemplateId-error' : undefined}
             required
             disabled={templatesLoading}
             value={form.disciplineTemplateId ?? ''}
@@ -494,7 +496,7 @@ function DisciplineEditor({
             {discipline &&
               templatesState === 'failed' &&
               form.disciplineTemplateId && (
-                <option value={form.disciplineTemplateId} aria-invalid={!!error('disciplineTemplateId')} aria-describedby={error('disciplineTemplateId') ? 'editor-disciplineTemplateId-error' : undefined}>
+                <option value={form.disciplineTemplateId}>
                   Текущий шаблон вида
                 </option>
               )}

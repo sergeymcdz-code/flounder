@@ -1,10 +1,10 @@
 import { KeyValue } from '../../components/ui/KeyValue'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../app/providers/AuthProvider'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { EventChecklist } from './EventChecklist'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -26,7 +26,18 @@ export function OrganizerOverviewPage() {
   const { event, registrations, heats, accessToken, busy, run, error, clearError } = context
   const toast = useToast()
   const { isOrganizer, isPlatformAdmin } = useAuth()
-  const [confirmation, setConfirmation] = useState<{ label: string; title: string; description: string; action: () => Promise<unknown> } | null>(() => new URLSearchParams(window.location.search).get('archive') === '1' && event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) ? { label: 'В архив', title: 'Отправить соревнование в архив?', description: 'Соревнование будет доступно только для просмотра.', action: () => archiveEvent(event.id, accessToken) } : null)
+  const [params, setParams] = useSearchParams()
+  const [confirmation, setConfirmation] = useState<{ label: string; title: string; description: string; action: () => Promise<unknown> } | null>(null)
+  useEffect(() => {
+    if (params.get('archive') !== '1') return
+    const next = new URLSearchParams(params)
+    next.delete('archive')
+    setParams(next, { replace: true })
+    if (event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin)) {
+      clearError()
+      setConfirmation({ label: 'В архив', title: 'Отправить соревнование в архив?', description: 'Соревнование будет доступно только для просмотра.', action: () => archiveEvent(event.id, accessToken) })
+    }
+  }, [params, setParams, event.id, event.status, accessToken, isOrganizer, isPlatformAdmin, clearError])
   const [limit, setLimit] = useState<string>(String(event.maxParticipants ?? ''))
   const [closeAt, setCloseAt] = useState('')
   const [copied, setCopied] = useState(false)

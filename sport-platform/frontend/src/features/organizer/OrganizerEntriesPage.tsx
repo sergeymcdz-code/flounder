@@ -39,7 +39,7 @@ export function OrganizerEntriesPage() {
   const [bulkBusy, setBulkBusy] = useState(false)
   const [progress, setProgress] = useState('')
   const [bulkErrors, setBulkErrors] = useState<string[]>([])
-  function eligible(action: string, r: OrganizerRegistration) { return action === 'PAID' ? ['CONFIRMED', 'ADMITTED'].includes(r.status) && r.paymentStatus === 'PENDING' : ['SUBMITTED', 'UNDER_REVIEW', ...(action === 'CONFIRMED' ? ['WAITLISTED'] : [])].includes(r.status) }
+  function eligible(action: string, r: OrganizerRegistration) { return action === 'PAID' ? ['CONFIRMED', 'ADMITTED'].includes(r.status) && r.paymentStatus !== 'PAID' : ['SUBMITTED', 'UNDER_REVIEW', ...(action === 'CONFIRMED' ? ['WAITLISTED'] : [])].includes(r.status) }
   async function applyBulk(reason: string) {
     if (!bulkAction) return
     const action = bulkAction
@@ -125,7 +125,7 @@ export function OrganizerEntriesPage() {
     setReview({ id, decision })
   }
   return (
-    <article className={styles.card}>
+    <article className={`${styles.card} fl-entries`}>
       <div className={styles.toolbar}>
         <h2>Заявки участников · {registrations.length}</h2>
         <button
@@ -147,11 +147,20 @@ export function OrganizerEntriesPage() {
           </Link>
         </p>
       )}
-      <div className="fl-actionbar" aria-label="Быстрые фильтры">
-        <button className="fl-btn fl-btn-ghost fl-btn-sm" onClick={() => { setStatus('SUBMITTED'); setMissingMedical(false); setParams(p => { p.delete('payment'); return p }) }}>Новые</button>
-        <button className="fl-btn fl-btn-ghost fl-btn-sm" onClick={() => { setStatus('EXCLUDED'); setMissingMedical(false) }}>Не допущены</button>
-        <button className="fl-btn fl-btn-ghost fl-btn-sm" onClick={() => { setStatus(''); setMissingMedical(true) }}>Без справки</button>
-        <button className="fl-btn fl-btn-ghost fl-btn-sm" onClick={() => { setStatus(''); setMissingMedical(false); setParams(p => { p.set('payment', 'PENDING'); return p }) }}>Не оплачены</button>
+      <div className="fl-filter-segments" role="group" aria-label="Быстрые фильтры">
+        {[
+          { label: 'Все', value: '', active: !status && !missingMedical && !params.get('payment') },
+          { label: 'Новые', value: 'SUBMITTED', active: status === 'SUBMITTED' },
+          { label: 'Не допущены', value: 'EXCLUDED', active: status === 'EXCLUDED' },
+          { label: 'Без справки', value: 'medical', active: missingMedical },
+          { label: 'Не оплачены', value: 'payment', active: params.get('payment') === 'PENDING' },
+        ].map(filter => <button key={filter.label} className={`fl-btn fl-btn-sm ${filter.active ? 'fl-btn-secondary' : 'fl-btn-ghost'}`} aria-pressed={filter.active} onClick={() => {
+          const next = new URLSearchParams(params)
+          next.delete('status'); next.delete('payment')
+          if (filter.value === 'payment') next.set('payment', 'PENDING')
+          else if (filter.value && filter.value !== 'medical') next.set('status', filter.value)
+          setMissingMedical(filter.value === 'medical'); setParams(next)
+        }}>{filter.label}</button>)}
       </div>
       {bulkErrors.length > 0 && <div className="fl-notice fl-notice-danger" role="alert"><p>Не все действия выполнены:</p><ul>{bulkErrors.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
       <div className={styles.filters}>
@@ -203,12 +212,11 @@ export function OrganizerEntriesPage() {
           <span><input type="checkbox" checked={missingMedical} onChange={(e) => setMissingMedical(e.target.checked)} /> Нет справки</span>
         </label>
       </div>
-      <p className={styles.muted}>✓ принят · ◷ на проверке · ✕ отклонён · — нет</p>
       {documentProfile && <OrganizerDialog title={`Документы · ${documentProfile.participantSnapshot.lastName}`} onClose={() => setDocumentProfile(null)}>
         <DocumentsPanel profileId={documentProfile.participantProfileId} eventId={event.id} accessToken={accessToken} manager
           onChanged={() => { void run(async () => undefined, 'registrations') }} />
       </OrganizerDialog>}
-      <p className={styles.muted}>Найдено: {visible.length}</p>
+      <div className="fl-entries-meta"><p>Найдено: {visible.length}</p><p>✓ принят · ◷ на проверке · ✕ отклонён · — нет</p></div>
       <div className={`${styles.table} fl-table-scroll`}>
         <table className="fl-table">
           <thead>
@@ -235,10 +243,9 @@ export function OrganizerEntriesPage() {
               <tr key={r.id}>
                 <td data-number><input type="checkbox" aria-label={`Выбрать заявку ${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName}`} checked={selected.includes(r.id)} disabled={bulkBusy || busy || event.status === 'ARCHIVED'} onChange={e => setSelected(e.target.checked ? [...selected, r.id] : selected.filter(id => id !== r.id))} /> {index + 1}</td>
                 <td>
-                  {r.participantSnapshot.lastName}{' '}
-                  {r.participantSnapshot.firstName}{' '}
-                  {r.participantSnapshot.middleName}
-                  <details><summary>Подробнее</summary><p>Пол: {r.participantSnapshot.gender ?? '—'} · Источник: {r.source === 'IMPORT' ? 'Импорт' : 'Форма'} · Допуск: {admission(r).label}</p></details>
+                  <details className="fl-entry-details"><summary title="Подробнее о заявке">
+                    {r.participantSnapshot.lastName}{' '}{r.participantSnapshot.firstName}{' '}{r.participantSnapshot.middleName}
+                  </summary><p>Год: {r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'} · Пол: {r.participantSnapshot.gender ?? '—'} · Источник: {r.source === 'IMPORT' ? 'Импорт' : 'Форма'} · Допуск: {admission(r).label}</p></details>
                 </td>
                 <td data-priority="low" data-numeric>{r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'}</td>
 
@@ -252,12 +259,12 @@ export function OrganizerEntriesPage() {
                 </td>
                 <td>
                   <button className="fl-btn fl-btn-secondary" type="button" onClick={() => setDocumentProfile(r)} aria-label={`Документы ${r.participantSnapshot.lastName}`}>
-                    {(Object.keys(documentTypes) as DocumentType[]).map((type) => {
+                    <span className="fl-btn-label">{(Object.keys(documentTypes) as DocumentType[]).map((type) => {
                       const status = r.documents?.[type] ?? 'NOT_UPLOADED'
                       return <span key={type} title={`${documentTypes[type]}: ${documentStatusLabels[status]}`}>
                         {status === 'ACCEPTED' ? '✓' : status === 'PENDING' ? '◷' : status === 'REJECTED' ? '✕' : '—'}{' '}
                       </span>
-                    })}
+                    })}</span>
                   </button>
                   {r.admissionWarnings?.map((warning) => <div key={warning} className={styles.error}>{warning}</div>)}
                 </td>
@@ -291,7 +298,7 @@ export function OrganizerEntriesPage() {
           Заявок не найдено. Измените фильтры или импортируйте заявки. <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
         </p>
       )}
-      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong>{(['CONFIRMED','REJECTED','PAID'] as const).map(action => <button className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => setBulkAction(action)}>{action === 'CONFIRMED' ? 'Подтвердить' : action === 'REJECTED' ? 'Отклонить' : 'Оплачено'}</button>)}<button className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
+      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong>{(['CONFIRMED','REJECTED','PAID'] as const).map(action => <button className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => { clearError(); setBulkAction(action) }}>{action === 'CONFIRMED' ? 'Подтвердить' : action === 'REJECTED' ? 'Отклонить' : 'Оплачено'}</button>)}<button className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
       {bulkAction && <ConfirmDialog title={`${bulkAction === 'CONFIRMED' ? 'Подтвердить заявки' : bulkAction === 'REJECTED' ? 'Отклонить заявки' : 'Отметить оплату'}?`} description={`Подходящих заявок: ${registrations.filter(r => selected.includes(r.id) && eligible(bulkAction, r)).length} из ${selected.length}. Действия выполняются последовательно; участники увидят новый статус.`} confirmLabel={bulkBusy ? progress : 'Применить'} tone={bulkAction === 'REJECTED' ? 'danger' : 'primary'} reason={bulkAction === 'REJECTED'} busy={bulkBusy} busyLabel={progress} onClose={() => setBulkAction(null)} onConfirm={reason => void applyBulk(reason)} />}
       {review && <ConfirmDialog title={review.decision === 'CONFIRMED' ? 'Подтвердить заявку?' : review.decision === 'REJECTED' ? 'Отклонить заявку?' : 'Вернуть на исправление?'}
         description={review.decision === 'CONFIRMED' ? 'Участник получит подтверждение и сможет оплатить участие.' : review.decision === 'REJECTED' ? 'Участник получит причину отклонения. Оплата станет недоступна.' : 'Участник получит комментарий и сможет исправить данные.'}

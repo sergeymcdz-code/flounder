@@ -1,3 +1,4 @@
+import { plural } from '../../utils/plural'
 import { sameSwimmer, swimmerStarts, useMySwimmers } from './my-swimmers'
 import { StarIcon } from '../../components/ui/icons'
 import { useCallback, useEffect, useState } from 'react'
@@ -110,7 +111,7 @@ export function LiveBoard({
             </p>
             <LaneTable heat={live.currentUnit} lanes={lanes} />
             <Link
-              className={`${styles.button} fl-btn fl-btn-ghost`}
+              className="fl-btn fl-btn-ghost"
               to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(live.currentUnit.id)}`}
             >
               Открыть заплыв
@@ -301,7 +302,7 @@ export function LivePage() {
         data={live.data}
         retry={live.retry}
       />
-      {swimmers.length > 0 && live.data && list.data && <section className="fl-my-swimmers" aria-label="Мои пловцы"><h2>★ Мои пловцы</h2>{swimmers.map(swimmer => <div key={`${swimmer.name}-${swimmer.club}-${swimmer.yearOfBirth}`}><strong>{swimmer.name}</strong>{swimmerStarts(swimmer, list.data!, live.data!).length ? swimmerStarts(swimmer, list.data!, live.data!).slice(0, 1).map(start => <p key={start.heat.id}>Вид № {start.discipline.number} · {start.discipline.name} · заплыв {start.heat.number} · дорожка {start.lane} · ~{time(start.heat.scheduledAt, event.venue?.timezone)}<br /><span className="fl-swimmer-distance">{start.remaining === null ? 'Ожидает старта' : start.remaining === 0 ? 'Сейчас' : `через ${start.remaining} заплывов`}</span></p>) : <p>Предстоящих стартов в опубликованном протоколе нет.</p>}</div>)}<a className="fl-btn fl-btn-ghost" href="#find-me" onClick={() => document.getElementById('find-me')?.scrollIntoView({ block: 'start' })}>Изменить</a></section>}
+      {swimmers.length > 0 && live.data && list.data && <section className="fl-my-swimmers" aria-label="Мои пловцы"><h2>★ Мои пловцы</h2>{swimmers.map(swimmer => <div key={`${swimmer.name}-${swimmer.club}-${swimmer.yearOfBirth}`}><strong>{swimmer.name}</strong>{swimmerStarts(swimmer, list.data!, live.data!).length ? swimmerStarts(swimmer, list.data!, live.data!).slice(0, 1).map(start => <p key={start.heat.id}>Вид № {start.discipline.number} · {start.discipline.name} · заплыв {start.heat.number} · дорожка {start.lane} · ~{time(start.heat.scheduledAt, event.venue?.timezone)}<br /><span className="fl-swimmer-distance">{start.remaining === null ? 'Ожидает старта' : start.remaining === 0 ? 'Сейчас' : `через ${start.remaining} ${plural(start.remaining, ['заплыв', 'заплыва', 'заплывов'])}`}</span></p>) : <p>Предстоящих стартов в опубликованном протоколе нет.</p>}</div>)}<a className="fl-btn fl-btn-ghost" href="#find-me" onClick={() => document.getElementById('find-me')?.scrollIntoView({ block: 'start' })}>Изменить</a></section>}
       {live.data && (
         <LiveBoard
           live={live.data}

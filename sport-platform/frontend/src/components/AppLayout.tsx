@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../app/providers/AuthProvider'
 import { apiFetch } from '../api/http'
 import styles from './AppLayout.module.css'
@@ -10,7 +10,10 @@ export function AppLayout() {
   useEffect(() => { document.title = 'SportGate' }, [])
   const { isAuthenticated, isPlatformAdmin, isOrganizer, isOperator, isParticipant, hasRole, logout, sessionMessage, session, roles } = useAuth()
   const [name, setName] = useState('')
+  const location = useLocation()
+  const menu = useRef<HTMLDetailsElement>(null)
   const [mobile, setMobile] = useState(() => window.innerWidth <= 767)
+  useEffect(() => { if (mobile) menu.current?.removeAttribute('open') }, [mobile, location.pathname, location.search])
   useEffect(() => { const resize = () => setMobile(window.innerWidth <= 767); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize) }, [])
   useEffect(() => {
     if (!session) return
@@ -31,7 +34,7 @@ export function AppLayout() {
   return <div className={styles.shell}>
     <header className={styles.header}>
       <NavLink className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">SportGate</NavLink>
-      <details className={styles.mobileMenu} open={!mobile ? true : undefined}><summary aria-label="Меню"><MenuIcon /></summary><nav className={styles.navigation} aria-label="Основная навигация">
+      <details ref={menu} className={styles.mobileMenu} open={!mobile ? true : undefined}><summary aria-label="Меню"><MenuIcon /></summary><nav className={styles.navigation} aria-label="Основная навигация">
         <NavLink className={navLinkClassName} to="/" end>Соревнования</NavLink>
         {canManageEvents ? <NavLink className={navLinkClassName} to="/organizer/events">Мои соревнования</NavLink>
           : isJudge ? <NavLink className={navLinkClassName} to="/operator/results">Судейство</NavLink>
