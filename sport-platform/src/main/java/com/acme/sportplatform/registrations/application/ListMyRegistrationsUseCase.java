@@ -41,6 +41,7 @@ public class ListMyRegistrationsUseCase {
                         entities,
                         fees.dueDaysFor(
                                 entities.stream()
+                                        .filter(r -> r.getReviewedAt() != null)
                                         .map(r -> r.getEventId())
                                         .collect(java.util.stream.Collectors.toSet()))));
     }

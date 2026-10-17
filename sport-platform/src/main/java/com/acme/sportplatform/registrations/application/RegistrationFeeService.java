@@ -43,6 +43,7 @@ public class RegistrationFeeService {
 
     public java.util.Map<java.util.UUID, Integer> dueDaysFor(
             java.util.Collection<java.util.UUID> eventIds) {
+        if (eventIds.isEmpty()) return java.util.Map.of();
         return events.settingsJson(eventIds).entrySet().stream()
                 .collect(
                         java.util.stream.Collectors.toMap(

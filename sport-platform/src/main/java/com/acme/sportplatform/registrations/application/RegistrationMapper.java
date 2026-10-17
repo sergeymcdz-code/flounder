@@ -28,7 +28,9 @@ public class RegistrationMapper {
     public RegistrationResponse toResponse(RegistrationEntity entity) {
         return toResponses(
                         java.util.List.of(entity),
-                        fees.dueDaysFor(java.util.List.of(entity.getEventId())))
+                        entity.getReviewedAt() == null
+                                ? java.util.Map.of()
+                                : fees.dueDaysFor(java.util.List.of(entity.getEventId())))
                 .getFirst();
     }
 
