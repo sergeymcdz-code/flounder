@@ -35,7 +35,7 @@ class LoginUseCaseTest {
     @BeforeEach
     void setup() {
         var login = new LoginUseCase(manager, users, sessions, limiter, encoder);
-        mvc = standaloneSetup(new AuthController(login, mock(GetCurrentUserUseCase.class), mock(CreateUserUseCase.class), mock(PasswordService.class), mock(AuthSessionService.class)))
+        mvc = standaloneSetup(new AuthController(login, mock(GetCurrentUserUseCase.class), mock(CreateUserUseCase.class), mock(PasswordService.class), mock(AuthSessionService.class), mock(AccountRequestLimiter.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
     @Test

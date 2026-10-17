@@ -22,6 +22,12 @@ import com.jayway.jsonpath.JsonPath;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UserIdentityIntegrationTest extends AbstractPostgresIntegrationTest {
 
+        private static final java.util.concurrent.atomic.AtomicInteger CLIENTS = new java.util.concurrent.atomic.AtomicInteger();
+        private String clientIp;
+
+        @org.junit.jupiter.api.BeforeEach
+        void isolatedRegistrationClient() { clientIp = "198.18.0." + CLIENTS.incrementAndGet(); }
+
         @Autowired
         private MockMvc mockMvc;
 
@@ -337,6 +343,7 @@ class UserIdentityIntegrationTest extends AbstractPostgresIntegrationTest {
                         """.formatted(email, password, firstName, lastName);
 
                 String response = mockMvc.perform(post("/api/v1/users")
+                                .with(request -> { request.setRemoteAddr(clientIp); return request; })
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(payload))
                         .andExpect(status().isCreated())

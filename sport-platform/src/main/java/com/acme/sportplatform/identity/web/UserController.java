@@ -37,6 +37,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/users")
 public class UserController {
 
+    private final com.acme.sportplatform.identity.application.AccountRequestLimiter accountLimits;
     private final AdminUserService adminUsers;
     private final CreateUserUseCase createUserUseCase;
     private final GetUserByIdUseCase getUserByIdUseCase;
@@ -50,7 +51,8 @@ public class UserController {
                         UpdateUserUseCase updateUserUseCase,
                         DeleteUserUseCase deleteUserUseCase,
                         AssignRoleToUserUseCase assignRoleToUserUseCase,
-                        RevokeRoleFromUserUseCase revokeRoleFromUserUseCase, AdminUserService adminUsers) {
+                        RevokeRoleFromUserUseCase revokeRoleFromUserUseCase, AdminUserService adminUsers, com.acme.sportplatform.identity.application.AccountRequestLimiter accountLimits) {
+        this.accountLimits = accountLimits;
         this.adminUsers = adminUsers;
         this.createUserUseCase = createUserUseCase;
         this.getUserByIdUseCase = getUserByIdUseCase;
@@ -82,7 +84,12 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse create(@Valid @RequestBody CreateUserRequest request) {
+    public UserResponse create(@Valid @RequestBody CreateUserRequest request,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
+            org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)
+            accountLimits.assertRegistrationAllowed(request.email(), servletRequest.getRemoteAddr());
         return createUserUseCase.execute(request);
     }
 
