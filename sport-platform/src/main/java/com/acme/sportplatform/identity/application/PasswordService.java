@@ -47,9 +47,7 @@ public class PasswordService {
 
     @Transactional
     public void changeByAdministrator(UUID userId, String newPassword) {
-        // Preserve M01's password contract while invalidating M02's new credentials.
-        if (newPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
-            throw new BusinessException("identity.invalid_password", "Пароль не должен превышать 72 байта в UTF-8");
+        PasswordPolicy.validate(newPassword);
         var user = users.findByIdForUpdate(userId).orElseThrow(() ->
                 new BusinessException("identity.user_not_found", "Пользователь не найден"));
         user.setPasswordHash(encoder.encode(newPassword));

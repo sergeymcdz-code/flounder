@@ -45,6 +45,7 @@ public class CreateUserUseCase {
 
     @Transactional
     public UserResponse execute(CreateUserRequest request) {
+        com.acme.sportplatform.identity.domain.PasswordPolicy.validate(request.password());
         List<String> roleCodes = List.of("participant");
         if (request.roles() != null) {
             var auth = SecurityContextHolder.getContext().getAuthentication();
