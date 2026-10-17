@@ -5,10 +5,10 @@ import { resolve } from 'node:path'
 import type { EventGenerationResult, Heat, ImportReport, OrganizerEventDetails, OrganizerRegistration, Session, Violation } from '../src/api/organizer.types'
 import type { CompetitionUnitDetailsResponse } from '../src/api/results.api'
 import type { Live, Results, StartList } from '../src/features/public/public.types'
-import { api, login, pdf, screenshots } from './qa05-support'
+import { api, evidence, login, pdf, screenshots } from './qa05-support'
 
 test('QA05: seven-step demo with a real backend and demo seed', async ({ browser }, info) => {
-  const seed = JSON.parse(readFileSync('work/qa05/seed.json', 'utf8')) as { eventId: string; slug: string }
+  const seed = JSON.parse(readFileSync('work/qa05/seed.json', 'utf8')) as { eventId: string; slug: string; suffix: string }
   const base = `/organizer/events/${seed.eventId}`
   const publicBase = `/e/${seed.slug}`
   const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext(info.project.use)))
@@ -70,7 +70,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
   try {
     await step('1. Anonymous overview, program, organizer QR and settings', async () => {
       await spectator.goto(publicBase)
-      await expect(spectator.getByRole('heading', { name: /Открытый кубок Самары/ })).toBeVisible()
+      await expect(spectator.getByRole('heading', { name: `Открытый кубок Самары по плаванию${seed.suffix}`, exact: true })).toBeVisible()
       await expect.soft(spectator.getByText('8 дорожек · бассейн 25 м', { exact: true })).toBeVisible()
       const program = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Сессии и виды программы' }) })
       await expect.soft(program.getByRole('heading', { level: 3 })).toHaveCount(2)
@@ -236,18 +236,20 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         expect.soft(clock).toBe(index === 0 ? '10:00' : '15:00')
       }
       await screenshots(org, '04-heats-validator')
-      // Drafts use the authenticated PDF; the public HTML form only contains published heats.
+      // Draft protocols use the authenticated download; public HTML excludes unpublished heats.
       await org.getByText('Печать ▾', { exact: true }).click()
       await expect(org.getByText('Публичная печатная форма появится после публикации. Черновик доступен в PDF.')).toBeVisible()
-      const accessToken = await org.evaluate(() => JSON.parse(sessionStorage.getItem('flounder.auth-session')!).accessToken)
-      const draftPdf = await org.request.get(`http://localhost:8080/api/v1/events/${seed.eventId}/documents/start-list.pdf`, { headers: { Authorization: `Bearer ${accessToken}` } })
-      expect(draftPdf.status()).toBe(200)
-      expect(draftPdf.headers()['content-type']).toContain('application/pdf')
-      const draftBytes = await draftPdf.body()
+      const [draftDownload] = await Promise.all([org.waitForEvent('download'), org.getByRole('button', { name: 'Скачать PDF', exact: true }).click()])
+      const draftPath = resolve(evidence, 'QA05-draft-start-list.pdf')
+      await draftDownload.saveAs(draftPath)
+      const draftBytes = readFileSync(draftPath)
       expect(draftBytes.subarray(0, 5).toString()).toBe('%PDF-')
-      expect(draftBytes.length).toBeGreaterThan(1000)
-      await writeFile('work/qa05/draft-start-list.pdf', draftBytes)
+      expect(draftBytes.length).toBeGreaterThan(1_000)
       const printPage = await contexts[0].newPage()
+      await printPage.goto(`${publicBase}/start-list?print=1`)
+      await expect(printPage.getByRole('heading', { name: 'Стартовый протокол', exact: true })).toBeVisible()
+      await expect(printPage.locator('article').filter({ has: printPage.locator('table') }), 'Unpublished heats are not exposed publicly').toHaveCount(0)
+      await screenshots(printPage, '04-unpublished-public-print')
       await org.getByRole('button', { name: 'Опубликовать протокол', exact: true }).click()
       await org.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
       await settle(org)

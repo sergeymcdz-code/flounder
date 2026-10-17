@@ -3,7 +3,7 @@ import { loginBody } from './bodies.ts';
 export class ApiError extends Error {
   constructor(public status: number, public code: string, method: string, path: string) {
     super((status === 404 || status === 405) && !code
-      ? `Эндпоинт не найден: ${method} ${path} (HTTP ${status}). Проверьте слияние T01/T03/T05; для недоступного импорта используйте --skip-import.`
+      ? `Эндпоинт не найден: ${method} ${path} (HTTP ${status}). Сид остановлен: проверьте наличие API в main; SQL-обход шагов сида запрещён.`
       : `Ошибка API: ${method} ${path} (HTTP ${status}, код ${code || 'не указан'}). Проверьте права, параметры и журнал сервера.`);
   }
 }
@@ -11,11 +11,11 @@ export interface Api {
   request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T>;
 }
 export class HttpApi implements Api {
-  private readonly deadline = Date.now() + 115_000;
+  private readonly deadline = Date.now() + 600_000;
   constructor(private readonly baseUrl: string) {}
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     const remaining = this.deadline - Date.now();
-    if (remaining <= 0) throw new Error('Превышен бюджет 115 секунд. Повторите запуск: созданные данные будут найдены.');
+    if (remaining <= 0) throw new Error('Превышен бюджет 600 секунд. Повторите запуск: созданные данные будут найдены.');
     const multipart = body instanceof FormData;
     let response: Response;
     try {

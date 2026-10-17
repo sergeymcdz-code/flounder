@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test'
 const api = process.env.QA05_API_URL ?? 'http://localhost:8080'
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'qa05-demo.spec.ts',
+  testMatch: ['qa05-demo.spec.ts', 's02-multi-events.spec.ts'],
   globalSetup: './e2e/qa05-setup.ts',
   workers: 1,
   retries: 0,
