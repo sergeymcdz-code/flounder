@@ -52,7 +52,7 @@ public class UserEntity {
     public void setId(UUID id) { this.id = id; }
 
     public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public void setEmail(String email) { this.email = com.acme.sportplatform.identity.EmailAddress.normalize(email); }
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }

@@ -17,8 +17,6 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     Optional<UserEntity> findByIdForUpdate(UUID id);
 
     Optional<UserEntity> findByEmail(String email);
-    @Query("select u from UserEntity u where lower(u.email) = lower(:email)")
-    Optional<UserEntity> findByEmailIgnoreCase(String email);
 
     @Query(value = """
             select u.id, u.email, u.status, u.created_at as "createdAt", count(*) over() as total

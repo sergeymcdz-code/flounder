@@ -53,7 +53,8 @@ public class CreateUserUseCase {
             roleCodes = request.roles().stream().distinct().toList();
         }
 
-        if (userRepository.existsByEmail(request.email())) {
+        String email = com.acme.sportplatform.identity.EmailAddress.normalize(request.email());
+        if (userRepository.existsByEmail(email)) {
             throw new UserAlreadyExistsException(request.email());
         }
 
@@ -67,12 +68,20 @@ public class CreateUserUseCase {
                     "Спортсмен с такими ФИО, датой рождения и полом уже есть в списке заявок. Для привязки аккаунта обратитесь к организатору");
 
         UserEntity user = new UserEntity();
-        user.setEmail(request.email());
+        user.setEmail(email);
         user.setPhone(request.phone());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setStatus("active");
 
-        UserEntity savedUser = userRepository.save(user);
+        UserEntity savedUser;
+        try {
+            savedUser = userRepository.saveAndFlush(user);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            String detail = ex.getMostSpecificCause().getMessage();
+            if (detail != null && (detail.contains("ux_users_email_lower") || detail.contains("users_email_key")))
+                throw new UserAlreadyExistsException(email);
+            throw ex;
+        }
 
         ProfileEntity profile = new ProfileEntity();
         profile.setUserId(savedUser.getId());

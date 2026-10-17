@@ -26,7 +26,7 @@ public class PlatformUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UserEntity user = userRepository.findByEmail(username)
+        UserEntity user = userRepository.findByEmail(com.acme.sportplatform.identity.EmailAddress.normalize(username))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         List<SimpleGrantedAuthority> authorities = userRoleAssignmentRepository.findGlobalRoleCodesByUserId(user.getId())

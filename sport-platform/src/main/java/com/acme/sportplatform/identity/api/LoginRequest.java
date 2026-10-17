@@ -7,4 +7,8 @@ public record LoginRequest(
         @Email @NotBlank String email,
         @NotBlank String password
 ) {
+    public LoginRequest {
+        email = com.acme.sportplatform.identity.EmailAddress.normalize(email);
+    }
+
 }

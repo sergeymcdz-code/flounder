@@ -86,6 +86,13 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void registrationRejectsExistingNormalizedEmailWith409() throws Exception {
+        send("/register", Map.of("email", "  " + email.toUpperCase(Locale.ROOT) + "  ", "password", PASSWORD,
+                "firstName", "Иван", "lastName", "Петров", "birthDate", "2000-01-01", "gender", "M"), null, ip)
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("identity.user_already_exists"));
+    }
+
+    @Test
     void loginStoresOnlyHashAndReturnsConfiguredAccessLifetime() throws Exception {
         JsonNode pair = login();
         String raw = pair.get("refreshToken").asText();

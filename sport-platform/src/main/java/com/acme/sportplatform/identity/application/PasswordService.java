@@ -59,7 +59,7 @@ public class PasswordService {
 
     @Transactional
     public void requestReset(String email) {
-        var found = users.findByEmailIgnoreCase(email.trim());
+        var found = users.findByEmail(com.acme.sportplatform.identity.EmailAddress.normalize(email));
         if (found.isEmpty()) return;
         var user = users.findByIdForUpdate(found.get().getId()).orElseThrow(this::invalidReset);
         if (!"active".equalsIgnoreCase(user.getStatus())) return;

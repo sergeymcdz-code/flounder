@@ -21,6 +21,10 @@ public record CreateUserRequest(
         @Size(max = 255, message = "Не более {max} символов") String clubName,
         List<String> roles
 ) {
+    public CreateUserRequest {
+        email = com.acme.sportplatform.identity.EmailAddress.normalize(email);
+    }
+
     public CreateUserRequest(String email, String password, String phone, String firstName, String lastName, String middleName,
                              LocalDate birthDate, String gender, String city, String countryCode, String clubName) {
         this(email, password, phone, firstName, lastName, middleName, birthDate, gender, city, countryCode, clubName, null);
