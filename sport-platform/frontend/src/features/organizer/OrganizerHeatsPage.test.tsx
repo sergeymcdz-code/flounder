@@ -33,6 +33,8 @@ const context: EventContext = {
   run: async (action) => { await action(); return true },
 }
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
   vi.clearAllMocks()
   vi.mocked(useOrganizerEvent).mockReturnValue(context)
 })
@@ -65,4 +67,53 @@ it.each([
   await waitFor(() => expect(context.saveGeneration).toHaveBeenCalledOnce())
   expect(requestBody).toHaveBeenCalledExactlyOnceWith({ force: false, circleSeedTopHeats: false })
   expect(screen.getByRole('checkbox')).not.toBeChecked()
+})
+
+
+it('assigns bibs from the dialog and reports the assigned count', async () => {
+  const body = vi.fn()
+  server.use(http.post('*/api/v1/events/event/bib-numbers/assign', async ({ request }) => {
+    body(await request.json())
+    return HttpResponse.json({ assigned: 12, kept: 3, total: 15 })
+  }))
+  render(<OrganizerHeatsPage />)
+  await userEvent.click(screen.getByRole('button', { name: 'Стартовые номера…' }))
+  await userEvent.selectOptions(screen.getByLabelText('Порядок'), 'BY_NAME')
+  const start = screen.getByLabelText('Начать с')
+  await userEvent.clear(start)
+  await userEvent.type(start, '10')
+  await userEvent.click(screen.getByLabelText('Перенумеровать всех'))
+  await userEvent.click(screen.getByRole('button', { name: 'Назначить номера' }))
+  await screen.findByText('Назначено 12, сохранено 3, всего 15')
+  expect(body).toHaveBeenCalledWith({ mode: 'BY_NAME', startFrom: 10, reassign: true })
+})
+
+it('offers both card formats and filters print requests without disabling archived printing', async () => {
+  vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' } })
+  render(<OrganizerHeatsPage />)
+  expect(screen.getAllByText('Печать ▾', { selector: 'summary' })).toHaveLength(1)
+  expect(screen.getByRole('button', { name: 'Стартовые номера…' })).toBeDisabled()
+  await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
+  expect(screen.getByRole('button', { name: 'Карточки заплывов (A5)' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' })).toBeEnabled()
+  await userEvent.selectOptions(screen.getByLabelText('Вид'), 'discipline')
+  const requested = vi.fn()
+  server.use(http.get('*/api/v1/events/event/documents/heat-cards.pdf', ({ request }) => {
+    requested(new URL(request.url).searchParams.get('disciplineId'), new URL(request.url).searchParams.get('format'))
+    return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
+  }))
+  await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' }))
+  await waitFor(() => expect(requested).toHaveBeenCalledWith('discipline', 'A4x2'))
+})
+
+it('uses a valid query string for card printing without filters', async () => {
+  const requested = vi.fn()
+  server.use(http.get('*/api/v1/events/event/documents/heat-cards.pdf', ({ request }) => {
+    requested(new URL(request.url).search)
+    return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
+  }))
+  render(<OrganizerHeatsPage />)
+  await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (A5)' }))
+  await waitFor(() => expect(requested).toHaveBeenCalledWith('?format=A5'))
 })

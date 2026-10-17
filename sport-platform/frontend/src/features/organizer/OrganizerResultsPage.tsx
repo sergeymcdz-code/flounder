@@ -1,3 +1,4 @@
+import { AwardsPrintControls } from './PrintFormsControls'
 import { Link } from 'react-router'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publishDisciplineResults } from '../../api/scheduling.api'
@@ -35,6 +36,10 @@ export function OrganizerResultsPage() {
           accessToken={accessToken}
           disabled={busy || !heats.some((heat) => hasResults(heat.id))}
         />
+      </div>
+      <div className={styles.stack}>
+        <span className={styles.badge}>Неофициальные результаты</span>
+        <AwardsPrintControls />
       </div>
       {event.disciplines.map((d, index) => {
         const units = heats.filter((h) => h.eventDisciplineId === d.id)

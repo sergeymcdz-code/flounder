@@ -59,6 +59,8 @@ public class GlobalExceptionHandler {
             case "documents.busy" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
             case "documents.access_denied" -> HttpStatus.FORBIDDEN;
+            case "documents.too_many_pages", "scheduling.bib_locked", "scheduling.bib_taken", "documents.diploma_disabled" -> HttpStatus.CONFLICT;
+            case "scheduling.bib_not_found" -> HttpStatus.NOT_FOUND;
             case "documents.not_pending" -> HttpStatus.CONFLICT;
             case "files.too_large", "imports.file_too_large" -> HttpStatus.PAYLOAD_TOO_LARGE;
             case "files.storage_unavailable", "files.corrupt" -> HttpStatus.SERVICE_UNAVAILABLE;

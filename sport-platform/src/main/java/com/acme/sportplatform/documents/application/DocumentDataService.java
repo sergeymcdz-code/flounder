@@ -4,6 +4,7 @@ import com.acme.sportplatform.competition.*;
 import com.acme.sportplatform.documents.domain.Protocol;
 import com.acme.sportplatform.documents.domain.Protocol.*;
 import com.acme.sportplatform.events.EventLookup;
+import com.acme.sportplatform.scheduling.BibNumberLookup;
 import com.acme.sportplatform.organizations.OrganizationLookup;
 import com.acme.sportplatform.organizations.VenueLookup;
 import com.acme.sportplatform.results.ResultsProtocolLookup;
@@ -13,6 +14,7 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class DocumentDataService {
     private static final Set<String> PUBLIC_HEATS = Set.of("PUBLISHED", "IN_PROGRESS", "FINISHED", "COMPLETED");
     private static final Set<String> PUBLIC_RESULTS = Set.of("FINISHED", "COMPLETED");
+    private final BibNumberLookup bibs;
     private final EventLookup events;
     private final EventDisciplineLookup disciplines;
     private final ResultsProtocolLookup results;
@@ -30,9 +33,11 @@ public class DocumentDataService {
     private final ObjectMapper mapper;
     private final Clock clock;
 
+    @Autowired
     public DocumentDataService(EventLookup events, EventDisciplineLookup disciplines, ResultsProtocolLookup results,
             OrganizationLookup organizations, VenueLookup venues, ObjectMapper mapper,
-            @Qualifier("documentsClock") Clock clock) {
+            @Qualifier("documentsClock") Clock clock, BibNumberLookup bibs) {
+        this.bibs = bibs;
         this.events = events;
         this.disciplines = disciplines;
         this.results = results;
@@ -42,7 +47,17 @@ public class DocumentDataService {
         this.clock = clock;
     }
 
+    public DocumentDataService(EventLookup events, EventDisciplineLookup disciplines, ResultsProtocolLookup results,
+            OrganizationLookup organizations, VenueLookup venues, ObjectMapper mapper, Clock clock) {
+        this(events,disciplines,results,organizations,venues,mapper,clock,id -> Map.of());
+    }
+
     public Protocol protocol(UUID eventId, boolean publishedOnly) {
+        return protocol(eventId,publishedOnly,false,null,null);
+    }
+
+    public Protocol protocol(UUID eventId, boolean publishedOnly, boolean printForms, UUID disciplineId, UUID sessionId) {
+        var numbers = bibs.byEvent(eventId);
         var event = events.protocolHeader(eventId);
         var venue = event.venueId() == null ? null : venues.protocolVenue(event.venueId());
         var zone = venue == null ? ZoneOffset.UTC : ZoneId.of(venue.timezone());
@@ -63,30 +78,32 @@ public class DocumentDataService {
                 // PostgreSQL UUID ordering is unsigned; Java UUID.compareTo uses signed longs.
                 .thenComparing(d -> d.id().toString()));
         var heats = results.heats(program.stream().map(EventDisciplineSummary::id).toList()).stream()
-                .filter(h -> !publishedOnly || PUBLIC_HEATS.contains(h.status()))
+                .filter(h -> !(publishedOnly || printForms) || PUBLIC_HEATS.contains(h.status()))
                 .collect(Collectors.groupingBy(ResultsProtocolLookup.Heat::disciplineId));
         var views = new ArrayList<Discipline>();
         int number = 0;
         for (var discipline : program) {
             number++;
+            if (disciplineId != null && !disciplineId.equals(discipline.id())) continue;
+            if (sessionId != null && !sessionId.equals(discipline.sessionId())) continue;
             var disciplineHeats = heats.getOrDefault(discipline.id(), List.of());
             if (disciplineHeats.isEmpty()) continue;
             var startHeats = disciplineHeats.stream().sorted(Comparator.comparingInt(ResultsProtocolLookup.Heat::number))
                     .map(h -> new Heat(h.number(), groupName(discipline, h.ageGroupCode()), time(h.scheduledAt(), zone),
-                            startRows(h.entries(), laneCount))).toList();
-            var outcomes = disciplineHeats.stream().filter(h -> !publishedOnly || PUBLIC_RESULTS.contains(h.status()))
+                            startRows(h.entries(), laneCount, numbers))).toList();
+            var outcomes = disciplineHeats.stream().filter(h -> !(publishedOnly || printForms) || PUBLIC_RESULTS.contains(h.status()))
                     .flatMap(h -> h.entries().stream().filter(e -> e.outcome() != null && !"PENDING".equals(e.outcome().status()))
                             .map(e -> new ResultEntry(e, h.ageGroupCode()))).toList();
             var sections = new ArrayList<ResultSection>();
-            if (!outcomes.isEmpty()) sections.add(section("Абсолют", outcomes, false));
+            if (!outcomes.isEmpty()) sections.add(section("Абсолют", null, outcomes, false, numbers));
             for (var group : discipline.ageGroups()) {
                 var grouped = outcomes.stream().filter(e -> inGroup(e, discipline, group)).toList();
-                if (!grouped.isEmpty()) sections.add(section(group.name(), grouped, true));
+                if (!grouped.isEmpty()) sections.add(section(group.name(), group.code(), grouped, true, numbers));
             }
             views.add(new Discipline(number, discipline.name(), sessionNames.getOrDefault(discipline.sessionId(), "Без сессии"),
-                    startHeats, List.copyOf(sections)));
+                    startHeats, List.copyOf(sections), discipline.id(), discipline.sessionId()));
         }
-        return new Protocol(header, List.copyOf(views));
+        return new Protocol(header, List.copyOf(views), !numbers.isEmpty());
     }
 
     private int laneCount(VenueLookup.ProtocolVenue venue) {
@@ -97,13 +114,13 @@ public class DocumentDataService {
         }
     }
 
-    private List<StartRow> startRows(List<Entry> entries, int laneCount) {
+    private List<StartRow> startRows(List<Entry> entries, int laneCount, Map<UUID,Integer> numbers) {
         var byLane = entries.stream().filter(e -> e.lane() != null).collect(Collectors.toMap(Entry::lane, e -> e));
         var rows = new ArrayList<StartRow>();
         for (int lane = 1; lane <= laneCount; lane++) {
             var e = byLane.get(lane);
             rows.add(e == null ? new StartRow(lane, "—", "—", "—", "—", false) :
-                    new StartRow(lane, athlete(e), year(e), club(e), e.withdrawn() ? "—" : formatTime(e.seedTimeMs(), "NT"), e.withdrawn()));
+                    new StartRow(lane, athlete(e), year(e), club(e), e.withdrawn() ? "—" : formatTime(e.seedTimeMs(), "NT"), e.withdrawn(), e.profileId() == null ? null : numbers.get(e.profileId())));
         }
         return List.copyOf(rows);
     }
@@ -122,7 +139,7 @@ public class DocumentDataService {
         return entry.birthYear() != null && group.includes(gender, entry.birthYear());
     }
 
-    private ResultSection section(String name, List<ResultEntry> entries, boolean grouped) {
+    private ResultSection section(String name, String code, List<ResultEntry> entries, boolean grouped, Map<UUID,Integer> numbers) {
         var ordered = entries.stream().sorted(Comparator
                 .comparing((ResultEntry r) -> ranked(r.entry()) ? (grouped ? r.entry().outcome().placeInAgeGroup() : r.entry().outcome().place()) : null,
                         Comparator.nullsLast(Comparator.naturalOrder()))
@@ -135,10 +152,10 @@ public class DocumentDataService {
             var outcome = e.outcome();
             String status = status(e);
             var row = new ResultRow(ranked(e) ? (grouped ? outcome.placeInAgeGroup() : outcome.place()) : null,
-                    athlete(e), year(e), club(e), formatTime(outcome.timeMs(), "—"), status, "CORRECTED".equals(outcome.status()));
+                    athlete(e), year(e), club(e), formatTime(outcome.timeMs(), "—"), status, "CORRECTED".equals(outcome.status()), e.profileId() == null ? null : numbers.get(e.profileId()), e.lastName(), e.firstName());
             (ranked(e) ? placed : others).add(row);
         }
-        return new ResultSection(name, List.copyOf(placed), List.copyOf(others));
+        return new ResultSection(name, List.copyOf(placed), List.copyOf(others), code);
     }
 
     private static String status(Entry e) {

@@ -203,6 +203,7 @@ function OrganizerEventContent() {
           ['entries', 'Заявки'],
           ['heats', 'Заплывы'],
           ['results', 'Результаты'],
+          ['diploma', 'Грамоты'],
           ['notifications', 'Уведомления'],
           ...(isOrganizer || isPlatformAdmin ? [['analytics', 'Аналитика']] : []),
         ].map(([path, title]) => (

@@ -1,3 +1,4 @@
+import { HeatCardPrintOptions, HeatPrintControls } from './PrintFormsControls'
 import { useCallback, useState } from 'react'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { publicApi } from '../../api/public.api'
@@ -104,6 +105,7 @@ export function OrganizerHeatsPage() {
   }
   return (
     <div className={styles.stack}>
+      <HeatPrintControls />
       <article className={styles.card}>
         <label>
           <input type="checkbox" checked={false} disabled aria-describedby="circle-seed-help" />
@@ -148,6 +150,7 @@ export function OrganizerHeatsPage() {
           >
             Опубликовать стартовый протокол
           </button>
+          <details><summary>Печать ▾</summary>
           <a
             className={styles.button}
             href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`}
@@ -162,6 +165,8 @@ export function OrganizerHeatsPage() {
             accessToken={accessToken}
             disabled={busy || !heats.length}
           />
+            <HeatCardPrintOptions />
+          </details>
         </div>
         {last && (
           <div aria-live="polite">

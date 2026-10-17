@@ -1,0 +1,15 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" lang="ru"><head><meta charset="UTF-8" />
+<style>@page { size:A4 portrait; margin:0; } body { font-family:"Noto Sans"; margin:0; color:#18374b; }
+.diploma { position:relative; z-index:0; width:210mm; height:296mm; page-break-after:always; }
+.diploma:last-child { page-break-after:auto; }
+.content { position:relative; z-index:1; padding:22mm 18mm; text-align:center; } h1 { font-size:36pt; margin:26mm 0 16mm; word-wrap:break-word; }
+.event { font-size:18pt; } .body { font-size:23pt; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; }
+.footer { font-size:13pt; margin-top:20mm; white-space:pre-wrap; } .logo img { width:12mm; height:12mm; vertical-align:middle; } .logo { font-weight:bold; font-size:24pt; }</style>
+<style th:if="${!background.isEmpty()}" th:inline="text">
+.diploma { background-image:url("[[${background}]]"); background-size:210mm 297mm; background-repeat:no-repeat; }
+</style></head><body>
+<p th:if="${diplomas.isEmpty()}">Результатов для грамот нет.</p>
+<div class="diploma" th:each="d : ${diplomas}">
+<div class="content"><div th:if="${d.showLogo}" class="logo"><img th:src="${logo}" alt="" /> SportGate</div><div class="event" th:text="${protocol.header.title}"></div>
+<h1 th:text="${d.title}"></h1><div class="body" th:text="${d.body}"></div><div class="footer" th:text="${d.footer}"></div></div></div>
+</body></html>
