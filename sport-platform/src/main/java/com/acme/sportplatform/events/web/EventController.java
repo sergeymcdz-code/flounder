@@ -102,15 +102,14 @@ public class EventController {
     }
 
     @GetMapping("/events/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EventResponse> get(
             @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        EventEntity entity = getManagedEvent(
-                id,
-                principal
-        );
+        eventAccessService.assertCanView(id, principal);
+        EventEntity entity = eventRepository.findById(id).orElseThrow(() ->
+                new BusinessException("events.event_not_found", "Событие не найдено"));
 
         return ResponseEntity.ok(eventMapper.toResponse(entity));
     }
@@ -128,7 +127,8 @@ public class EventController {
     @GetMapping("/organizer/events")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR', 'JUDGE')")
     public ResponseEntity<List<EventResponse>> listMyEvents(
-            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) UUID organizationId
     ) {
         UUID currentUserId = requireUserId(principal);
 
@@ -136,7 +136,7 @@ public class EventController {
                 ? eventRepository.findAllByOrderByEventStartAtDesc()
                 : eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
                         organizationManagementAccess.organizationIdsOf(currentUserId), currentUserId);
-        List<EventResponse> events = managedEvents.stream().map(eventMapper::toResponse).toList();
+        List<EventResponse> events = managedEvents.stream().filter(e -> organizationId == null || organizationId.equals(e.getOrganizationId())).map(eventMapper::toResponse).toList();
 
         return ResponseEntity.ok(events);
     }
@@ -189,7 +189,7 @@ public class EventController {
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public EventResponse archive(@PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
-        eventAccessService.assertCanManage(id, principal);
+        eventAccessService.assertCanAdminister(id, principal);
         return lifecycle.transition(id, com.acme.sportplatform.events.domain.EventStatus.ARCHIVED);
     }
 
@@ -197,7 +197,8 @@ public class EventController {
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ORGANIZER', 'OPERATOR')")
     public EventResponse patch(@PathVariable UUID id, @RequestBody com.fasterxml.jackson.databind.JsonNode body,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
-        eventAccessService.assertCanModify(id, principal);
+        eventAccessService.assertCanAdminister(id, principal);
+        eventAccessService.assertWritable(id);
         var errors = new java.util.ArrayList<com.acme.sportplatform.common.api.ApiErrorResponse.FieldViolation>();
         var request = com.acme.sportplatform.common.RequestValidation.read(json, body,
                 com.acme.sportplatform.events.api.PatchEventRequest.class, validator, "", errors);

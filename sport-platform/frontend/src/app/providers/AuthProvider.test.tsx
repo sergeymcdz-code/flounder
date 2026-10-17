@@ -40,3 +40,27 @@ it('shows the expiration message after automatic sign-out', () => {
   render(<MemoryRouter><AuthProvider><AppLayout /></AuthProvider></MemoryRouter>)
   expect(screen.getByRole('alert')).toHaveTextContent(SESSION_EXPIRED)
 })
+
+it.each([false, true])('keeps context values stable on parent rerenders (authenticated=%s)', async authenticated => {
+  const snapshots: ReturnType<typeof useAuth>[] = []
+  function Probe() {
+    const auth = useAuth()
+    snapshots.push(auth)
+    return <p>{auth.authLoading ? 'Загрузка профиля' : 'Профиль готов'}</p>
+  }
+  if (authenticated) {
+    setAuthSession({ accessToken: 'stable-token', tokenType: 'Bearer', expiresAt: Date.now() + 60000 })
+    server.use(http.get('*/api/v1/auth/me', () => HttpResponse.json({ id: 'user', roles: ['organizer'], effectiveRoles: ['organizer'],
+      memberships: [{ organizationId: 'club', organizationName: 'Клуб', memberRole: 'owner' }] })))
+  }
+  const view = render(<AuthProvider><Probe /></AuthProvider>)
+  await screen.findByText('Профиль готов')
+  const previous = snapshots.at(-1)!
+  view.rerender(<AuthProvider><Probe /></AuthProvider>)
+  const current = snapshots.at(-1)!
+  expect(current.memberships).toBe(previous.memberships)
+  expect(current.roles).toBe(previous.roles)
+  expect(current.selectOrg).toBe(previous.selectOrg)
+  expect(current.hasRole).toBe(previous.hasRole)
+  expect(current).toBe(previous)
+})

@@ -97,9 +97,9 @@ export async function getPublicEventDetails(
 }
 
 export async function getMyEvents(
-  accessToken: string,
+  accessToken: string, organizationId?: string,
 ): Promise<OrganizerEvent[]> {
-  return apiFetch<OrganizerEvent[]>('/api/v1/organizer/events', {
+  return apiFetch<OrganizerEvent[]>('/api/v1/organizer/events' + (organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''), {
     accessToken,
   })
 }

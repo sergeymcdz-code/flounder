@@ -31,7 +31,10 @@ const navigationItems: NavigationItem[] = [
 ]
 
 export function OrganizerLayout() {
-  const { isOrganizer, isPlatformAdmin } = useAuth()
+  const { isOrganizer, isPlatformAdmin, memberships = [], currentOrgId } = useAuth()
+  const current = memberships.find(m => m.organizationId === currentOrgId)
+  const canCreate = isPlatformAdmin || !!current && ['owner', 'admin', 'organizer'].includes(current.memberRole)
+  const canManageOrg = !!current && ['owner', 'admin'].includes(current.memberRole)
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
@@ -41,7 +44,7 @@ export function OrganizerLayout() {
         </div>
 
         <nav className={styles.navigation} aria-label="Навигация организатора">
-          {[...navigationItems, ...(isOrganizer || isPlatformAdmin ? [{ to: '/organizer/organizations', label: 'Аналитика организаций' }] : [])].map((item) => (
+          {[...navigationItems.filter(item => item.to !== '/organizer/events/new' || canCreate), ...(canManageOrg ? [{ to: '/organizer/organization', label: 'Организация' }] : []), ...(isOrganizer || isPlatformAdmin ? [{ to: '/organizer/organizations', label: 'Аналитика организаций' }] : [])].map((item) => (
             <NavLink
               key={item.to}
               className={({ isActive }) =>

@@ -53,7 +53,8 @@ function statusClassName(status: string): string {
 }
 
 export function OrganizerEventsPage() {
-  const { session } = useAuth()
+  const { session, currentOrgId, memberships = [], isPlatformAdmin } = useAuth()
+  const canCreate = isPlatformAdmin || memberships.some(m => m.organizationId === currentOrgId && ['owner', 'admin', 'organizer'].includes(m.memberRole))
   const accessToken = session?.accessToken
 
   const [events, setEvents] = useState<Event[]>([])
@@ -74,7 +75,7 @@ export function OrganizerEventsPage() {
         setErrorMessage(null)
 
         try {
-          const data = await getMyEvents(authenticatedAccessToken)
+          const data = await getMyEvents(authenticatedAccessToken, isPlatformAdmin ? undefined : currentOrgId)
 
           if (isMounted) {
             setEvents(data)
@@ -95,7 +96,7 @@ export function OrganizerEventsPage() {
       return () => {
         isMounted = false
       }
-    }, [accessToken])
+    }, [accessToken, currentOrgId, isPlatformAdmin])
 
   return (
     <section className={styles.page}>
@@ -105,9 +106,9 @@ export function OrganizerEventsPage() {
           <h1 className={styles.title}>Мои мероприятия</h1>
         </div>
 
-        <NavLink className={styles.createLink} to="/organizer/events/new">
+        {canCreate && <NavLink className={styles.createLink} to="/organizer/events/new">
           Создать мероприятие
-        </NavLink>
+        </NavLink>}
       </div>
 
       {isLoading ? (

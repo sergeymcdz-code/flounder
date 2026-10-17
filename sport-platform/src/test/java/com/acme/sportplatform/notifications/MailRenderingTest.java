@@ -12,7 +12,7 @@ import static org.mockito.Mockito.*;
 
 class MailRenderingTest {
     MailTemplateRenderer renderer = new MailTemplateRenderer();
-    Map<String, Object> payload = Map.of("name", "Иван", "event", "Кубок Самары", "date", "2026-10-19",
+    Map<String, Object> payload = Map.of("inviter", "Иван", "organization", "Клуб Волна", "role", "Секретарь", "name", "Иван", "event", "Кубок Самары", "date", "2026-10-19",
             "link", "https://example.org/e/cup/start-list", "reason", "Нет допуска <script>alert(1)</script>",
             "body", "Ссылка восстановления: https://example.org/reset-password?token=test-token");
     @Test void allTemplatesRenderCyrillicAndEscapeHtml() {

@@ -7,16 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
-import com.acme.sportplatform.organizations.OrganizationManagementAccess;
 
 @Service
 public class EventAccessService {
     private final EventRepository events;
-    private final OrganizationManagementAccess organizations;
 
-    public EventAccessService(EventRepository events, OrganizationManagementAccess organizations) {
+    public EventAccessService(EventRepository events) {
         this.events = events;
-        this.organizations = organizations;
     }
 
     @Transactional(readOnly = true)
@@ -46,11 +43,26 @@ public class EventAccessService {
 
     @Transactional(readOnly = true)
     public void assertCanManage(UUID eventId, AuthenticatedUserPrincipal principal) {
+        assertAccess(eventId, principal, java.util.Set.of("owner", "admin", "organizer", "operator", "judge"));
+    }
+
+    @Transactional(readOnly = true)
+    public void assertCanView(UUID eventId, AuthenticatedUserPrincipal principal) {
+        assertAccess(eventId, principal, java.util.Set.of("owner", "admin", "organizer", "operator", "judge", "member"));
+    }
+
+    @Transactional(readOnly = true)
+    public void assertCanAdminister(UUID eventId, AuthenticatedUserPrincipal principal) {
+        assertAccess(eventId, principal, java.util.Set.of("owner", "admin", "organizer"));
+    }
+
+    private void assertAccess(UUID eventId, AuthenticatedUserPrincipal principal, java.util.Set<String> roles) {
         var event = events.findById(eventId)
                 .orElseThrow(() -> new BusinessException("events.event_not_found", "Событие не найдено"));
         if (principal != null && principal.isPlatformAdmin()) return;
         if (principal != null && (principal.getUserId().equals(event.getCreatedByUserId())
-                || organizations.isMember(event.getOrganizationId(), principal.getUserId()))) return;
-        throw new BusinessException("events.access_denied", "Нет доступа к управлению этим событием");
+                || principal.getMemberships().stream().anyMatch(m -> event.getOrganizationId().equals(m.organizationId())
+                    && roles.contains(m.memberRole().toLowerCase(java.util.Locale.ROOT))))) return;
+        throw new BusinessException("events.access_denied", "Нет доступа к этому событию");
     }
 }

@@ -4,6 +4,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import { apiFetch } from '../../api/http'
 import { addMember, createOrganization, deleteMember, getMembers, getOrganization, getOrganizations, updateMember,
   type OrganizationMember, type OrganizationResponse } from '../../api/organizations.api'
+import { OrganizationInvitationList } from '../organizations/OrganizationInvitationList'
 import type { Event } from '../../api/events.api'
 import { AdminDialog } from './AdminDialog'
 import { adminError } from './admin-utils'
@@ -123,6 +124,7 @@ export function OrganizationAdminPage() {
           <td>{memberRoles.find(([code]) => code === member.memberRole)?.[1] ?? member.memberRole}</td><td className={styles.actions}>
             <button onClick={() => open({ type: 'edit', member })}>Изменить роль</button><button onClick={() => open({ type: 'delete', member })}>Удалить</button></td></tr>)}</tbody>
       </table>}
+    <OrganizationInvitationList organizationId={id} />
     <h2 id="events">События организации</h2>
     {eventError ? <p role="alert" className={styles.error}>{eventError}</p> : events.length ? <ul>{events.map(event =>
       <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p className="fl-empty">Событий пока нет.</p>}

@@ -1,0 +1,9 @@
+.page { display: grid; gap: 16px; min-width: 0; max-width: 960px; margin: 0 auto; overflow-wrap: anywhere; }
+.page h1, .page h2, .page p { margin: 0; }
+.form { display: grid; gap: 12px; max-width: 600px; }
+.form label { display: grid; gap: 6px; }
+.form input, .form select, .page button { padding: 10px; min-height: 44px; max-width: 100%; box-sizing: border-box; }
+.form input, .form select { width: 100%; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.item { border: 1px solid var(--fl-border, #ddd); border-radius: 8px; padding: 12px; display: grid; gap: 8px; min-width: 0; }

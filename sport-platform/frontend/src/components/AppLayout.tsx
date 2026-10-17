@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../app/providers/AuthProvider'
 import styles from './AppLayout.module.css'
+import { OrganizationSwitcher } from './OrganizationSwitcher'
 
 export function AppLayout() {
   useEffect(() => {
@@ -32,8 +33,8 @@ export function AppLayout() {
       : styles.navLink
   }
 
-  const canManageEvents = isPlatformAdmin || isOrganizer
-  const canReviewRegistrations = isPlatformAdmin || isOrganizer
+  const canManageEvents = isPlatformAdmin || isOrganizer || isOperator || hasRole('judge')
+  const canReviewRegistrations = isPlatformAdmin || isOrganizer || isOperator
   const canProcessPayments = isPlatformAdmin || isOperator
   const isJudge = hasRole('judge')
   const canManageResults = isPlatformAdmin || isOperator || isJudge
@@ -45,6 +46,7 @@ export function AppLayout() {
           SportGate
         </NavLink>
 
+        <OrganizationSwitcher />
         <nav className={styles.navigation} aria-label="Основная навигация">
           <NavLink className={navLinkClassName} to="/" end>
             События

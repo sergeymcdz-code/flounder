@@ -24,6 +24,9 @@ const SportsAdminPage = lazy(() =>
   import('../features/admin/SportsAdminPage').then(module => ({ default: module.SportsAdminPage })),
 )
 
+const InvitationPage = lazy(() => import('../features/organizations/InvitationPage').then(m => ({ default: m.InvitationPage })))
+const OrganizationPage = lazy(() => import('../features/organizations/OrganizationPage').then(m => ({ default: m.OrganizationPage })))
+
 const LoginPage = lazy(() =>
   import('../features/auth/LoginPage').then(module => ({ default: module.LoginPage })),
 )
@@ -132,6 +135,7 @@ export default function App() {
           element={<PublicDisciplineResultsPage />}
         />
 
+        <Route path="invitations/:token" element={<InvitationPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="forgot-password" element={<PasswordPage mode="forgot" />} />
@@ -163,13 +167,14 @@ export default function App() {
         <Route
           element={
             <RequireRole
-              roles={['platform_admin', 'platformadmin', 'organizer', 'operator']}
+              roles={['platform_admin', 'platformadmin', 'organizer', 'operator', 'judge']}
               deniedMessage="Нет доступа к кабинету организатора."
             />
           }
         >
           <Route path="organizer" element={<OrganizerLayout />}>
             <Route index element={<OrganizerDashboardPage />} />
+            <Route path="organization" element={<OrganizationPage />} />
             <Route path="notification-settings" element={<NotificationSettingsPage />} />
             <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
               <Route path="organizations" element={<OrganizationsAnalyticsListPage />} />
