@@ -2,24 +2,30 @@ package com.acme.sportplatform.documents.infrastructure;
 
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.documents.domain.Protocol;
-import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
-import java.io.ByteArrayOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.Locale;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
+import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
 @Component
 public class PdfRenderer {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PdfRenderer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PdfRenderer.class);
     private final TemplateEngine templates;
     private final byte[] regularBytes;
     private final byte[] boldBytes;
@@ -33,25 +39,46 @@ public class PdfRenderer {
         resolver.setSuffix(".html");
         resolver.setCharacterEncoding("UTF-8");
         resolver.setTemplateMode(TemplateMode.XML);
-        templates = new org.thymeleaf.spring6.SpringTemplateEngine();
+        templates = new SpringTemplateEngine();
         templates.setTemplateResolver(resolver);
     }
 
     public byte[] render(Protocol protocol, boolean results) {
-        return render(results ? "results" : "start-list", java.util.Map.of("protocol", protocol));
+        return render(results ? "results" : "start-list", Map.of("protocol", protocol));
     }
 
-    public byte[] render(String template, java.util.Map<String,Object> model) {
+    public byte[] render(String template, Map<String, Object> model) {
         try (var output = new ByteArrayOutputStream()) {
             var context = new Context(Locale.forLanguageTag("ru"));
             context.setVariables(model);
             var builder = new PdfRendererBuilder();
             builder.useFastMode();
-            // Fonts and validated image bytes are supplied directly; filesystem and network access remain blocked.
-            builder.useExternalResourceAccessControl((uri, type) -> uri != null && (uri.startsWith("data:image/png;base64,") || uri.startsWith("data:image/jpeg;base64,")), ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
-            builder.useExternalResourceAccessControl((uri, type) -> uri != null && (uri.startsWith("data:image/png;base64,") || uri.startsWith("data:image/jpeg;base64,")), ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
-            builder.useFont(() -> new ByteArrayInputStream(regularBytes), "Noto Sans", 400, FontStyle.NORMAL, true);
-            builder.useFont(() -> new ByteArrayInputStream(boldBytes), "Noto Sans", 700, FontStyle.NORMAL, true);
+            // Fonts and validated image bytes are supplied directly; filesystem and network access
+            // remain blocked.
+            builder.useExternalResourceAccessControl(
+                    (uri, type) ->
+                            uri != null
+                                    && (uri.startsWith("data:image/png;base64,")
+                                            || uri.startsWith("data:image/jpeg;base64,")),
+                    ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
+            builder.useExternalResourceAccessControl(
+                    (uri, type) ->
+                            uri != null
+                                    && (uri.startsWith("data:image/png;base64,")
+                                            || uri.startsWith("data:image/jpeg;base64,")),
+                    ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
+            builder.useFont(
+                    () -> new ByteArrayInputStream(regularBytes),
+                    "Noto Sans",
+                    400,
+                    FontStyle.NORMAL,
+                    true);
+            builder.useFont(
+                    () -> new ByteArrayInputStream(boldBytes),
+                    "Noto Sans",
+                    700,
+                    FontStyle.NORMAL,
+                    true);
             builder.withHtmlContent(templates.process(template, context), null);
             builder.toStream(output);
             if (!renderSlots.tryAcquire(10, TimeUnit.SECONDS)) throw busy();
@@ -68,7 +95,8 @@ public class PdfRenderer {
             throw busy();
         } catch (Exception ex) {
             LOG.error("PDF protocol generation failed", ex);
-            throw new BusinessException("documents.generation_failed", "Не удалось сформировать PDF-протокол");
+            throw new BusinessException(
+                    "documents.generation_failed", "Не удалось сформировать PDF-протокол");
         }
     }
 
@@ -82,7 +110,8 @@ public class PdfRenderer {
     }
 
     private BusinessException busy() {
-        return new BusinessException("documents.busy",
+        return new BusinessException(
+                "documents.busy",
                 "Сервер занят формированием PDF, повторите через несколько секунд");
     }
 }

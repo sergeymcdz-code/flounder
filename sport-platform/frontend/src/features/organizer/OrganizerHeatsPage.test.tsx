@@ -91,8 +91,9 @@ it('assigns bibs from the dialog and reports the assigned count', async () => {
 it('offers both card formats and filters print requests without disabling archived printing', async () => {
   vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' } })
   render(<OrganizerHeatsPage />)
+  expect(screen.getAllByText('Печать ▾', { selector: 'summary' })).toHaveLength(1)
   expect(screen.getByRole('button', { name: 'Стартовые номера…' })).toBeDisabled()
-  await userEvent.click(screen.getByText('Печать', { selector: 'summary' }))
+  await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
   expect(screen.getByRole('button', { name: 'Карточки заплывов (A5)' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' })).toBeEnabled()
   await userEvent.selectOptions(screen.getByLabelText('Вид'), 'discipline')
@@ -103,4 +104,16 @@ it('offers both card formats and filters print requests without disabling archiv
   }))
   await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' }))
   await waitFor(() => expect(requested).toHaveBeenCalledWith('discipline', 'A4x2'))
+})
+
+it('uses a valid query string for card printing without filters', async () => {
+  const requested = vi.fn()
+  server.use(http.get('*/api/v1/events/event/documents/heat-cards.pdf', ({ request }) => {
+    requested(new URL(request.url).search)
+    return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
+  }))
+  render(<OrganizerHeatsPage />)
+  await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (A5)' }))
+  await waitFor(() => expect(requested).toHaveBeenCalledWith('?format=A5'))
 })

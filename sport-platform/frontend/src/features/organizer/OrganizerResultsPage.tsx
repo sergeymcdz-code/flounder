@@ -20,7 +20,6 @@ export function OrganizerResultsPage() {
       ) ?? false
   return (
     <div className={styles.stack}>
-      <AwardsPrintControls />
       <div className={styles.toolbar}>
         <h2>Результаты соревнования</h2>
         <a
@@ -37,6 +36,10 @@ export function OrganizerResultsPage() {
           accessToken={accessToken}
           disabled={busy || !heats.some((heat) => hasResults(heat.id))}
         />
+      </div>
+      <div className={styles.stack}>
+        <span className={styles.badge}>Неофициальные результаты</span>
+        <AwardsPrintControls />
       </div>
       {event.disciplines.map((d, index) => {
         const units = heats.filter((h) => h.eventDisciplineId === d.id)

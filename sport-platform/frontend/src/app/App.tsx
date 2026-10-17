@@ -1,4 +1,3 @@
-import { OrganizerDiplomaPage } from '../features/organizer/OrganizerDiplomaPage'
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 
@@ -13,6 +12,8 @@ import { LivePage } from '../features/public/LivePage'
 import { ResultsPage } from '../features/public/ResultsPage'
 import { PublicRegistrationPage } from '../features/public/RegistrationPage'
 import { HeatPage } from '../features/public/HeatPage'
+
+const OrganizerDiplomaPage = lazy(() => import('../features/organizer/OrganizerDiplomaPage').then(module => ({ default: module.OrganizerDiplomaPage })))
 
 const RegistrationReviewPage = lazy(() =>
   import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })),

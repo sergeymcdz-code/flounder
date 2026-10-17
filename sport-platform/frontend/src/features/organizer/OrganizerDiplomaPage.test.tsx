@@ -52,3 +52,29 @@ it('passes award and diploma filters to authenticated PDF downloads', async () =
   await userEvent.click(screen.getByRole('button', { name: 'Лист награждения (PDF)' }))
   await waitFor(() => expect(downloadProtocol).toHaveBeenCalledWith('/api/v1/events/cup/documents/awards.pdf?scope=ABSOLUTE&places=3&disciplineId=f50', 'Лист-награждения.pdf', 'token'))
 })
+
+
+it('keeps an empty places input safe and disables exports until it is valid', async () => {
+  render(<AwardsPrintControls />)
+  await userEvent.clear(screen.getByLabelText('Число мест'))
+  expect(screen.getByRole('button', { name: 'Грамоты (PDF)' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Лист награждения (PDF)' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Пробная грамота' })).toBeEnabled()
+  await userEvent.type(screen.getByLabelText('Число мест'), '3')
+  expect(screen.getByRole('button', { name: 'Грамоты (PDF)' })).toBeEnabled()
+})
+
+
+it('refreshes a clean template from context while preserving unsaved edits', async () => {
+  const original = context.event.settingsJson
+  const page = render(<OrganizerDiplomaPage />)
+  context.event.settingsJson = '{"diploma":{"enabled":true,"title":"Обновлено"}}'
+  page.rerender(<OrganizerDiplomaPage />)
+  expect(screen.getByLabelText('Заголовок')).toHaveValue('Обновлено')
+  await userEvent.clear(screen.getByLabelText('Заголовок'))
+  await userEvent.type(screen.getByLabelText('Заголовок'), 'Мой черновик')
+  context.event.settingsJson = '{"diploma":{"enabled":true,"title":"Изменение сервера"}}'
+  page.rerender(<OrganizerDiplomaPage />)
+  expect(screen.getByLabelText('Заголовок')).toHaveValue('Мой черновик')
+  context.event.settingsJson = original
+})

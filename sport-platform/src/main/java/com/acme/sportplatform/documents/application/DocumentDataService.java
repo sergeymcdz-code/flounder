@@ -4,6 +4,7 @@ import com.acme.sportplatform.competition.*;
 import com.acme.sportplatform.documents.domain.Protocol;
 import com.acme.sportplatform.documents.domain.Protocol.*;
 import com.acme.sportplatform.events.EventLookup;
+import com.acme.sportplatform.scheduling.BibNumberLookup;
 import com.acme.sportplatform.organizations.OrganizationLookup;
 import com.acme.sportplatform.organizations.VenueLookup;
 import com.acme.sportplatform.results.ResultsProtocolLookup;
@@ -13,6 +14,7 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class DocumentDataService {
     private static final Set<String> PUBLIC_HEATS = Set.of("PUBLISHED", "IN_PROGRESS", "FINISHED", "COMPLETED");
     private static final Set<String> PUBLIC_RESULTS = Set.of("FINISHED", "COMPLETED");
-    private final com.acme.sportplatform.scheduling.BibNumberLookup bibs;
+    private final BibNumberLookup bibs;
     private final EventLookup events;
     private final EventDisciplineLookup disciplines;
     private final ResultsProtocolLookup results;
@@ -31,10 +33,10 @@ public class DocumentDataService {
     private final ObjectMapper mapper;
     private final Clock clock;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public DocumentDataService(EventLookup events, EventDisciplineLookup disciplines, ResultsProtocolLookup results,
             OrganizationLookup organizations, VenueLookup venues, ObjectMapper mapper,
-            @Qualifier("documentsClock") Clock clock, com.acme.sportplatform.scheduling.BibNumberLookup bibs) {
+            @Qualifier("documentsClock") Clock clock, BibNumberLookup bibs) {
         this.bibs = bibs;
         this.events = events;
         this.disciplines = disciplines;
