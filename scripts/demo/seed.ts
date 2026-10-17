@@ -197,13 +197,13 @@ function assertEntries(rows: Registration[], disciplines: Row[], entries: Entry[
     profileKey(row.participantSnapshot) === profileKey(entry.profile) && disciplines.find(d => d.id === row.eventDisciplineId)?.code === entry.code)))
     throw new Error('Состав заявок отличается от демо-плана. Выполните reset, затем seed.');
 }
-async function importEntries(api: Api, id: string, bytes: Uint8Array, count: number, token: string, log: (message: string) => void) {
+export async function importEntries(api: Api, id: string, bytes: Uint8Array, count: number, token: string, log: (message: string) => void) {
   const report = await api.request<{ total: number; created: number; updated: number; skipped: number; errors: unknown[] }>('POST', `/events/${id}/registrations/import`, importBody(bytes), token);
   if (!Array.isArray(report.errors) || report.errors.length || report.total !== count || report.created + report.updated + report.skipped !== count)
     throw new Error(`Импорт не подтвердил ${count} корректных строк без ошибок. Проверьте отчёт импорта. SQL-обход запрещён.`);
   log(`Импорт: всего ${report.total}, создано ${report.created}, обновлено ${report.updated}, пропущено ${report.skipped}, ошибок 0.`);
 }
-async function findParticipant(api: Api, email: string, adminToken: string) {
+export async function findParticipant(api: Api, email: string, adminToken: string) {
   const users = await api.request<{ items: (Row & { roles: string[] })[] }>('GET', `/users?query=${encodeURIComponent(email)}&size=100`, undefined, adminToken);
   const user = unique(users.items, row => String(row.email).toLowerCase() === email, email);
   const roles = user?.roles;
@@ -211,7 +211,7 @@ async function findParticipant(api: Api, email: string, adminToken: string) {
     throw new Error(`Аккаунт ${email} уже существует и не является отдельным участником. Задайте другой DEMO_OWNER_EMAIL; роли и профиль существующего пользователя не изменяются.`);
   return user;
 }
-async function participantLogin(api: Api, email: string, password: string) {
+export async function participantLogin(api: Api, email: string, password: string) {
   try { return await login(api, email, password); }
   catch (error) {
     if (!(error instanceof ApiError) || error.code !== 'identity.invalid_credentials') throw error;

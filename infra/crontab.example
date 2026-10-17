@@ -14,3 +14,4 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # 0 0 * * * "$HOME/flounder/infra/backup.sh"
 # 0 1 * * 0 "$HOME/flounder/infra/verify-latest-backup.sh"
 # 0 * * * * "$HOME/flounder/infra/check-disk.sh" >> "$HOME/backups/backup.log" 2>&1
+# 0 6 * * 1 cd /home/deploy/flounder && /usr/bin/flock -n /home/deploy/backups/demo-calendar.lock /usr/bin/docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine sh -eu -c 'npm ci && npx tsx calendar.ts --advance' >> /home/deploy/backups/demo-calendar.log 2>&1

@@ -4,7 +4,7 @@
 \set ON_ERROR_STOP on
 begin;
 create temporary table s02_targets on commit drop as
-select * from jsonb_to_recordset(:'demo_targets'::jsonb) as target(id uuid, title text, slug text);
+select * from jsonb_to_recordset(:'demo_targets'::jsonb) as target(id uuid, title text, slug text, calendar boolean, prefix text);
 create temporary table t10_event (id uuid primary key) on commit drop;
 insert into t10_event (id)
 select e.id from events e
@@ -12,7 +12,15 @@ join s02_targets target on target.id = e.id and target.title = e.title and targe
 join organizations o on o.id = e.organization_id
 join venues v on v.id = e.venue_id
 where o.name = 'Федерация плавания Самарской области (демо)'
-  and v.name = 'Дворец спорта, 25 м, 8 дорожек'
+  and (
+    (not coalesce(target.calendar, false) and v.name = 'Дворец спорта, 25 м, 8 дорожек')
+    or (target.calendar and v.name in (
+      'SportGate — Самара, Дворец спорта', 'SportGate — Самара, Волга', 'SportGate — Тольятти, Олимп',
+      'SportGate — Казань, Акватика', 'SportGate — Уфа, Урал', 'SportGate — Саратов, Юность',
+      'SportGate — Ульяновск, Заря', 'SportGate — Пенза, Сура', 'SportGate — Оренбург, Нептун'
+    ) and (position('Тестовые данные SportGate' in e.description) > 0
+      or (nullif(target.prefix, '') is not null and starts_with(e.title, target.prefix || ' '))))
+  )
 for update of e;
 -- Refuse a partial match: all selected UUID/title/slug triples must still match.
 do $$ begin
