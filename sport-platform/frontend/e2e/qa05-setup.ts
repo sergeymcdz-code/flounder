@@ -13,6 +13,19 @@ export default function setup() {
   const apiUrl = validateApiUrl(process.env.QA05_API_URL ?? 'http://localhost:8080')
   // A new isolated event per run avoids deleting or changing a previous demo.
   const directory = resolve('../../scripts/demo')
+  // S02 fixtures are reused by title; the seven-step flow keeps its isolated B event.
+  const multiOutput = execFileSync(process.execPath, [resolve(directory, 'node_modules/tsx/dist/cli.mjs'), 'seed.ts'], {
+    cwd: directory, timeout: 600_000, encoding: 'utf8',
+    env: { ...process.env, API_URL: apiUrl, ADMIN_EMAIL: 'admin@flounder.demo',
+      ADMIN_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!', DEMO_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',
+      DEMO_SEED_ENABLED: 'true', REQUIRE_VENUE_META: 'true', DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-19',
+      DEMO_EVENTS: 'A,B,C', EVENT_TITLE_SUFFIX: '' },
+  })
+  mkdirSync('work/qa05', { recursive: true })
+  const events = Object.fromEntries([...multiOutput.matchAll(/^S02 ([ABC]): (.+)$/gm)].map(match => [match[1], JSON.parse(match[2])]))
+  if (Object.keys(events).length !== 3) throw new Error('S02 seed did not return all three event summaries')
+  writeFileSync('work/qa05/s02-seed.json', JSON.stringify(events))
+  writeFileSync('work/qa05/s02-seed.log', multiOutput)
   const suffix = ` · QA05 ${new Date().toISOString()}`
   const output = execFileSync(process.execPath, [
     resolve(directory, 'node_modules/tsx/dist/cli.mjs'),
@@ -29,6 +42,8 @@ export default function setup() {
       DEMO_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',
       DEMO_SEED_ENABLED: 'true',
       REQUIRE_VENUE_META: 'true',
+      DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-19',
+      DEMO_EVENTS: 'B',
       EVENT_TITLE_SUFFIX: suffix,
     },
   })
