@@ -172,7 +172,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         await expect(org.getByRole('dialog')).toHaveCount(0)
       }
       await screenshots(org, '03-parent-confirmed')
-      await expect.soft(org.getByRole('button', { name: 'Оплачено', exact: true }), 'QA05: zero-fee mark-paid action').toHaveCount(2)
+      await expect.soft(org.getByRole('button', { name: 'Отметить оплату…', exact: true }), 'QA05: zero-fee mark-paid action').toHaveCount(2)
       await login(sec, 'sec@flounder.demo', `${base}/entries`)
       // The operator is allowed by the route, but /venues currently returns 403.
       await expect.soft(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
@@ -181,8 +181,11 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         if (await sec.getByLabel('Поиск', { exact: true }).count()) {
           await sec.getByLabel('Поиск', { exact: true }).fill('Демов')
           const row = sec.locator('tbody tr').filter({ hasText: event.disciplines.find(d => d.id === registration.eventDisciplineId)!.name })
-          if (await row.getByRole('button', { name: 'Оплачено', exact: true }).count()) {
-            await row.getByRole('button', { name: 'Оплачено', exact: true }).click()
+          if (await row.getByRole('button', { name: 'Отметить оплату…', exact: true }).count()) {
+            await row.getByRole('button', { name: 'Отметить оплату…', exact: true }).click()
+            await sec.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+            await expect(sec.getByRole('dialog')).toHaveCount(0)
+            await expect(row.getByTitle('Статус оплаты')).toHaveText('Оплачено')
             await settle(sec)
             continue
           }

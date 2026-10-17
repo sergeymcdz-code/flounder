@@ -48,14 +48,12 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     int expected(Endpoint e, String actor) {
         if (e.policy().equals("public")) return e.allowedStatus();
         if (actor.equals("anonymous")) return e.policy().equals("signed-document") ? 404 : 401;
-        // Financial summaries are organizer/operator-only, unlike other manage-read endpoints.
-        if (actor.equals("judge") && e.path().contains("/payments/summary")) return 403;
         boolean allowed = switch (e.policy()) {
             case "authenticated" -> true;
             case "admin", "owner" -> actor.equals("platform_admin");
             case "participant" -> actor.equals("participant");
             case "organize" -> Set.of("organizer", "foreign_organizer", "platform_admin").contains(actor);
-            case "manage" -> Set.of("operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
+            case "manage", "manage-finance" -> Set.of("operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "manage-read" -> Set.of("judge", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "documents", "signed-document" -> Set.of("participant", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);
             case "withdraw" -> Set.of("participant", "operator", "organizer", "foreign_organizer", "platform_admin").contains(actor);

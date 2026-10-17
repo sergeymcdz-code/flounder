@@ -33,8 +33,11 @@ class PaymentReminderServiceTest {
         when(clock.instant()).thenAnswer(a -> now.get());
         var history =
                 new AtomicReference<>(new NotificationOutboxRepository.ReminderHistory(0, null));
-        when(events.paymentReminderEventIds(any())).thenReturn(List.of(event));
-        when(registrations.pendingIds(List.of(event))).thenReturn(List.of(registration));
+        var context =
+                new NotificationEventLookup.Context(
+                        event, org, "Кубок", null, "cup", UUID.randomUUID(), "Europe/Moscow");
+        when(events.paymentReminderEvents(any())).thenReturn(List.of(context));
+        when(registrations.pendingIds(anyCollection())).thenReturn(List.of(registration));
         when(registrations.reminder(registration))
                 .thenReturn(
                         Optional.of(
@@ -50,7 +53,13 @@ class PaymentReminderServiceTest {
                 .thenReturn(
                         Optional.of(
                                 new NotificationEventLookup.Context(
-                                        event, org, "Кубок", null, "cup", "Europe/Moscow")));
+                                        event,
+                                        org,
+                                        "Кубок",
+                                        null,
+                                        "cup",
+                                        UUID.randomUUID(),
+                                        "Europe/Moscow")));
         when(users.findById(user))
                 .thenReturn(
                         Optional.of(
@@ -101,5 +110,72 @@ class PaymentReminderServiceTest {
                         anyMap(),
                         anyString(),
                         any());
+    }
+
+    @Test
+    void overdueBatchKeepsOneInstantEvenWhenProcessingCrossesTheWindowBoundary() {
+        var registrations = mock(RegistrationPaymentReminderLookup.class);
+        var events = mock(NotificationEventLookup.class);
+        var users = mock(UserLookup.class);
+        var outbox = mock(NotificationOutboxRepository.class);
+        var settings = mock(NotificationSettingsRepository.class);
+        var clock = mock(Clock.class);
+        UUID event = UUID.randomUUID(), org = UUID.randomUUID(), user = UUID.randomUUID();
+        var ids = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var now = Instant.parse("2026-10-17T06:09:59Z");
+        when(clock.instant()).thenReturn(now, now.plusSeconds(61));
+        when(events.paymentReminderEvents(now))
+                .thenReturn(
+                        List.of(
+                                new NotificationEventLookup.Context(
+                                        event,
+                                        org,
+                                        "Кубок",
+                                        null,
+                                        "cup",
+                                        UUID.randomUUID(),
+                                        "Europe/Moscow")));
+        when(registrations.pendingIds(anyCollection())).thenReturn(ids);
+        for (var id : ids) {
+            when(registrations.reminder(id))
+                    .thenReturn(
+                            Optional.of(
+                                    new RegistrationPaymentReminderLookup.Reminder(
+                                            id,
+                                            event,
+                                            user,
+                                            new BigDecimal("500"),
+                                            "RUB",
+                                            "Банк",
+                                            OffsetDateTime.parse("2026-10-10T09:00:00+03:00"))));
+            when(outbox.reminderHistory(id))
+                    .thenReturn(
+                            new NotificationOutboxRepository.ReminderHistory(
+                                    1, now.minus(Duration.ofDays(4))));
+        }
+        when(users.findById(user))
+                .thenReturn(
+                        Optional.of(
+                                new UserLookup.User(user, "test@example.org", "Иван", "Тестов")));
+        when(settings.enabled(org, "payment_reminder")).thenReturn(true);
+        new PaymentReminderService(
+                        registrations,
+                        events,
+                        users,
+                        outbox,
+                        settings,
+                        mock(EventLockService.class),
+                        clock)
+                .remindOverdue();
+        verify(clock).instant();
+        verify(outbox, times(2))
+                .enqueue(
+                        eq(event),
+                        anyString(),
+                        eq("payment_reminder"),
+                        anyMap(),
+                        anyString(),
+                        eq(now));
+        verify(events, never()).findNotificationContext(any());
     }
 }

@@ -20,7 +20,12 @@ public class PaymentReminderScheduler {
         reminders.initial(e.registrationId());
     }
 
-    // Scan each minute so half-hour and quarter-hour venue zones also run at local 09:00.
+    @EventListener
+    public void feeAssigned(com.acme.sportplatform.registrations.RegistrationFeeAssignedEvent e) {
+        reminders.initial(e.registrationId());
+    }
+
+    // Scan each minute so half-hour and quarter-hour venue zones also run during local 09:00–09:09.
     @Scheduled(cron = "${app.mail.reminders-cron:0 * * * * *}")
     public void daily() {
         reminders.remindOverdue();

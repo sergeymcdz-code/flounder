@@ -41,6 +41,17 @@ public class RegistrationFeeService {
         }
     }
 
+    public java.util.Map<java.util.UUID, Integer> dueDaysFor(
+            java.util.Collection<java.util.UUID> eventIds) {
+        return events.settingsJson(eventIds).entrySet().stream()
+                .collect(
+                        java.util.stream.Collectors.toMap(
+                                java.util.Map.Entry::getKey,
+                                entry ->
+                                        EventPaymentSettings.fromJson(entry.getValue(), json)
+                                                .dueDays()));
+    }
+
     public EventPaymentSettings settingsForUpdate(java.util.UUID eventId) {
         // Re-read policy after the event lock; OSIV may have cached the access-check snapshot.
         return EventPaymentSettings.fromJson(events.lockById(eventId).settingsJson(), json);
@@ -64,20 +75,10 @@ public class RegistrationFeeService {
         var discipline = disciplines.getForScheduling(registration.getEventDisciplineId());
         boolean charged =
                 settings.feeMode() == EventPaymentSettings.FeeMode.PER_EVENT
-                        && registrations.findByEventId(registration.getEventId()).stream()
-                                .anyMatch(
-                                        r ->
-                                                !r.getId().equals(registration.getId())
-                                                        && r.getParticipantProfileId()
-                                                                .equals(
-                                                                        registration
-                                                                                .getParticipantProfileId())
-                                                        && Set.of("CONFIRMED", "PAID", "ADMITTED")
-                                                                .contains(r.getStatus())
-                                                        && ("PAID".equals(r.getPaymentStatus())
-                                                                || r.getFeeAmount() != null
-                                                                        && r.getFeeAmount().signum()
-                                                                                > 0));
+                        && registrations.existsOtherChargedRegistration(
+                                registration.getEventId(),
+                                registration.getParticipantProfileId(),
+                                registration.getId());
         var amount = calculate(settings, discipline.entryFeeAmount(), charged);
         registration.setFeeAmount(amount);
         registration.setFeeCurrency(

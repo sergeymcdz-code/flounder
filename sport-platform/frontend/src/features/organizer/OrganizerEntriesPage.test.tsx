@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
+import { PaymentHistoryDialog } from '../payments/PaymentHistoryDialog'
 import { OrganizerEntriesPage } from './OrganizerEntriesPage'
 
 const context = vi.hoisted(() => ({
@@ -25,8 +26,8 @@ it.each(['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED'])('allows reject
   expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument()
 })
 
-const paymentAction = vi.hoisted(() => vi.fn().mockResolvedValue({}))
-vi.mock('../../api/registration-payments.api', async original => ({ ...await original<typeof import('../../api/registration-payments.api')>(), paymentAction }))
+const { paymentAction, bulkPayment, paymentHistory } = vi.hoisted(() => ({ paymentAction: vi.fn().mockResolvedValue({}), bulkPayment: vi.fn(), paymentHistory: vi.fn() }))
+vi.mock('../../api/registration-payments.api', async original => ({ ...await original<typeof import('../../api/registration-payments.api')>(), paymentAction, bulkPayment, paymentHistory }))
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
@@ -52,4 +53,21 @@ it('disables payment changes for archived events', () => {
   context.registrations[0].status = 'CONFIRMED'; context.event.status = 'ARCHIVED'
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toBeDisabled()
+})
+
+it('shows participant names for skipped bulk payments', async () => {
+  context.registrations[0].status = 'CONFIRMED'
+  bulkPayment.mockResolvedValue({ updated: 0, skipped: [{ id: 'registration', reason: 'Уже оплачена' }] })
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  const user = userEvent.setup()
+  await user.click(screen.getByLabelText('Выбрать заявку Тестов'))
+  await user.click(screen.getByRole('button', { name: 'Отметить оплату выбранных (1)' }))
+  await user.click(screen.getByRole('button', { name: 'Подтвердить' }))
+  expect(await screen.findByText('Тестов Иван: Уже оплачена')).toBeInTheDocument()
+  expect(screen.queryByText('registration: Уже оплачена')).not.toBeInTheDocument()
+})
+it('shows the actor name in payment history', async () => {
+  paymentHistory.mockResolvedValue([{ id: 'log', action: 'MARK_PAID', performedAt: '2026-10-17T10:00:00Z', performedBy: 'actor', performedByName: 'Иван Петров', amount: 500, currency: 'RUB' }])
+  render(<MemoryRouter><PaymentHistoryDialog id="registration" token="test" onClose={() => {}} /></MemoryRouter>)
+  expect(await screen.findByText(/Исполнитель: Иван Петров/)).toBeInTheDocument()
 })

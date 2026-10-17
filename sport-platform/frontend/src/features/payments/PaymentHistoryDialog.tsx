@@ -45,7 +45,7 @@ export function PaymentHistoryDialog({
       {rows.map((r) => (
         <p key={r.id}>
           {new Date(r.performedAt).toLocaleString('ru-RU')} · {labels[r.action]}{' '}
-          · {money(r.amount, r.currency ?? 'RUB')} · {r.reference} · {r.comment}
+          · Исполнитель: {r.performedByName || 'Не указан'} · {money(r.amount, r.currency ?? 'RUB')} · {r.reference} · {r.comment}
         </p>
       ))}
     </OrganizerDialog>

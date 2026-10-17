@@ -254,7 +254,7 @@ export function OrganizerEntriesPage() {
                     {statusLabels[r.status] ?? r.status}{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
                   </span>
                 </td>
-                <td>{money(r.feeAmount, r.feeCurrency ?? 'RUB')} <span className={styles.badge}>{paymentLabels[r.paymentStatus] ?? '—'}</span></td>
+                <td>{money(r.feeAmount, r.feeCurrency ?? 'RUB')} <span title="Статус оплаты" className={styles.badge}>{paymentLabels[r.paymentStatus] ?? '—'}</span></td>
                 <td>{statusLabels[r.source] ?? r.source ?? '—'}</td>
                 <td>
                   <div className={styles.actions}>

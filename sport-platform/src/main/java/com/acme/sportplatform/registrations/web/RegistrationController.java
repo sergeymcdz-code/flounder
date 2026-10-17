@@ -133,7 +133,7 @@ public class RegistrationController {
     }
     @GetMapping("/{id}/payment-log")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORGANIZER','OPERATOR')")
-    public java.util.List<com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationPaymentJournal.Entry> paymentLog(@PathVariable UUID id,
+    public java.util.List<com.acme.sportplatform.registrations.api.PaymentLogEntry> paymentLog(@PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         eventAccessService.assertCanManage(registrationPaymentLookup.eventId(id),principal); return payments.history(id);
     }

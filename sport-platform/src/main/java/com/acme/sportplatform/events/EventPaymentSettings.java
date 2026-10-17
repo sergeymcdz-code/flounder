@@ -38,8 +38,12 @@ public record EventPaymentSettings(
             // Existing events keep their discipline fees and the bodyless mark-paid contract.
             return node == null || node.isNull()
                     ? new EventPaymentSettings(true, "", null, null, "RUB", 3)
-                    : json.treeToValue(node, EventPaymentSettings.class);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                    : json.readerFor(EventPaymentSettings.class)
+                            .without(
+                                    com.fasterxml.jackson.databind.DeserializationFeature
+                                            .FAIL_ON_UNKNOWN_PROPERTIES)
+                            .readValue(node);
+        } catch (java.io.IOException e) {
             throw new IllegalStateException("Invalid stored payment settings", e);
         }
     }

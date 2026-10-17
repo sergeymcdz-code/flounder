@@ -42,13 +42,20 @@ public class PaymentReminderService {
 
     @Transactional
     public void initial(UUID id) {
-        send(id, false);
+        send(id, false, clock.instant(), Map.of());
     }
 
     @Transactional
     public void remindOverdue() {
-        for (var id : registrations.pendingIds(events.paymentReminderEventIds(clock.instant())))
-            send(id, true);
+        Instant now = clock.instant();
+        var contexts =
+                events.paymentReminderEvents(now).stream()
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        NotificationEventLookup.Context::id,
+                                        java.util.function.Function.identity()));
+        if (contexts.isEmpty()) return;
+        for (var id : registrations.pendingIds(contexts.keySet())) send(id, true, now, contexts);
     }
 
     public static boolean eligible(
@@ -59,7 +66,11 @@ public class PaymentReminderService {
                         || !now.isBefore(history.lastAt().plus(Duration.ofDays(3))));
     }
 
-    private void send(UUID id, boolean repeat) {
+    private void send(
+            UUID id,
+            boolean repeat,
+            Instant now,
+            Map<UUID, NotificationEventLookup.Context> contexts) {
         var candidate = registrations.reminder(id);
         if (candidate.isEmpty()) return;
         locks.lockForUpdate(candidate.get().eventId());
@@ -67,15 +78,23 @@ public class PaymentReminderService {
         var row = registrations.reminder(id);
         if (row.isEmpty()) return;
         var r = row.get();
-        var context = events.findNotificationContext(r.eventId());
+        var context =
+                repeat
+                        ? Optional.ofNullable(contexts.get(r.eventId()))
+                        : events.findNotificationContext(r.eventId());
         if (context.isEmpty() || r.userId() == null) return;
         var e = context.get();
-        var local = clock.instant().atZone(ZoneId.of(e.timezone() == null ? "UTC" : e.timezone()));
+        var local = now.atZone(ZoneId.of(e.timezone() == null ? "UTC" : e.timezone()));
         var history = outbox.reminderHistory(id);
         if (repeat
                 && (local.getHour() != 9
-                        || local.getMinute() != 0
-                        || !eligible(clock.instant(), r.dueAt().toInstant(), history))) return;
+                        || local.getMinute() >= 10
+                        || !eligible(now, r.dueAt().toInstant(), history)
+                        || history.lastAt() != null
+                                && history.lastAt()
+                                        .atZone(local.getZone())
+                                        .toLocalDate()
+                                        .equals(local.toLocalDate()))) return;
         if (!repeat && history.count() > 0
                 || !settings.enabled(e.organizationId(), "payment_reminder")) return;
         users.findById(r.userId())
@@ -102,7 +121,7 @@ public class PaymentReminderService {
                                     "payment_reminder",
                                     payload,
                                     "payment_reminder:" + id + ":" + history.count(),
-                                    clock.instant());
+                                    now);
                         });
     }
 }

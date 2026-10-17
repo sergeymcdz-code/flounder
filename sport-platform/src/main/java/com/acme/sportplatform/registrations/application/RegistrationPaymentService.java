@@ -22,6 +22,7 @@ public class RegistrationPaymentService implements RegistrationPaymentLookup {
     private final com.acme.sportplatform.events.EventLockService locks;
     private final RegistrationFeeService fees;
     private final RegistrationPaymentJournal journal;
+    private final com.acme.sportplatform.identity.UserLookup users;
 
     public RegistrationPaymentService(
             RegistrationRepository registrations,
@@ -29,7 +30,9 @@ public class RegistrationPaymentService implements RegistrationPaymentLookup {
             RegistrationFeeService fees,
             RegistrationPaymentJournal journal,
             jakarta.persistence.EntityManager entityManager,
-            com.acme.sportplatform.identity.ProfileLookup profiles) {
+            com.acme.sportplatform.identity.ProfileLookup profiles,
+            com.acme.sportplatform.identity.UserLookup users) {
+        this.users = users;
         this.entityManager = entityManager;
         this.profiles = profiles;
         this.registrations = registrations;
@@ -235,8 +238,45 @@ public class RegistrationPaymentService implements RegistrationPaymentLookup {
     }
 
     @Transactional(readOnly = true)
-    public List<RegistrationPaymentJournal.Entry> history(UUID id) {
-        return journal.history(id);
+    public List<com.acme.sportplatform.registrations.api.PaymentLogEntry> history(UUID id) {
+        var entries = journal.history(id);
+        var ids =
+                entries.stream()
+                        .map(RegistrationPaymentJournal.Entry::performedBy)
+                        .filter(Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toSet());
+        var names =
+                ids.isEmpty()
+                        ? Map.<UUID, String>of()
+                        : users.findAllByIds(ids).stream()
+                                .collect(
+                                        java.util.stream.Collectors.toMap(
+                                                com.acme.sportplatform.identity.UserLookup.User::id,
+                                                user ->
+                                                        java.util.stream.Stream.of(
+                                                                        user.firstName(),
+                                                                        user.lastName())
+                                                                .filter(Objects::nonNull)
+                                                                .collect(
+                                                                        java.util.stream.Collectors
+                                                                                .joining(" "))));
+        return entries.stream()
+                .map(
+                        e ->
+                                new com.acme.sportplatform.registrations.api.PaymentLogEntry(
+                                        e.id(),
+                                        e.action(),
+                                        e.amount(),
+                                        e.currency(),
+                                        e.method(),
+                                        e.reference(),
+                                        e.comment(),
+                                        e.performedBy(),
+                                        e.performedBy() == null
+                                                ? ""
+                                                : names.getOrDefault(e.performedBy(), ""),
+                                        e.performedAt()))
+                .toList();
     }
 
     @Override

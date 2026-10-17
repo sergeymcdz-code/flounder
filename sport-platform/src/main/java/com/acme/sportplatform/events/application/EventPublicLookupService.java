@@ -29,8 +29,10 @@ public class EventPublicLookupService
 
     private final EventRepository eventRepository;
     private final EventSessionService sessions;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
 
-    public EventPublicLookupService(EventRepository eventRepository, EventSessionService sessions) {
+    public EventPublicLookupService(EventRepository eventRepository, EventSessionService sessions, com.fasterxml.jackson.databind.ObjectMapper json) {
+        this.json = json;
         this.sessions = sessions;
         this.eventRepository = eventRepository;
     }
@@ -79,7 +81,7 @@ public class EventPublicLookupService
                 sessions.views(event.getId()), publicPayment(event));
     }
     private com.acme.sportplatform.events.EventPaymentSettings publicPayment(EventEntity event) {
-        var payment = com.acme.sportplatform.events.EventPaymentSettings.fromJson(event.getSettingsJson(), new com.fasterxml.jackson.databind.ObjectMapper());
+        var payment = com.acme.sportplatform.events.EventPaymentSettings.fromJson(event.getSettingsJson(), json);
         return payment.enabled() ? payment : null;
     }
 }

@@ -71,6 +71,7 @@ export type PaymentLog = {
   method: string | null
   reference: string | null
   comment: string | null
+  performedByName: string
   performedBy: string
   performedAt: string
 }

@@ -17,9 +17,11 @@ public class UpdateEventUseCase {
     private final RegistrationCapacityPromotionLookup capacity;
     private final EventRepository events;
     private final EventMapper mapper;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
     private final Clock clock;
     private final jakarta.persistence.EntityManager entityManager;
-    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity) {
+    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity, com.fasterxml.jackson.databind.ObjectMapper json) {
+        this.json = json;
         this.capacity = capacity;
         this.events = events; this.mapper = mapper; this.clock = clock; this.entityManager = entityManager;
     }
@@ -36,7 +38,6 @@ public class UpdateEventUseCase {
                     && request.payment().eventFeeAmount() == null)
                 throw RequestValidation.field("validation_error", "payment.eventFeeAmount", "Укажите взнос за событие");
             try {
-                var json = new com.fasterxml.jackson.databind.ObjectMapper();
                 var settings = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(event.getSettingsJson());
                 settings.set("payment", json.valueToTree(request.payment()));
                 event.setSettingsJson(settings.toString());

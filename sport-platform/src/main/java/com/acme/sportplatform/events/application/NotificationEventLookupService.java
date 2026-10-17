@@ -2,6 +2,8 @@ package com.acme.sportplatform.events.application;
 
 import com.acme.sportplatform.events.NotificationEventLookup;
 import com.acme.sportplatform.events.infrastructure.persistence.repository.EventRepository;
+import com.acme.sportplatform.events.infrastructure.persistence.repository.NotificationEventReadRepository;
+import com.acme.sportplatform.organizations.VenueLookup;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,11 +14,15 @@ import java.util.UUID;
 @Service
 @Transactional(readOnly = true)
 public class NotificationEventLookupService implements NotificationEventLookup {
-    private final com.acme.sportplatform.organizations.VenueLookup venues;
+    private final VenueLookup venues;
     private final EventRepository events;
+    private final NotificationEventReadRepository reminders;
 
     public NotificationEventLookupService(
-            EventRepository events, com.acme.sportplatform.organizations.VenueLookup venues) {
+            EventRepository events,
+            VenueLookup venues,
+            NotificationEventReadRepository reminders) {
+        this.reminders = reminders;
         this.venues = venues;
         this.events = events;
     }
@@ -31,27 +37,17 @@ public class NotificationEventLookupService implements NotificationEventLookup {
                                         e.getTitle(),
                                         e.getEventStartAt(),
                                         e.getPublicSlug(),
+                                        e.getVenueId(),
                                         timezone(e.getVenueId())));
     }
 
-    public java.util.List<UUID> paymentReminderEventIds(java.time.Instant now) {
-        return events
-                .findByStatusInOrderByEventStartAtAsc(
-                        java.util.Set.of(
-                                "DRAFT",
-                                "PUBLISHED",
-                                "REGISTRATION_OPEN",
-                                "REGISTRATION_CLOSED",
-                                "LIVE",
-                                "COMPLETED"))
-                .stream()
+    public java.util.List<Context> paymentReminderEvents(java.time.Instant now) {
+        return reminders.activeContexts().stream()
                 .filter(
                         e -> {
-                            var zone = java.time.ZoneId.of(timezone(e.getVenueId()));
-                            var local = now.atZone(zone);
-                            return local.getHour() == 9 && local.getMinute() == 0;
+                            var local = now.atZone(java.time.ZoneId.of(e.timezone()));
+                            return local.getHour() == 9 && local.getMinute() < 10;
                         })
-                .map(e -> e.getId())
                 .toList();
     }
 

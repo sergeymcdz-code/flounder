@@ -6,9 +6,11 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntit
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -22,8 +24,14 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
     private final ObjectMapper mapper;
     private final RegistrationCapacityService capacity;
 
-    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper, RegistrationCapacityService capacity, RegistrationFeeService fees, org.springframework.context.ApplicationEventPublisher publisher) {
-        this.fees = fees; this.publisher = publisher;
+    public RegistrationImportLookupService(
+            RegistrationRepository registrations,
+            ObjectMapper mapper,
+            RegistrationCapacityService capacity,
+            RegistrationFeeService fees,
+            org.springframework.context.ApplicationEventPublisher publisher) {
+        this.fees = fees;
+        this.publisher = publisher;
 
         this.registrations = registrations;
         this.mapper = mapper;
@@ -32,10 +40,18 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public boolean upsert(UUID eventId, UUID disciplineId, ProfileLookupResult profile, Long seedTimeMs, BigDecimal fee) {
+    public boolean upsert(
+            UUID eventId,
+            UUID disciplineId,
+            ProfileLookupResult profile,
+            Long seedTimeMs,
+            BigDecimal fee) {
         capacity.lock(eventId);
-        RegistrationEntity entity = registrations.findByEventDisciplineIdAndParticipantProfileIdAndStatusNot(
-                disciplineId, profile.id(), "WITHDRAWN").orElse(null);
+        RegistrationEntity entity =
+                registrations
+                        .findByEventDisciplineIdAndParticipantProfileIdAndStatusNot(
+                                disciplineId, profile.id(), "WITHDRAWN")
+                        .orElse(null);
         boolean created = entity == null;
         OffsetDateTime now = OffsetDateTime.now();
         if (created) {
@@ -65,9 +81,15 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
         }
         if (seedTimeMs != null) entity.setSeedTimeMs(seedTimeMs);
         entity.setUpdatedAt(now);
-        if (created) { entity.setReviewedAt(now); fees.assign(entity); }
+        if (created) {
+            entity.setReviewedAt(now);
+            fees.assign(entity);
+        }
         registrations.saveAndFlush(entity);
-        if (created) publisher.publishEvent(new com.acme.sportplatform.registrations.RegistrationConfirmedEvent(entity.getId()));
+        if (created)
+            publisher.publishEvent(
+                    new com.acme.sportplatform.registrations.RegistrationFeeAssignedEvent(
+                            entity.getId()));
         return created;
     }
 
@@ -75,9 +97,17 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
     @Transactional(readOnly = true)
     public List<ExportRow> findByEventId(UUID eventId) {
         return registrations.findByEventId(eventId).stream()
-                .sorted(java.util.Comparator.comparing(RegistrationEntity::getCreatedAt)
-                        .thenComparing(RegistrationEntity::getId))
-                .map(r -> new ExportRow(r.getEventDisciplineId(), r.getParticipantSnapshot(), r.getSeedTimeMs(),
-                        r.getStatus(), r.getPaymentStatus())).toList();
+                .sorted(
+                        java.util.Comparator.comparing(RegistrationEntity::getCreatedAt)
+                                .thenComparing(RegistrationEntity::getId))
+                .map(
+                        r ->
+                                new ExportRow(
+                                        r.getEventDisciplineId(),
+                                        r.getParticipantSnapshot(),
+                                        r.getSeedTimeMs(),
+                                        r.getStatus(),
+                                        r.getPaymentStatus()))
+                .toList();
     }
 }

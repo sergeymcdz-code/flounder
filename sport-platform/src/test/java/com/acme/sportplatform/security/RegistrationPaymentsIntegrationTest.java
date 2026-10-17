@@ -11,6 +11,87 @@ import org.springframework.http.MediaType;
 import java.util.*;
 
 class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
+    @org.springframework.beans.factory.annotation.Autowired
+    com.acme.sportplatform.registrations.RegistrationImportLookup imports;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    com.acme.sportplatform.identity.ProfileLookup profiles;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    com.acme.sportplatform.events.NotificationEventLookup notificationEvents;
+
+    @Test
+    void importedAccountReceivesOnlyPaymentReminder() {
+        imports.upsert(
+                id("event"),
+                id("newDiscipline"),
+                profiles.getById(id("profile")),
+                null,
+                new java.math.BigDecimal("100"));
+        assertThat(
+                        jdbc.queryForList(
+                                "select template_code from notification_outbox where event_id=?",
+                                String.class,
+                                id("event")))
+                .containsExactly("payment_reminder");
+        imports.upsert(
+                id("event"),
+                id("newDiscipline"),
+                profiles.getById(id("profile")),
+                null,
+                new java.math.BigDecimal("100"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from notification_outbox where event_id=?",
+                                Integer.class,
+                                id("event")))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void reminderEventsUseVenueZoneAndOnlyActiveStatusesInTenMinuteWindow() {
+        var now = java.time.Instant.parse("2026-10-17T05:09:59Z");
+        for (String status :
+                List.of(
+                        "DRAFT",
+                        "PUBLISHED",
+                        "REGISTRATION_OPEN",
+                        "REGISTRATION_CLOSED",
+                        "LIVE",
+                        "COMPLETED",
+                        "ARCHIVED")) {
+            jdbc.update("update events set status=? where id=?", status, id("event"));
+            var contexts = notificationEvents.paymentReminderEvents(now);
+            assertThat(contexts.stream().anyMatch(c -> c.id().equals(id("event"))))
+                    .as(status)
+                    .isEqualTo(
+                            Set.of("PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "LIVE")
+                                    .contains(status));
+            contexts.stream()
+                    .filter(c -> c.id().equals(id("event")))
+                    .forEach(
+                            c -> {
+                                assertThat(c.venueId()).isEqualTo(id("venue"));
+                                assertThat(c.timezone()).isEqualTo("Europe/Samara");
+                            });
+        }
+        assertThat(
+                        notificationEvents.paymentReminderEvents(
+                                java.time.Instant.parse("2026-10-17T05:10:00Z")))
+                .isEmpty();
+    }
+
+    @Test
+    void storedPaymentAllowsUnknownKeysOnPrivateAndPublicEventReads() throws Exception {
+        settings("{\"enabled\":true,\"instructions\":\"Банк\",\"futureSetting\":{\"key\":1}}");
+        mvc.perform(get("/api/v1/events/{id}", id("event")).with(authentication(auth("organizer"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payment.instructions").value("Банк"));
+        mvc.perform(get(publicUrl("")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payment.instructions").value("Банк"));
+    }
+
     void fee() {
         jdbc.update(
                 "update registrations set fee_amount=500,fee_currency='RUB',reviewed_at=now() where"
@@ -61,6 +142,8 @@ class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
     @Test
     void detailsAuditRefundResetWaiverAndAdmission() throws Exception {
         fee();
+        ids.put("organizerProfile", UUID.randomUUID().toString());
+        profile("organizerProfile", "organizer");
         jdbc.update("update registrations set status='ADMITTED' where id=?", id("registration"));
         em.clear();
         action(
@@ -85,7 +168,8 @@ class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
                         get("/api/v1/registrations/{id}/payment-log", id("registration"))
                                 .with(authentication(auth("organizer"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(4));
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].performedByName").value("Иван Иванов"));
         assertThat(
                         jdbc.queryForObject(
                                 "select performed_by from registration_payment_log where"

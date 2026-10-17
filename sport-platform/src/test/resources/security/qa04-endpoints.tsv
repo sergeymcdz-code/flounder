@@ -135,7 +135,7 @@ POST	/api/v1/registrations/{id}/refund-payment	manage	true	200	registration-paid
 POST	/api/v1/registrations/{id}/reset-payment	manage	true	200	registration-paid	{"comment":"ошибочно"}
 GET	/api/v1/registrations/{id}/payment-log	manage	true	200		
 POST	/api/v1/events/{eventId}/payments/mark-paid-bulk	manage	true	200		{"registrationIds":[],"method":"CLUB_INVOICE"}
-GET	/api/v1/events/{eventId}/payments/summary	manage-read	true	200		
+GET	/api/v1/events/{eventId}/payments/summary	manage-finance	true	200
 POST	/api/v1/events/{eventId}/payments/recalculate-fees	manage	true	200		
 GET	/api/v1/events/{eventId}/payment-instructions	authenticated	false	200		
-GET	/api/v1/events/{eventId}/payments/summary.xlsx	manage-read	true	200		
+GET	/api/v1/events/{eventId}/payments/summary.xlsx	manage-finance	true	200

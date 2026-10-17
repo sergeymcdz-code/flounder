@@ -23,7 +23,9 @@ export function PaymentMutationDialog({
   bulk?: boolean
   onClose: () => void
 }) {
-  const { event, accessToken, busy, run } = useOrganizerEvent()
+  const { event, registrations, accessToken, busy, run } = useOrganizerEvent()
+  const participantNames = new Map(registrations.map(r => [r.id,
+    [r.participantSnapshot.lastName, r.participantSnapshot.firstName, r.participantSnapshot.middleName].filter(Boolean).join(' ')]))
   const [value, setValue] = useState(amount == null ? '' : String(amount))
   const [method, setMethod] = useState<PaymentMethod>(
     bulk ? 'CLUB_INVOICE' : 'TRANSFER',
@@ -49,7 +51,7 @@ export function PaymentMutationDialog({
           <p>Обновлено: {result.updated}</p>
           {result.skipped.map((s) => (
             <p key={s.id}>
-              {s.id}: {s.reason}
+              {participantNames.get(s.id) || 'Заявка недоступна'}: {s.reason}
             </p>
           ))}
           <button onClick={onClose}>Закрыть</button>
