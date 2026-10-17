@@ -140,6 +140,7 @@ test('anonymous registration returns after login; authenticated form validates p
   await page.getByLabel('Фамилия', { exact: true }).fill('Ошибка')
   await page.getByLabel('Имя', { exact: true }).fill('Иван')
   await page.getByLabel('Дата рождения').fill('2012-06-15')
+  await page.getByLabel('Пол', { exact: true }).selectOption('M')
   await page
     .getByRole('checkbox', { name: /50 м вольный стиль, юноши/ })
     .check()

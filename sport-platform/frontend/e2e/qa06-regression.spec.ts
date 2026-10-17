@@ -5,11 +5,9 @@ declare global {
   interface Window { __qa06Scroll: unknown[]; __qa06LiveCalls: number }
 }
 
-// Expected failures keep the audit runnable. QA06_EXPECT_FIX=1 exposes the red tests.
-function knownDefect() { test.fail(process.env.QA06_EXPECT_FIX !== '1') }
 const base = `/organizer/events/${eventId}`
 
-for (const path of ['/organizer/events', '/operator/payments', '/events/demo/disciplines/M-50-FREE/results']) {
+for (const path of ['/organizer/events?all=1', '/operator/payments', '/events/demo/disciplines/M-50-FREE/results']) {
   test(`QA06-01 table scroll stays inside its container: ${path}`, async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await openAuditPage(page, path, path.includes('organizer') ? 'organizer' : path.includes('operator') ? 'operator' : '')
@@ -19,7 +17,7 @@ for (const path of ['/organizer/events', '/operator/payments', '/events/demo/dis
     await wrapper.evaluate(node => { node.scrollLeft = node.scrollWidth })
     expect(await wrapper.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
     if (path.startsWith('/events/')) await expect(page.getByRole('columnheader', { name: 'Статус', exact: true })).toBeInViewport()
-    else await expect(page.getByRole('link', { name: path.includes('organizer') ? 'Управлять событием' : 'Открыть', exact: true }).first()).toBeInViewport()
+    else await expect(page.getByRole('link', { name: path.includes('organizer') ? 'Открыть' : 'Открыть', exact: true }).first()).toBeInViewport()
   })
 }
 
@@ -53,22 +51,26 @@ test('QA06-04 table headings use the readable muted token', async ({ page }) => 
 test('QA06-06 dates use DD.MM.YYYY', async ({ page }) => {
   await openAuditPage(page, '/e/demo')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Осенний кубок')
-  knownDefect()
   await expect(page.locator('header')).toContainText('15.10.2026')
 })
 
 for (const [name, path, button] of [
   ['event', base, 'Опубликовать'],
-  ['start list', `${base}/heats`, 'Опубликовать стартовый протокол'],
+  ['start list', `${base}/heats`, 'Опубликовать протокол'],
   ['results', `${base}/results`, 'Опубликовать результаты вида'],
 ]) {
   test(`QA06-07 publication asks for confirmation: ${name}`, async ({ page }) => {
     await openAuditPage(page, path, 'organizer')
+    if (name === 'results') {
+      const fixture = await page.evaluate('(async () => { const { createFixtures } = await import("/src/mocks/fixtures.ts"); return createFixtures() })()')
+      for (const discipline of fixture.event.disciplines) await scenario(page, `event-disciplines/${discipline.id}/competition-units`, fixture.heats.filter((h: { eventDisciplineId: string }) => h.eventDisciplineId === discipline.id).map((h: { entries: object[] }) => ({ ...h, status: 'PUBLISHED', entries: h.entries.map(e => ({ ...e, rawValue: '00:32.15', resultStatus: 'VALID' })) })))
+      for (const heat of fixture.heats) await scenario(page, `competition-units/${heat.id}`, { ...heat, status: 'PUBLISHED', entries: heat.entries.map((entry: object) => ({ ...entry, rawValue: '00:32.15', resultStatus: 'VALID' })) })
+      await navigate(page, '/'); await navigate(page, path)
+    }
     const target = page.getByRole('button', { name: button, exact: true }).filter({ visible: true })
-    const index = name === 'results' ? 2 : 0
+    const index = 0
     await expect(target.nth(index)).toBeEnabled()
     await target.nth(index).click()
-    knownDefect()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 1000 })
   })
 }
@@ -78,8 +80,7 @@ test('QA06-08 empty heat cannot be published', async ({ page }) => {
   await scenario(page, `competition-units/${unitId}`, { id: unitId, eventDisciplineId: '00000003-1111-4111-8111-000000000001', label: 'Пустой заплыв', status: 'DRAFT', entries: [] })
   await navigate(page, `/operator/competition-units/${unitId}`)
   await expect(page.getByText('В заплыве пока нет участников.')).toBeVisible()
-  knownDefect()
-  await expect(page.getByRole('button', { name: 'Опубликовать', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Опубликовать результаты', exact: true })).toBeDisabled()
 })
 
 test('QA06-09 network failure has Russian recovery guidance', async ({ page }) => {
@@ -87,14 +88,12 @@ test('QA06-09 network failure has Russian recovery guidance', async ({ page }) =
   await scenario(page, `events/${eventId}`, null, 'network')
   await navigate(page, base)
   await expect(page.getByRole('alert')).toBeVisible()
-  knownDefect()
   await expect(page.getByRole('alert')).not.toContainText('Failed to fetch')
   await expect(page.getByRole('alert')).toContainText(/связ|подключен/i)
 })
 
 test('QA06-21 organizer exposes a single accessible main landmark', async ({ page }) => {
   await openAuditPage(page, base, 'organizer')
-  knownDefect()
   await expect(page.getByRole('main')).toHaveCount(1)
 })
 
@@ -120,7 +119,6 @@ test('QA06-12 reduced motion avoids smooth validator scrolling', async ({ page }
   })
   await page.getByRole('button', { name: 'Проверить заплывы', exact: true }).click()
   await page.getByRole('button', { name: 'Предупреждение: Проверка прокрутки', exact: true }).first().click()
-  knownDefect()
   expect(await page.evaluate(() => window.__qa06Scroll)).not.toContainEqual({ behavior: 'smooth', block: 'center' })
 })
 
@@ -132,7 +130,6 @@ test('QA06-13 valid WITHDRAWN registration shows its status to the participant',
   await navigate(page, '/my/registrations')
   await expect(page.getByRole('heading', { name: 'Мои заявки', exact: true })).toBeVisible()
   await expect(page.locator('[class*=card]').first()).toBeVisible()
-  knownDefect()
   await expect(page.locator('body')).toContainText('Снята')
 })
 
@@ -143,7 +140,6 @@ test('QA06-10 withdraw confirmation returns keyboard focus to its trigger', asyn
   await expect(page.getByRole('dialog', { name: 'Снять заявку?' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  knownDefect()
   await expect(trigger).toBeFocused()
 })
 
@@ -162,7 +158,6 @@ test('QA06-14 live waits 15 seconds before its next poll', async ({ page }) => {
   const initialCalls = await page.evaluate(() => window.__qa06LiveCalls)
   expect(initialCalls).toBeGreaterThan(0)
   await page.waitForTimeout(5500)
-  knownDefect()
   expect(await page.evaluate(() => window.__qa06LiveCalls)).toBe(initialCalls)
 })
 
@@ -227,8 +222,7 @@ test('QA06-18 payment loading is announced as a status', async ({ page }) => {
     dispatchEvent(new PopStateEvent('popstate'))
   })
   await expect(page.getByRole('heading', { name: 'Загружаем оплату', exact: true })).toBeVisible()
-  knownDefect()
-  await expect(page.getByRole('status')).toContainText('Загружаем оплату')
+  await expect(page.getByRole('status').filter({ hasText: 'Загружаем оплату' })).toContainText('Загружаем оплату')
 })
 
 test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page }) => {
@@ -247,7 +241,7 @@ test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page 
 test('QA06-22 judge can discover the results panel from primary navigation', async ({ page }) => {
   await openAuditPage(page, '/', 'judge')
   await expect(page.getByRole('navigation', { name: 'Основная навигация' })
-    .getByRole('link', { name: 'Результаты', exact: true })).toBeVisible()
+    .getByRole('link', { name: 'Судейство', exact: true })).toBeVisible()
 })
 
 for (const width of [1366, 375]) {
@@ -365,7 +359,7 @@ for (const route of ['live', 'results']) {
       await scenario(page, 'public/events/demo/results', { disciplines: [] })
       await navigate(page, '/e/demo/live')
       await navigate(page, '/e/demo/results')
-      await expect(page.getByText('Результаты ещё не опубликованы.', { exact: true })).toBeVisible()
+      await expect(page.getByText(/Результаты ещё не опубликованы/)).toBeVisible()
       expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('dark')
     }
     await page.emulateMedia({ media: 'print' })

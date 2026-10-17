@@ -2,12 +2,13 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import type { CompetitionUnitDetailsResponse, CompetitionUnitResponse } from '../src/api/results.api'
 import type { Live, Results } from '../src/features/public/public.types'
-import { api, apiUrl, login, request, token } from './qa07-support'
+import { api, apiUrl, login, request, token, submitDialog } from './qa07-support'
 
 test('M10: judge publishes two heats, operator corrects, finish is idempotent and advances live', async ({ page, browser }, info) => {
   const seed = JSON.parse(readFileSync('work/qa07/seed.json', 'utf8')) as { eventId: string; slug: string }
   await login(page, 'org@flounder.demo', `/organizer/events/${seed.eventId}/heats`)
-  await page.getByRole('button', { name: 'Сформировать заплывы (всё событие)', exact: true }).click()
+  await page.getByText('Сформировать заплывы ▾', { exact: true }).click()
+  await page.getByRole('button', { name: 'Всё соревнование', exact: true }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Выполняем действие' })).toHaveCount(0)
   const disciplines = await api<{ id: string; code: string }[]>(page, `/events/${seed.eventId}/disciplines`)
   const discipline = disciplines.find(item => item.code === 'M-50-FREE')!
@@ -17,7 +18,8 @@ test('M10: judge publishes two heats, operator corrects, finish is idempotent an
   // The full M seed produces 32 heats across four disciplines; this one must
   // contain at least three so finishing the second still has a live successor.
   expect(units.length).toBeGreaterThan(2)
-  await page.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
+  await page.getByRole('button', { name: 'Опубликовать протокол', exact: true }).click()
+  await submitDialog(page, 'Опубликовать')
   await expect(page.getByRole('status').filter({ hasText: 'Выполняем действие' })).toHaveCount(0)
   await api(page, `/events/${seed.eventId}/live`, 'PUT', { currentUnitId: units[0].id })
 
@@ -53,6 +55,7 @@ test('M10: judge publishes two heats, operator corrects, finish is idempotent an
         await expect(page.getByRole('status').filter({ hasText: /Сохранено/ })).toBeVisible()
         const started = Date.now()
         await page.getByRole('button', { name: 'Опубликовать результаты', exact: true }).click()
+        await submitDialog(page, 'Опубликовать')
         await expect(page.getByRole('status').filter({ hasText: 'Результаты опубликованы' })).toBeVisible()
         await expect(page.getByRole('alert')).toHaveCount(0)
         const published = await api<CompetitionUnitDetailsResponse>(page, `/competition-units/${unit.id}`)

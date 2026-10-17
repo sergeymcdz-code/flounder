@@ -1,3 +1,4 @@
+import { statusLabel } from '../../components/ui/status-dictionary'
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router'
 import { ApiError } from '../../api/http'
@@ -18,22 +19,10 @@ function getErrorMessage(error: unknown) {
   return 'Не удалось загрузить список заявок.'
 }
 
-function registrationStatusLabel(status: Registration['status']) {
-  const labels: Record<Registration['status'], string> = {
-    WAITLISTED: 'Лист ожидания',
-    SUBMITTED: 'На рассмотрении',
-    CONFIRMED: 'Подтверждена',
-    PAID: 'Оплачена',
-    REJECTED: 'Отклонена',
-    NEEDS_CORRECTION: 'Требует уточнения',
-    CANCELLED: 'Отменена',
-  }
-
-  return labels[status]
-}
+const registrationStatusLabel = (status: Registration['status']) => statusLabel('registration', status)
 
 function registrationStatusClassName(status: Registration['status']) {
-  const classes: Record<Registration['status'], string> = {
+  const classes: Partial<Record<Registration['status'], string>> = {
     WAITLISTED: styles.statusCorrection,
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
@@ -126,7 +115,7 @@ export function OperatorPaymentsPage() {
               <thead>
                 <tr>
                   <th scope="col">Заявка</th>
-                  <th scope="col">Событие</th>
+                  <th scope="col">Соревнование</th>
                   <th scope="col">Статус</th>
                   <th scope="col">
                     <span className={styles.visuallyHidden}>Действия</span>
@@ -148,7 +137,7 @@ export function OperatorPaymentsPage() {
                     </td>
 
                     <td>
-                      <strong className={styles.eventLabel}>Событие</strong>
+                      <strong className={styles.eventLabel}>Соревнование</strong>
 
                       <span className={styles.registrationId}>
                         {registration.eventId}

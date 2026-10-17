@@ -147,11 +147,11 @@ export function LiveBoard({
             })}
           </ol>
         ) : (
-          <p className="fl-empty">Следующих заплывов нет.</p>
+          <p className="fl-empty">Следующих заплывов нет · <Link to={`/e/${encodeURIComponent(slug)}/schedule`}>Открыть расписание</Link></p>
         )}
       </section>
       <p className={styles.muted}>
-        Обновлено: {time(live.updatedAt, timeZone)} · каждые 5 секунд
+        Обновлено: {time(live.updatedAt, timeZone)} · Обновляется каждые 15 с
       </p>
     </>
   )

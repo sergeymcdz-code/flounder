@@ -12,8 +12,8 @@ export function time(value: string | null, timeZone?: string) {
 export function date(value: string, timeZone?: string) {
   return new Intl.DateTimeFormat('ru-RU', {
     timeZone: timeZone?.trim() || undefined,
-    day: 'numeric',
-    month: 'long',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
   }).format(new Date(value))
 }
