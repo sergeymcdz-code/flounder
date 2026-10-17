@@ -22,7 +22,7 @@ public class ImportRowService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Result execute(UUID eventId, ImportRow row, EventDisciplineSummary discipline) {
         var profile = profiles.findOrCreateByExternalKey(row.externalKey(), row.profile());
-        boolean created = registrations.upsert(eventId, discipline.id(), profile, row.seedTimeMs(), discipline.entryFeeAmount());
+        boolean created = registrations.upsert(eventId, discipline.id(), profile.id(), row.profile(), row.seedTimeMs(), discipline.entryFeeAmount());
         return new Result(created, profile.created());
     }
 

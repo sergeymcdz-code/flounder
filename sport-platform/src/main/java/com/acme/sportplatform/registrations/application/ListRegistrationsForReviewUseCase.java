@@ -49,7 +49,7 @@ public class ListRegistrationsForReviewUseCase {
             entities = registrationRepository.findAll();
         }
 
-        return summaries.enrich(entities.stream()
+        return summaries.enrichForManager(entities.stream()
                 .map(registrationMapper::toResponse)
                 .toList());
     }

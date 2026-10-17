@@ -22,10 +22,10 @@ public class RegistrationMapper {
                 entity.getId(),
                 entity.getEventId(),
                 entity.getEventDisciplineId(),
-                entity.getParticipantUserId(),
+                "IMPORT".equals(entity.getSource()) ? null : entity.getParticipantUserId(),
                 entity.getParticipantProfileId(),
                 entity.getStatus(),
-                readJson(entity.getParticipantSnapshot()),
+                readSnapshot(entity),
                 readJson(entity.getRegistrationMeta()),
                 entity.getReviewNote(),
                 entity.getReviewedByUserId(),
@@ -37,6 +37,14 @@ public class RegistrationMapper {
                 com.acme.sportplatform.common.TimeParser.format(entity.getSeedTimeMs()),
                 entity.getSource(),
                 entity.getPaymentStatus(), entity.getWaitlistPosition());
+    }
+
+    private JsonNode readSnapshot(RegistrationEntity entity) {
+        JsonNode snapshot = readJson(entity.getParticipantSnapshot());
+        if ("IMPORT".equals(entity.getSource()) && snapshot instanceof com.fasterxml.jackson.databind.node.ObjectNode object) {
+            object.retain("firstName", "lastName", "middleName", "birthDate", "gender", "clubName");
+        }
+        return snapshot;
     }
 
     private JsonNode readJson(String json) {
