@@ -94,16 +94,19 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public UserDetailsResponse getById(@PathVariable UUID userId) {
         return getUserByIdUseCase.execute(userId);
     }
 
     @PatchMapping("/{userId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public UserDetailsResponse update(@PathVariable UUID userId, @Valid @RequestBody UpdateUserRequest request) {
         return updateUserUseCase.execute(userId, request);
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID userId) {
         deleteUserUseCase.execute(userId);
