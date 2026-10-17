@@ -6,7 +6,7 @@ import { OrganizerEntriesPage } from './OrganizerEntriesPage'
 const context = vi.hoisted(() => ({
   event: { id: 'event', status: 'REGISTRATION_OPEN', disciplines: [{ id: 'discipline', name: '50 м' }] },
   registrations: [{ id: 'registration', eventDisciplineId: 'discipline', status: 'PAID', paymentStatus: 'PAID', participantSnapshot: { lastName: 'Тестов', firstName: 'Иван' }, seedTimeMs: 32000 }],
-  heats: [], generationResults: {}, accessToken: 'test', busy: false, run: vi.fn(),
+  heats: [], generationResults: {}, accessToken: 'test', busy: false, clearError: vi.fn(), run: vi.fn(),
 }))
 vi.mock('./organizer-event-context', async (original) => ({
   ...await original<typeof import('./organizer-event-context')>(),
@@ -22,4 +22,12 @@ it.each(['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED'])('allows reject
   context.registrations[0].status = status
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument()
+})
+
+it.each(['PENDING', 'NOT_REQUIRED'])('offers payment for a confirmed entry with %s payment', paymentStatus => {
+  context.registrations[0].status = 'CONFIRMED'
+  context.registrations[0].paymentStatus = paymentStatus
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.getByRole('button', { name: 'Оплачено' })).toBeVisible()
+  expect(screen.getByText('Снять').closest('details')).not.toBeNull()
 })

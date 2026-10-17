@@ -87,7 +87,7 @@ export function PublicLayout() {
       <main className={styles.main}>
         <h1>Соревнование не найдено</h1>
         <Link className={styles.button} to="/">
-          К событиям
+          К соревнованиям
         </Link>
       </main>
     )

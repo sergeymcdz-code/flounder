@@ -85,6 +85,7 @@ function OrganizerEventContent() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const clearError = useCallback(() => setError(''), [])
   const reportError = useCallback(
     (cause: unknown) => {
       if (cause instanceof ApiError && cause.status === 401) {
@@ -232,6 +233,7 @@ function OrganizerEventContent() {
             accessToken: token,
             busy,
             error,
+            clearError,
             generationResults,
             lastGeneration,
             saveGeneration,

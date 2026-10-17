@@ -22,7 +22,7 @@ import {
 import styles from './OrganizerEventPage.module.css'
 export function OrganizerOverviewPage() {
   const context = useOrganizerEvent()
-  const { event, registrations, heats, accessToken, busy, run, error } = context
+  const { event, registrations, heats, accessToken, busy, run, error, clearError } = context
   const toast = useToast()
   const { isOrganizer, isPlatformAdmin } = useAuth()
   const [confirmation, setConfirmation] = useState<{ label: string; title: string; description: string; action: () => Promise<unknown> } | null>(null)
@@ -61,6 +61,7 @@ export function OrganizerOverviewPage() {
       'В архив': ['Отправить соревнование в архив?', 'Соревнование будет доступно только для просмотра.'],
     }
     const [title, description] = descriptions[t.label]
+    clearError()
     setConfirmation({ label: t.label, title, description, action: async () => {
       if (t.label === 'Продлить') {
         if (!closeAt) throw new Error('Укажите новую дату закрытия регистрации.')

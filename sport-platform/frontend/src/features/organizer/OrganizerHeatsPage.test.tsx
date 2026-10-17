@@ -32,6 +32,7 @@ const context: EventContext = {
   registrations: [], sessions: [], heats: [], accessToken: 'test-token', error: '', busy: false,
   generationResults: {}, lastGeneration: null,
   saveGeneration: vi.fn(), registerDialog: () => () => {}, refresh: async () => {},
+  clearError: vi.fn(),
   run: async (action) => { await action(); return true },
 }
 beforeEach(() => {

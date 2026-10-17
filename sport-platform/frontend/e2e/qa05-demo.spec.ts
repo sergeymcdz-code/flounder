@@ -178,30 +178,21 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         await expect(org.getByRole('dialog')).toHaveCount(0)
       }
       await screenshots(org, '03-parent-confirmed')
-      const pendingPayments = (await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов' && r.paymentStatus === 'PENDING').length
-      await expect.soft(org.getByRole('button', { name: 'Оплачено', exact: true }), 'D03: only pending payments offer a payment action').toHaveCount(pendingPayments)
+      await expect.soft(org.getByRole('button', { name: 'Оплачено', exact: true }), 'D03: confirmed zero-fee entries can be marked paid').toHaveCount(2)
       await login(sec, 'sec@flounder.demo', `${base}/entries`)
-      // The operator is allowed by the route, but /venues currently returns 403.
-      await expect.soft(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
+      await expect(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
+      await sec.getByLabel('Поиск', { exact: true }).fill('Демов')
+      await expect(sec.getByRole('button', { name: 'Оплачено', exact: true })).toHaveCount(2)
       await screenshots(sec, '03-secretary-cabinet')
       for (const registration of rows) {
-        if (registration.paymentStatus === 'NOT_REQUIRED') continue
-        if (await sec.getByLabel('Поиск', { exact: true }).count()) {
-          await sec.getByLabel('Поиск', { exact: true }).fill('Демов')
-          const row = sec.locator('tbody tr').filter({ hasText: event.disciplines.find(d => d.id === registration.eventDisciplineId)!.name })
-          if (await row.getByRole('button', { name: 'Оплачено', exact: true }).count()) {
-            await row.getByRole('button', { name: 'Оплачено', exact: true }).click()
-            await settle(sec)
-            continue
-          }
-        }
-        // Explicit diagnostic continuation; the failed UI assertions remain red.
-        await test.step('Continue payment via real secretary API after blocked UI', () => api(sec, `/registrations/${registration.id}/mark-paid`, 'POST'))
+        const row = sec.locator('tbody tr').filter({ hasText: event.disciplines.find(d => d.id === registration.eventDisciplineId)!.name })
+        await row.getByRole('button', { name: 'Оплачено', exact: true }).click()
+        await expect(row.getByRole('button', { name: 'Оплачено', exact: true })).toHaveCount(0)
       }
-      expect.soft((await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов').every(r => ['PAID', 'NOT_REQUIRED'].includes(r.paymentStatus))).toBe(true)
+      expect((await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов').every(r => r.paymentStatus === 'PAID')).toBe(true)
       await org.reload()
       await org.getByLabel('Поиск', { exact: true }).fill('Демов')
-      await screenshots(org, '03-paid-api-continuation')
+      await screenshots(org, '03-paid-through-secretary-ui')
     })
 
     await step('4. Seeding, validator, schedule, draft PDF and anonymous publication', async () => {
@@ -328,7 +319,9 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await org.getByLabel('Поиск', { exact: true }).fill(registration.participantSnapshot.lastName)
       await org.getByRole('combobox', { name: /^Вид программы/ }).selectOption(discipline.id)
       const row = org.getByRole('row').filter({ hasText: registration.participantSnapshot.firstName })
-      await row.getByRole('button', { name: 'Снять', exact: true }).click()
+      const withdraw = row.getByRole('button', { name: 'Снять', exact: true }).first()
+      if (!await withdraw.isVisible()) await row.getByText('Ещё ▾', { exact: true }).click()
+      await withdraw.click()
       await org.getByRole('dialog').getByRole('button', { name: 'Снять', exact: true }).click()
       await expect(org.getByRole('dialog')).toHaveCount(0)
       expect.soft((await registrations()).find(r => r.id === target.registrationId)?.status).toBe('WITHDRAWN')

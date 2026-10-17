@@ -8,6 +8,7 @@ const context = vi.hoisted(() => ({
   event: { id: 'event', status: 'REGISTRATION_OPEN', publicSlug: 'cup', title: 'Кубок', eventStartAt: '2030-06-01T10:00:00Z', eventEndAt: '2030-06-01T18:00:00Z', maxParticipants: 1, disciplines: [] },
   registrations: [{ participantProfileId: 'profile', status: 'CONFIRMED' }],
   sessions: [], heats: [], accessToken: 'test', busy: false,
+  clearError: vi.fn(),
   run: vi.fn(async (action: () => Promise<unknown>) => { await action(); return true }),
 }))
 vi.mock('./organizer-event-context', async (original) => ({
@@ -35,6 +36,7 @@ it('M06 closes registration only after confirmation', async () => {
   render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
   fireEvent.click(screen.getByRole('button', { name: 'Закрыть регистрацию' }))
   expect(closeEventRegistration).not.toHaveBeenCalled()
+  expect(context.clearError).toHaveBeenCalledOnce()
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Закрыть регистрацию' }))
   await waitFor(() => expect(closeEventRegistration).toHaveBeenCalledWith('event', 'test'))
   expect(screen.getByText('Лимит: 1/1')).toBeInTheDocument()

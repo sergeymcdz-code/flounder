@@ -98,7 +98,7 @@ export function OrganizationAnalyticsPage() {
   return <div className={styles.page}><Link to="/organizer/organizations">← Организации</Link><div className={styles.header}><h1>{a.name}: аналитика</h1><Actions scope="organizations" id={orgId} {...state} /></div>{state.error && <p role="alert">{state.error}</p>}
     <p className={styles.muted}>Данные на {time(a.generatedAt)}. Участия — уникальные спортсмены внутри каждого соревнования; повторные участники выступают минимум в двух соревнованиях. Отклонённые, снятые и черновые заявки исключены.</p>
     <div className={styles.cards}><Metric label="Соревнования" value={a.events} /><Metric label="Участия в соревнованиях" value={a.participants} /><Metric label="Уникальные участники" value={a.uniqueParticipants} /><Metric label="Повторные участники" value={a.repeatParticipants} /><Metric label="Средний размер соревнования" value={a.averageEventSize} /></div>
-    {a.events === 0 && <p>Событий пока нет</p>}
+    {a.events === 0 && <p>Соревнований пока нет</p>}
     <section className={styles.panel}><Counts title="Соревнования по статусам" values={a.byStatus} /></section>
     <section className={styles.panel}><h2>Выручка по оплатам</h2>{a.revenue.length === 0 ? <p>Подтверждённых оплат пока нет</p> : <div className={styles.cards}>{a.revenue.map(r => <Metric key={r.currency} label={r.currency} value={number(r.amount)} />)}</div>}</section>
   </div>

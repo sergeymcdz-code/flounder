@@ -30,7 +30,7 @@ export function OrganizerHeatsPage() {
     heats,
     registrations,
     accessToken,
-    busy, error,
+    busy, error, clearError,
     run,
     lastGeneration: last,
     saveGeneration,
@@ -125,12 +125,11 @@ export function OrganizerHeatsPage() {
             <button disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
             {event.disciplines.map(d => <button key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
           </details>
-          <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => void validate()}>Проверить</button>
           <details><summary>Расписание ▾</summary>
             <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
             <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           </details>
-          <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => setPublishOpen(true)}>Опубликовать протокол</button>
+          <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
           <details><summary>Печать ▾</summary>
             {heats.length > 0 && heats.every(heat => isHeatPublished(heat.status)) ? <a className={styles.button} href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
             <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />

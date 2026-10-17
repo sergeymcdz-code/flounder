@@ -12,7 +12,7 @@ import {
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
 export function OrganizerResultsPage() {
-  const { event, heats, accessToken, busy, run, error } = useOrganizerEvent()
+  const { event, heats, accessToken, busy, run, error, clearError } = useOrganizerEvent()
   const toast = useToast()
   const [publishId, setPublishId] = useState<string | null>(null)
   const publishDiscipline = event.disciplines.find(d => d.id === publishId)
@@ -69,6 +69,7 @@ export function OrganizerResultsPage() {
                   )
                 }
                 onClick={() => {
+                  clearError()
                   setPublishId(d.id)
                 }}
               >

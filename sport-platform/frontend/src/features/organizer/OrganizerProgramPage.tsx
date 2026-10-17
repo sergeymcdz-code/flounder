@@ -8,6 +8,7 @@ import {
 } from '../../api/sessions.api'
 import {
   saveDiscipline,
+  publishDiscipline,
   deleteDiscipline,
   getDisciplineTemplates,
 } from '../../api/organizer.api'
@@ -210,6 +211,11 @@ export function OrganizerProgramPage() {
                         Удалить
                       </button>
 
+                      {d.status !== 'PUBLISHED' && <button
+                        disabled={busy || event.status === 'ARCHIVED'}
+                        title="Вид появится в форме заявки, импорте и результатах"
+                        onClick={() => void run(() => publishDiscipline(event.id, d.id, accessToken))}
+                      >Показать на публичной странице</button>}
                     </div>
                   </td>
                 </tr>

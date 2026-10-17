@@ -20,6 +20,7 @@ export type EventContext = {
   sessions: Session[]
   heats: Heat[]
   accessToken: string
+  clearError: () => void
   error: string
   busy: boolean
   generationResults: Record<string, GenerationResult>

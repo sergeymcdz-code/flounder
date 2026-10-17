@@ -31,7 +31,7 @@ export function OrganizerEntriesPage() {
     heats,
     generationResults,
     accessToken,
-    busy, error,
+    busy, error, clearError,
     run,
   } = useOrganizerEvent()
   const [withdrawNotice, setWithdrawNotice] = useState(false)
@@ -97,6 +97,7 @@ export function OrganizerEntriesPage() {
         .includes(search.toLocaleLowerCase('ru')),
   )
   function openReview(id: string, decision: RegistrationReviewDecision) {
+    clearError()
     setReview({ id, decision })
   }
   return (
@@ -239,13 +240,13 @@ export function OrganizerEntriesPage() {
                 <td>
                   <div className={styles.actions}>
                     {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
-                      : ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) ? r.paymentStatus === 'PENDING' ? <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => void run(() => registrationAction(r.id, 'mark-paid', accessToken), 'registrations')}>Оплачено</button>
-                      : <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setWithdraw(r)}>Снять</button> : null}
+                      : ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) ? r.paymentStatus !== 'PAID' ? <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => void run(() => registrationAction(r.id, 'mark-paid', accessToken), 'registrations')}>Оплачено</button>
+                      : <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
                     {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <details><summary>Ещё ▾</summary>
                       {r.status === 'WAITLISTED' && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
                       {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
                       {!['PAID', 'ADMITTED'].includes(r.status) && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
-                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setWithdraw(r)}>Снять</button>
+                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>
                     </details>}
                   </div>
                 </td>
