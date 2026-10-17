@@ -122,6 +122,23 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         jdbc.update("insert into results(id,competition_unit_entry_id,result_type,status,time_ms,final_place,place_in_age_group) values (?,?,'TIME',?,?,?,?)",
                 UUID.randomUUID(),entry,status,time,place,groupPlace);
     }
+    @Test
+    void publicJsonSupportsWeakEtagsAndConditionalRequests() throws Exception {
+        for (String path : List.of("/api/v1/public/events", url(""), url("/start-list"),
+                url("/schedule"), url("/live"), url("/results"), url("/athletes?q=Ива"))) {
+            var response = mvc.perform(get(path)).andExpect(status().isOk())
+                    .andExpect(header().string("Cache-Control", "max-age=5, public, stale-while-revalidate=30"))
+                    .andReturn().getResponse();
+            String etag = response.getHeader("ETag");
+            assertThat(etag).startsWith("W/\"");
+            mvc.perform(get(path).header("If-None-Match", etag))
+                    .andExpect(status().isNotModified())
+                    .andExpect(header().string("ETag", etag))
+                    .andExpect(header().string("Cache-Control", "max-age=5, public, stale-while-revalidate=30"))
+                    .andExpect(content().string(""));
+        }
+    }
+
     private String url(String suffix) { return "/api/v1/public/events/"+slug+suffix; }
     private JsonNode read(String suffix) throws Exception {
         return mapper.readTree(mvc.perform(get(url(suffix))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
