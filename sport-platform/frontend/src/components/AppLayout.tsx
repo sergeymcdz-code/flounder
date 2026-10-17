@@ -3,10 +3,11 @@ import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../app/providers/AuthProvider'
 import { apiFetch } from '../api/http'
 import styles from './AppLayout.module.css'
+import { roleHomeTarget } from '../utils/authReturn'
 
 export function AppLayout() {
   useEffect(() => { document.title = 'SportGate' }, [])
-  const { isAuthenticated, isPlatformAdmin, isOrganizer, isOperator, isParticipant, hasRole, logout, sessionMessage, session } = useAuth()
+  const { isAuthenticated, isPlatformAdmin, isOrganizer, isOperator, isParticipant, hasRole, logout, sessionMessage, session, roles } = useAuth()
   const [name, setName] = useState('')
   useEffect(() => {
     if (!session) return
@@ -26,7 +27,7 @@ export function AppLayout() {
   const roleLabel = isPlatformAdmin ? 'Администратор' : isOrganizer ? 'Организатор' : isOperator ? 'Секретарь' : isJudge ? 'Судья' : 'Участник'
   return <div className={styles.shell}>
     <header className={styles.header}>
-      <NavLink className={styles.brand} to="/">SportGate</NavLink>
+      <NavLink className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">SportGate</NavLink>
       <nav className={styles.navigation} aria-label="Основная навигация">
         <NavLink className={navLinkClassName} to="/" end>Соревнования</NavLink>
         {canManageEvents ? <NavLink className={navLinkClassName} to="/organizer/events">Мои соревнования</NavLink>

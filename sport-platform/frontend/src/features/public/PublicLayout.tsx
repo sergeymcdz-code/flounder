@@ -12,6 +12,8 @@ import { usePublicData } from './usePublicData'
 import { date } from './format'
 import styles from './Public.module.css'
 import { PublicConnectionContext } from './publicContext'
+import { useAuth } from '../../app/providers/AuthProvider'
+import { roleHomeTarget } from '../../utils/authReturn'
 import { ThemeToggle } from '../../components/ThemeToggle'
 
 export function DataState({
@@ -43,6 +45,7 @@ export function DataState({
 
 export function PublicLayout() {
   const { slug = '' } = useParams()
+  const { roles, isAuthenticated } = useAuth()
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),
     [slug],
@@ -99,7 +102,7 @@ export function PublicLayout() {
           К содержимому
         </a>
         <header className={styles.header}>
-          <Link className={styles.brand} to={base}>
+          <Link className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">
             <span className={styles.logo} aria-hidden="true">
               S
             </span>{' '}

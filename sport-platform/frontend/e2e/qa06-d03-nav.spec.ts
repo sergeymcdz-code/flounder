@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
-import { eventId, unitId, openAuditPage } from './qa06-helpers'
+import { eventId, unitId, openAuditPage, scenario } from './qa06-helpers'
 
 const screens = [
   ['home', `/organizer/events/${eventId}`, 'organizer'],
@@ -30,4 +30,28 @@ test('D03 judge returns to the competition results without manager permissions',
   await openAuditPage(page, `/organizer/events/${eventId}/results`, 'judge')
   await expect(page.getByRole('heading', { name: 'Результаты соревнования' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Главная', exact: true })).toHaveCount(0)
+})
+
+for (const [role, deepPath, home] of [
+  ['organizer', `/organizer/events/${eventId}/entries`, '/organizer/events'],
+  ['operator', `/organizer/events/${eventId}/entries`, '/organizer/events'],
+  ['platform_admin', '/admin/users', '/organizer/events'],
+  ['judge', `/operator/competition-units/${unitId}?eventId=${eventId}`, '/operator/results'],
+  ['participant', '/account/password', '/my/registrations'],
+  ['', '/login', '/'],
+  ['', '/register', '/'],
+]) for (const source of ['workspace', 'public']) test(`UX-16 logo ${role || 'guest'} ${deepPath} from ${source}`, async ({ page }) => {
+  await openAuditPage(page, source === 'public' ? '/e/demo/results' : deepPath, role)
+  // Two events keep the role landing page visible instead of the single-event shortcut.
+  const { createFixtures } = await import('../src/mocks/fixtures')
+  const event = createFixtures().event
+  const events = [event, { ...event, id: 'second-event', title: 'Второе соревнование' }]
+  await scenario(page, 'organizer/events', events)
+  await scenario(page, 'events', events)
+  const logo = page.getByRole('banner').getByRole('link', { name: 'На главную', exact: true })
+  await expect(logo).toHaveAttribute('href', home)
+  await expect(logo).toHaveCSS('cursor', 'pointer')
+  await logo.click()
+  await expect(page).toHaveURL(new RegExp(`${home === '/' ? '/$' : home + '$'}`))
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 })

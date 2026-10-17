@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
 import { http, HttpResponse } from 'msw'
 import { afterEach, expect, it, vi } from 'vitest'
+import { AuthProvider } from '../../app/providers/AuthProvider'
 import { PublicLayout } from './PublicLayout'
 import { PublicEventPage } from './EventPage'
 import { LiveBoard, LivePage, AthleteSearch } from './LivePage'
@@ -126,7 +127,7 @@ it('renders a dedicated event-not-found screen without retry or event navigation
   render(
     <MemoryRouter initialEntries={['/e/missing']}>
       <Routes>
-        <Route path="e/:slug" element={<PublicLayout />}>
+        <Route path="e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}>
           <Route index element={<PublicEventPage />} />
         </Route>
       </Routes>
@@ -196,7 +197,7 @@ it('renders an event without a venue in both the layout and event card', async (
   render(
     <MemoryRouter initialEntries={['/e/demo']}>
       <Routes>
-        <Route path="e/:slug" element={<PublicLayout />}>
+        <Route path="e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}>
           <Route index element={<PublicEventPage />} />
         </Route>
       </Routes>

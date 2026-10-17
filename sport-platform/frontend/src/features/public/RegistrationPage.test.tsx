@@ -27,6 +27,7 @@ function setup(count = 1, fillTimes = true) {
   const view = render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
   fireEvent.change(screen.getByLabelText('Фамилия'), { target: { value: 'Демов' } })
   fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Тимофей' } })
+  fireEvent.change(screen.getByLabelText('Пол'), { target: { value: 'M' } })
   fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
   for (let index = 0; index < count; index++) fireEvent.click(screen.getByLabelText(`Вид ${index + 1} · Бесплатно`))
   if (fillTimes) screen.getAllByPlaceholderText('мм:сс.сс').forEach((input, index) =>
@@ -106,7 +107,8 @@ describe('QA03 public registration submission', () => {
     form.disciplines[0].participantsByAgeGroup = { young: 1 }
     render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
     expect(screen.queryByText(/Вид 1 · Мест нет/)).not.toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
+    fireEvent.change(screen.getByLabelText('Пол'), { target: { value: 'M' } })
+  fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
     expect(screen.getByText(/Вид 1 · Мест нет, запись в лист ожидания/)).toBeInTheDocument()
   })
 
