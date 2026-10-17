@@ -64,7 +64,7 @@ public class CalendarReadRepository {
                 var zone=ZoneId.of(r.getString("venue_timezone")); String eventStatus=r.getString("status");
                 cards.add(new Card(r.getString("public_slug"), r.getString("title"),
                         start==null ? null : start.atZoneSameInstant(zone).toLocalDate(), end==null ? null : end.atZoneSameInstant(zone).toLocalDate(),
-                        r.getString("city"), r.getString("venue_name"), r.getString("org_name")==null ? null :
+                        r.getString("city"), r.getString("venue_name"), r.getString("venue_timezone"), r.getString("org_name")==null ? null :
                         new Organization(r.getString("org_name"),r.getString("org_slug"),r.getBoolean("has_logo")), eventStatus,
                         "REGISTRATION_OPEN".equals(eventStatus) && (open==null || !now.isBefore(open)) && (close==null || now.isBefore(close)),
                         close,r.getLong("participants_count"),r.getLong("disciplines_count"),r.getBoolean("has_results")));

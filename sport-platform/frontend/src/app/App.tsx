@@ -32,7 +32,7 @@ const RegisterPage = lazy(() =>
   import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })),
 )
 
-const EventsPage = lazy(() =>
+const CalendarPage = lazy(() =>
   import('../features/public/CalendarPage').then(module => ({ default: module.CalendarPage })),
 )
 
@@ -114,7 +114,7 @@ export default function App() {
   const routes = (
     <Routes>
       <Route element={<PublicLayout />}>
-        <Route index element={<EventsPage />} />
+        <Route index element={<CalendarPage />} />
         <Route path="o/:slug" element={<PublicOrganizationPage />} />
       </Route>
       <Route path="e/:slug" element={<PublicLayout />}>

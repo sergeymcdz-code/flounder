@@ -1,12 +1,19 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
 import { http, HttpResponse } from 'msw'
-import { expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vitest'
 import { server } from '../../test/setup'
+import { AuthProvider } from '../../app/providers/AuthProvider'
+import { setAuthSession } from '../../api/auth-session'
+import { DirectoryLayout } from './DirectoryLayout'
+import { PublicEventPage } from './EventPage'
+import { demoEvent } from '../../mocks/demo-data'
+import { CalendarCards } from './CalendarCards'
 import { CalendarPage } from './CalendarPage'
 import { PublicOrganizationPage } from './PublicOrganizationPage'
 import type { CalendarCard } from './calendar.types'
 const card: CalendarCard = { slug: 'cup', title: 'Кубок Самары', startDate: '2026-10-20', endDate: '2026-10-20', city: 'Самара', venueName: 'Волна', organization: { name: 'Клуб Волна', publicSlug: 'volna', hasLogo: false }, status: 'PUBLISHED', registrationOpen: false, registrationCloseAt: null, disciplinesCount: 2, participantsCount: 30, hasResults: true }
+afterEach(() => { act(() => setAuthSession(null)) })
 function calendar() { render(<MemoryRouter><CalendarPage /></MemoryRouter>) }
 it('groups cards by month, filters by city and resets pagination', async () => {
   const requests: URL[] = []
@@ -21,6 +28,7 @@ it('groups cards by month, filters by city and resets pagination', async () => {
   expect(screen.getByRole('link', { name: 'Клуб Волна' })).toHaveAttribute('href', '/o/volna')
   fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
   expect(await screen.findByRole('heading', { name: 'Ноябрь 2026' })).toBeInTheDocument()
+  expect(requests.map(r => r.searchParams.get('page'))).toEqual(['0', '1'])
   fireEvent.change(screen.getByLabelText('Город'), { target: { value: 'Самара' } })
   expect(await screen.findByText('Городской старт')).toBeInTheDocument()
   expect(screen.queryByText('Ноябрьский кубок')).not.toBeInTheDocument()
@@ -58,4 +66,67 @@ it('hides organization details when its slug is missing', async () => {
   render(<MemoryRouter initialEntries={['/o/missing']}><Routes><Route path="/o/:slug" element={<PublicOrganizationPage />} /></Routes></MemoryRouter>)
   expect(await screen.findByRole('heading', { name: 'Организация не найдена' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'К календарю' })).toHaveAttribute('href', '/')
+})
+
+it.each([
+  ['participant', 'Мои заявки', '/my/registrations'],
+  ['organizer', 'Мои соревнования', '/organizer/events'],
+  ['operator', 'Мои соревнования', '/organizer/events'],
+  ['platform_admin', 'Администрирование', '/admin/users'],
+  ['judge', 'Судейство', '/operator/results'],
+])('directory navigation sends %s to the correct workspace', async (role, label, path) => {
+  directory([role])
+  const nav = within(screen.getByRole('navigation', { name: 'Основная навигация' }))
+  expect(nav.getByRole('link', { name: label })).toHaveAttribute('href', path)
+  expect(nav.queryByRole('link', { name: 'Кабинет' })).not.toBeInTheDocument()
+  expect(nav.getByRole('button', { name: 'Выйти' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Соревнования по плаванию' })).toBeInTheDocument()
+})
+it('directory offers login and registration to guests', () => {
+  directory()
+  const nav = within(screen.getByRole('navigation', { name: 'Основная навигация' }))
+  expect(nav.getByRole('link', { name: 'Войти' })).toHaveAttribute('href', '/login')
+  expect(nav.getByRole('link', { name: 'Регистрация' })).toHaveAttribute('href', '/register')
+  expect(nav.queryByRole('link', { name: 'Мои заявки' })).not.toBeInTheDocument()
+  expect(nav.queryByRole('link', { name: 'Мои соревнования' })).not.toBeInTheDocument()
+})
+it('participant logout returns the directory to guest navigation', async () => {
+  directory(['participant'])
+  fireEvent.click(screen.getByRole('button', { name: 'Выйти' }))
+  expect(await screen.findByRole('link', { name: 'Войти' })).toHaveAttribute('href', '/login')
+  expect(screen.queryByRole('link', { name: 'Мои заявки' })).not.toBeInTheDocument()
+})
+it('registration deadline uses the venue timezone across midnight', () => {
+  render(<MemoryRouter><CalendarCards items={[{ ...card, registrationOpen: true, registrationCloseAt: '2026-10-19T20:30:00Z', venueTimezone: 'Europe/Samara' }]} /></MemoryRouter>)
+  expect(screen.getByText('Регистрация открыта до 20.10')).toBeInTheDocument()
+})
+it('a failed next page preserves cards and can retry only that page', async () => {
+  const pages: string[] = []
+  let failed = false
+  server.use(http.get('*/api/v1/public/calendar', ({ request }) => {
+    const page = new URL(request.url).searchParams.get('page') ?? '0'; pages.push(page)
+    if (page === '1' && !failed) { failed = true; return HttpResponse.json({ message: 'Временная ошибка' }, { status: 503 }) }
+    return HttpResponse.json({ items: [{ ...card, slug: page === '1' ? 'second' : 'cup', title: page === '1' ? 'Второй старт' : card.title }], page: Number(page), size: 20, total: 2, cities: ['Самара'] })
+  }))
+  calendar()
+  expect(await screen.findByText(card.title)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Временная ошибка')
+  expect(screen.getByText(card.title)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }))
+  expect(await screen.findByText('Второй старт')).toBeInTheDocument()
+  expect(pages).toEqual(['0', '1', '1'])
+})
+
+function directory(roles?: string[]) {
+  setAuthSession(roles ? { accessToken: `test.${btoa(JSON.stringify({ roles }))}.test`, tokenType: 'Bearer', expiresAt: Date.now() + 3600000 } : null)
+  server.use(http.get('*/api/v1/public/calendar', () => HttpResponse.json({ items: [card], page: 0, size: 20, total: 1, cities: ['Самара'] })))
+  return render(<MemoryRouter><AuthProvider><Routes><Route element={<DirectoryLayout />}><Route index element={<CalendarPage />} /></Route></Routes></AuthProvider></MemoryRouter>)
+}
+
+it('public event has exactly one organizer row linking to its public page', () => {
+  const event = { ...demoEvent, organization: { name: 'Клуб Волна', publicSlug: 'volna', hasLogo: false } }
+  render(<MemoryRouter><Routes><Route element={<Outlet context={{ event }} />}><Route index element={<PublicEventPage />} /></Route></Routes></MemoryRouter>)
+  expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
+  expect(screen.getByRole('link', { name: 'Клуб Волна' })).toHaveAttribute('href', '/o/volna')
 })

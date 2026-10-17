@@ -22,13 +22,13 @@ public class FileService implements FileLookup {
         this.storage = storage; this.cryptography = cryptography; this.logs = logs;
     }
     @Override public StoredFile putPublic(InputStream input, long size, String originalName, String contentType) {
-        if (size > 2 * 1024 * 1024) throw new BusinessException("organizations.logo_too_large", "Размер логотипа превышает 2 МБ");
+        if (size > 2 * 1024 * 1024) throw new BusinessException("files.image_too_large", "Размер логотипа превышает 2 МБ");
         var checked = new PushbackInputStream(new SizeCheckedInputStream(input, size), 8);
         String detected;
         try { detected = FileTypeValidator.validate(checked, size, originalName, contentType); }
         catch (IOException ex) { throw new BusinessException("files.read_failed", "Не удалось прочитать логотип"); }
         if (!detected.equals("image/png") && !detected.equals("image/jpeg"))
-            throw new BusinessException("organizations.invalid_logo", "Разрешены только PNG и JPG");
+            throw new BusinessException("files.invalid_image_type", "Разрешены только PNG и JPG");
         String key = "public-" + UUID.randomUUID();
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(

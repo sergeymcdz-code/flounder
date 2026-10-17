@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { calendarApi } from '../../api/calendar.api'
 import { usePublicData } from './usePublicData'
 import { DataState } from './PublicLayout'
 import { CalendarCards } from './CalendarCards'
+import type { CalendarCard } from './calendar.types'
 import styles from './Calendar.module.css'
 export function CalendarPage() {
   const [params, setParams] = useSearchParams()
@@ -17,16 +18,37 @@ export function CalendarPage() {
 }
 function CalendarContent({ query, change }: { query: string; change: (key: string, value: string) => void }) {
   const params = new URLSearchParams(query)
-  const [page, setPage] = useState(0)
+  const [extra, setExtra] = useState<{ page: number; items: CalendarCard[]; total?: number }>({ page: 0, items: [] })
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreError, setMoreError] = useState('')
+  const request = useRef<AbortController | null>(null)
   const [search, setSearch] = useState(params.get('q') ?? '')
-  const load = useCallback(async (signal: AbortSignal) => {
-    const pages = await Promise.all(Array.from({ length: page + 1 }, (_, index) => {
-      const next = new URLSearchParams(query); next.set('page', String(index)); next.set('size', '20')
-      return calendarApi.calendar(next, signal)
-    }))
-    return { ...pages[0], items: pages.flatMap(p => p.items) }
-  }, [query, page])
+  const load = useCallback((signal: AbortSignal) => {
+    const next = new URLSearchParams(query); next.set('page', '0'); next.set('size', '20')
+    return calendarApi.calendar(next, signal)
+  }, [query])
   const state = usePublicData(load)
+  useEffect(() => () => { request.current?.abort() }, [])
+  const items = [...new Map([...(state.data?.items ?? []), ...extra.items].map(card => [card.slug, card])).values()]
+  const total = extra.total ?? state.data?.total ?? 0
+  async function loadMore() {
+    if (!state.data || request.current) return
+    const controller = new AbortController()
+    request.current = controller
+    setLoadingMore(true); setMoreError('')
+    const next = new URLSearchParams(query); next.set('page', String(extra.page + 1)); next.set('size', '20')
+    try {
+      const result = await calendarApi.calendar(next, controller.signal)
+      if (!controller.signal.aborted) setExtra(previous => ({
+        page: previous.page + 1, items: [...previous.items, ...result.items], total: result.total,
+      }))
+    } catch (cause) {
+      if (!controller.signal.aborted) setMoreError(cause instanceof Error ? cause.message : 'Не удалось загрузить следующую страницу.')
+    } finally {
+      if (!controller.signal.aborted) setLoadingMore(false)
+      if (request.current === controller) request.current = null
+    }
+  }
   const status = params.get('status') ?? 'upcoming'
   return <>
     <p className={styles.eyebrow}>Календарь стартов</p>
@@ -44,9 +66,12 @@ function CalendarContent({ query, change }: { query: string; change: (key: strin
       <button className="fl-button-ghost" type="submit">Найти</button>
     </form>
     <DataState {...state} />
-    {state.data && <><p className={styles.muted} role="status">Найдено соревнований: {state.data.total}</p>
-      <CalendarCards items={state.data.items} grouped />
-      {state.data.items.length < state.data.total && <button className="fl-button-ghost" onClick={() => setPage(p => p + 1)}>Показать ещё</button>}
+    {state.data && <><p className={styles.muted} role="status">Найдено соревнований: {total}</p>
+      <CalendarCards items={items} grouped />
+      {moreError && <p role="alert">{moreError}</p>}
+      {items.length < total && <button className="fl-button-ghost" disabled={loadingMore} onClick={() => void loadMore()}>
+        {loadingMore ? 'Загружаем…' : moreError ? 'Повторить загрузку' : 'Показать ещё'}
+      </button>}
     </>}
   </>
 }

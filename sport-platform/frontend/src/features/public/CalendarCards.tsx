@@ -17,7 +17,7 @@ export function CalendarCards({ items, grouped = false }: { items: CalendarCard[
       <p className={styles.muted}>{[card.city, card.venueName].filter(Boolean).join(' · ') || 'Площадка не указана'}</p>
       {card.organization && <p>{card.organization.publicSlug ? <Link to={`/o/${encodeURIComponent(card.organization.publicSlug)}`}>{card.organization.name}</Link> : card.organization.name}</p>}
       <div className={styles.badges}>
-        {card.status === 'LIVE' ? <span className={styles.live}>Идёт сейчас</span> : card.registrationOpen ? <span>Регистрация открыта{card.registrationCloseAt ? ` до ${new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Moscow' }).format(new Date(card.registrationCloseAt))}` : ''}</span> : <span>Регистрация закрыта</span>}
+        {card.status === 'LIVE' ? <span className={styles.live}>Идёт сейчас</span> : card.registrationOpen ? <span>Регистрация открыта{card.registrationCloseAt ? ` до ${new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', timeZone: card.venueTimezone ?? 'UTC' }).format(new Date(card.registrationCloseAt))}` : ''}</span> : <span>Регистрация закрыта</span>}
         {card.hasResults && <Link to={`/e/${encodeURIComponent(card.slug)}/results`}>Результаты →</Link>}
       </div>
       <p className={styles.muted}>Видов программы: {card.disciplinesCount} · Участников: {card.participantsCount}</p>

@@ -1,5 +1,7 @@
 package com.acme.sportplatform.organizations;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 public interface OrganizationLookup {
@@ -10,5 +12,5 @@ public interface OrganizationLookup {
 
     PublicOrganization publicBySlug(String slug);
 
-    java.util.Map<UUID, PublicOrganizationCard> cards(java.util.Collection<UUID> ids);
+    Map<UUID, PublicOrganizationCard> cards(Collection<UUID> ids);
 }

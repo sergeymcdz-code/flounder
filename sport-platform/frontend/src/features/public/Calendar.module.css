@@ -1,6 +1,7 @@
 .root { min-height: 100vh; background: var(--color-page); color: var(--color-text); }
 .header { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; max-width: 1120px; margin: auto; padding: 20px 24px; border-bottom: 1px solid var(--color-border); }
-.header nav { display: flex; gap: 20px; flex: 1; }
+.header nav { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; flex: 1; }
+.header nav a { display: inline-flex; align-items: center; min-height: 44px; }
 .brand { font-size: 24px; font-weight: 800; text-decoration: none; }
 .main { max-width: 1120px; margin: auto; padding: 32px 24px; }
 .main h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.15; margin: 12px 0 28px; overflow-wrap: anywhere; }

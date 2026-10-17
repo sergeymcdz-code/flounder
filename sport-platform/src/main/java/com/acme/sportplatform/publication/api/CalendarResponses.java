@@ -7,7 +7,7 @@ import com.acme.sportplatform.organizations.PublicOrganization;
 public final class CalendarResponses {
     private CalendarResponses() {}
     public record Organization(String name, String publicSlug, boolean hasLogo) {}
-    public record Card(String slug, String title, LocalDate startDate, LocalDate endDate, String city, String venueName,
+    public record Card(String slug, String title, LocalDate startDate, LocalDate endDate, String city, String venueName, String venueTimezone,
             Organization organization, String status, boolean registrationOpen, OffsetDateTime registrationCloseAt,
             long participantsCount, long disciplinesCount, boolean hasResults) {}
     public record Calendar(List<Card> items, int page, int size, long total, List<String> cities) {}

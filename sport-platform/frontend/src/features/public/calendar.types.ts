@@ -1,5 +1,5 @@
 export type CalendarCard = {
-  slug: string; title: string; startDate: string | null; endDate: string | null; city: string | null; venueName: string | null
+  slug: string; title: string; startDate: string | null; endDate: string | null; city: string | null; venueName: string | null; venueTimezone?: string | null
   organization: { name: string; publicSlug: string | null; hasLogo: boolean } | null
   status: string; registrationOpen: boolean; registrationCloseAt: string | null
   participantsCount: number; disciplinesCount: number; hasResults: boolean

@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(PublicCalendarIntegrationTest.SqlCounting.class)
 class PublicCalendarIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired MockMvc mvc;
+    @Autowired @org.springframework.beans.factory.annotation.Qualifier("publicationCacheManager") org.springframework.cache.CacheManager caches;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired PublicOrganizationProfileService profiles;
@@ -105,6 +106,7 @@ class PublicCalendarIntegrationTest extends AbstractPostgresIntegrationTest {
         event("COMPLETED",-2,"Итоги"); event("ARCHIVED",-3,"Архив");
         mvc.perform(get(calendar("&status=all&size=2"))).andExpect(status().isOk()).andExpect(jsonPath("$.total").value(6))
                 .andExpect(jsonPath("$.items.length()").value(2)).andExpect(jsonPath("$.cities").isArray())
+                .andExpect(jsonPath("$.items[0].venueTimezone").value("Europe/Samara"))
                 .andExpect(header().string("Cache-Control","public, max-age=15")).andExpect(header().string("X-Flounder-Cached","false"));
         mvc.perform(get(calendar("&status=all&size=2"))).andExpect(header().string("X-Flounder-Cached","true"));
         mvc.perform(get(calendar("&status=past"))).andExpect(jsonPath("$.total").value(2)).andExpect(jsonPath("$.items[0].title").value("Итоги"));
@@ -115,6 +117,18 @@ class PublicCalendarIntegrationTest extends AbstractPostgresIntegrationTest {
         mvc.perform(get(calendar("&from=2000-01-01&to=2000-01-02"))).andExpect(jsonPath("$.total").value(0));
         mvc.perform(get(calendar("&status=invalid"))).andExpect(status().isBadRequest());
         mvc.perform(get(calendar("&size=101"))).andExpect(status().isBadRequest());
+    }
+    @Test void responsesUseTheSharedPublicationCaches() throws Exception {
+        event("PUBLISHED", 2, "Кубок");
+        mvc.perform(get(calendar(""))).andExpect(header().string("X-Flounder-Cached", "false"));
+        mvc.perform(get(calendar(""))).andExpect(header().string("X-Flounder-Cached", "true"));
+        caches.getCache("publicCalendar").clear();
+        mvc.perform(get(calendar(""))).andExpect(header().string("X-Flounder-Cached", "false"));
+        String path="/api/v1/public/organizations/"+slug;
+        mvc.perform(get(path)).andExpect(header().string("X-Flounder-Cached", "false"));
+        mvc.perform(get(path)).andExpect(header().string("X-Flounder-Cached", "true"));
+        caches.getCache("publicOrganization").clear();
+        mvc.perform(get(path)).andExpect(header().string("X-Flounder-Cached", "false"));
     }
     @Test void fiftyEventsUseAtMostFourSqlStatements() throws Exception {
         for(int i=0;i<50;i++) event("PUBLISHED",i+1,"Старт "+i);
