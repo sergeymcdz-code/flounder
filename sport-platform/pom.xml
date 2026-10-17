@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.6</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -20,7 +20,7 @@
         <java.version>21</java.version>
         <spring-modulith.version>1.4.1</spring-modulith.version>
         <openhtmltopdf.version>1.0.10</openhtmltopdf.version>
-        <pdfbox.version>2.0.35</pdfbox.version>
+        <pdfbox.version>2.0.37</pdfbox.version>
         <testcontainers.version>2.0.2</testcontainers.version>
     </properties>
 
