@@ -41,6 +41,7 @@ public class PasswordService {
             throw new BusinessException("identity.password_mismatch", "Текущий пароль указан неверно");
         PasswordPolicy.validate(newPassword);
         user.setPasswordHash(encoder.encode(newPassword));
+        user.revokeAccessTokens(clock.instant());
         refreshTokens.invalidateAll(userId, clock.instant());
         resets.invalidateAll(userId, clock.instant());
     }
@@ -51,6 +52,7 @@ public class PasswordService {
         var user = users.findByIdForUpdate(userId).orElseThrow(() ->
                 new BusinessException("identity.user_not_found", "Пользователь не найден"));
         user.setPasswordHash(encoder.encode(newPassword));
+        user.revokeAccessTokens(clock.instant());
         refreshTokens.invalidateAll(userId, clock.instant());
         resets.invalidateAll(userId, clock.instant());
     }
@@ -83,6 +85,7 @@ public class PasswordService {
         PasswordPolicy.validate(newPassword);
         token.setUsedAt(clock.instant());
         user.setPasswordHash(encoder.encode(newPassword));
+        user.revokeAccessTokens(clock.instant());
         resets.invalidateAll(user.getId(), clock.instant());
         refreshTokens.invalidateAll(user.getId(), clock.instant());
     }

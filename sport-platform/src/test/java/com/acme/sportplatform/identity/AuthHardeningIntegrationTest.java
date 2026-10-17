@@ -85,6 +85,42 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(jsonPath("$.code").value("identity.refresh_token_invalid"));
     }
 
+    void invalidAccess(JsonNode pair) throws Exception {
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + pair.get("accessToken").asText()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void repeatedLogoutAllRevokesTokensIssuedInTheSameSecond() throws Exception {
+        JsonNode first = login();
+        send("/logout-all", null, first.get("accessToken").asText(), ip).andExpect(status().isNoContent());
+        invalidAccess(first);
+        JsonNode second = login();
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + second.get("accessToken").asText()))
+                .andExpect(status().isOk());
+        send("/logout-all", null, second.get("accessToken").asText(), ip).andExpect(status().isNoContent());
+        invalidAccess(second);
+        invalidAccess(first);
+        JsonNode third = login();
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + third.get("accessToken").asText()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void blockRevokesRefreshAndAccessEvenAfterUnblocking() throws Exception {
+        JsonNode pair = login();
+        var admin = body(send("/login", Map.of("email", "admin@flounder.demo", "password", "Demo2026!"), null, ip)
+                .andExpect(status().isOk()).andReturn());
+        for (String status : List.of("BLOCKED", "ACTIVE"))
+            mvc.perform(patch("/api/v1/users/" + userId).header("Authorization", "Bearer " + admin.get("accessToken").asText())
+                    .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(Map.of("status", status))))
+                    .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where user_id=? and revoked_at is null", Integer.class, userId)).isZero();
+        invalidAccess(pair);
+        invalidRefresh(pair.get("refreshToken").asText());
+        login();
+    }
+
     @Test
     void registrationRejectsExistingNormalizedEmailWith409() throws Exception {
         send("/register", Map.of("email", "  " + email.toUpperCase(Locale.ROOT) + "  ", "password", PASSWORD,
@@ -112,6 +148,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("identity.password_mismatch"));
         send("/change-password", Map.of("currentPassword", PASSWORD, "newPassword", "Changed123!"), first.get("accessToken").asText(), ip)
                 .andExpect(status().isNoContent());
+        invalidAccess(first); invalidAccess(second);
         invalidRefresh(first.get("refreshToken").asText()); invalidRefresh(second.get("refreshToken").asText());
         send("/login", Map.of("email", email, "password", PASSWORD), null, ip).andExpect(status().isUnauthorized());
         send("/login", Map.of("email", email, "password", "Changed123!"), null, ip).andExpect(status().isOk());
@@ -146,6 +183,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         send("/password-reset/confirm", Map.of("token", resetToken, "newPassword", "Reset123!"), null, ip).andExpect(status().isNoContent());
         send("/password-reset/confirm", Map.of("token", resetToken, "newPassword", "Again123!"), null, ip)
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("identity.reset_token_invalid"));
+        invalidAccess(pair);
         invalidRefresh(pair.get("refreshToken").asText());
         send("/login", Map.of("email", email, "password", "Reset123!"), null, ip).andExpect(status().isOk());
     }
@@ -241,6 +279,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         JsonNode rotated = body(send("/refresh", Map.of("refreshToken", original.get("refreshToken").asText()), null, ip)
                 .andExpect(status().isOk()).andReturn());
         invalidRefresh(original.get("refreshToken").asText());
+        invalidAccess(original); invalidAccess(rotated); invalidAccess(otherDevice);
         assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where user_id=? and revoked_at is null", Integer.class, userId)).isZero();
         invalidRefresh(rotated.get("refreshToken").asText());
         invalidRefresh(otherDevice.get("refreshToken").asText());
@@ -277,6 +316,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         JsonNode first = login(), second = login();
         send("/logout-all", null, null, ip).andExpect(status().isUnauthorized());
         send("/logout-all", null, first.get("accessToken").asText(), ip).andExpect(status().isNoContent());
+        invalidAccess(first); invalidAccess(second);
         invalidRefresh(first.get("refreshToken").asText()); invalidRefresh(second.get("refreshToken").asText());
     }
 
@@ -299,6 +339,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         mvc.perform(patch("/api/v1/users/" + userId + "/password").header("Authorization", "Bearer " + admin.get("accessToken").asText())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"Admin123!\"}"))
                 .andExpect(status().isNoContent());
+        invalidAccess(pair);
         invalidRefresh(pair.get("refreshToken").asText());
         send("/password-reset/confirm", Map.of("token", resetToken, "newPassword", "Reset123!"), null, ip)
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("identity.reset_token_invalid"));

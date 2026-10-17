@@ -229,7 +229,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void blockRejectsLoginAndOldJwtThenUnblockRestoresAccess() throws Exception {
+    void blockRejectsLoginAndOldJwtThenUnblockRequiresFreshLogin() throws Exception {
         String email = email(); String id = create(email, "Блокировка", "Проверка");
         String token = login(email, "Demo2026!");
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isOk());
@@ -240,8 +240,8 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("identity.user_blocked"));
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.user_blocked"));
         call(patch("/api/v1/users/" + id), admin, Map.of("status", "ACTIVE")).andExpect(status().isOk());
-        call(get("/api/v1/auth/me"), token, null).andExpect(status().isOk());
-        login(email, "Demo2026!");
+        call(get("/api/v1/auth/me"), token, null).andExpect(status().isUnauthorized());
+        call(get("/api/v1/auth/me"), login(email, "Demo2026!"), null).andExpect(status().isOk());
     }
 
     @Test

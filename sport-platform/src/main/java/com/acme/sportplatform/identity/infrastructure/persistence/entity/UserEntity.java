@@ -30,6 +30,9 @@ public class UserEntity {
     @Column(nullable = false, length = 32)
     private String status;
 
+    @Column(name = "tokens_valid_after")
+    private java.time.Instant tokensValidAfter;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -62,6 +65,17 @@ public class UserEntity {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public java.time.Instant getTokensValidAfter() { return tokensValidAfter; }
+
+    public void revokeAccessTokens(java.time.Instant now) {
+        // JWT NumericDate uses seconds. Advance beyond every token issued in this second,
+        // including tokens minted after an earlier revocation in the same second.
+        var cutoff = now.truncatedTo(java.time.temporal.ChronoUnit.SECONDS).plusSeconds(1);
+        if (tokensValidAfter != null && !cutoff.isAfter(tokensValidAfter))
+            cutoff = tokensValidAfter.plusSeconds(1);
+        tokensValidAfter = cutoff;
+    }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void serCreatedAt (OffsetDateTime createdAt) { this.createdAt = createdAt; }

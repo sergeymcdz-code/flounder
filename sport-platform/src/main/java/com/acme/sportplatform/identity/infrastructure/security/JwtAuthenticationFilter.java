@@ -92,6 +92,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             var user = snapshot.isEmpty() ? null : snapshot.getFirst();
             if (user == null) throw new InsufficientAuthenticationException("Пользователь не найден");
             if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) throw new UserBlockedException();
+            if (claims.getIssuedAt() == null || (user.getTokensValidAfter() != null
+                    && claims.getIssuedAt().toInstant().isBefore(user.getTokensValidAfter())))
+                throw new InvalidTokenException();
             var memberships = snapshot.stream().filter(row -> row.getOrganizationId() != null)
                     .map(row -> new UserMembershipLookup.Membership(row.getOrganizationId(), row.getOrganizationName(), row.getMemberRole()))
                     .distinct().toList();

@@ -24,15 +24,23 @@ import io.jsonwebtoken.security.Keys;
 public class JwtService {
 
     private final JwtProperties jwtProperties;
+    private final java.time.Clock clock;
 
-    public JwtService(JwtProperties jwtProperties) {
+    public JwtService(JwtProperties jwtProperties,
+            @org.springframework.beans.factory.annotation.Qualifier("identityClock") java.time.Clock clock) {
+        this.clock = clock;
         this.jwtProperties = jwtProperties;
     }
 
     public long accessTokenTtlSeconds() { return jwtProperties.accessTokenTtl().toSeconds(); }
 
     public String generateAccessToken(PlatformUserPrincipal principal, List<String> roles) {
-        Instant now = Instant.now();
+        return generateAccessToken(principal, roles, null);
+    }
+
+    public String generateAccessToken(PlatformUserPrincipal principal, List<String> roles, Instant tokensValidAfter) {
+        Instant now = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        if (tokensValidAfter != null && tokensValidAfter.isAfter(now)) now = tokensValidAfter;
         Instant expiresAt = now.plus(jwtProperties.accessTokenTtl());
 
         return Jwts.builder()
@@ -49,6 +57,7 @@ public class JwtService {
     public Claims parse(String token) {
         try {
             Claims claims = Jwts.parser()
+                .clock(() -> Date.from(clock.instant()))
                 .verifyWith(signingKey())
                 .requireIssuer(jwtProperties.issuer())
                 .build()

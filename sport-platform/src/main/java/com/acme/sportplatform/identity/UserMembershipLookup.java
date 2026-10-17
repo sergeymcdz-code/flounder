@@ -10,6 +10,7 @@ public interface UserMembershipLookup {
     interface AuthenticationRow {
         String getEmail();
         String getStatus();
+        java.time.Instant getTokensValidAfter();
         String getRoleCode();
         UUID getOrganizationId();
         String getOrganizationName();
