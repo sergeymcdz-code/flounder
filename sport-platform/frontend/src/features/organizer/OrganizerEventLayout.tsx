@@ -1,5 +1,11 @@
+import { plural } from '../../utils/plural'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { Tabs, type TabItem } from '../../components/ui/Tabs'
+import { Notice } from '../../components/ui/Notice'
+import { isHeatPublished } from './organizer-event-context'
 import { useCallback, useEffect, useEffectEvent, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { useParams } from 'react-router'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { ApiError } from '../../api/http'
@@ -189,39 +195,17 @@ function OrganizerEventContent() {
       <Link to={judgeOnly ? '/operator/results' : '/organizer/events?all=1'} className={styles.muted}>
         {judgeOnly ? '← Судейство' : '← Все соревнования'}
       </Link>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.eyebrow}>{judgeOnly ? 'Судейство' : isOrganizer || isPlatformAdmin ? 'Кабинет организатора' : 'Кабинет секретаря'}</p>
-          <h1>{data.event.title}</h1>
-          <p className={styles.muted}>
-            {formatDate(data.event.eventStartAt, data.event.venue?.timezone)} ·{' '}
-            {data.event.venue?.name ?? 'Площадка соревнования'}
-          </p>
-        </div>
-      </header>
-      {data.event.status === 'ARCHIVED' && <p role="status">Соревнование в архиве. Доступен только просмотр.</p>}
-      <nav className={styles.tabs} aria-label="Разделы соревнования">
-        {[
-          ['', 'Главная'],
-          ['program', 'Программа'],
-          ['entries', 'Заявки'],
-          ['heats', 'Заплывы'],
-          ['results', 'Результаты'],
-          ['notifications', 'Уведомления'],
-          ...(isOrganizer || isPlatformAdmin ? [['analytics', 'Аналитика']] : []),
-        ].filter(([path]) => !judgeOnly || path === 'results').map(([path, title]) => (
-          <NavLink
-            key={path}
-            end
-            to={`/organizer/events/${eventId}${path ? `/${path}` : ''}`}
-            className={({ isActive }) =>
-              isActive ? styles.activeTab : styles.tab
-            }
-          >
-            {title}
-          </NavLink>
-        ))}
-      </nav>
+      <PageHeader title={data.event.title} badge={<StatusBadge kind="event" code={data.event.status} />} meta={<>{formatDate(data.event.eventStartAt, data.event.venue?.timezone)} — {formatDate(data.event.eventEndAt, data.event.venue?.timezone)} · {data.event.venue?.name ?? 'Площадка соревнования'}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}{data.event.venue?.lanes ? ` · ${data.event.venue.lanes} дорожек` : ''}{data.event.venue?.courseLength ? ` · ${data.event.venue.courseLength} м` : ''}</>} actions={<><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}`}>Публичная страница ↗</Link><details className="fl-overflow-menu"><summary className="fl-btn fl-btn-ghost" aria-label="Действия соревнования">⋯</summary><div><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}/poster`}>QR-плакат A4</Link>{data.event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) && <Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${eventId}?archive=1`}>В архив</Link>}</div></details></>} />
+      {data.event.status === 'ARCHIVED' && <Notice>Соревнование в архиве. Доступен только просмотр.</Notice>}
+      <Tabs items={([
+        { path: '', label: 'Главная' },
+        { path: 'program', label: 'Программа', count: `${data.event.disciplines.length} ${plural(data.event.disciplines.length, ['вид', 'вида', 'видов'])}` },
+        { path: 'entries', label: 'Заявки', count: data.registrations.length, attention: data.registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW'].includes(r.status)).length },
+        { path: 'heats', label: 'Заплывы', count: `${data.heats.length} · ${data.heats.length && data.heats.every(h => isHeatPublished(h.status)) ? 'опубликовано' : 'черновик'}` },
+        { path: 'results', label: 'Результаты', count: `${data.heats.filter(h => ['FINISHED', 'COMPLETED'].includes(h.status)).length} из ${data.heats.length}` },
+        { path: 'notifications', label: 'Уведомления' },
+        ...(isOrganizer || isPlatformAdmin ? [{ path: 'analytics', label: 'Аналитика' }] : []),
+      ]).filter(item => !judgeOnly || item.path === 'results').map(({ path, ...item }) => ({ ...item, to: `/organizer/events/${eventId}${path ? `/${path}` : ''}` }) satisfies TabItem)} />
       {error && dialogCount === 0 && (
         <ErrorState title="Ошибка" message={error} />
       )}

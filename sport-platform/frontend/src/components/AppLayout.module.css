@@ -1,90 +1,28 @@
-.shell {
-  min-height: 100vh;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 1280px;
-  min-height: 76px;
-  border-bottom: 3px solid var(--color-text);
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--color-text);
-  font-family: var(--font-heading);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  text-decoration: none;
-}
-
-.navigation {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.navLink {
-  padding: 9px 12px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.navLink:hover,
-.navLinkActive {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-}
-
-.navButton {
-  cursor: pointer;
-}
-
-.content {
-  width: min(100% - 48px, 1280px);
-  margin: 28px auto;
-}
-
-@media (max-width: 640px) {
-  .header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-    padding-top: 16px;
-    padding-bottom: 16px;
-  }
-
-  .navigation {
-    width: 100%;
-    max-width: 100%;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-
-  .content {
-    width: min(100% - 32px, 1280px);
-    margin-top: 32px;
-  }
-}
+.shell { min-height: 100vh; }
+.header { position: relative; z-index: var(--z-header); display: flex; align-items: center; gap: 24px; height: var(--header-h); padding: 0 24px; border-bottom: 3px solid var(--border-rule); background: var(--surface-1); }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--color-text); font: 600 20px var(--font-heading); text-decoration: none; }
+.brand::before { content: ""; width: 32px; height: 32px; background: url("/favicon.svg") center / contain no-repeat; }
+.navigation { display: flex; align-items: center; gap: 16px; }
+.navLink { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 0; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--color-text-muted); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.navLink small { font-size: 12px; font-weight: 400; }
+.navLink:hover, .navLinkActive { color: var(--color-text); border-bottom-color: var(--border-rule); }
+.userMenu { margin-left: auto; }
 .adminMenu { position: relative; }
 .adminMenu summary { cursor: pointer; }
-.adminLinks { position: absolute; right: 0; top: 100%; z-index: 10; display: grid; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface, white); box-shadow: var(--shadow-pop); }
-
-.brand::before { content: ""; width: 32px; height: 32px; background: url("/favicon.svg") center / contain no-repeat; }
+.adminLinks { position: absolute; right: 0; top: 100%; z-index: var(--z-drawer); display: grid; padding: 8px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-pop); }
+.navButton { cursor: pointer; }
+.content { width: min(100% - 48px, var(--content-max)); margin: 24px auto; }
+.mobileMenu > summary { display: none; }
+@media(max-width: 767px) {
+ .header { padding-inline: 16px; gap: 8px; }
+ .content { width: calc(100% - 32px); margin: 16px auto; }
+ .mobileMenu { order: 3; }
+ .mobileMenu > summary { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; list-style: none; }
+ .mobileMenu > summary::-webkit-details-marker { display: none; }
+ .navigation { position: absolute; left: 16px; right: 16px; top: 56px; display: grid; gap: 0; padding: 8px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-pop); }
+ .adminLinks { max-width: calc(100vw - 32px); }
+ .userMenu .navLink { flex-direction: column; gap: 0; justify-content: center; max-width: 140px; overflow: hidden; }
+}
 
 .brand { cursor: pointer; }
 .brand:hover { color: var(--color-primary); }

@@ -1,4 +1,4 @@
-import { MemoryRouter } from 'react-router'
+import { Link, MemoryRouter } from 'react-router'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { OrganizerOverviewPage } from './OrganizerOverviewPage'
@@ -25,8 +25,8 @@ vi.mock('../../app/providers/AuthProvider', () => ({ useAuth: () => ({ isOrganiz
 vi.mock('./OrganizerDialog', () => ({
   OrganizerConfirm: ({ title, onConfirm, onClose }: { title: string; onConfirm: () => void; onClose: () => void }) => (
     <div role="dialog" aria-label={title}>
-      <button onClick={onConfirm}>Подтвердить</button>
-      <button onClick={onClose}>Отмена</button>
+      <button className="fl-btn fl-btn-secondary" onClick={onConfirm}>Подтвердить</button>
+      <button className="fl-btn fl-btn-secondary" onClick={onClose}>Отмена</button>
     </div>
   ),
 }))
@@ -61,4 +61,16 @@ it('M06 archive has no status changes or limit editor', () => {
   expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Закрыть регистрацию' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Продлить' })).not.toBeInTheDocument()
+})
+
+it('opens the archive query on the mounted overview and can open it again after cancellation', async () => {
+  context.event.status = 'COMPLETED'
+  render(<MemoryRouter><Link to="?archive=1">Архив из меню</Link><OrganizerOverviewPage /></MemoryRouter>)
+  fireEvent.click(screen.getByRole('link', { name: 'Архив из меню' }))
+  expect(await screen.findByRole('dialog', { name: 'Отправить соревнование в архив?' })).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('link', { name: 'Архив из меню' }))
+  expect(await screen.findByRole('dialog', { name: 'Отправить соревнование в архив?' })).toBeVisible()
+  expect(context.clearError).toHaveBeenCalledTimes(2)
 })

@@ -65,14 +65,14 @@ export function PublicRegistrationPage() {
         <p>Для подачи заявки нужен аккаунт участника.</p>
         <div className={styles.actions}>
           <Link
-            className={`${styles.button} fl-button-primary`}
+            className="fl-btn fl-btn-primary"
             to={`/login?next=${encodeURIComponent(returnTo)}`}
             state={{ from: returnTo }}
           >
             Войти
           </Link>
           <Link
-            className={`${styles.button} fl-button-ghost`}
+            className="fl-btn fl-btn-ghost"
             to={`/register?next=${encodeURIComponent(returnTo)}`}
             state={{ from: returnTo }}
           >
@@ -100,9 +100,9 @@ export function PublicRegistrationPage() {
             <li key={name}>{name} — отправлена</li>
           ))}
         </ul>
-        <Link className={`${styles.button} fl-button-primary`} to="/my/registrations">
+        <Link className="fl-btn fl-btn-primary" to="/my/registrations">
           Мои заявки
-        </Link><Link className={`${styles.button} fl-button-ghost`} to={`/e/${event.publicSlug}`}>Вернуться к соревнованию</Link>
+        </Link><Link className="fl-btn fl-btn-ghost" to={`/e/${event.publicSlug}`}>Вернуться к соревнованию</Link>
       </section>
     )
   function updateProfile(
@@ -190,10 +190,10 @@ export function PublicRegistrationPage() {
       <DataState {...state} />
       {state.data && state.data.maxParticipants != null && (state.data.participantsCount ?? 0) >= state.data.maxParticipants && <p role="status">Мест нет, запись в лист ожидания</p>}
       {state.data && (
-        <form className={formStyles.form} onSubmit={submit} noValidate>
+        <form className={`${formStyles.form} fl-form`} onSubmit={submit} noValidate>
           <fieldset disabled={submitting}>
             <legend>Данные спортсмена</legend>
-            <button type="button" onClick={() => { void (async () => {
+            <button className="fl-btn fl-btn-secondary" type="button" onClick={() => { void (async () => {
               const cached = email && sessionStorage.getItem(`sportgate.profile.${email}`)
               if (cached) { setProfile(previous => ({ ...previous, ...JSON.parse(cached) as Partial<typeof profile> })); return }
               const rows = await getMyRegistrations(auth.session!.accessToken)
@@ -206,7 +206,7 @@ export function PublicRegistrationPage() {
               ['firstName', 'Имя', 'given-name'],
               ['middleName', 'Отчество', 'additional-name'],
             ].map(([key, title, autoComplete]) => (
-              <div className={styles.field} key={key}>
+              <div className="fl-field" key={key}>
                 <label htmlFor={`registration-${key}`}>{title}</label>
                 <input
                   id={`registration-${key}`}
@@ -226,7 +226,7 @@ export function PublicRegistrationPage() {
                 {fieldError(key)}
               </div>
             ))}
-            <div className={styles.field}>
+            <div className="fl-field">
               <label htmlFor="registration-birth-date">Дата рождения</label>
               <input id="registration-birth-date" type="date" required max={today}
                 aria-invalid={!!errors.birthDate}
@@ -236,7 +236,7 @@ export function PublicRegistrationPage() {
               {fieldError('birthDate')}
             </div>
             <div className={formStyles.row}>
-              <div className={styles.field}>
+              <div className="fl-field">
                 <label htmlFor="registration-gender">Пол</label>
                 <select id="registration-gender" required value={profile.gender}
                   aria-invalid={!!errors.gender}
@@ -248,7 +248,7 @@ export function PublicRegistrationPage() {
                 </select>
                 {fieldError('gender')}
               </div>
-              <div className={styles.field}>
+              <div className="fl-field">
                 <label htmlFor="registration-club">Клуб / город</label>
                 <input id="registration-club" maxLength={180} value={profile.club}
                   aria-invalid={!!errors.club}
@@ -303,7 +303,7 @@ export function PublicRegistrationPage() {
                       <small>Не подходит по полу или году рождения</small>
                     )}
                     {checked && (
-                      <label className={styles.field}>
+                      <label className="fl-field">
                         Заявочное время
                         <input
                           inputMode="numeric"
@@ -359,7 +359,7 @@ export function PublicRegistrationPage() {
                   {message}
                 </p>
               ))}
-            <button className={`${formStyles.submit} fl-button-primary`} disabled={submitting} type="submit">
+            <button className={`${formStyles.submit} fl-btn fl-btn-primary`} disabled={submitting} type="submit">
               {submitting ? 'Отправляем…' : 'Отправить заявку'}
             </button>
           </fieldset>

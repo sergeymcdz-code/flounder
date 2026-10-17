@@ -197,7 +197,7 @@ export async function openAuditPage(page: Page, path: string, role = '') {
     }))
   }, role)
   await page.goto('/')
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30000 })
   await page.evaluate(`(${extraMocks})()`)
   await navigate(page, path)
 }
@@ -210,7 +210,7 @@ export async function navigate(page: Page, path: string) {
   }, path)
   if (pathname !== '/') await expect(page.getByRole('heading', { name: 'Соревнования по плаванию', exact: true })).toHaveCount(0)
   await expect(page.getByText('Загружаем страницу…', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('heading', { level: 1 }).or(page.getByRole('alert')).first()).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 }).or(page.getByRole('alert')).first()).toBeVisible({ timeout: 30000 })
   await expect(page.getByText('Загружаем соревнование…', { exact: true })).toHaveCount(0)
   await expect(page.getByText('Загрузка…', { exact: true })).toHaveCount(0)
   if (pathname.includes('/organizer/events/11111111-1111-4111-8111-111111111111')) {

@@ -5,7 +5,7 @@
 
 .backLink {
   width: fit-content;
-  color: #0d6178;
+  color: var(--color-primary);
   font-weight: 600;
   text-decoration: none;
 }
@@ -16,7 +16,7 @@
 
 .eyebrow {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -32,7 +32,7 @@
 
 .title {
   margin: 0;
-  color: #111827;
+  color: var(--color-text);
   font-size: clamp(1.75rem, 2.5vw, 2.5rem);
   line-height: 1.1;
 }
@@ -40,7 +40,7 @@
 .description {
   margin: 0.75rem 0 0;
   max-width: 60rem;
-  color: #4b5563;
+  color: var(--color-text-muted);
   line-height: 1.6;
 }
 
@@ -53,15 +53,15 @@
   display: grid;
   gap: 1rem;
   padding: 1.5rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-subtle);
   border-radius: 1rem;
-  background: #ffffff;
+  background: var(--surface-1);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
 }
 
 .cardTitle {
   margin: 0;
-  color: #111827;
+  color: var(--color-text);
   font-size: 1.125rem;
   font-weight: 800;
 }
@@ -83,7 +83,7 @@
 }
 
 .label {
-  color: #374151;
+  color: var(--color-text);
   font-size: 0.95rem;
   font-weight: 700;
 }
@@ -93,10 +93,10 @@
   width: 100%;
   min-width: 0;
   padding: 0.875rem 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-strong);
   border-radius: 0.75rem;
-  background: #ffffff;
-  color: #111827;
+  background: var(--surface-1);
+  color: var(--color-text);
   font: inherit;
   transition:
     border-color 0.2s ease,
@@ -106,7 +106,7 @@
 .input:focus,
 .textarea:focus {
   outline: none;
-  border-color: #0d6178;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(13, 97, 120, 0.14);
 }
 
@@ -121,7 +121,7 @@
 }
 
 .fieldError {
-  color: #b42318;
+  color: var(--color-danger);
   font-size: 0.875rem;
 }
 
@@ -134,15 +134,15 @@
 }
 
 .errorMessage {
-  color: #b42318;
-  background: #fef3f2;
-  border: 1px solid #fecdca;
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
 }
 
 .successMessage {
-  color: #027a48;
-  background: #ecfdf3;
-  border: 1px solid #abefc6;
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success);
 }
 
 .actions {
@@ -170,13 +170,13 @@
 .primaryButton {
   padding: 0.85rem 1.15rem;
   border: none;
-  background: #0d6178;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--surface-1);
   cursor: pointer;
 }
 
 .primaryButton:hover:not(:disabled) {
-  background: #084b5d;
+  background: var(--color-primary-hover);
 }
 
 .primaryButton:disabled {
@@ -186,25 +186,25 @@
 
 .secondaryButton {
   padding: 0.85rem 1.15rem;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #111827;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--color-text);
 }
 
 .secondaryButton:hover {
-  background: #f9fafb;
+  background: var(--surface-2);
 }
 
 .ghostButton {
   padding: 0.85rem 1rem;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
-  color: #111827;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--color-text);
   cursor: pointer;
 }
 
 .ghostButton:hover {
-  background: #f3f4f6;
+  background: var(--surface-2);
 }
 
 @media (max-width: 768px) {
@@ -239,7 +239,7 @@
 }
 
 .inlineAction {
-  color: var(--color-primary, #01696f);
+  color: var(--color-primary, var(--color-primary));
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
@@ -251,7 +251,7 @@
 
 .fieldHint {
   margin: 8px 0 0;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, var(--color-text-muted));
   font-size: 0.875rem;
   line-height: 1.45;
 }

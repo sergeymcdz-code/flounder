@@ -33,9 +33,9 @@
 .errorMessage {
   margin: 28px 0 0;
   padding: 12px 14px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
-  background: #fff7f7;
+  background: var(--color-danger-soft);
   color: var(--color-danger);
   font-size: 0.92rem;
   line-height: 1.45;
@@ -60,7 +60,7 @@
 .table th,
 .table td {
   padding: 16px;
-  border-bottom: 1px solid #e5edf4;
+  border-bottom: 1px solid var(--border-subtle);
   text-align: left;
   vertical-align: middle;
 }
@@ -79,7 +79,7 @@
 }
 
 .table tbody tr:hover {
-  background: #fbfdff;
+  background: var(--surface-1);
 }
 
 .eventName {
@@ -110,47 +110,31 @@
 }
 
 .statusDraft {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--border-subtle);
+  color: var(--color-text-muted);
 }
 
 .statusPublished {
-  background: #e8f0ff;
-  color: #2d5c9a;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .statusOpen {
-  background: #e5f7ec;
-  color: #17613c;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .statusClosed {
-  background: #fff4d7;
-  color: #8c5a05;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .statusNeutral {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--border-subtle);
+  color: var(--color-text-muted);
 }
 
-.openLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-size: 0.9rem;
-  font-weight: 750;
-  text-decoration: none;
-}
 
-.openLink:hover {
-  background: #ccebf8;
-}
 
 .visuallyHidden {
   position: absolute;
@@ -179,23 +163,7 @@
   gap: 10px;
 }
 
-.secondaryLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-size: 0.9rem;
-  font-weight: 750;
-  text-decoration: none;
-}
 
-.secondaryLink:hover {
-  background: #ccebf8;
-}
 
 
 .titleRow {
@@ -206,28 +174,8 @@
   margin-bottom: 2rem;
 }
 
-.createLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: #0d6178;
-  color: #ffffff;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background-color 0.2s ease;
-}
 
-.createLink:hover {
-  background: #084b5d;
-}
 
-.createLink:focus-visible {
-  outline: 3px solid rgba(13, 97, 120, 0.25);
-  outline-offset: 2px;
-}
 
 @media (max-width: 640px) {
   .titleRow {
@@ -241,18 +189,18 @@
 }
 
 .statusLive {
-  color: #0b5b7b;
-  background: #e2f4fc;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .statusCompleted {
-  color: #5925dc;
-  background: #f4f3ff;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .statusArchived {
-  color: #475467;
-  background: #f2f4f7;
+  color: var(--color-text-muted);
+  background: var(--surface-2);
 }
 
 
@@ -268,41 +216,41 @@
 }
 
 .statusDraft {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--border-subtle);
+  color: var(--color-text-muted);
 }
 
 .statusPublished {
-  background: #e8f0ff;
-  color: #2d5c9a;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .statusOpen {
-  background: #e5f7ec;
-  color: #17613c;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .statusClosed {
-  background: #fff4d7;
-  color: #8c5a05;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .statusLive {
-  color: #0b5b7b;
-  background: #e2f4fc;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .statusCompleted {
-  color: #5925dc;
-  background: #f4f3ff;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .statusArchived {
-  color: #475467;
-  background: #f2f4f7;
+  color: var(--color-text-muted);
+  background: var(--surface-2);
 }
 
 .statusNeutral {
-  background: #edf0f3;
-  color: #607083;
+  background: var(--border-subtle);
+  color: var(--color-text-muted);
 }

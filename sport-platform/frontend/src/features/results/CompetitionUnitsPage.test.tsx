@@ -18,6 +18,20 @@ it('restores the selected competition and discipline and opens the current heat 
   expect(await screen.findByRole('link', { name: 'Открыть текущий заплыв' }, { timeout: 5000 })).toHaveAttribute('href', `/operator/competition-units/current?eventId=${event.id}`)
   expect(screen.getByRole('combobox', { name: 'Соревнование' })).toHaveValue(event.id)
   expect(screen.getByRole('combobox', { name: 'Вид программы' })).toHaveValue(event.disciplines[0].id)
-  expect(screen.getByRole('table')).toBeInTheDocument()
+  expect(screen.getAllByRole('table').length).toBeGreaterThan(0)
   localStorage.clear(); setAuthSession(null)
+})
+
+it('keeps a multi-day live competition in Today after its first day', async () => {
+  const { event } = createFixtures()
+  event.status = 'LIVE'
+  event.eventStartAt = new Date(Date.now() - 86400000).toISOString()
+  event.eventEndAt = new Date(Date.now() + 86400000).toISOString()
+  server.use(http.get('*/api/v1/organizer/events', () => HttpResponse.json([event])))
+  localStorage.clear()
+  setAuthSession({ accessToken: 'test', expiresAt: Date.now() + 60000, tokenType: 'Bearer' })
+  try {
+    render(<MemoryRouter><AuthProvider><CompetitionUnitsPage /></AuthProvider></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeVisible()
+  } finally { localStorage.clear(); setAuthSession(null) }
 })

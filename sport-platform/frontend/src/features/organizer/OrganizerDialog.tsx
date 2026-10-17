@@ -36,7 +36,7 @@ export function OrganizerDialog({
     >
       <header className={styles.toolbar}>
         <h2>{title}</h2>
-        <button type="button" onClick={onClose} aria-label="Закрыть">
+        <button className="fl-btn fl-btn-secondary" type="button" onClick={onClose} aria-label="Закрыть">
           ×
         </button>
       </header>
@@ -62,10 +62,10 @@ export function OrganizerConfirm({
     <OrganizerDialog title={title} onClose={onClose}>
       <p>{message}</p>
       <div className={styles.actions}>
-        <button disabled={busy} onClick={onClose}>
+        <button className="fl-btn fl-btn-secondary" disabled={busy} onClick={onClose}>
           Отмена
         </button>
-        <button className={styles.primary} disabled={busy} onClick={onConfirm}>
+        <button className="fl-btn fl-btn-primary" disabled={busy} onClick={onConfirm}>
           Подтвердить
         </button>
       </div>
