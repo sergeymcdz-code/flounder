@@ -101,7 +101,7 @@ for (const theme of ['light', 'dark']) test(`D03 public header rule and current 
   expect(await meta.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
   expect(await link.evaluate(el => getComputedStyle(el).color)).not.toBe(await link.evaluate(el => getComputedStyle(el).backgroundColor))
   await page.setViewportSize({ width: 768, height: 900 })
-  const brandBox = (await header.getByRole('link', { name: 'SportGate' }).boundingBox())!
+  const brandBox = (await header.getByRole('link', { name: 'На главную', exact: true }).boundingBox())!
   const smallMetaBox = (await meta.boundingBox())!
   expect(smallMetaBox.x).toBeGreaterThanOrEqual(brandBox.x + brandBox.width)
 })
