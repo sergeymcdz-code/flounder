@@ -32,6 +32,9 @@ export function PublicEventPage() {
               : 'длина бассейна не указана'}
           </p>
         )}
+        {event.organization && <p>Организатор: {event.organization.publicSlug
+          ? <Link to={`/o/${encodeURIComponent(event.organization.publicSlug)}`}>{event.organization.name}</Link>
+          : event.organization.name}</p>}
         {event.description && <p>{event.description}</p>}
         {!event.registrationOpen && <p>Регистрация закрыта</p>}
         {event.maxParticipants != null && <p>Лимит: {event.participantsCount ?? 0}/{event.maxParticipants}</p>}

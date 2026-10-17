@@ -155,6 +155,10 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
                 ids.put("documentSignature", link.url().substring(link.url().indexOf("&signature=") + 11));
             }
         }
+        if (e.state().equals("org-public")) {
+            jdbc.update("update organizations set public_slug='qa04-club', is_public=true where id=?", id("org"));
+            ids.put("slug", "qa04-club");
+        }
         switch (e.state()) {
             case "reset-token" -> jdbc.update("insert into password_reset_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '1 hour')",
                     UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-reset-token"));

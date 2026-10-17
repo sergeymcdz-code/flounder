@@ -12,6 +12,7 @@ import { usePublicData } from './usePublicData'
 import { date } from './format'
 import styles from './Public.module.css'
 import { PublicConnectionContext } from './publicContext'
+import { DirectoryLayout } from './DirectoryLayout'
 import { ThemeToggle } from '../../components/ThemeToggle'
 
 export function DataState({
@@ -42,6 +43,11 @@ export function DataState({
 }
 
 export function PublicLayout() {
+  const { pathname } = useLocation()
+  return pathname.startsWith('/e/') ? <EventPublicLayout /> : <DirectoryLayout />
+}
+
+function EventPublicLayout() {
   const { slug = '' } = useParams()
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),

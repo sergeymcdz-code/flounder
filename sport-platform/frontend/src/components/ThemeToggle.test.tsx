@@ -14,6 +14,9 @@ const bootstrap = indexHtml.match(/<script>([\s\S]*?)<\/script>/)![1]
 
 describe('initial theme before React and CSS load', () => {
   it.each([
+    ['/', 'dark', false, 'dark'],
+    ['/o/volna', null, true, 'dark'],
+    ['/o/volna', 'light', true, 'light'],
     ['/e/demo', null, false, 'light'],
     ['/e/demo/live', null, false, 'dark'],
     ['/e/demo/results/', null, false, 'dark'],

@@ -34,6 +34,17 @@ public class S3FileStorage implements FileStorage, AutoCloseable {
     public S3FileStorage(S3Client client, String bucket, FileCryptography cryptography) {
         this.client = client; this.bucket = bucket; this.cryptography = cryptography;
     }
+    @Override public void putPublic(String key, InputStream input, long size) {
+        try {
+            client.putObject(PutObjectRequest.builder().bucket(bucket).key(key).contentType("application/octet-stream").build(),
+                    RequestBody.fromInputStream(input, size));
+        } catch (software.amazon.awssdk.core.exception.SdkException ex) { throw unavailable(); }
+    }
+    @Override public InputStream getPublic(String key) {
+        try { return client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build()); }
+        catch (NoSuchKeyException ex) { throw new BusinessException("files.not_found", "Файл не найден"); }
+        catch (software.amazon.awssdk.core.exception.SdkException ex) { throw unavailable(); }
+    }
     @Override public void put(String key, InputStream input, long size) {
         try (var encrypted = cryptography.encrypting(key, input)) {
             client.putObject(PutObjectRequest.builder().bucket(bucket).key(key)

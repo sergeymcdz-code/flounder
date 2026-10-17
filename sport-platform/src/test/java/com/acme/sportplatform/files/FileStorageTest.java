@@ -115,6 +115,19 @@ class FileStorageTest {
             assertThat(method.getParameterTypes()).doesNotContain(byte[].class);
         }
     }
+    @Test void publicLogosStayPlaintextAndCannotReadPrivateKeys() throws Exception {
+        var storage = new LocalFileStorage(directory.toString(), crypto());
+        var service = new FileService(storage, crypto(), mock(FileAccessLogRepository.class));
+        byte[] png = new byte[]{(byte)137,80,78,71,13,10,26,10};
+        var file = service.putPublic(new ByteArrayInputStream(png), png.length, "logo.png", "image/png");
+        assertThat(Files.readAllBytes(directory.resolve(file.key()))).isEqualTo(png);
+        try (var stream = service.getPublic(file.key())) { assertThat(stream.readAllBytes()).isEqualTo(png); }
+        assertThatThrownBy(() -> service.getPublic(UUID.randomUUID().toString())).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> service.putPublic(new ByteArrayInputStream("%PDF-1.7".getBytes()), 8, "logo.pdf", "application/pdf"))
+                .isInstanceOf(BusinessException.class);
+        service.deletePublic(file.key());
+        assertThat(Files.exists(directory.resolve(file.key()))).isFalse();
+    }
     InputStream pdfStream(long size) {
         return new SequenceInputStream(new ByteArrayInputStream("%PDF-1.7".getBytes()), new InputStream() {
             long remaining = size - 8;

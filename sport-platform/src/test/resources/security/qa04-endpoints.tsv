@@ -130,3 +130,12 @@ GET	/api/v1/organizations/{id}/analytics	owner	true	200
 GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
 PATCH	/api/v1/events/{id}	manage	true	200		{"maxParticipants":150}
 POST	/api/v1/events/{id}/archive	manage	true	200	event-completed	{}
+GET	/api/v1/organizations/{id}/public-profile	owner	true	200
+PUT	/api/v1/organizations/{id}/public-profile	owner	true	200		{"publicSlug":"qa04-club","description":"Клуб","isPublic":true}
+POST	/api/v1/organizations/{id}/logo	owner	true	400
+DELETE	/api/v1/organizations/{id}/logo	owner	true	204
+GET	/api/v1/public/calendar	public	false	200
+GET	/api/v1/public/organizations/{slug}	public	false	200	org-public
+GET	/api/v1/public/organizations/{slug}/events	public	false	200	org-public
+GET	/api/v1/public/organizations/{slug}/logo	public	false	404	org-public
+GET	/api/v1/organizations/{id}/logo	owner	true	404
