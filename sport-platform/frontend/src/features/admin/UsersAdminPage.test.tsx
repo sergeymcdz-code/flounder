@@ -23,7 +23,7 @@ it('searches by name after the debounce and shows the empty state', async () => 
     return HttpResponse.json({ items: [], page: 0, size: 20, total: 0 })
   }))
   render(<UsersAdminPage />)
-  await screen.findByText('Пользователи не найдены — измените запрос')
+  await screen.findByText(/Пользователи не найдены — измените запрос/)
   await userEvent.type(screen.getByLabelText('Поиск пользователей'), 'Иванова')
   expect(queries).toEqual([''])
   await waitFor(() => expect(queries).toEqual(['', 'Иванова']))

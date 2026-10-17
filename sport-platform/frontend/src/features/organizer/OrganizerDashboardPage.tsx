@@ -175,7 +175,7 @@ export function OrganizerDashboardPage() {
                 </p>
               </div>
 
-              <NavLink className={styles.secondaryButton} to="/organizer/events">
+              <NavLink className="fl-btn fl-btn-secondary" to="/organizer/events">
                 Все соревнования
               </NavLink>
             </div>
@@ -217,7 +217,7 @@ export function OrganizerDashboardPage() {
 
                     <div className={styles.eventActions}>
                       <NavLink
-                        className={styles.secondaryButton}
+                        className="fl-btn fl-btn-secondary"
                         to={`/organizer/events/${encodeURIComponent(event.id)}`}
                       >
                         Управлять соревнованием

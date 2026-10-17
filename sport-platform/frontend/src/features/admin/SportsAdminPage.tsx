@@ -73,9 +73,9 @@ export function SportsAdminPage() {
 
       {!isLoading && !errorMessage ? (
         sports.length === 0 ? (
-          <p className="fl-empty">Виды спорта пока не добавлены.</p>
+          <p className="fl-empty">Виды спорта пока не добавлены. <a className="fl-btn fl-btn-ghost" href="/admin/users">Пользователи</a></p>
         ) : (
-          <table className="admin-table">
+          <table className="admin-table fl-table fl-admin-table">
             <thead>
               <tr>
                 <th>Код</th>

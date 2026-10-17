@@ -79,7 +79,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await login(org, 'org@flounder.demo', base)
       await loadEvent()
       await expect.soft(org.locator('svg').filter({ has: org.locator('title', { hasText: 'QR-код публичной страницы' }) })).toHaveCount(1)
-      await expect.soft(org.locator(`a[href$="${publicBase}"]`)).toBeVisible()
+      await expect.soft(org.getByRole('link', { name: 'Публичная страница ↗', exact: true })).toHaveAttribute('href', publicBase)
       await screenshots(org, '01-organizer-overview')
       await org.getByRole('link', { name: 'Программа', exact: true }).click()
       await expect(org.getByRole('heading', { name: 'Сессии соревнования' })).toBeVisible()
@@ -96,7 +96,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
 
     await step('2. Excel download, 203/200/3 report and duplicate-free reimport', async () => {
       await org.getByRole('link', { name: 'Заявки', exact: true }).last().click()
-      await org.getByRole('button', { name: 'Импорт из Excel', exact: true }).click()
+      await org.getByRole('button', { name: 'Импорт из Excel', exact: true }).first().click()
       const dialog = org.getByRole('dialog')
       const downloadPromise = org.waitForEvent('download')
       await dialog.getByRole('button', { name: 'Скачать шаблон', exact: true }).click()

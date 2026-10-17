@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { AuthProvider } from '../app/providers/AuthProvider'
 import { AppLayout } from './AppLayout'
 
@@ -29,4 +29,18 @@ it.each([['participant', 'Мои заявки', '/my/registrations'], ['organize
   expect(screen.queryByRole('link', { name: 'Заявки и платежи' })).not.toBeInTheDocument()
   expect(screen.getByText('Сменить пароль').closest('details')?.querySelector('summary')).toHaveTextContent(/Профиль|user/)
   sessionStorage.clear()
+})
+
+it('closes the mobile navigation after following a workspace link', async () => {
+  const user = (await import('@testing-library/user-event')).default.setup()
+  vi.stubGlobal('innerWidth', 375)
+  sessionStorage.setItem('flounder.auth-session', JSON.stringify({ accessToken: `demo.${btoa(JSON.stringify({ roles: ['organizer'] }))}.demo`, expiresAt: Date.now() + 60000 }))
+  try {
+    render(<MemoryRouter><AuthProvider><AppLayout /></AuthProvider></MemoryRouter>)
+    const menu = screen.getByLabelText('Меню').closest('details')!
+    await user.click(screen.getByLabelText('Меню'))
+    expect(menu).toHaveAttribute('open')
+    await user.click(screen.getByRole('link', { name: 'Мои соревнования' }))
+    expect(menu).not.toHaveAttribute('open')
+  } finally { sessionStorage.clear(); vi.unstubAllGlobals() }
 })

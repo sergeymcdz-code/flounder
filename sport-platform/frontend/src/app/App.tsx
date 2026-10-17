@@ -1,3 +1,4 @@
+import { PosterPage } from '../features/public/PosterPage'
 import { lazy, Suspense } from 'react'
 import { ToastProvider } from '../components/ui/Toast'
 import { Navigate, Route, Routes } from 'react-router'
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="start-list" element={<StartListPage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="live" element={<LivePage />} />
+        <Route path="poster" element={<PosterPage />} />
         <Route path="results" element={<ResultsPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />

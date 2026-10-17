@@ -1,3 +1,4 @@
+import { JudgeActionBar } from './JudgeActionBar'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
@@ -154,28 +155,17 @@ export function JudgePanelPage() {
     })
   }
 
-  return <section className={styles.page}>
-    <Link className={styles.backLink} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
-    <div className={styles.titleRow}><div><p className={styles.eyebrow}>Судейская панель</p>
-      <p>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</p><h1 className={styles.title}>{context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}</h1><p>{context.time} · {context.session || 'Сессия'}</p></div>
-      {unit && <StatusBadge kind="heat" code={unit.status} />}
-    </div>
-    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p></details>
-    {loading && <p role="status">Загрузка…</p>}
-    {error && <p className={styles.errorMessage} role="alert">{error}</p>}
-    {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
-    {unit && !loading && <>
-      {!canJudge ? <p role="status">Нет прав для ввода результатов.</p> : <div className={styles.toolbarControls}>
-        <button className={unit.status === 'IN_PROGRESS' && (!savedAt || dirty) ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
-        {(!resultsPublished || canCorrect) && <button className={unit.status === 'IN_PROGRESS' && savedAt && !dirty ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} disabled={busy || dirty || (resultsPublished
+  const controls = unit && !loading ? (!canJudge ? <div className="fl-notice fl-notice-neutral">Нет прав для ввода результатов.</div> : <JudgeActionBar>
+        <button className={unit.status === 'IN_PROGRESS' && (!savedAt || dirty) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
+        {(!resultsPublished || canCorrect) && <button className={unit.status === 'IN_PROGRESS' && savedAt && !dirty ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || (resultsPublished
           ? unit.status !== 'FINISHED'
           : !['PUBLISHED', 'IN_PROGRESS'].includes(unit.status) || !entries.length || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? '']))} onClick={() => setPublicationOpen(true)}>{resultsPublished ? 'Снять результаты с публикации' : 'Опубликовать результаты'}</button>}
-        {(['start', 'finish'] as const).map(action => <button key={action} className={action === 'start' && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(unit.status) ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
+        {(['start', 'finish'] as const).map(action => <button key={action} className={action === 'start' && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(unit.status) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
           await changeHeatState(unit.id, action, token!)
           const data = await getCompetitionUnitDetails(unit.id, token!)
           applyUnit(data); setNotice(action === 'start' ? 'Заплыв начат.' : 'Заплыв завершён.')
         })}>{action === 'start' ? 'Старт' : 'Финиш'}</button>)}
-        <button className={resultsPublished ? `${styles.saveButton} fl-button-primary` : styles.unpublishButton} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
+        <button className={resultsPublished ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
           let liveWarning: string | undefined
           if (eventId) {
             try { await setLiveHeat(eventId, nextId!, token!) } catch (error) {
@@ -184,7 +174,19 @@ export function JudgePanelPage() {
           }
           navigate(`/operator/competition-units/${nextId}${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`, { state: { liveWarning } })
         })}>Следующий заплыв →</button>
-      </div>}
+      </JudgeActionBar>) : null
+
+  return <section className={styles.page}>
+    <Link className={styles.backLink} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
+    <div className="fl-judge-heading"><div className={styles.titleRow}><div><p className={styles.eyebrow}>Судейская панель</p>
+      <p>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</p><h1 className={`${styles.title} fl-judge-title`}>{context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}</h1><p>{context.time} · {context.session || 'Сессия'}</p></div>
+      {unit && <StatusBadge kind="heat" code={unit.status} />}
+    </div>{controls}</div>
+    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p></details>
+    {loading && <p role="status">Загрузка…</p>}
+    {error && <p className={styles.errorMessage} role="alert">{error}</p>}
+    {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
+    {unit && !loading && <>
       <p role="status" aria-live="polite" aria-atomic="true">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
       <p className={notice ? styles.successMessage : undefined} role="status" aria-live="polite" aria-atomic="true">{notice}</p>
       {nextError && <p role="status">{nextError}</p>}
@@ -193,7 +195,7 @@ export function JudgePanelPage() {
         setNotice(resultsPublished ? 'Публикация результатов снята.' : 'Результаты опубликованы.')
         toast({ text: resultsPublished ? 'Публикация снята' : 'Опубликовано', href: context.slug ? `/e/${context.slug}/results` : undefined })
       })} />}
-      <div className={styles.tableWrap}><table className={styles.resultsTable}>
+      <div className={`${styles.tableWrap} fl-table-scroll`}><table className={`${styles.resultsTable} fl-table fl-judge-table`}>
         <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>
         <tbody>{entries.map((entry, index) => {
           const draft = drafts[entry.entryId] ?? { time: '', status: 'VALID' }
@@ -224,7 +226,7 @@ export function JudgePanelPage() {
               }} />
               {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
             </td>
-            <td>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={status === 'DSQ' ? styles.resultStatusDanger : styles.resultStatusPending} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
+            <td>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={`fl-btn fl-btn-sm ${status === 'DSQ' ? 'fl-btn-danger' : 'fl-btn-ghost'}`} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
               ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
               onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
             <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>

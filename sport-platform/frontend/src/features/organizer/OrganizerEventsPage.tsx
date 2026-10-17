@@ -1,3 +1,4 @@
+import { statusLabel } from '../../components/ui/status-dictionary'
 import { useEffect, useState } from 'react'
 import { Navigate, NavLink, useSearchParams } from 'react-router'
 import { getMyEvents, type Event } from '../../api/events.api'
@@ -24,6 +25,7 @@ export function OrganizerEventsPage() {
   const [search] = useSearchParams()
   const accessToken = session?.accessToken
 
+  const [statusFilter, setStatusFilter] = useState('')
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -76,11 +78,12 @@ export function OrganizerEventsPage() {
           <h1 className={styles.title}>Мои соревнования</h1>
         </div>
 
-        {(isOrganizer || isPlatformAdmin) && <NavLink className={styles.createLink} to="/organizer/events/new">
+        {(isOrganizer || isPlatformAdmin) && <NavLink className="fl-btn fl-btn-primary" to="/organizer/events/new">
           Создать соревнование
         </NavLink>}
       </div>
 
+      <label className="fl-field">Статус соревнования<select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">Все статусы</option>{[...new Set(events.map(event => event.status))].map(status => <option key={status} value={status}>{statusLabel('event', status)}</option>)}</select></label>
       {isLoading ? (
         <div className={styles.stateCard}>Загружаем соревнования…</div>
       ) : null}
@@ -97,8 +100,8 @@ export function OrganizerEventsPage() {
             У вас пока нет соревнований. Создайте первое соревнование, чтобы начать работу.
           </div>
         ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
+          <div className={`${styles.tableWrap} fl-table-scroll`}>
+            <table className={`${styles.table} fl-table fl-events-table`}>
               <thead>
                 <tr>
                   <th scope="col">Соревнование</th>
@@ -111,7 +114,7 @@ export function OrganizerEventsPage() {
               </thead>
 
               <tbody>
-                {events.map((event) => (
+                {events.filter(event => !statusFilter || event.status === statusFilter).map((event) => (
                   <tr key={event.id}>
                     <td>
                       <strong className={styles.eventName}>{event.title}</strong>
@@ -134,7 +137,7 @@ export function OrganizerEventsPage() {
                     <td>
                       <div className={styles.actions}>
                         <NavLink
-                          className={styles.secondaryLink}
+                          className="fl-btn fl-btn-secondary fl-btn-sm"
                           to={`/organizer/events/${encodeURIComponent(event.id)}`}
                         >
                           Открыть
@@ -142,7 +145,7 @@ export function OrganizerEventsPage() {
 
                         {event.publicSlug ? (
                           <NavLink
-                            className={styles.openLink}
+                            className="fl-btn fl-btn-ghost fl-btn-sm"
                             to={`/e/${encodeURIComponent(event.publicSlug)}`}
                           >
                             Публичная страница ↗

@@ -60,7 +60,7 @@ for (const route of ['start-list', 'results']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme)
         await page.locator('header button').click()
       await expect(page.getByRole('button', { name: 'Скачать PDF', exact: true })).toBeEnabled()
-      await expect(page.getByRole('button', { name: 'Печать', exact: true })).toHaveClass(/fl-button-ghost/)
+      await expect(page.getByRole('button', { name: 'Печать', exact: true })).toHaveClass(/fl-btn-ghost/)
       expect(await page.locator('html').evaluate(el => getComputedStyle(el).colorScheme)).toBe(theme)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     }

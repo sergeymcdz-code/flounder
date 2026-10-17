@@ -213,7 +213,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .click()
   expect(
     await page
-      .getByRole('link', { name: 'Ввести', exact: true })
+      .getByRole('link', { name: 'Открыть →', exact: true })
       .first()
       .getAttribute('href'),
   ).toMatch(/^\/operator\/competition-units\//)
@@ -244,7 +244,7 @@ test('backend field errors stay beside inputs; event and result publication refr
       .filter({ hasText: 'Выполняем действие' })
       .waitFor({ state: 'hidden' })
   }
-  await expect(page.getByText('Завершено', { exact: true })).toBeVisible()
+  await expect(page.locator('.fl-page-title').getByText('Завершено', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Программа', exact: true }).click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   const dialog = page.getByRole('dialog')
@@ -281,9 +281,10 @@ test('backend field errors stay beside inputs; event and result publication refr
   await expect(publish).toBeEnabled()
   await publish.click()
   await page.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
-  await expect(
-    page.getByRole('cell', { name: 'Опубликованы', exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  const list = page.locator('.fl-judging-list')
+  await list.getByText('Дневная сессия', { exact: true }).click()
+  await expect(list.getByRole('cell', { name: 'Завершён', exact: true })).toBeVisible()
 })
 
 test('unauthorized requests redirect and forbidden roles see access denial', async ({
@@ -693,7 +694,9 @@ test('generation admission persists across tabs with nested and flat summaries',
       .selectOption('EXCLUDED')
     await expect(page.getByRole('row')).toHaveCount(5)
     await page.getByRole('combobox', { name: /^Статус/ }).selectOption('')
-    await expect(page.getByText('✓', { exact: true }).first()).toBeVisible()
+    const admitted = page.getByRole('row').filter({ has: page.locator('[title="Заявка допущена по последнему результату формирования."]') }).first()
+    await admitted.locator('.fl-entry-details > summary').click()
+    await expect(admitted.getByText(/Допуск: ✓/)).toBeVisible()
   }
   await expect(
     page.getByText('ATHLETE_NOT_FOUND', { exact: true }),
@@ -774,7 +777,7 @@ test('missing pool dimensions retain lane editing and refresh only the changed h
   ).toHaveValue('7')
 })
 
-test('session estimates honor server values and venue timezone with UTC fallback; violations target the numbered heat', async ({
+test('session estimates honor server values and venue timezone; violations target the numbered heat', async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -790,7 +793,7 @@ test('session estimates honor server values and venue timezone with UTC fallback
       .click()
     await expect(
       page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
-    ).toContainText(/07:00.*07:16.*4 заплывов/)
+    ).toContainText(/03:00.*03:16.*4 заплыва/)
     await page.evaluate(async () => {
       const resources = performance
         .getEntriesByType('resource')
@@ -846,7 +849,7 @@ test('session estimates honor server values and venue timezone with UTC fallback
       .click()
     await expect(
       page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
-    ).toContainText(/07:00.*15:26.*99 заплывов/)
+    ).toContainText(/03:00.*11:26.*99 заплывов/)
     await page
       .getByRole('navigation', { name: 'Разделы соревнования' })
       .getByRole('link', { name: 'Заплывы', exact: true })

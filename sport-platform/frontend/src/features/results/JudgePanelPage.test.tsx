@@ -86,8 +86,8 @@ describe('Judge results publication', () => {
 it.each([['PUBLISHED', 'Старт'], ['IN_PROGRESS', 'Сохранить и пересчитать'], ['FINISHED', 'Следующий заплыв →']])('has one primary action for %s', async (status, label) => {
   mount(status)
   await screen.findByRole('textbox')
-  expect(screen.getByRole('button', { name: label })).toHaveClass('fl-button-primary')
-  expect(document.querySelectorAll('.fl-button-primary')).toHaveLength(1)
+  expect(screen.getByRole('button', { name: label })).toHaveClass('fl-btn fl-btn-primary')
+  expect(document.querySelectorAll('.fl-btn.fl-btn-primary')).toHaveLength(1)
 })
 it('shows a notice instead of action buttons without judge rights', async () => {
   mount('IN_PROGRESS', 'participant')

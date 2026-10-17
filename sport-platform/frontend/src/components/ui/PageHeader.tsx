@@ -1,0 +1,2 @@
+import type { ReactNode } from 'react'
+export function PageHeader({ title, meta, badge, actions }: { title: ReactNode; meta?: ReactNode; badge?: ReactNode; actions?: ReactNode }) { return <header className="fl-page-header"><div><div className="fl-page-title"><h1>{title}</h1>{badge}</div>{meta && <p className="fl-meta">{meta}</p>}</div>{actions && <div className="fl-page-actions">{actions}</div>}</header> }

@@ -6,6 +6,7 @@ const screens = [
   ['home', `/organizer/events/${eventId}`, 'organizer'],
   ['entries', `/organizer/events/${eventId}/entries`, 'organizer'],
   ['heats', `/organizer/events/${eventId}/heats`, 'organizer'],
+  ['organizer-results', `/organizer/events/${eventId}/results`, 'organizer'],
   ['judging', '/operator/results', 'judge'],
   ['judge', `/operator/competition-units/${unitId}?eventId=${eventId}`, 'judge'],
   ['registrations', '/my/registrations', 'participant'],
@@ -19,6 +20,12 @@ for (const width of [1366, 375]) test(`D03 navigation matrix ${width}`, async ({
     page.on('pageerror', error => errors.push(error.message))
     await openAuditPage(page, path, role)
     await page.evaluate(() => document.fonts.ready)
+    if (name === 'judge') await expect(page.getByText(/^Вид № [1-9]/)).toBeVisible()
+    if (name === 'entries' && width === 1366) {
+      const table = page.locator('.fl-table-scroll')
+      expect(await table.evaluate(el => el.scrollWidth)).toBeLessThanOrEqual(await table.evaluate(el => el.clientWidth))
+      expect(await table.locator('tbody tr').evaluateAll(rows => rows.filter(row => row.getBoundingClientRect().bottom <= window.innerHeight).length)).toBeGreaterThanOrEqual(4)
+    }
     expect(errors, name).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth), name).toBeLessThanOrEqual(width)
     if (process.env.D03_CAPTURE === '1') { await mkdir('work/d03-nav', { recursive: true }); await page.screenshot({ path: `work/d03-nav/${name}-${width}.png` }) }
@@ -30,6 +37,8 @@ test('D03 judge returns to the competition results without manager permissions',
   await openAuditPage(page, `/organizer/events/${eventId}/results`, 'judge')
   await expect(page.getByRole('heading', { name: 'Результаты соревнования' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Главная', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Печать итогового протокола' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Скачать PDF' })).toHaveCount(0)
 })
 
 for (const [role, deepPath, home] of [

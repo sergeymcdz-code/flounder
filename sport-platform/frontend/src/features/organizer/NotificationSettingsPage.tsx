@@ -58,7 +58,7 @@ function SettingsForm({ token, organizationId }: { token: string; organizationId
           onChange={e => { setMessage(''); setSettings(rows => rows?.map(row => row.templateCode === s.templateCode ? { ...row, enabled: e.target.checked } : row) ?? null) }} />
           {templateLabels[s.templateCode] ?? s.templateCode}</label>)}
       </fieldset>
-      <button type="submit" disabled={saving}>{saving ? 'Сохраняем…' : 'Сохранить'}</button>
+      <button className="fl-btn fl-btn-secondary" type="submit" disabled={saving}>{saving ? 'Сохраняем…' : 'Сохранить'}</button>
     </form>}
     {message && <p role="status">{message}</p>}
   </div>

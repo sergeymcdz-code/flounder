@@ -355,6 +355,7 @@ export function CreateEventPage() {
     setSuccessMessage(null)
 
     if (Object.keys(validationErrors).length > 0) {
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
       return
     }
 
@@ -434,18 +435,20 @@ export function CreateEventPage() {
         </div>
       </div>
 
+      <ol className="fl-wizard" aria-label="Этапы создания"><li aria-current="step">① Основное</li><li>② Регистрация</li><li>③ Программа — после создания</li></ol>
       <form
-        className={styles.form}
+        className={`${styles.form} fl-form`}
         onSubmit={handleSubmit}
+        onBlur={event => { const target = event.target; if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return; const name = target.name as keyof FormState; if (name && name in form) setErrors(previous => ({ ...previous, [name]: validateForm(form)[name] })) }}
       >
-        <article className={styles.card}>
-          <h2 className={styles.cardTitle}>
+        <fieldset className={styles.card}>
+          <legend className={styles.cardTitle}>
             Основные данные
-          </h2>
+          </legend>
 
           <div className={styles.grid}>
             <label
-              className={`${styles.field} ${styles.fieldFull}`}
+              className={`fl-field ${styles.fieldFull}`}
             >
               <span className={styles.label}>
                 Название
@@ -453,7 +456,7 @@ export function CreateEventPage() {
 
               <input
                 className={styles.input}
-                value={form.title}
+                value={form.title} name="title" aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? "create-title-error" : undefined}
                 maxLength={255}
                 required
                 disabled={isSubmitting}
@@ -467,14 +470,14 @@ export function CreateEventPage() {
               />
 
               {errors.title ? (
-                <span className={styles.fieldError}>
+                <span className={styles.fieldError} id="create-title-error">
                   {errors.title}
                 </span>
               ) : null}
             </label>
 
             <label
-              className={`${styles.field} ${styles.fieldFull}`}
+              className={`fl-field ${styles.fieldFull}`}
             >
               <span className={styles.label}>
                 Описание
@@ -499,13 +502,13 @@ export function CreateEventPage() {
               onChange={e => setForm(previous => ({ ...previous, maxParticipants: e.target.value }))} />
           </label>
           </div>
-        </article>
+        </fieldset>
 
-        <article className={styles.card}>
-          <h2 className={styles.cardTitle}>Даты</h2>
+        <fieldset className={styles.card}>
+          <legend className={styles.cardTitle}>Даты</legend>
 
           <div className={styles.grid}>
-            <label className={styles.field}>
+            <label className="fl-field">
               <span className={styles.label}>
                 Открытие регистрации
               </span>
@@ -515,7 +518,7 @@ export function CreateEventPage() {
                 type="datetime-local"
                 required
                 disabled={isSubmitting}
-                value={form.registrationOpenAt}
+                value={form.registrationOpenAt} name="registrationOpenAt" aria-invalid={Boolean(errors.registrationOpenAt)} aria-describedby={errors.registrationOpenAt ? "create-registrationOpenAt-error" : undefined}
                 onChange={(event) =>
                   updateField(
                     'registrationOpenAt',
@@ -525,13 +528,13 @@ export function CreateEventPage() {
               />
 
               {errors.registrationOpenAt ? (
-                <span className={styles.fieldError}>
+                <span className={styles.fieldError} id="create-registrationOpenAt-error">
                   {errors.registrationOpenAt}
                 </span>
               ) : null}
             </label>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span className={styles.label}>
                 Закрытие регистрации
               </span>
@@ -542,7 +545,7 @@ export function CreateEventPage() {
                 required
                 disabled={isSubmitting}
                 min={form.registrationOpenAt || undefined}
-                value={form.registrationCloseAt}
+                value={form.registrationCloseAt} name="registrationCloseAt" aria-invalid={Boolean(errors.registrationCloseAt)} aria-describedby={errors.registrationCloseAt ? "create-registrationCloseAt-error" : undefined}
                 onChange={(event) =>
                   updateField(
                     'registrationCloseAt',
@@ -552,13 +555,13 @@ export function CreateEventPage() {
               />
 
               {errors.registrationCloseAt ? (
-                <span className={styles.fieldError}>
+                <span className={styles.fieldError} id="create-registrationCloseAt-error">
                   {errors.registrationCloseAt}
                 </span>
               ) : null}
             </label>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span className={styles.label}>
                 Начало соревнования
               </span>
@@ -569,7 +572,7 @@ export function CreateEventPage() {
                 required
                 disabled={isSubmitting}
                 min={form.registrationCloseAt || undefined}
-                value={form.eventStartAt}
+                value={form.eventStartAt} name="eventStartAt" aria-invalid={Boolean(errors.eventStartAt)} aria-describedby={errors.eventStartAt ? "create-eventStartAt-error" : undefined}
                 onChange={(event) =>
                   updateField(
                     'eventStartAt',
@@ -579,13 +582,13 @@ export function CreateEventPage() {
               />
 
               {errors.eventStartAt ? (
-                <span className={styles.fieldError}>
+                <span className={styles.fieldError} id="create-eventStartAt-error">
                   {errors.eventStartAt}
                 </span>
               ) : null}
             </label>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span className={styles.label}>
                 Окончание соревнования
               </span>
@@ -596,7 +599,7 @@ export function CreateEventPage() {
                 required
                 disabled={isSubmitting}
                 min={form.eventStartAt || undefined}
-                value={form.eventEndAt}
+                value={form.eventEndAt} name="eventEndAt" aria-invalid={Boolean(errors.eventEndAt)} aria-describedby={errors.eventEndAt ? "create-eventEndAt-error" : undefined}
                 onChange={(event) =>
                   updateField(
                     'eventEndAt',
@@ -606,18 +609,18 @@ export function CreateEventPage() {
               />
 
               {errors.eventEndAt ? (
-                <span className={styles.fieldError}>
+                <span className={styles.fieldError} id="create-eventEndAt-error">
                   {errors.eventEndAt}
                 </span>
               ) : null}
             </label>
           </div>
-        </article>
+        </fieldset>
 
-        <article className={styles.card}>
-          <h2 className={styles.cardTitle}>
+        <fieldset className={styles.card}>
+          <legend className={styles.cardTitle}>
             Связанные сущности
-          </h2>
+          </legend>
 
           {isLoadingOptions ? (
             <p className={styles.description}>
@@ -625,7 +628,7 @@ export function CreateEventPage() {
             </p>
           ) : (
             <div className={styles.grid}>
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span className={styles.label}>
                   Организация
                 </span>
@@ -634,7 +637,7 @@ export function CreateEventPage() {
                   className={styles.input}
                   required
                   disabled={isSubmitting}
-                  value={form.organizationId}
+                  value={form.organizationId} name="organizationId" aria-invalid={Boolean(errors.organizationId)} aria-describedby={errors.organizationId ? "create-organizationId-error" : undefined}
                   onChange={(event) =>
                     updateField(
                       'organizationId',
@@ -664,13 +667,13 @@ export function CreateEventPage() {
                 ) : null}
 
                 {errors.organizationId ? (
-                  <span className={styles.fieldError}>
+                  <span className={styles.fieldError} id="create-organizationId-error">
                     {errors.organizationId}
                   </span>
                 ) : null}
               </label>
 
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span className={styles.label}>
                   Площадка
                 </span>
@@ -679,7 +682,7 @@ export function CreateEventPage() {
                   className={styles.input}
                   required
                   disabled={isSubmitting}
-                  value={form.venueId}
+                  value={form.venueId} name="venueId" aria-invalid={Boolean(errors.venueId)} aria-describedby={errors.venueId ? "create-venueId-error" : undefined}
                   onChange={(event) =>
                     updateField(
                       'venueId',
@@ -708,13 +711,13 @@ export function CreateEventPage() {
                 ) : null}
 
                 {errors.venueId ? (
-                  <span className={styles.fieldError}>
+                  <span className={styles.fieldError} id="create-venueId-error">
                     {errors.venueId}
                   </span>
                 ) : null}
               </label>
 
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span className={styles.label}>
                   Вид спорта
                 </span>
@@ -723,7 +726,7 @@ export function CreateEventPage() {
                   className={styles.input}
                   required
                   disabled={isSubmitting}
-                  value={form.sportId}
+                  value={form.sportId} name="sportId" aria-invalid={Boolean(errors.sportId)} aria-describedby={errors.sportId ? "create-sportId-error" : undefined}
                   onChange={(event) =>
                     updateField(
                       'sportId',
@@ -752,13 +755,13 @@ export function CreateEventPage() {
                 ) : null}
 
                 {errors.sportId ? (
-                  <span className={styles.fieldError}>
+                  <span className={styles.fieldError} id="create-sportId-error">
                     {errors.sportId}
                   </span>
                 ) : null}
               </label>
 
-              <label className={styles.field}>
+              <label className="fl-field">
                 <div className={styles.fieldHeader}>
                   <span className={styles.label}>
                     Версия регламента
@@ -776,7 +779,7 @@ export function CreateEventPage() {
                   className={styles.input}
                   required
                   disabled={isSubmitting}
-                  value={form.regulationVersionId}
+                  value={form.regulationVersionId} name="regulationVersionId" aria-invalid={Boolean(errors.regulationVersionId)} aria-describedby={errors.regulationVersionId ? "create-regulationVersionId-error" : undefined}
                   onChange={(event) =>
                     updateField(
                       'regulationVersionId',
@@ -812,14 +815,14 @@ export function CreateEventPage() {
                 ) : null}
 
                 {errors.regulationVersionId ? (
-                  <span className={styles.fieldError}>
+                  <span className={styles.fieldError} id="create-regulationVersionId-error">
                     {errors.regulationVersionId}
                   </span>
                 ) : null}
               </label>
             </div>
           )}
-        </article>
+        </fieldset>
 
         {errorMessage ? (
           <p
@@ -841,7 +844,7 @@ export function CreateEventPage() {
 
         <div className={styles.actions}>
           <NavLink
-            className={styles.secondaryButton}
+            className="fl-btn fl-btn-secondary"
             to="/organizer/events"
           >
             Отмена
