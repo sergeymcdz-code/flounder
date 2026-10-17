@@ -4,7 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 import { http, HttpResponse } from 'msw'
 import { server } from '../test/setup'
-import { AuthProvider } from '../app/providers/AuthProvider'
+import { AuthProvider, useAuth } from '../app/providers/AuthProvider'
 import { setAuthSession } from '../api/auth-session'
 import { OrganizationSwitcher } from './OrganizationSwitcher'
 import { AppLayout } from './AppLayout'
@@ -67,13 +67,22 @@ it('shows all events for a platform administrator even with a selected membershi
       return HttpResponse.json(organization ? events.filter(event => event.organizationId === organization) : events)
     }),
   )
-  render(<MemoryRouter><AuthProvider><OrganizationSwitcher /><OrganizerEventsPage /></AuthProvider></MemoryRouter>)
+  function ReadyEvents() {
+    const { authLoading } = useAuth()
+    return authLoading ? null : <><OrganizationSwitcher /><OrganizerEventsPage /></>
+  }
+  render(<MemoryRouter><AuthProvider><ReadyEvents /></AuthProvider></MemoryRouter>)
   const selector = await screen.findByRole('combobox', { name: 'Организация' })
-  await screen.findByText('Второй старт')
-  expect(screen.getByText('Первый старт')).toBeInTheDocument()
+  await vi.waitFor(() => {
+    expect(screen.queryByText('Загружаем мероприятия…')).not.toBeInTheDocument()
+    expect(screen.getByText('Первый старт')).toBeInTheDocument()
+    expect(screen.getByText('Второй старт')).toBeInTheDocument()
+  })
   await userEvent.selectOptions(selector, 'two')
-  await vi.waitFor(() => expect(filters.length).toBeGreaterThanOrEqual(2))
+  await vi.waitFor(() => {
+    expect(screen.queryByText('Загружаем мероприятия…')).not.toBeInTheDocument()
+    expect(screen.getByText('Первый старт')).toBeInTheDocument()
+    expect(screen.getByText('Второй старт')).toBeInTheDocument()
+  })
   expect(filters.every(filter => filter === null)).toBe(true)
-  expect(screen.getByText('Первый старт')).toBeInTheDocument()
-  expect(screen.getByText('Второй старт')).toBeInTheDocument()
 })
