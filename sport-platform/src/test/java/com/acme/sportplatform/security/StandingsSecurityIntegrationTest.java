@@ -1,6 +1,17 @@
 package com.acme.sportplatform.security;
 
 import com.acme.sportplatform.standings.StandingsPublishedEvent;
+import com.acme.sportplatform.documents.api.PdfDocument;
+import com.acme.sportplatform.documents.infrastructure.PdfRenderer;
+import com.acme.sportplatform.events.EventPublicLookup;
+import com.github.benmanes.caffeine.cache.Cache;
+import java.time.Duration;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
@@ -18,6 +29,39 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @RecordApplicationEvents
 class StandingsSecurityIntegrationTest extends Qa04SecurityFixture {
     @Autowired ApplicationEvents applicationEvents;
+    @Autowired @Qualifier("publicPdfCache") Cache<String, PdfDocument> pdfCache;
+    @MockitoSpyBean PdfRenderer renderer;
+    @MockitoSpyBean EventPublicLookup publicEvents;
+
+    @BeforeEach
+    void clearStandingsPdfCache() { pdfCache.invalidateAll(); }
+
+    @Test
+    void repeatedPublicPdfRequestsRenderOnceAndRevocationTakesEffectAtCacheExpiry() throws Exception {
+        rank();
+        save(true);
+        var expiry = pdfCache.policy().expireAfterWrite().orElseThrow();
+        assertThat(expiry.getExpiresAfter()).isEqualTo(Duration.ofSeconds(60));
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(get(publicUrl("/standings.pdf"))).andExpect(status().isOk());
+        }
+        verify(renderer).renderStandings(any(), any());
+        verify(publicEvents, times(2)).getPublicBySlug(ids.get("slug"));
+        save(false);
+        mvc.perform(get(publicUrl("/standings"))).andExpect(status().isNotFound());
+        mvc.perform(get(publicUrl("/standings.pdf"))).andExpect(status().isOk());
+        verify(renderer).renderStandings(any(), any());
+        // Exercise the real cache-expiry branch without a 60-second sleep; the exact TTL boundary uses a fake ticker in the unit test.
+        try {
+            expiry.setExpiresAfter(Duration.ZERO);
+            mvc.perform(get(publicUrl("/standings.pdf"))).andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("standings.not_published"));
+            verify(renderer).renderStandings(any(), any());
+        } finally {
+            expiry.setExpiresAfter(Duration.ofSeconds(60));
+            pdfCache.invalidateAll();
+        }
+    }
     private String configUrl() { return "/api/v1/events/" + id("event") + "/standings/config"; }
     private String body(boolean published) {
         return "{\"enabled\":true,\"scope\":\"AGE_GROUP\",\"pointsByPlace\":[9,7,6,5,4,3,2,1],\"published\":" + published + ",\"title\":\"Кубок клубов\"}";
@@ -59,6 +103,7 @@ class StandingsSecurityIntegrationTest extends Qa04SecurityFixture {
         mvc.perform(put(configUrl()).with(authentication(auth("organizer"))).contentType(MediaType.APPLICATION_JSON)
                 .content(body(true).replace("9,7,6,5,4,3,2,1","20,10"))).andExpect(status().isOk());
         mvc.perform(get(publicUrl("/standings"))).andExpect(status().isOk()).andExpect(jsonPath("$.team[0].points").value(20));
+        mvc.perform(get(publicUrl("/standings.pdf"))).andExpect(status().isOk());
         jdbc.update("update events set status='DRAFT' where id=?",id("event")); em.clear();
         mvc.perform(get(publicUrl("/standings"))).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("standings.not_published"));
         mvc.perform(get(publicUrl("/standings.pdf"))).andExpect(status().isNotFound());
@@ -120,7 +165,7 @@ class StandingsSecurityIntegrationTest extends Qa04SecurityFixture {
         var response = mvc.perform(get("/api/v1/events/" + id("event") + "/documents/standings.pdf").with(authentication(auth("organizer"))))
                 .andExpect(status().isOk()).andReturn();
         try (var pdf = PDDocument.load(response.getResponse().getContentAsByteArray())) {
-            assertThat(new PDFTextStripper().getText(pdf)).contains("Предварительный зачёт, не завершено 1 заплывов");
+            assertThat(new PDFTextStripper().getText(pdf)).contains("Предварительный зачёт, не завершено 1 заплыв");
         }
     }
 }

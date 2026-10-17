@@ -49,7 +49,7 @@ public final class StandingsCalculator {
                 if (place == 3) club.bronze++;
                 int points = place <= config.pointsByPlace().size() ? config.pointsByPlace().get(place - 1) : 0;
                 club.results.add(new Breakdown(heat.disciplineId(), grouped ? group(entry, heat, discipline) : null,
-                        place, points, Objects.toString(entry.lastName(), "") + " " + Objects.toString(entry.firstName(), "")));
+                        place, points, Objects.toString(entry.lastName(), "") + " " + Objects.toString(entry.firstName(), ""), true));
             }
         }
         var medals = clubs.values().stream().map(c -> new ClubMedals(c.name(), c.gold, c.silver, c.bronze))
@@ -63,12 +63,15 @@ public final class StandingsCalculator {
         for (var club : clubs.values()) {
             var ordered = club.results.stream().sorted(resultOrder).toList();
             Map<List<String>, Integer> counts = new HashMap<>();
-            var scored = ordered.stream().filter(b -> {
+            var breakdown = ordered.stream().map(b -> {
                 int count = counts.merge(List.of(b.disciplineId().toString(), Objects.toString(b.ageGroupCode(), "")), 1, Integer::sum);
-                return config.maxScoredPerClubPerDiscipline() == null || count <= config.maxScoredPerClubPerDiscipline();
+                boolean counted = config.maxScoredPerClubPerDiscipline() == null
+                        || count <= config.maxScoredPerClubPerDiscipline();
+                return counted ? b : new Breakdown(b.disciplineId(), b.ageGroupCode(), b.place(), 0, b.athlete(), false);
             }).toList();
+            var scored = breakdown.stream().filter(Breakdown::counted).toList();
             team.add(new ClubPoints(club.name(), scored.stream().mapToLong(Breakdown::points).sum(),
-                    club.gold, club.silver, club.bronze, scored.size(), scored));
+                    club.gold, club.silver, club.bronze, scored.size(), breakdown));
         }
         team.sort(Comparator.comparingLong(ClubPoints::points).reversed()
                 .thenComparing(Comparator.comparingInt(ClubPoints::gold).reversed())

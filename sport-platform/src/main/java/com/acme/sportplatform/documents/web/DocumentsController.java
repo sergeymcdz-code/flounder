@@ -58,7 +58,7 @@ public class DocumentsController {
 
     @GetMapping("/public/events/{slug}/standings.pdf")
     public ResponseEntity<byte[]> publicStandings(@PathVariable String slug) {
-        return response(documents.publicStandings(slug));
+        return response(published.standings(slug));
     }
 
     private ResponseEntity<byte[]> response(PdfDocument pdf) {

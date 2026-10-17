@@ -49,7 +49,7 @@ export function PublicLayout() {
   )
   const eventState = usePublicData(load)
   const loadStandings = useCallback((signal: AbortSignal) => publicApi.standings(slug, signal), [slug])
-  const standingsState = usePublicData(loadStandings, 30_000)
+  const standingsState = usePublicData(loadStandings)
   const [offline, setOffline] = useState(() => !navigator.onLine)
   const [cached, setCached] = useState(false)
   useEffect(() => {

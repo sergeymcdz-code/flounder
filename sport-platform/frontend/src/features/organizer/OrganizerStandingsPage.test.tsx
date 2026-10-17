@@ -15,7 +15,7 @@ const initialConfig: StandingsConfig = {
 const result: Standings = {
   title: null, scope: 'AGE_GROUP', medals: [{ club: 'Волна', gold: 1, silver: 0, bronze: 0 }],
   team: [{ club: 'Волна', points: 9, gold: 1, silver: 0, bronze: 0, scoredResults: 1,
-    breakdown: [{ disciplineId: 'free', ageGroupCode: '2014', place: 1, points: 9, athlete: 'Иванов Иван' }] }],
+    breakdown: [{ disciplineId: 'free', ageGroupCode: '2014', place: 1, points: 9, athlete: 'Иванов Иван', counted: true }] }],
   unitsPending: 0, preliminary: false, disciplinesIncluded: 2, calculatedAt: '2026-10-15T12:00:00Z',
 }
 function page(status = 'LIVE') {

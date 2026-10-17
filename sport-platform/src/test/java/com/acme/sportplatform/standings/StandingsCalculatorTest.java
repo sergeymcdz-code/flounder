@@ -72,12 +72,19 @@ class StandingsCalculatorTest {
         assertThat(result.team().getFirst().points()).isEqualTo(32); // (9+7) in each group
         assertThat(result.team().getFirst().scoredResults()).isEqualTo(4);
         assertThat(result.team().getFirst().breakdown()).extracting(StandingsView.Breakdown::ageGroupCode)
-                .containsExactly("older","older","young","young");
+                .containsExactly("older","older","older","young","young","young");
+        assertThat(result.team().getFirst().breakdown()).extracting(StandingsView.Breakdown::counted)
+                .containsExactly(true,true,false,true,true,false);
+        assertThat(result.team().getFirst().breakdown()).extracting(StandingsView.Breakdown::points)
+                .containsExactly(9,7,0,9,7,0);
         assertThat(result.medals().getFirst().bronze()).isEqualTo(2); // Medal totals are independent of scoring caps.
         var absolute = calculator.calculate(config(StandingsConfig.Scope.ABSOLUTE,2,null), List.of(heat(first,null,"FINISHED",entries)),
                 List.of(discipline(first,"BY_TIME_ALL")));
         assertThat(absolute.team().getFirst().points()).isEqualTo(16);
         assertThat(absolute.team().getFirst().scoredResults()).isEqualTo(2);
+        assertThat(absolute.team().getFirst().breakdown()).hasSize(6);
+        assertThat(absolute.team().getFirst().breakdown().stream().filter(b -> !b.counted()))
+                .hasSize(4).allMatch(b -> b.points() == 0);
     }
     @Test
     void normalizesClubsSelectsMostFrequentSpellingAndIncludesEmptyClub() {

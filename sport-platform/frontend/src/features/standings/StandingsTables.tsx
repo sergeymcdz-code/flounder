@@ -1,11 +1,12 @@
 import type { Standings } from '../../api/standings.api'
+import { swimCount } from './format'
 import styles from './Standings.module.css'
 
 export function StandingsTables({ data, disciplineNames = {} }: {
   data: Standings; disciplineNames?: Record<string, string>
 }) {
   return <div className={styles.tables}>
-    {data.preliminary && <p className={styles.notice} role="status">Предварительный зачёт · не завершено {data.unitsPending} заплывов</p>}
+    {data.preliminary && <p className={styles.notice} role="status">Предварительный зачёт · не завершено {swimCount(data.unitsPending)}</p>}
     <p>{data.scope === 'AGE_GROUP' ? 'По местам в возрастных группах' : 'По местам в абсолюте'}</p>
     <section aria-labelledby="medal-heading">
       <h2 id="medal-heading">Медальный зачёт</h2>
@@ -18,8 +19,8 @@ export function StandingsTables({ data, disciplineNames = {} }: {
       <table><thead><tr><th scope="col">Клуб</th><th scope="col">Очки</th></tr></thead>
         <tbody>{data.team.map(row => <tr key={row.club}><th scope="row">{row.club}
           {row.breakdown && <details className={styles.details}><summary>Из чего сложилось</summary>
-            <p>Зачтено результатов: {row.scoredResults}</p>
-            <ul>{row.breakdown.map((item, index) => <li key={index}>{disciplineNames[item.disciplineId] ?? item.disciplineId}{item.ageGroupCode ? ` · ${item.ageGroupCode}` : ''} · {item.athlete}: место {item.place}, очки {item.points}</li>)}</ul>
+            <p>Зачтено результатов: {row.scoredResults} из {row.breakdown.length}</p>
+            <ul>{row.breakdown.map((item, index) => <li key={index}>{disciplineNames[item.disciplineId] ?? item.disciplineId}{item.ageGroupCode ? ` · ${item.ageGroupCode}` : ''} · {item.athlete}: место {item.place}, очки {item.points}{!item.counted && ' · Не зачтён: лимит клуба'}</li>)}</ul>
           </details>}
         </th><td>{row.points}</td></tr>)}</tbody>
       </table>

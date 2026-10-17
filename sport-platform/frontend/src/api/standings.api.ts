@@ -9,7 +9,7 @@ export type ClubMedals = { club: string; gold: number; silver: number; bronze: n
 export type Standings = {
   title: string | null; scope: 'AGE_GROUP' | 'ABSOLUTE'; medals: ClubMedals[]
   team: (ClubMedals & { points: number; scoredResults: number; breakdown?: {
-    disciplineId: string; ageGroupCode: string | null; place: number; points: number; athlete: string
+    disciplineId: string; ageGroupCode: string | null; place: number; points: number; athlete: string; counted: boolean
   }[] })[]
   unitsPending: number; disciplinesIncluded: number; calculatedAt: string; preliminary: boolean
 }
