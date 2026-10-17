@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# No host changes: map the fixed deploy key path into a fixture and mock sudo.
+# Never touches the host: fixed paths and privileged commands map to fixtures.
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export TEST_KEYS="$TMP/authorized_keys" TEST_CONFIG="$TMP/sshd.conf" TEST_SUDO_LOG="$TMP/sudo.log"
+export TEST_JAIL="$TMP/jail.conf"
 sed "s|/home/deploy/.ssh/authorized_keys|$TEST_KEYS|g" "$REPO/infra/harden.sh" > "$TMP/harden.sh"
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/id" <<'ID'
@@ -17,35 +18,64 @@ set -euo pipefail
 printf '%s\n' "$*" >> "$TEST_SUDO_LOG"
 args=("$@")
 for i in "${!args[@]}"; do
-  if [[ "${args[i]}" == /etc/ssh/sshd_config.d/00-flounder-hardening.conf ]]; then args[i]="$TEST_CONFIG"; fi
+  case "${args[i]}" in
+    /etc/ssh/sshd_config.d/00-flounder-hardening.conf) args[i]="$TEST_CONFIG" ;;
+    /etc/fail2ban/jail.d/flounder.conf) args[i]="$TEST_JAIL" ;;
+  esac
 done
 case "$1" in
-  tee) if [[ "${args[1]}" == "$TEST_CONFIG" ]]; then tee "$TEST_CONFIG"; else cat; fi ;;
+  tee) if [[ "${args[1]}" == "$TEST_CONFIG" || "${args[1]}" == "$TEST_JAIL" ]]; then tee "${args[1]}"; else cat; fi ;;
   test|cat|cp|rm) "${args[@]}" ;;
   /usr/sbin/sshd)
     if [[ "$2" == -t && "${FAIL_SSHD:-0}" == 1 ]]; then exit 1; fi
-    if [[ "$2" == -T ]]; then printf 'permitrootlogin prohibit-password\n'; fi ;;
-  apt-get|install|systemctl) exit 0 ;;
-  *) echo 'Unexpected sudo call'; exit 1 ;;
+    if [[ "$2" == -T ]]; then
+      tr '[:upper:]' '[:lower:]' < "$TEST_CONFIG"
+      if [[ "${FAIL_POLICY:-0}" == 1 ]]; then exit 1; fi
+    fi ;;
+  systemctl)
+    if [[ "$*" == 'systemctl restart ssh' && "${FAIL_RESTART:-0}" == 1 ]]; then exit 1; fi ;;
+  apt-get|install|fail2ban-client|ufw) exit 0 ;;
+  *) echo 'Неожиданный вызов sudo'; exit 1 ;;
 esac
 SUDO
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 unset SSH_CONNECTION
-# Missing deploy keys refuse the SSH policy change, including under su - deploy.
-if bash "$TMP/harden.sh" </dev/null > "$TMP/output"; then exit 1; fi
-grep -q 'Add a deploy public key' "$TMP/output"
-[[ ! -e "$TEST_CONFIG" ]]
+# Missing/empty keys and declined confirmation refuse ALL host mutations.
+for keys in missing empty; do
+  if [[ "$keys" == empty ]]; then : > "$TEST_KEYS"; fi
+  if bash "$TMP/harden.sh" </dev/null > "$TMP/output"; then exit 1; fi
+  grep -q 'Добавьте ключ' "$TMP/output"
+  [[ ! -e "$TEST_CONFIG" && ! -e "$TEST_SUDO_LOG" ]]
+done
 printf 'ssh-ed25519 test-only-key\n' > "$TEST_KEYS"
 if printf 'no\n' | bash "$TMP/harden.sh" > "$TMP/output"; then exit 1; fi
+[[ ! -e "$TEST_CONFIG" && ! -e "$TEST_SUDO_LOG" ]]
+for _ in 1 2; do
+  : > "$TEST_SUDO_LOG"
+  printf 'deploy-key-verified\ndeploy-key-verified\n' | bash "$TMP/harden.sh" > "$TMP/output"
+  diff -u <(printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n') "$TEST_CONFIG"
+  diff -u <(printf '[sshd]\nenabled = true\nbackend = systemd\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n') "$TEST_JAIL"
+  grep -q 'user=deploy,host=localhost,addr=127.0.0.1' "$TEST_SUDO_LOG"
+  grep -q 'user=root,host=localhost,addr=127.0.0.1' "$TEST_SUDO_LOG"
+  [[ "$(tail -1 "$TEST_SUDO_LOG")" == 'ufw --force enable' ]]
+  for port in 22 80 443; do grep -qx "ufw allow $port/tcp" "$TEST_SUDO_LOG"; done
+  grep -qx 'ufw default deny incoming' "$TEST_SUDO_LOG"
+  grep -q 'Проверьте вход по ключу во втором окне' "$TMP/output"
+done
+# Declining the post-restart check never enables the firewall.
+: > "$TEST_SUDO_LOG"
+if printf 'deploy-key-verified\nno\n' | bash "$TMP/harden.sh" > "$TMP/output"; then exit 1; fi
+if grep -q '^ufw ' "$TEST_SUDO_LOG"; then exit 1; fi
+# Validation, effective policy and restart errors restore the previous fragment.
+for failure in FAIL_SSHD FAIL_POLICY FAIL_RESTART; do
+  printf 'previous configuration\n' > "$TEST_CONFIG"
+  : > "$TEST_SUDO_LOG"
+  if printf 'deploy-key-verified\n' | env "$failure=1" bash "$TMP/harden.sh" > "$TMP/output" 2>&1; then exit 1; fi
+  grep -qx 'previous configuration' "$TEST_CONFIG"
+  if grep -q '^ufw ' "$TEST_SUDO_LOG"; then exit 1; fi
+done
+rm "$TEST_CONFIG"
+if printf 'deploy-key-verified\n' | FAIL_SSHD=1 bash "$TMP/harden.sh" > "$TMP/output" 2>&1; then exit 1; fi
 [[ ! -e "$TEST_CONFIG" ]]
-printf 'deploy-key-verified\n' | bash "$TMP/harden.sh" > "$TMP/output"
-grep -qx 'PermitRootLogin prohibit-password' "$TEST_CONFIG"
-grep -q 'addr=127.0.0.1' "$TEST_SUDO_LOG"
-# Repeat is idempotent; failed validation rolls back the existing file.
-printf 'deploy-key-verified\n' | bash "$TMP/harden.sh" > "$TMP/output"
-printf 'previous configuration\n' > "$TEST_CONFIG"
-export FAIL_SSHD=1
-if printf 'deploy-key-verified\n' | bash "$TMP/harden.sh" > "$TMP/output"; then exit 1; fi
-grep -qx 'previous configuration' "$TEST_CONFIG"
-echo 'Hardening tests passed (su session, key guard, confirmation, root password policy, rollback)'
+echo 'Проверки harden.sh пройдены: ключ, подтверждения, политика, идемпотентность, UFW, откат.'

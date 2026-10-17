@@ -22,7 +22,7 @@
 | Старые тесты | В diff только добавления; `qa04-endpoints.tsv` не требует строк (эндпоинты не менялись). |
 | Бинарники | Нет; evidence — 4 JSON по ≤1.4 КБ. |
 | Конфликты | `git merge-tree` pr/42 × main, pr/40, pr/41, pr/44, pr/38, pr/33, pr/36, pr/30 — без конфликтов. Семантически с pr/44 (QA04 r2, backend-тесты M02) пересечений нет: п.1в QA07 — уровень Playwright. |
-| Чек-лист репетиции | Пути `/home/deploy/flounder` = `~/flounder` (runbook-demo.md), `flounder-postgres`, `sport_user`, compose-сервис `api`, `./infra/backup.sh`, `./infra/restore.sh <file>` (M09: изолированная БД `sport_platform_restore_test`, `events=N`) — верны. `DEMO_DATE=2026-10-24`, `--skip-import`, `EVENT_TITLE_SUFFIX=' · резерв'`, 7 шагов с интервалами и ожиданиями, Android/iOS/PWA/offline, стартовый/итоговый PDF — есть. **Две команды неработоспособны** (Б2, Б3) и один раздел устарел (Б4). |
+| Чек-лист репетиции | Пути `/home/<ssh-user>/flounder` = `~/flounder` (runbook-demo.md), `flounder-postgres`, `sport_user`, compose-сервис `api`, `./infra/backup.sh`, `./infra/restore.sh <file>` (M09: изолированная БД `sport_platform_restore_test`, `events=N`) — верны. `DEMO_DATE=2026-10-24`, `--skip-import`, `EVENT_TITLE_SUFFIX=' · резерв'`, 7 шагов с интервалами и ожиданиями, Android/iOS/PWA/offline, стартовый/итоговый PDF — есть. **Две команды неработоспособны** (Б2, Б3) и один раздел устарел (Б4). |
 
 ## Блокирующие
 
@@ -33,7 +33,7 @@
 docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform -v ON_ERROR_STOP=1 \
   -v demo_event_id='<uuid из вывода reset.ts>' \
   -v demo_event_title='<точное название из вывода reset.ts>' \
-  < /home/deploy/flounder/scripts/demo/reset.sql
+  < /home/<ssh-user>/flounder/scripts/demo/reset.sql
 ```
 То же для резерва (название с « · резерв»). Остановка `api` перед SQL не обязательна (reset.sql — одна транзакция с `for update`), но допустима; тогда убрать абзац про «не копировать shell-префикс psql -c внутрь SQL-файла».
 
@@ -47,7 +47,7 @@ docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform -v ON_E
 2. `EventLiveUseCase.finish`: ранний возврат не покрывает случай, когда live выставлен вручную (`PUT /events/{id}/live`) на не начатый заплыв, а потом приходит поздний повтор finish старого — live будет пересчитан на «следующий после старого». Для демо некритично; добавить строку в отчёт как known limitation либо расширить условие на `currentUnitId != null && !id.equals(current)` без проверки IN_PROGRESS (тогда повторный finish никогда не трогает чужой live). Второе проще и безопаснее — на усмотрение автора, но тогда поправить комментарий и тест.
 3. `qa07-setup.ts`: падает с непонятным ENOENT, если в `scripts/demo` не выполнен `npm ci`; добавить явную проверку `existsSync(tsx cli)` с русским сообщением.
 4. README QA07: указать влияние лимитера M02 (5 ошибок / 15 мин на IP) — `npm run test:qa07` даёт 1 неудачный вход; частые повторы + будущий тест 429 могут заблокировать admin-вход; описать паузу или `APP_AUTH_LOGIN_MAX_FAILURES` на локальном backend.
-5. Чек-лист: в разделе бэкапа упомянуть `./infra/verify-latest-backup.sh` (M09 cron-вариант той же проверки) и `backup.log` в `/home/deploy/backups`; в M09-пункте — проверить, что cron из `infra/crontab.example` установлен (03:00/04:00 МСК).
+5. Чек-лист: в разделе бэкапа упомянуть `./infra/verify-latest-backup.sh` (M09 cron-вариант той же проверки) и `backup.log` в `/home/<ssh-user>/backups`; в M09-пункте — проверить, что cron из `infra/crontab.example` установлен (03:00/04:00 МСК).
 6. Чек-лист: `docker run` для сида обращается к `https://sportgate.pro` через публичный DNS из bridge-сети — это работает, но стоит одной строкой зафиксировать, что `API_URL` в `scripts/demo/.env` именно внешний https, а не `localhost:8080` (в контейнере он недоступен).
 7. Публикация у зрителя 13.07 с при бюджете 15 с и опросе 5 с — запас мал; в отчёт добавить, откуда задержка (кеш публичного API?), чтобы на сервере с большей латентностью это не стало сюрпризом на шаге 7.
 8. Судейский e2e: `expect(units.length).toBeGreaterThan(2)` опирается на сид (32 заплыва); закомментировать ожидание 32, чтобы падение было понятным.
@@ -66,10 +66,10 @@ PR #42 (qa/QA07-stage1-regression) — раунд 2. Ребейзнись на �
 2. docs/qa/rehearsal-2026-10-17.md:
    - Раздел «Сброс»: reset.ts без --apply не печатает SQL, он печатает команду psql с -v demo_event_id/-v demo_event_title -f reset.sql. Замени «сохранить SQL из вывода в /tmp/…» на выполнение scripts/demo/reset.sql через docker exec с переменными:
        docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform -v ON_ERROR_STOP=1 \
-         -v demo_event_id='<uuid>' -v demo_event_title='<точное название>' < /home/deploy/flounder/scripts/demo/reset.sql
+         -v demo_event_id='<uuid>' -v demo_event_title='<точное название>' < /home/<ssh-user>/flounder/scripts/demo/reset.sql
      и то же для резерва (название с « · резерв»). Убери фразу про shell-префикс psql -c.
    - Во все три docker run … node:22-alpine добавь -e HOME=/tmp (как в docs/runbook-demo.md:229), иначе npm ci/npx под --user падают с EACCES.
-   - Удали блок «До M09 …» и строку про backups/YYYY-MM-DD.sql.gz; оставь только M09-вариант (/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump [+ .files.tar.gz], ./infra/restore.sh <dump> — изолированная проверка, events=N, тестовая БД удалена). Упомяни infra/restore-production.sh только как разрушительный откат, который на репетиции не выполняется. Добавь ./infra/verify-latest-backup.sh и проверку cron из infra/crontab.example.
+   - Удали блок «До M09 …» и строку про backups/YYYY-MM-DD.sql.gz; оставь только M09-вариант (/home/<ssh-user>/backups/flounder-YYYYMMDD-HHMM.dump [+ .files.tar.gz], ./infra/restore.sh <dump> — изолированная проверка, events=N, тестовая БД удалена). Упомяни infra/restore-production.sh только как разрушительный откат, который на репетиции не выполняется. Добавь ./infra/verify-latest-backup.sh и проверку cron из infra/crontab.example.
    - Шаг 1: QA05-01 закрыт #39 — ожидание «чекбокс кругового посева показан выключенным (только просмотр)».
    - Условные пункты: M02 и M09 теперь «в main» — переформулируй как обязательные проверки на стенде.
 

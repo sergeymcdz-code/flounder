@@ -4,8 +4,8 @@
 
 ## Шаг 0 — переменные окружения (ДО deploy.sh)
 ```bash
-ssh root@82.97.248.229
-su - deploy
+ssh <ssh-user>@SERVER_IP
+su - <ssh-user>
 cd ~/flounder && nano infra/.env.prod
 ```
 Добавить строки (значения без кавычек, если нет пробелов):
@@ -30,21 +30,21 @@ curl -fsS -D - -H 'X-Request-Id: m09-check' https://sportgate.pro/actuator/healt
 
 ## Команды для Сергея после деплоя
 
-Вход как обычно: `ssh root@82.97.248.229`, затем `su - deploy`. Всё ниже — под `deploy`, из `~/flounder`, после слияния #25 и `git pull --ff-only origin main` (сами контейнеры от pull не меняются).
+Вход как обычно: `ssh <ssh-user>@SERVER_IP`, затем `su - <ssh-user>`. Всё ниже — под `<ssh-user>`, из `~/flounder`, после слияния #25 и `git pull --ff-only origin main` (сами контейнеры от pull не меняются).
 
 **1. Бэкап и каталог (можно до демо, без редеплоя):**
 ```bash
-cd ~/flounder && readlink -f ~/flounder          # ожидается /home/deploy/flounder
-mkdir -p /home/deploy/backups && chmod 700 /home/deploy/backups
-cp -n ~/flounder/backups/2026-10-13.sql.gz /home/deploy/backups/   # старый дамп, оригинал остаётся
+cd ~/flounder && readlink -f ~/flounder          # ожидается /home/<ssh-user>/flounder
+mkdir -p /home/<ssh-user>/backups && chmod 700 /home/<ssh-user>/backups
+cp -n ~/flounder/backups/CHOSEN_BACKUP.sql.gz /home/<ssh-user>/backups/   # старый дамп, оригинал остаётся
 ./infra/backup.sh
-ls -la /home/deploy/backups/ && tail -n 5 /home/deploy/backups/backup.log
+ls -la /home/<ssh-user>/backups/ && tail -n 5 /home/<ssh-user>/backups/backup.log
 ```
 
 **2. Проверка restore на тестовой БД (рабочую БД и API не трогает):**
 ```bash
-./infra/restore.sh /home/deploy/backups/2026-10-13.sql.gz            # старый формат
-./infra/restore.sh "$(ls -t /home/deploy/backups/flounder-*.dump | head -1)"   # свежий .dump
+./infra/restore.sh /home/<ssh-user>/backups/CHOSEN_BACKUP.sql.gz            # старый формат
+./infra/restore.sh "$(ls -t /home/<ssh-user>/backups/flounder-*.dump | head -1)"   # свежий .dump
 docker exec flounder-postgres psql -U sport_user -d postgres -Atc \
   "select count(*) from pg_database where datname='sport_platform_restore_test'"   # ожидается 0
 curl -fsS https://sportgate.pro/actuator/health                       # {"status":"UP"}
@@ -57,7 +57,7 @@ timedatectl | grep 'Time zone'     # если UTC — брать UTC-вариа�
 crontab -l                         # сохранить старые строки, кроме старого backup.sh
 crontab -e
 ```
-Вставить **один** вариант (пути уже реальные, `$HOME` = `/home/deploy`):
+Вставить **один** вариант (пути уже реальные, `$HOME` = `/home/<ssh-user>`):
 ```cron
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
@@ -72,12 +72,12 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 1 * * 0 "$HOME/flounder/infra/verify-latest-backup.sh"
 0 * * * * "$HOME/flounder/infra/check-disk.sh" >> "$HOME/backups/backup.log" 2>&1
 ```
-Проверить: `crontab -l`; на следующий день — `ls /home/deploy/backups/` и `tail /home/deploy/backups/backup.log`.
+Проверить: `crontab -l`; на следующий день — `ls /home/<ssh-user>/backups/` и `tail /home/<ssh-user>/backups/backup.log`.
 
 **4. Внешняя копия на ноутбук (PowerShell, с ноутбука):**
 ```powershell
-scp root@82.97.248.229:/home/deploy/backups/flounder-*.dump .
-scp root@82.97.248.229:/home/deploy/flounder/backups/2026-10-13.sql.gz .
+scp <ssh-user>@SERVER_IP:/home/<ssh-user>/backups/flounder-*.dump .
+scp <ssh-user>@SERVER_IP:/home/<ssh-user>/flounder/backups/CHOSEN_BACKUP.sql.gz .
 ```
 
 **5. Telegram-алерты (опционально, 5 минут):** создать бота у @BotFather, получить токен; написать боту `/start`; узнать chat_id: `https://api.telegram.org/bot<TOKEN>/getUpdates` → `"chat":{"id":…}`. Затем на сервере:
@@ -96,7 +96,7 @@ curl -fsS -D - -H 'X-Request-Id: m09-check' https://sportgate.pro/actuator/healt
 Если после этого слит и M04: в `infra/.env.prod` добавить `FILES_VOLUME=flounder_flounder_files` и запустить `./infra/backup.sh` — должен появиться `flounder-….files.tar.gz`.
 
 **7. Staging — отдельным блоком, после демо.**
-Сначала у регистратора: A-запись `staging.sportgate.pro` → `82.97.248.229` (HSTS prod уже с `includeSubDomains`, staging будет только HTTPS, сертификат Caddy выпустит сам). Затем:
+Сначала у регистратора: A-запись `staging.sportgate.pro` → `SERVER_IP` (HSTS prod уже с `includeSubDomains`, staging будет только HTTPS, сертификат Caddy выпустит сам). Затем:
 ```bash
 mkdir -p ~/.config/flounder && cp ~/flounder/infra/.env.staging.example ~/.config/flounder/.env.staging
 chmod 600 ~/.config/flounder/.env.staging
@@ -117,5 +117,5 @@ docker exec flounder-caddy caddy reload --config /etc/caddy/Caddyfile --adapter 
 ```
 Память: при живом prod сборка staging-образов на 4 ГБ может задеть `flounder-api` OOM-killer'ом — поэтому только в окно без нагрузки; перед prod-деплоем staging лучше останавливать.
 
-**Не запускать `./infra/harden.sh`**, пока на ноутбуке нет рабочего ключа для `deploy@82.97.248.229` (скрипт сам откажет без `authorized_keys`, но проверку второго входа он делать не умеет — это делаете вы во втором терминале).
+**Не запускать `./infra/harden.sh`**, пока на ноутбуке нет рабочего ключа для `<ssh-user>@SERVER_IP` (скрипт сам откажет без `authorized_keys`, но проверку второго входа он делать не умеет — это делаете вы во втором терминале).
 

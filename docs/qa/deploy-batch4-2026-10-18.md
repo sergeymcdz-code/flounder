@@ -10,8 +10,8 @@
 
 ## Блок 1 — бэкап и деплой (~10 мин)
 ```
-ssh root@82.97.248.229
-su - deploy
+ssh <ssh-user>@SERVER_IP
+su - <ssh-user>
 cd ~/flounder
 ./infra/backup.sh
 git pull
