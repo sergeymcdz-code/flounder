@@ -14,7 +14,7 @@ const empty: EventAnalytics = {
   eventId: 'event', title: 'Кубок', timezone: 'Europe/Samara', generatedAt: '2026-10-01T21:30:00Z',
   registrations: { total: 0, participants: 0, byStatus: [], byDay: [{ date: '2026-10-01', count: 0 }], funnel: { submitted: 0, confirmed: 0, paid: 0, admitted: 0 } },
   byDiscipline: [], byAgeGroup: [], byClub: [], byGender: [], sessions: [],
-  results: { publishedHeats: 0, medianPublicationSec: null, p95PublicationSec: null, latencySamples: 0, latencySource: 'UNAVAILABLE_UNTIL_M07', corrected: 0 },
+  results: { publishedHeats: 0, medianPublicationSec: null, p95PublicationSec: null, latencySamples: 0, latencySource: 'UNAVAILABLE', corrected: 0 },
   validator: { runId: null, executedAt: null, errors: 0, warnings: 0 },
   importStats: { available: false, reason: 'История импортов пока не сохраняется в базе данных', recent: [] },
 }
@@ -27,16 +27,19 @@ it('shows honest empty states and missing timing instead of zero latency', () =>
   expect(screen.getAllByText('Заявок пока нет').length).toBeGreaterThan(0)
   expect(screen.getByText('Валидатор ещё не запускался')).toBeInTheDocument()
   expect(screen.getByText('История импортов пока не сохраняется в базе данных')).toBeInTheDocument()
-  const panel = screen.getByRole('heading', { name: 'Время от финиша до публикации' }).closest('section')!
+  const panel = screen.getByRole('heading', { name: 'Время публикации результатов' }).closest('section')!
   expect(within(panel).getAllByText('—')).toHaveLength(2)
   expect(within(panel).queryByText('Цель достигнута.')).not.toBeInTheDocument()
 })
 it('renders exact accessible chart values, funnel and target breach', async () => {
-  const a = { ...empty, registrations: { ...empty.registrations, total: 10, byDay: [{ date: '2026-10-01', count: 8 }, { date: '2026-10-02', count: 2 }], funnel: { submitted: 10, confirmed: 8, paid: 6, admitted: 4 } }, results: { ...empty.results, latencySamples: 20, medianPublicationSec: 100, p95PublicationSec: 500 } }
+  const a = { ...empty, registrations: { ...empty.registrations, total: 10, byDay: [{ date: '2026-10-01', count: 8 }, { date: '2026-10-02', count: 2 }], funnel: { submitted: 10, confirmed: 8, paid: 6, admitted: 4 } }, results: { ...empty.results, latencySource: 'RANKING_LOG', latencySamples: 20, medianPublicationSec: 100, p95PublicationSec: 500 } }
   render(<EventAnalyticsView data={a} />)
   expect(screen.getByRole('img', { name: /Заявки по дням/ })).toBeInTheDocument()
   await userEvent.click(screen.getByText('Показать значения по дням'))
   expect(screen.getByRole('cell', { name: '2026-10-02' })).toBeVisible()
+  expect(screen.getByText('1:40')).toBeInTheDocument()
+  expect(screen.getByText('8:20')).toBeInTheDocument()
+  expect(screen.getByText('Заплывов в выборке')).toBeInTheDocument()
   expect(screen.getByText(/Цель превышена/)).toBeInTheDocument()
   expect(screen.getByText('Допущено в посев')).toBeInTheDocument()
   expect(screen.getByText(/«Подано» включает отклонённые и снятые заявки/)).toBeInTheDocument()

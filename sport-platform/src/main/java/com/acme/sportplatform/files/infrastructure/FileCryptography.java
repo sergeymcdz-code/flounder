@@ -102,5 +102,5 @@ public class FileCryptography {
             return mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
         } catch (GeneralSecurityException ex) { throw new IllegalStateException(ex); }
     }
-    private BusinessException corrupt() { return new BusinessException("files.corrupt", "Файл повреждён или не удалось его расшифровать"); }
+    public BusinessException corrupt() { return new BusinessException("files.corrupt", "Файл повреждён или не удалось его расшифровать"); }
 }

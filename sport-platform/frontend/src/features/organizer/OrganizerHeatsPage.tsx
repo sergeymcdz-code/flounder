@@ -124,7 +124,7 @@ export function OrganizerHeatsPage() {
                 : 'Загрузка отставания…'}
         </p>
         <div className={styles.actions}>
-          <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status))} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
+          <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || event.status === 'ARCHIVED' || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status))} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           <button
             className={`${styles.primary} fl-button-primary`}
             disabled={busy || !event.disciplines.length}
@@ -366,7 +366,7 @@ export function OrganizerHeatsPage() {
         </div>
       ))}
       {showShift && <OrganizerDialog title="Сдвинуть расписание" onClose={() => setShowShift(false)}>
-        <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy}
+        <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy} archived={event.status === 'ARCHIVED'}
           onClose={() => setShowShift(false)} onApply={(fromUnitId, deltaSec) => {
             void run(() => shiftSchedule(event.id, fromUnitId, deltaSec, accessToken)).then(ok => { if (ok) setShowShift(false) })
           }} />

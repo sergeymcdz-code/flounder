@@ -64,6 +64,42 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     void confirmed() { publisher.publishEvent(new RegistrationConfirmedEvent(id("registration"))); }
     void pendingReview() { jdbc.update("update registrations set status='SUBMITTED' where id=?", id("registration")); }
 
+    @Test void scheduleShiftQueuesOneMessageWithTwoHeatsAndDoesNotBatchRepeatedShifts() throws Exception {
+        for(String key:List.of("secondRegistration","secondUnit","secondEntry","importProfile","importRegistration","importEntry"))
+            ids.put(key,UUID.randomUUID().toString());
+        jdbc.update("update event_disciplines set session_id=?,order_in_session=2 where id=?",id("session"),id("newDiscipline"));
+        registration("secondRegistration","event","newDiscipline","profile","participant");
+        unit("secondUnit","newDiscipline"); entry("secondEntry","secondUnit","secondRegistration");
+        jdbc.update("insert into profiles(id,last_name,first_name,birth_date,gender) values (?,'Импорт','Без аккаунта','2014-03-05','M')",id("importProfile"));
+        registration("importRegistration","event","newDiscipline","importProfile","target");
+        jdbc.update("update registrations set participant_user_id=null where id=?",id("importRegistration"));
+        jdbc.update("insert into competition_unit_entries(id,competition_unit_id,registration_id,lane_or_position) values (?,?,?,2)",id("importEntry"),id("secondUnit"),id("importRegistration"));
+        jdbc.update("update event_sessions set starts_at='2026-10-19T06:00:00Z' where id=?",id("session"));
+        jdbc.update("update competition_units set status='PUBLISHED',scheduled_at='2026-10-19T06:00:00Z' where id=?",id("unit"));
+        jdbc.update("update competition_units set status='PUBLISHED',scheduled_at='2026-10-19T06:02:00Z' where id=?",id("secondUnit"));
+        em.clear();
+        for(int shift=0;shift<2;shift++) {
+            mvc.perform(post("/api/v1/events/{id}/schedule/shift",id("event")).with(authentication(auth("organizer")))
+                    .contentType("application/json").content(json.writeValueAsBytes(Map.of("fromUnitId",id("unit"),"deltaSec",600))))
+                    .andExpect(status().isOk());
+            assertThat(count()).isEqualTo(shift+1);
+        }
+        var payloads=jdbc.queryForList("select payload::text from notification_outbox where event_id=? order by created_at,id",String.class,id("event"));
+        for(String payload:payloads) {
+            var data=json.readTree(payload);
+            assertThat(data.path("changes")).hasSize(2);
+            assertThat(data.path("changes")).allSatisfy(line -> assertThat(line.path("participant").asText()).isEqualTo("Иванов Иван"));
+            assertThat(data.path("link").asText()).endsWith("/e/"+ids.get("slug")+"/schedule");
+        }
+        assertThat(payloads).anyMatch(p -> p.contains("10:00") && p.contains("10:10") && p.contains("10:02") && p.contains("10:12"));
+        assertThat(jdbc.queryForList("select distinct recipient_email from notification_outbox where event_id=?",String.class,id("event")))
+                .containsExactly(ids.get("participantEmail"));
+        jdbc.update("insert into organization_notification_settings values (?,'schedule_changed',false)",id("org"));
+        mvc.perform(post("/api/v1/events/{id}/schedule/shift",id("event")).with(authentication(auth("organizer")))
+                .contentType("application/json").content(json.writeValueAsBytes(Map.of("fromUnitId",id("unit"),"deltaSec",600))))
+                .andExpect(status().isOk());
+        assertThat(count()).isEqualTo(2);
+    }
     @Test void domainCreationAndReviewPublishRealEvents() {
         create.execute(id("participant"), new CreateRegistrationRequest(id("newDiscipline"), null, 32150L, null));
         pendingReview();
@@ -285,7 +321,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         jdbc.update("update organization_members set member_role='admin' where organization_id=? and user_id=?", id("org"), id("organizer"));
         em.clear();
         mvc.perform(get("/api/v1/organizations/" + id("org") + "/notification-settings").with(authentication(auth("organizer"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(5));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(6));
     }
     @Test void invalidSettingsAreAtomicAndResetCannotBeDisabled() throws Exception {
         String path = "/api/v1/organizations/" + id("org") + "/notification-settings";
