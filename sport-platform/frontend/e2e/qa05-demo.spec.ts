@@ -5,10 +5,10 @@ import { resolve } from 'node:path'
 import type { EventGenerationResult, Heat, ImportReport, OrganizerEventDetails, OrganizerRegistration, Session, Violation } from '../src/api/organizer.types'
 import type { CompetitionUnitDetailsResponse } from '../src/api/results.api'
 import type { Live, Results, StartList } from '../src/features/public/public.types'
-import { api, login, pdf, screenshots } from './qa05-support'
+import { api, evidence, login, pdf, screenshots } from './qa05-support'
 
 test('QA05: seven-step demo with a real backend and demo seed', async ({ browser }, info) => {
-  const seed = JSON.parse(readFileSync('work/qa05/seed.json', 'utf8')) as { eventId: string; slug: string }
+  const seed = JSON.parse(readFileSync('work/qa05/seed.json', 'utf8')) as { eventId: string; slug: string; suffix: string }
   const base = `/organizer/events/${seed.eventId}`
   const publicBase = `/e/${seed.slug}`
   const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext(info.project.use)))
@@ -70,7 +70,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
   try {
     await step('1. Anonymous overview, program, organizer QR and settings', async () => {
       await spectator.goto(publicBase)
-      await expect(spectator.getByRole('heading', { name: /Открытый кубок Самары/ })).toBeVisible()
+      await expect(spectator.getByRole('heading', { name: `Открытый кубок Самары по плаванию${seed.suffix}`, exact: true })).toBeVisible()
       await expect.soft(spectator.getByText('8 дорожек · бассейн 25 м', { exact: true })).toBeVisible()
       const program = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Сессии и виды программы' }) })
       await expect.soft(program.getByRole('heading', { level: 3 })).toHaveCount(2)
@@ -236,14 +236,19 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         expect.soft(clock).toBe(index === 0 ? '10:00' : '15:00')
       }
       await screenshots(org, '04-heats-validator')
-      // QA05-03: draft print link must contain the generated heats before publication.
+      // M03: draft protocols use the authenticated PDF; public browser print excludes unpublished heats.
       const printPage = await contexts[0].newPage()
       const printHref = await org.getByRole('link', { name: 'Открыть печатную форму' }).getAttribute('href')
       await printPage.goto(printHref!)
       await expect(printPage.getByRole('heading', { name: 'Стартовый протокол', exact: true })).toBeVisible()
-      await expect.soft(printPage.locator('article').filter({ has: printPage.locator('table') }), 'QA05-03: draft print contains generated heats').toHaveCount(heats.length)
-      await screenshots(printPage, '04-draft-print')
-      await pdf(printPage, 'draft-start-list')
+      await expect(printPage.locator('article').filter({ has: printPage.locator('table') }), 'Unpublished heats are not exposed publicly').toHaveCount(0)
+      const [draftDownload] = await Promise.all([org.waitForEvent('download'), org.getByRole('button', { name: 'Скачать PDF', exact: true }).click()])
+      const draftPath = resolve(evidence, 'QA05-draft-start-list.pdf')
+      await draftDownload.saveAs(draftPath)
+      const draftBytes = readFileSync(draftPath)
+      expect(draftBytes.subarray(0, 5).toString()).toBe('%PDF-')
+      expect(draftBytes.length).toBeGreaterThan(1_000)
+      await screenshots(printPage, '04-unpublished-public-print')
       await org.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
       await settle(org)
       // T06 intentionally caches reads for 10 seconds; wait for the new snapshot.
