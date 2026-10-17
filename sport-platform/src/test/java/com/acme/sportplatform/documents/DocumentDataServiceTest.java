@@ -39,6 +39,18 @@ class DocumentDataServiceTest {
     }
 
     @Test
+    void standaloneHeaderUsesTheVenueDateAndDoesNotLoadResults() {
+        var lateStart = OffsetDateTime.parse("2026-10-17T21:00:00Z");
+        when(events.protocolHeader(event)).thenReturn(new EventProtocolHeader(event, "Кубок", org, venue,
+                lateStart, lateStart.plusHours(6), "cup"));
+        var header = service.header(event);
+        assertThat(header.date()).isEqualTo("18.10.2026");
+        assertThat(header.venue()).isEqualTo("Бассейн, Самара");
+        assertThat(header.organization()).isEqualTo("Федерация");
+        verifyNoInteractions(results, disciplines);
+    }
+
+    @Test
     void publicStartListAndResultsRespectEveryHeatStatusAndDoNotLeakDrafts() {
         var heats = new ArrayList<Heat>();
         int number = 0;

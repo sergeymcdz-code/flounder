@@ -19,6 +19,13 @@ public class PublicDocumentService {
         this.cache = cache;
     }
 
+    public PdfDocument standings(String slug) {
+        // Visibility is always rechecked; standings publication can remain cached for at most 60 seconds.
+        var event = events.getPublicBySlug(slug);
+        return cache.get(slug + ":" + event.id() + ":standings",
+                key -> documents.publicStandings(event));
+    }
+
     public PdfDocument get(String slug, boolean results) {
         // Recheck event visibility even on a cache hit; never cache organizer drafts.
         var event = events.getPublicBySlug(slug);
