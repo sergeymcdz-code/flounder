@@ -29,6 +29,8 @@
 .form input[type=date] { display: block; max-width: 100%; }
 .form input[aria-invalid=true], .form select[aria-invalid=true] { border-color: var(--color-danger); }
 .form small { color: var(--color-text-muted); font-weight: 400; }
+.form :global(.fl-field) { margin-bottom: 16px; }
+.form fieldset > :global(.fl-btn-secondary) { margin-bottom: 16px; }
 .row { display: grid; gap: 0 16px; }
 .submit { margin-top: 16px; }
 @media (min-width: 640px) { .row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

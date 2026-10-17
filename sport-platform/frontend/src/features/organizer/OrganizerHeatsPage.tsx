@@ -1,3 +1,7 @@
+import { plural } from '../../utils/plural'
+import { ActionBar } from '../../components/ui/ActionBar'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Notice } from '../../components/ui/Notice'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { useToast } from '../../components/ui/Toast'
@@ -28,6 +32,7 @@ export function OrganizerHeatsPage() {
   const {
     event,
     heats,
+    sessions,
     registrations,
     accessToken,
     busy, error, clearError,
@@ -120,23 +125,23 @@ export function OrganizerHeatsPage() {
                 ? 'Отставание временно недоступно'
                 : 'Загрузка отставания…'}
         </p>}
-        <div className={styles.actions}>
-          <details><summary className="fl-button-primary">Сформировать заплывы ▾</summary>
-            <button disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
-            {event.disciplines.map(d => <button key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
+        <ActionBar>
+          <details><summary className="fl-btn fl-btn-primary">Сформировать заплывы ▾</summary>
+            <button className="fl-btn fl-btn-secondary" disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
+            {event.disciplines.map(d => <button className="fl-btn fl-btn-secondary" key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
           </details>
-          <details><summary>Расписание ▾</summary>
-            <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
-            <button disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
+          <details><summary className="fl-btn fl-btn-secondary">Расписание ▾</summary>
+            <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
+            <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           </details>
-          <button disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
-          <details><summary>Печать ▾</summary>
-            {heats.length > 0 && heats.every(heat => isHeatPublished(heat.status)) ? <a className={styles.button} href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
+          <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
+          <details><summary className="fl-btn fl-btn-secondary">Печать ▾</summary>
+            {heats.length > 0 && heats.every(heat => isHeatPublished(heat.status)) ? <a className="fl-btn fl-btn-secondary" href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
             <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
           </details>
-        </div>
+        </ActionBar>
         {last && (
-          <div aria-live="polite">
+          <Notice><div aria-live="polite">
             <h2>Последнее формирование</h2>
             <p>
               за {(last.durationMs / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} с · Исключено заявок:{' '}
@@ -155,14 +160,14 @@ export function OrganizerHeatsPage() {
                 {v.message}
               </p>
             ))}
-          </div>
+          </div></Notice>
         )}
       </article>
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Проверка</h2>
           <button
-            disabled={busy || event.status === 'ARCHIVED'}
+            className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => {
               void validate()
             }}
@@ -188,7 +193,7 @@ export function OrganizerHeatsPage() {
                 }
               >
                 <button
-                  onClick={() => {
+                  className="fl-btn fl-btn-secondary" onClick={() => {
                     const id =
                       heats.find(
                         (h) =>
@@ -200,7 +205,10 @@ export function OrganizerHeatsPage() {
                       v.competitionUnitId
                     if (id) {
                       setHighlight(id)
-                      document.getElementById(`heat-${id}`)?.scrollIntoView({
+                      const target = document.getElementById(`heat-${id}`)
+                      let parent = target?.closest('details')
+                      while (parent) { parent.open = true; parent = parent.parentElement?.closest('details') ?? null }
+                      target?.scrollIntoView({
                         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
                         block: 'center',
                       })
@@ -215,16 +223,11 @@ export function OrganizerHeatsPage() {
           </div>
         )}
       </article>
-      {event.disciplines.map((d, index) => (
-        <div className={styles.stack} key={d.id}>
-          <div className={styles.toolbar}>
-            <h2>
-              Вид № {d.number ?? index + 1}. {d.name}
-            </h2>
-            <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>
-              Сформировать по виду
-            </button>
-          </div>
+      {[...sessions.map(session => ({ id: session.id, name: session.name, disciplines: event.disciplines.filter(d => d.sessionId === session.id) })), ...(event.disciplines.some(d => !d.sessionId || !sessions.some(s => s.id === d.sessionId)) ? [{ id: 'unassigned', name: 'Без сессии', disciplines: event.disciplines.filter(d => !d.sessionId || !sessions.some(s => s.id === d.sessionId)) }] : [])].map((group, groupIndex) => <details className="fl-group" key={group.id} open={groupIndex === 0}><summary>{group.name} · {heats.filter(h => group.disciplines.some(d => d.id === h.eventDisciplineId)).length} {plural(heats.filter(h => group.disciplines.some(d => d.id === h.eventDisciplineId)).length, ['заплыв', 'заплыва', 'заплывов'])}</summary><div>{group.disciplines.map((d, index) => (
+        <div className="fl-discipline-group" key={d.id}>
+        <button className="fl-btn fl-btn-secondary fl-group-action" aria-describedby={`discipline-summary-${d.id}`} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>Сформировать по виду</button>
+        <details className="fl-group" open={d.id === (group.disciplines.find(item => heats.some(h => h.eventDisciplineId === item.id && !isHeatPublished(h.status))) ?? group.disciplines[0])?.id}>
+          <summary id={`discipline-summary-${d.id}`}>Вид № {d.number ?? index + 1} · {d.name} · {heats.filter(h => h.eventDisciplineId === d.id).length} {plural(heats.filter(h => h.eventDisciplineId === d.id).length, ['заплыв', 'заплыва', 'заплывов'])} <StatusBadge kind="heat" code={heats.some(h => h.eventDisciplineId === d.id && !isHeatPublished(h.status)) ? 'DRAFT' : heats.some(h => h.eventDisciplineId === d.id) ? 'PUBLISHED' : 'DRAFT'} /></summary><div className={styles.stack}>
           {heats
             .filter((h) => h.eventDisciplineId === d.id)
             .map((h) => (
@@ -242,15 +245,15 @@ export function OrganizerHeatsPage() {
                   </h2>
                   <StatusBadge kind="heat" code={h.status} />
                 </div>
-                <div className={styles.table}>
-                  <table>
+                <div className={`${styles.table} fl-table-scroll`}>
+                  <table className="fl-table fl-table-compact">
                     <thead>
                       <tr>
                         <th>Дорожка</th>
                         <th>Фамилия Имя</th>
-                        <th>Год</th>
+                        <th data-numeric>Год</th>
                         <th>Клуб</th>
-                        <th>Заявочное время</th>
+                        <th data-numeric>Заявочное время</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -321,7 +324,7 @@ export function OrganizerHeatsPage() {
                                 ) ?? '—'}
                               </td>
                               <td>{r?.participantSnapshot.clubName ?? '—'}</td>
-                              <td>{formatSeed(r?.seedTimeMs)}</td>
+                              <td data-numeric>{formatSeed(r?.seedTimeMs)}</td>
                             </tr>
                           )
                         })}
@@ -331,11 +334,11 @@ export function OrganizerHeatsPage() {
               </article>
             ))}
           {!heats.some((h) => h.eventDisciplineId === d.id) && (
-            <p className={`${styles.muted} fl-empty`}>Заплывы ещё не сформированы.</p>
+            <EmptyState title="Заплывы ещё не сформированы" action={<button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>Сформировать заплывы</button>} />
           )}
-        </div>
-      ))}
-      {publishOpen && <ConfirmDialog title="Опубликовать стартовый протокол?" description={`${heats.length} заплывов станут видны на /e/${event.publicSlug}/start-list и в PDF. Повторный посев потребует подтверждения.`} confirmLabel="Опубликовать" busy={busy} error={error}
+        </div></details></div>
+      ))}</div></details>)}
+      {publishOpen && <ConfirmDialog title="Опубликовать стартовый протокол?" description={`Публичная страница /e/${event.publicSlug}/start-list и PDF покажут ${heats.length} ${plural(heats.length, ['заплыв', 'заплыва', 'заплывов'])}. Повторный посев потребует подтверждения.`} confirmLabel="Опубликовать" busy={busy} error={error}
         onClose={() => setPublishOpen(false)} onConfirm={() => { void run(() => publishStartList(event.id, accessToken)).then(ok => { if (ok) { setPublishOpen(false); toast({ text: 'Опубликовано', href: `/e/${event.publicSlug}/start-list` }) } }) }} />}
       {showShift && <OrganizerDialog title="Сдвинуть расписание" onClose={() => setShowShift(false)}>
         <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy}

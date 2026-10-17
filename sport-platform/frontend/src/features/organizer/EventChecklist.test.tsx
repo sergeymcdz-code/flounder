@@ -7,7 +7,7 @@ it('marks an empty competition at the program step', () => {
   const context = createFixtures(); context.event.disciplines = []; context.sessions = []; context.registrations = []; context.heats = []
   render(<MemoryRouter><EventChecklist context={context} onTransition={() => {}} /></MemoryRouter>)
   expect(screen.getAllByLabelText('текущий шаг')).toHaveLength(1)
-  expect(screen.getByRole('link', { name: 'Добавить сессии и виды' })).toHaveClass('fl-button-primary')
+  expect(screen.getByRole('link', { name: 'Добавить сессии и виды' })).toHaveClass('fl-btn fl-btn-primary')
   expect(screen.getByLabelText('текущий шаг').parentElement).toHaveTextContent('1. Программа')
 })
 it('points at reviewing new registrations after opening registration', () => {

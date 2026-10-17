@@ -58,14 +58,14 @@ export function DocumentsPanel({ profileId, accessToken, eventId, manager = fals
             <span>Выдан: {d.issuedAt ?? 'не указано'} · Действует до: {d.validUntil ?? 'не указано'}</span>
             {d.rejectReason && <span className={styles.error}>{d.rejectReason}</span>}
             <div className={styles.actions}>
-              {manager && eventId && d.status === 'PENDING' && <><button type="button" disabled={busy} onClick={() => setReview({ document: d, status: 'ACCEPTED' })}>Принять</button><button type="button" disabled={busy} onClick={() => setReview({ document: d, status: 'REJECTED' })}>Отклонить…</button></>}
-              <button disabled={busy} type="button" onClick={() => void action(async () => {
+              {manager && eventId && d.status === 'PENDING' && <><button className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={() => setReview({ document: d, status: 'ACCEPTED' })}>Принять</button><button className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={() => setReview({ document: d, status: 'REJECTED' })}>Отклонить…</button></>}
+              <button className="fl-btn fl-btn-secondary" disabled={busy} type="button" onClick={() => void action(async () => {
                 const blob = await downloadDocument(d.id, accessToken, eventId)
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a'); a.href = url; a.download = d.originalName; a.click()
                 setTimeout(() => URL.revokeObjectURL(url), 1000)
               })}>Скачать</button>
-              {!manager && d.status === 'PENDING' && <button disabled={busy} type="button" onClick={() => void action(async () => {
+              {!manager && d.status === 'PENDING' && <button className="fl-btn fl-btn-secondary" disabled={busy} type="button" onClick={() => void action(async () => {
                 await deleteDocument(profileId, d.id, accessToken)
                 setDocuments(await getDocuments(profileId, accessToken, eventId)); onChanged?.()
               })}>Удалить</button>}
@@ -79,13 +79,13 @@ export function DocumentsPanel({ profileId, accessToken, eventId, manager = fals
       setDocuments(await getDocuments(profileId, accessToken, eventId)); setReview(null); onChanged?.()
     })} />}
     <form onSubmit={(e) => void upload(e)} className={styles.form}>
-      <label>Тип документа<select name="type" value={type} onChange={(e) => setType(e.target.value as DocumentType)}>
+      <label className="fl-field">Тип документа<select name="type" value={type} onChange={(e) => setType(e.target.value as DocumentType)}>
         {Object.entries(documentTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
-      <label>Файл документа<input name="file" type="file" accept="image/*,application/pdf" required /></label>
-      <label>Дата выдачи<input name="issuedAt" type="date" /></label>
-      <label>Действует до<input name="validUntil" type="date" /></label>
-      <button disabled={busy || loading} type="submit">{busy ? 'Сохраняем…' : 'Загрузить документ'}</button>
+      <label className="fl-field">Файл документа<input name="file" type="file" accept="image/*,application/pdf" required /></label>
+      <label className="fl-field">Дата выдачи<input name="issuedAt" type="date" /></label>
+      <label className="fl-field">Действует до<input name="validUntil" type="date" /></label>
+      <button className="fl-btn fl-btn-secondary" disabled={busy || loading} type="submit">{busy ? 'Сохраняем…' : 'Загрузить документ'}</button>
     </form>
   </section>
 }

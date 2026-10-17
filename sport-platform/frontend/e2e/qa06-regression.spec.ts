@@ -51,7 +51,7 @@ test('QA06-04 table headings use the readable muted token', async ({ page }) => 
 test('QA06-06 dates use DD.MM.YYYY', async ({ page }) => {
   await openAuditPage(page, '/e/demo')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Осенний кубок')
-  await expect(page.locator('header')).toContainText('15.10.2026')
+  await expect(page.getByText('15.10.2026 · Самара', { exact: true })).toBeVisible()
 })
 
 for (const [name, path, button] of [
@@ -100,7 +100,7 @@ test('QA06-21 organizer exposes a single accessible main landmark', async ({ pag
 test('QA06-11 focus ring has 3:1 contrast on white', async ({ page }) => {
   await openAuditPage(page, '/login')
   await page.keyboard.press('Tab')
-  const outline = await page.evaluate(() => getComputedStyle(document.activeElement!).outlineColor)
+  const outline = await page.evaluate(() => { const style = getComputedStyle(document.activeElement!); if (style.boxShadow === 'none') throw new Error('Focus ring is missing'); const probe = document.createElement('span'); probe.style.color = 'var(--color-focus)'; document.body.append(probe); const color = getComputedStyle(probe).color; probe.remove(); return color })
   const channels = outline.match(/[\d.]+/g)!.map(Number)
   const alpha = channels[3] ?? 1
   const luminance = channels.slice(0, 3).map(v => (v * alpha + 255 * (1 - alpha)) / 255)
@@ -372,7 +372,7 @@ test('D01 owner: print is a ghost action and central lanes have no color fill', 
   await page.setViewportSize({ width: 375, height: 812 })
   await openAuditPage(page, '/e/demo/start-list')
   await expect(page.locator('.fl-lanes').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Печать', exact: true })).toHaveClass(/fl-button-ghost/)
+  await expect(page.getByRole('button', { name: 'Печать', exact: true })).toHaveClass(/fl-btn-ghost/)
   const lanes = await page.locator('.fl-lanes').first().locator('tbody th').evaluateAll(cells => cells.map(cell => {
     const css = getComputedStyle(cell)
     return { border: css.borderInlineStartColor, background: css.backgroundColor, weight: css.fontWeight }
