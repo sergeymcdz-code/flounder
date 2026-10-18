@@ -127,3 +127,14 @@ it('uses a valid query string for card printing without filters', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (A5)' }))
   await waitFor(() => expect(requested).toHaveBeenCalledWith('?format=A5'))
 })
+
+it('disables schedule shifting for archived events with a read-only explanation', () => {
+  vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' }, heats: [{
+    id: 'heat', eventDisciplineId: 'discipline', label: 'Заплыв 1', sequenceNumber: 1,
+    scheduledAt: '2026-10-19T06:00:00Z', status: 'PUBLISHED', entries: [],
+  }] })
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  const button = screen.getByRole('button', { name: 'Сдвинуть расписание…' })
+  expect(button).toBeDisabled()
+  expect(button).toHaveAttribute('title', 'Архивное событие доступно только для чтения')
+})
