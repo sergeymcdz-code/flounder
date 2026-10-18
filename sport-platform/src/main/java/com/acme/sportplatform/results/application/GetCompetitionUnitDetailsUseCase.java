@@ -82,6 +82,11 @@ public class GetCompetitionUnitDetailsUseCase {
                 .findById(entry.getRegistrationId())
                 .orElse(null);
 
+        return toEntryView(entry, result, registration);
+    }
+
+    CompetitionUnitDetailsResponse.EntryView toEntryView(
+            CompetitionUnitEntryEntity entry, ResultEntity result, RegistrationLookupResult registration) {
         return new CompetitionUnitDetailsResponse.EntryView(
                 entry.getId(),
                 registration == null

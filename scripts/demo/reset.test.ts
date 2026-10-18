@@ -2,8 +2,11 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyReset, resetPlan } from './reset.ts';
-import { demoEventTitle, ORGANIZATION_NAME, VENUE_NAME } from './bodies.ts';
+import { ORGANIZATION_NAME, VENUE_NAME } from './bodies.ts';
 import type { Api } from './api.ts';
+import { demoEvents } from './plan.ts';
+const title = demoEvents[1].title + ' · резерв';
+const targets = [{ id: '11111111-2222-3333-4444-555555555555', title, slug: 'demo-backup' }];
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn() }));
 beforeEach(() => vi.clearAllMocks());
@@ -12,7 +15,7 @@ const databaseUrl = 'postgresql://test:test-only-password@localhost/demo';
 const fakeApi: Api = {
   async request<T>(_method: string, path: string): Promise<T> {
     const data = path === '/auth/login' ? { accessToken: 'unit-test-token' }
-      : path === '/events' ? [{ id: eventId, title: demoEventTitle(' · резерв'), organizationId: 'org', venueId: 'venue' }]
+      : path === '/events' ? [{ id: eventId, title: title, publicSlug: 'demo-backup', organizationId: 'org', venueId: 'venue' }]
       : path.startsWith('/organizations/') ? { id: 'org', name: ORGANIZATION_NAME }
       : { id: 'venue', name: VENUE_NAME };
     return data as T;
@@ -33,7 +36,7 @@ describe('explicit SQL reset without a process or database', () => {
     await resetPlan(fakeApi, 'admin@example.invalid', 'unit-test-password', message => messages.push(message),
       { apply: true, databaseUrl, eventTitleSuffix: ' · резерв' });
     expect(execFile).toHaveBeenCalledWith('psql', [
-      '-v', 'ON_ERROR_STOP=1', '-v', `demo_event_id=${eventId}`, '-v', `demo_event_title=${demoEventTitle(' · резерв')}`,
+      '-v', 'ON_ERROR_STOP=1', '-v', `demo_targets=${JSON.stringify(targets)}`,
       '-f', fileURLToPath(new URL('./reset.sql', import.meta.url)),
     ], expect.objectContaining({ env: expect.objectContaining({ PGDATABASE: databaseUrl }) }), expect.any(Function));
     expect(messages.join()).toContain('COMMIT');
@@ -45,15 +48,34 @@ describe('explicit SQL reset without a process or database', () => {
     expect(execFile).not.toHaveBeenCalled();
     expect(messages.join()).toContain('данные ещё не удалены');
   });
+  it('selects the legacy demo event by slug without requiring a new S02 title', async () => {
+    const legacy = { ...targets[0], title: 'Открытый кубок Самары по плаванию (демо)', slug: 'otkrytyy-kubok-samary-po-plavaniyu-demo' };
+    const api: Api = { async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
+      if (path === '/events') return [{ id: legacy.id, title: legacy.title, publicSlug: legacy.slug, organizationId: 'org', venueId: 'venue' }] as T;
+      return fakeApi.request<T>(method, path, body, token);
+    } };
+    const messages: string[] = [];
+    await resetPlan(api, 'admin@example.invalid', 'unit-test-password', msg => messages.push(msg), { demoSlugs: legacy.slug });
+    expect(messages.join()).toContain(JSON.stringify([legacy]));
+    expect(execFile).not.toHaveBeenCalled();
+  });
+  it('rejects a selected slug from a foreign organization before applying SQL', async () => {
+    const api: Api = { async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
+      if (path.startsWith('/organizations/')) return { name: 'Чужая организация' } as T;
+      return fakeApi.request<T>(method, path, body, token);
+    } };
+    await expect(resetPlan(api, 'admin@example.invalid', 'unit-test-password', () => {}, { demoSlugs: 'demo-backup', apply: true, databaseUrl })).rejects.toThrow('не соответствует демо-организации');
+    expect(execFile).not.toHaveBeenCalled();
+  });
   it('redacts connection values from successful process output', async () => {
     processResult(null, databaseUrl, 'test-only-password');
-    const output = await applyReset(eventId, demoEventTitle(), databaseUrl);
+    const output = await applyReset(targets, databaseUrl);
     expect(output).not.toContain(databaseUrl);
     expect(output).not.toContain('test-only-password');
   });
   it('propagates a failed process without printing database credentials', async () => {
     processResult({ code: 'ENOENT', message: databaseUrl }, '', databaseUrl);
-    await expect(applyReset(eventId, demoEventTitle(), databaseUrl)).rejects.toThrow('ENOENT');
-    await expect(applyReset(eventId, demoEventTitle(), databaseUrl)).rejects.not.toThrow('test-only-password');
+    await expect(applyReset(targets, databaseUrl)).rejects.toThrow('ENOENT');
+    await expect(applyReset(targets, databaseUrl)).rejects.not.toThrow('test-only-password');
   });
 });

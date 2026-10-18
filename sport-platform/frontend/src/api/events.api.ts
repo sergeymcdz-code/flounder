@@ -1,3 +1,5 @@
+import { getVenues } from './venues.api'
+import { publicApi } from './public.api'
 import { apiFetch } from './http'
 
 export type EventStatus =
@@ -26,6 +28,7 @@ export type EventDiscipline = {
 
 export type Event = {
   payment?: import('./registration-payments.api').PaymentSettings
+  venue?: { timezone?: string; name?: string }
   id: string
   organizationId?: string | null
   venueId?: string | null
@@ -51,6 +54,7 @@ export type EventResponse = Event
 export type OrganizerEvent = Event
 
 export type PublicEvent = {
+  venue?: { timezone?: string; name?: string }
   id: string
   sportId: string
   maxParticipants?: number | null
@@ -86,7 +90,8 @@ export type CreateEventRequest = {
 }
 
 export async function getPublicEvents(): Promise<PublicEvent[]> {
-  return apiFetch<PublicEvent[]>('/api/v1/public/events')
+  const events = await apiFetch<PublicEvent[]>('/api/v1/public/events')
+  return Promise.all(events.map(async event => { if (event.venue?.timezone) return event; const details = await publicApi.event(event.publicSlug).catch(() => null); return details?.venue ? { ...event, venue: details.venue } : event }))
 }
 
 export async function getPublicEventDetails(
@@ -99,10 +104,16 @@ export async function getPublicEventDetails(
 
 export async function getMyEvents(
   accessToken: string,
+  includePrivateVenues = true,
 ): Promise<OrganizerEvent[]> {
-  return apiFetch<OrganizerEvent[]>('/api/v1/organizer/events', {
-    accessToken,
-  })
+  const [events, venues] = await Promise.all([apiFetch<OrganizerEvent[]>('/api/v1/organizer/events', { accessToken }), includePrivateVenues ? getVenues(accessToken).catch(() => []) : Promise.resolve([])])
+  return Promise.all(events.map(async event => {
+    if (event.venue?.timezone) return event
+    const venue = venues.find(venue => venue.id === event.venueId)
+    if (venue) return { ...event, venue }
+    const details = event.status !== 'DRAFT' && event.publicSlug ? await publicApi.event(event.publicSlug).catch(() => null) : null
+    return details?.venue ? { ...event, venue: details.venue } : event
+  }))
 }
 
 export async function getEvent(

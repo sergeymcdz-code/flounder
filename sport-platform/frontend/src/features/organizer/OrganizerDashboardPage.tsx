@@ -11,24 +11,8 @@ import {
 import styles from './OrganizerDashboardPage.module.css'
 
 function getStatusClassName(status: string): string {
-  switch (getEventStatusTone(status)) {
-    case 'draft':
-      return styles.statusDraft
-    case 'published':
-      return styles.statusPublished
-    case 'open':
-      return styles.statusOpen
-    case 'closed':
-      return styles.statusClosed
-    case 'live':
-      return styles.statusLive
-    case 'completed':
-      return styles.statusCompleted
-    case 'archived':
-      return styles.statusArchived
-    default:
-      return styles.statusDefault
-  }
+  const classes = { neutral: styles.statusDraft, info: styles.statusClosed, success: styles.statusPublished, warning: styles.statusDefault, danger: styles.statusLive }
+  return classes[getEventStatusTone(status)]
 }
 
 function formatDate(value: string): string {
@@ -139,12 +123,12 @@ export function OrganizerDashboardPage() {
           <h1 className={styles.title}>Панель организатора</h1>
           <p className={styles.description}>
             Управляйте своими соревнованиями, отслеживайте статусы и быстро переходите
-            к ключевым действиям по событиям.
+            к ключевым действиям по соревнованиям.
           </p>
         </div>
 
         <NavLink className={styles.primaryButton} to="/organizer/events/new">
-          Создать мероприятие
+          Создать соревнование
         </NavLink>
       </header>
 
@@ -160,7 +144,7 @@ export function OrganizerDashboardPage() {
         <>
           <div className={styles.statistics}>
             <article className={styles.statisticCard}>
-              <span className={styles.statisticLabel}>Всего мероприятий</span>
+              <span className={styles.statisticLabel}>Всего соревнований</span>
               <strong className={styles.statisticValue}>{statistics.total}</strong>
             </article>
 
@@ -185,26 +169,26 @@ export function OrganizerDashboardPage() {
           <article className={styles.eventsCard}>
             <div className={styles.sectionHeader}>
               <div>
-                <h2 className={styles.sectionTitle}>Ближайшие мероприятия</h2>
+                <h2 className={styles.sectionTitle}>Ближайшие соревнования</h2>
                 <p className={styles.sectionDescription}>
-                  Последние события, с которыми вы работаете в кабинете.
+                  Последние соревнования, с которыми вы работаете в кабинете.
                 </p>
               </div>
 
-              <NavLink className={styles.secondaryButton} to="/organizer/events">
-                Все мероприятия
+              <NavLink className="fl-btn fl-btn-secondary" to="/organizer/events">
+                Все соревнования
               </NavLink>
             </div>
 
             {recentEvents.length === 0 ? (
               <div className={styles.emptyState}>
-                <h3 className={styles.emptyTitle}>Пока нет мероприятий</h3>
+                <h3 className={styles.emptyTitle}>Пока нет соревнований</h3>
                 <p className={styles.emptyDescription}>
-                  Создайте первое событие, чтобы открыть регистрацию участников и начать
+                  Создайте первое соревнование, чтобы открыть регистрацию участников и начать
                   подготовку соревнования.
                 </p>
                 <NavLink className={styles.primaryButton} to="/organizer/events/new">
-                  Создать мероприятие
+                  Создать соревнование
                 </NavLink>
               </div>
             ) : (
@@ -233,16 +217,16 @@ export function OrganizerDashboardPage() {
 
                     <div className={styles.eventActions}>
                       <NavLink
-                        className={styles.secondaryButton}
+                        className="fl-btn fl-btn-secondary"
                         to={`/organizer/events/${encodeURIComponent(event.id)}`}
                       >
-                        Управлять событием
+                        Управлять соревнованием
                       </NavLink>
 
                       {event.publicSlug ? (
                         <NavLink
                           className={styles.textLink}
-                          to={`/events/${encodeURIComponent(event.publicSlug)}`}
+                          to={`/e/${encodeURIComponent(event.publicSlug)}`}
                         >
                           Открыть публичную страницу
                         </NavLink>

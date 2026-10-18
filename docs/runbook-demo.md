@@ -217,9 +217,9 @@ $ curl -s https://DOMAIN/api/v1/public/events  # зачем: публичный 
 
 ---
 
-## 7. Сид демо-данных (T10)
+## 7. Сид демо-данных (S02)
 
-**Зачем:** наполнить пустую базу организацией, событием и заявками для демонстрации. Скрипт появится в задаче T10 (`scripts/demo/seed.ts`), работает через HTTP API стенда и идемпотентен (повторный запуск дублей не создаёт).
+**Зачем:** наполнить демо-базу организацией и тремя соревнованиями A/B/C с датами относительно дня показа. Скрипт S02 (`scripts/demo/seed.ts`), работает через HTTP API стенда и идемпотентен (повторный запуск дублей не создаёт).
 
 На ноутбуке нужен Node.js 22; на сервере Node устанавливать не требуется — запускать
 под deploy в Docker, после настройки `scripts/demo/.env` по README:
@@ -227,10 +227,11 @@ $ curl -s https://DOMAIN/api/v1/public/events  # зачем: публичный 
 ```bash
 cd ~/flounder
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
-  -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine sh -c 'npm ci && npx tsx seed.ts'
+  -e DEMO_DATE=2026-10-19 -e DEMO_EVENTS=A,B,C \
+  -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine sh -eu -c 'npm ci && npx tsx seed.ts'
 ```
 
-Точные параметры — в `tasks/T10_Демо-данные_и_сценарий.md` и в README скрипта. После сида сделайте бэкап (п. 9) — это «чистая» точка, к которой можно откатиться после репетиции.
+Владелец задаёт DEMO_OWNER_EMAIL отдельного участника в scripts/demo/.env (default sergeymcdzkz@gmail.com); служебный аккаунт использовать нельзя. До сида удалить прежнее одиночное «Открытый кубок Самары по плаванию (демо)» по инструкции с demo_targets JSON и остановкой API в [README скрипта](../scripts/demo/README.md). Там же — параметры DEMO_DATE/DEMO_EVENTS и сброс выбранных slug. После сида сделайте бэкап (п. 9) — это «чистая» точка, к которой можно откатиться после репетиции.
 
 ---
 
@@ -409,6 +410,18 @@ $ df -h /                  # свободно ли место на диске (�
 $ free -m                  # память; если available < 200 МБ — API мог быть убит по OOM
 ```
 
+Диагностика CPU и памяти: [аудит S03, §2](perf/2026-10-15_perf_audit.md#2-команды-для-владельца-копировать-по-строке).
+После V038 и перезапуска Postgres с `shared_preload_libraries=pg_stat_statements`
+медленные запросы видны так:
+
+```bash
+$ fl exec postgres psql -U sport_user -d sport_platform -c "select calls, round(total_exec_time::numeric,1) as total_ms, round(mean_exec_time::numeric,2) as mean_ms, left(query,160) as query from pg_stat_statements order by total_exec_time desc limit 10"
+```
+
+Продовые лимиты S03: API 1664 МБ (heap 60 %), Postgres 640 МБ, web/Caddy по
+128 МБ. Сравнивайте `docker stats` в простое и под нагрузкой с
+[локальным отчётом k6](perf/2026-10-16_k6_report.md).
+
 ### Контейнер `Restarting` или `Exited`
 
 ```bash
@@ -423,7 +436,7 @@ $ fl up -d                 # зачем: пересоздать упавшие �
 | `FATAL: password authentication failed` | в `.env.prod` сменили `POSTGRES_PASSWORD` после создания базы | вернуть старый пароль или сменить его в БД (п. 10) |
 | `Schema-validation: missing table/column` | код ждёт миграцию, которой нет в базе; или база старее кода | `fl logs postgres`; обычно помогает `./infra/deploy.sh` (Flyway применит миграции). Если миграция упала — восстановить бэкап (п. 9) и сообщить разработчикам |
 | `Migration checksum mismatch` / `FlywayValidateException` | в репозитории изменили уже применённую миграцию | не чинить руками — сообщить разработчикам, приложить лог |
-| `OutOfMemoryError` или контейнер просто исчез, в `dmesg` есть `Killed process` | мало памяти | `fl restart api`; если повторяется — уменьшить `-Xmx1024m` до `-Xmx768m` в `compose.prod.yaml` или увеличить сервер |
+| `OutOfMemoryError` или контейнер просто исчез, в `dmesg` есть `Killed process` | мало памяти | `fl restart api`; если повторяется — уменьшить `-XX:MaxRAMPercentage=60` (например, до `45`) в `compose.prod.yaml` или увеличить сервер |
 | `JWT_SECRET` / `Could not resolve placeholder` | пустая переменная в `.env.prod` | заполнить и `fl up -d` |
 | `port is already allocated` (caddy) | порт 80/443 занят другим сервисом (nginx/apache) | `sudo ss -ltnp | grep ':80\|:443'`, остановить лишнее: `sudo systemctl disable --now nginx` |
 

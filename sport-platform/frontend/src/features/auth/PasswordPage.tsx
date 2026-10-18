@@ -57,23 +57,23 @@ export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) 
         : mode === 'change' ? 'Пароль изменён. Войдите заново с новым паролем'
         : 'Пароль изменён. При следующем входе используйте новый пароль.'}</p>
         : mode === 'reset' && !token ? <p role="alert">В ссылке отсутствует токен. <Link to="/forgot-password">Запросить новую ссылку</Link></p>
-        : <form className={styles.form} onSubmit={submit}>
-          {mode === 'forgot' ? <label className={styles.field}>Email
+        : <form className={`${styles.form} fl-form`} onSubmit={submit}>
+          {mode === 'forgot' ? <label className="fl-field">Email
             <input type="email" autoComplete="email" required disabled={busy} value={email} onChange={event => setEmail(event.target.value)} />
           </label> : <>
-            {mode === 'change' ? <label className={styles.field}>Текущий пароль
+            {mode === 'change' ? <label className="fl-field">Текущий пароль
               <input type="password" autoComplete="current-password" required disabled={busy} value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} />
             </label> : null}
             <p>Не менее 8 символов, буквы и цифры.</p>
-            <label className={styles.field}>Новый пароль
+            <label className="fl-field">Новый пароль
               <input type="password" autoComplete="new-password" required disabled={busy} value={password} onChange={event => setPassword(event.target.value)} />
             </label>
-            <label className={styles.field}>Повторите пароль
+            <label className="fl-field">Повторите пароль
               <input type="password" autoComplete="new-password" required disabled={busy} value={confirmation} onChange={event => setConfirmation(event.target.value)} />
             </label>
           </>}
           {error ? <p role="alert" className={styles.errorMessage}>{error}</p> : null}
-          <button className={styles.submitButton} disabled={busy} type="submit">{busy ? 'Отправляем…' : mode === 'forgot' ? 'Отправить ссылку' : 'Сохранить пароль'}</button>
+          <button className="fl-btn fl-btn-primary" disabled={busy} type="submit">{busy ? 'Отправляем…' : mode === 'forgot' ? 'Отправить ссылку' : 'Сохранить пароль'}</button>
         </form>}
     </div>
   </section>

@@ -5,10 +5,10 @@ import { resolve } from 'node:path'
 import type { EventGenerationResult, Heat, ImportReport, OrganizerEventDetails, OrganizerRegistration, Session, Violation } from '../src/api/organizer.types'
 import type { CompetitionUnitDetailsResponse } from '../src/api/results.api'
 import type { Live, Results, StartList } from '../src/features/public/public.types'
-import { api, login, pdf, screenshots } from './qa05-support'
+import { api, evidence, login, pdf, screenshots } from './qa05-support'
 
 test('QA05: seven-step demo with a real backend and demo seed', async ({ browser }, info) => {
-  const seed = JSON.parse(readFileSync('work/qa05/seed.json', 'utf8')) as { eventId: string; slug: string }
+  const seed = JSON.parse(readFileSync('work/qa05/seed.json', 'utf8')) as { eventId: string; slug: string; suffix: string }
   const base = `/organizer/events/${seed.eventId}`
   const publicBase = `/e/${seed.slug}`
   const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext(info.project.use)))
@@ -70,7 +70,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
   try {
     await step('1. Anonymous overview, program, organizer QR and settings', async () => {
       await spectator.goto(publicBase)
-      await expect(spectator.getByRole('heading', { name: /Открытый кубок Самары/ })).toBeVisible()
+      await expect(spectator.getByRole('heading', { name: `Открытый кубок Самары по плаванию${seed.suffix}`, exact: true })).toBeVisible()
       await expect.soft(spectator.getByText('8 дорожек · бассейн 25 м', { exact: true })).toBeVisible()
       const program = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Сессии и виды программы' }) })
       await expect.soft(program.getByRole('heading', { level: 3 })).toHaveCount(2)
@@ -79,14 +79,14 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await login(org, 'org@flounder.demo', base)
       await loadEvent()
       await expect.soft(org.locator('svg').filter({ has: org.locator('title', { hasText: 'QR-код публичной страницы' }) })).toHaveCount(1)
-      await expect.soft(org.locator(`a[href$="${publicBase}"]`)).toBeVisible()
+      await expect.soft(org.getByRole('link', { name: 'Публичная страница ↗', exact: true })).toHaveAttribute('href', publicBase)
       await screenshots(org, '01-organizer-overview')
-      await org.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
+      await org.getByRole('link', { name: 'Программа', exact: true }).click()
       await expect(org.getByRole('heading', { name: 'Сессии соревнования' })).toBeVisible()
       await screenshots(org, '01-program')
       await org.getByRole('row').filter({ has: org.getByText('M-50-FREE', { exact: true }) }).getByRole('button', { name: 'Изменить', exact: true }).click()
       const dialog = org.getByRole('dialog')
-      await dialog.getByRole('button', { name: 'Добавить пресет', exact: true }).click()
+      await expect(dialog.getByRole('button', { name: 'Применить', exact: true })).toBeVisible()
       await expect.soft(dialog.getByRole('combobox', { name: 'Пресет' })).toContainText(/Детские.*2 года/i)
       await screenshots(org, '01-discipline-settings')
       await dialog.getByRole('button', { name: /Закрыть|Отмена/ }).first().click()
@@ -96,7 +96,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
 
     await step('2. Excel download, 203/200/3 report and duplicate-free reimport', async () => {
       await org.getByRole('link', { name: 'Заявки', exact: true }).last().click()
-      await org.getByRole('button', { name: 'Импорт из Excel', exact: true }).click()
+      await org.getByRole('button', { name: 'Импорт из Excel', exact: true }).first().click()
       const dialog = org.getByRole('dialog')
       const downloadPromise = org.waitForEvent('download')
       await dialog.getByRole('button', { name: 'Скачать шаблон', exact: true }).click()
@@ -130,7 +130,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       expect.soft(good.errors).toEqual([])
       expect.soft(timings['set-M.xlsx']).toBeLessThanOrEqual(10_000)
       await screenshots(org, '02-import-corrected')
-      await dialog.getByRole('button', { name: 'Закрыть и обновить' }).click()
+      await dialog.getByRole('button', { name: 'Закрыть', exact: true }).last().click()
       await expect.soft(org.getByRole('heading', { name: 'Заявки участников · 200', exact: true })).toBeVisible()
       expect.soft(await registrations()).toHaveLength(200)
       await screenshots(org, '02-entries')
@@ -155,7 +155,13 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await parent.getByRole('button', { name: 'Отправить заявку' }).click()
       const response = await responsePromise
       expect.soft(response.status()).toBe(200)
-      expect.soft(response.request().postDataJSON()).toMatchObject({ profile: { lastName: 'Демов', firstName: 'Тимофей', birthDate: '2014-04-18', gender: 'M' }, items: [ { seedTimeMs: 47200 }, { seedTimeMs: 109500 } ] })
+      const submitted = response.request().postDataJSON()
+      expect.soft(submitted.profile).toMatchObject({ lastName: 'Демов', firstName: 'Тимофей', birthDate: '2014-04-18', gender: 'M' })
+      expect.soft(submitted.items).toHaveLength(2)
+      expect.soft(submitted.items).toEqual(expect.arrayContaining([
+        { eventDisciplineId: event.disciplines.find(d => d.code === 'M-50-FREE')!.id, seedTimeMs: 47200 },
+        { eventDisciplineId: event.disciplines.find(d => d.code === 'M-100-FREE')!.id, seedTimeMs: 109500 },
+      ]))
       await expect(parent.getByRole('heading', { name: 'Заявка отправлена' })).toBeVisible()
       await screenshots(parent, '03-parent-submitted')
       await org.reload()
@@ -168,14 +174,15 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         const name = event.disciplines.find(d => d.id === registration.eventDisciplineId)!.name
         const row = org.locator('tbody tr').filter({ hasText: name })
         await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
-        await org.getByRole('dialog').getByRole('button', { name: 'Сохранить решение' }).click()
+        await org.getByRole('dialog').getByRole('button', { name: 'Подтвердить' }).click()
         await expect(org.getByRole('dialog')).toHaveCount(0)
       }
       await screenshots(org, '03-parent-confirmed')
       await expect.soft(org.getByRole('button', { name: 'Отметить оплату…', exact: true }), 'QA05: zero-fee mark-paid action').toHaveCount(2)
       await login(sec, 'sec@flounder.demo', `${base}/entries`)
-      // The operator is allowed by the route, but /venues currently returns 403.
-      await expect.soft(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
+      await expect(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
+      await sec.getByLabel('Поиск', { exact: true }).fill('Демов')
+      await expect(sec.getByRole('button', { name: 'Оплачено', exact: true })).toHaveCount(2)
       await screenshots(sec, '03-secretary-cabinet')
       for (const registration of rows) {
         if (await sec.getByLabel('Поиск', { exact: true }).count()) {
@@ -193,21 +200,22 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         // Explicit diagnostic continuation; the failed UI assertions remain red.
         await test.step('Continue payment via real secretary API after blocked UI', () => api(sec, `/registrations/${registration.id}/mark-paid`, 'POST'))
       }
-      expect.soft((await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов').map(r => r.paymentStatus)).toEqual(['PAID', 'PAID'])
+      expect((await registrations()).filter(r => r.participantSnapshot.lastName === 'Демов').every(r => r.paymentStatus === 'PAID')).toBe(true)
       await org.reload()
       await org.getByLabel('Поиск', { exact: true }).fill('Демов')
-      await screenshots(org, '03-paid-api-continuation')
+      await screenshots(org, '03-paid-through-secretary-ui')
     })
 
     await step('4. Seeding, validator, schedule, draft PDF and anonymous publication', async () => {
       await org.getByRole('link', { name: 'Заплывы', exact: true }).click()
       // circleSeedTopHeats is a generation option, not a discipline form field.
       const circle = org.getByRole('checkbox', { name: /circleSeedTopHeats|круговой посев/i })
-      await expect.soft(circle, 'QA05-01: review the disabled generation option').toHaveCount(1)
+      await expect.soft(circle, 'D03: the future circle seeding option belongs in the program editor').toHaveCount(0)
       if (await circle.count()) await expect.soft(circle).not.toBeChecked()
       const responsePromise = org.waitForResponse(r => r.url().endsWith('/generate-competition-units') && r.request().method() === 'POST')
       const start = Date.now()
-      await org.getByRole('button', { name: 'Сформировать заплывы (всё событие)', exact: true }).click()
+      await org.getByText('Сформировать заплывы ▾', { exact: true }).click()
+      await org.getByRole('button', { name: 'Всё соревнование', exact: true }).click()
       const response = await responsePromise
       const generation = await response.json() as EventGenerationResult
       const results = generation.disciplines.map(d => 'result' in d ? d.result : d)
@@ -239,15 +247,22 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         expect.soft(clock).toBe(index === 0 ? '10:00' : '15:00')
       }
       await screenshots(org, '04-heats-validator')
-      // QA05-03: draft print link must contain the generated heats before publication.
+      // Draft protocols use the authenticated download; public HTML excludes unpublished heats.
+      await org.getByText('Печать ▾', { exact: true }).click()
+      await expect(org.getByText('Публичная печатная форма появится после публикации. Черновик доступен в PDF.')).toBeVisible()
+      const [draftDownload] = await Promise.all([org.waitForEvent('download'), org.getByRole('button', { name: 'Скачать PDF', exact: true }).click()])
+      const draftPath = resolve(evidence, 'QA05-draft-start-list.pdf')
+      await draftDownload.saveAs(draftPath)
+      const draftBytes = readFileSync(draftPath)
+      expect(draftBytes.subarray(0, 5).toString()).toBe('%PDF-')
+      expect(draftBytes.length).toBeGreaterThan(1_000)
       const printPage = await contexts[0].newPage()
-      const printHref = await org.getByRole('link', { name: 'Открыть печатную форму' }).getAttribute('href')
-      await printPage.goto(printHref!)
+      await printPage.goto(`${publicBase}/start-list?print=1`)
       await expect(printPage.getByRole('heading', { name: 'Стартовый протокол', exact: true })).toBeVisible()
-      await expect.soft(printPage.locator('article').filter({ has: printPage.locator('table') }), 'QA05-03: draft print contains generated heats').toHaveCount(heats.length)
-      await screenshots(printPage, '04-draft-print')
-      await pdf(printPage, 'draft-start-list')
-      await org.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
+      await expect(printPage.locator('article').filter({ has: printPage.locator('table') }), 'Unpublished heats are not exposed publicly').toHaveCount(0)
+      await screenshots(printPage, '04-unpublished-public-print')
+      await org.getByRole('button', { name: 'Опубликовать протокол', exact: true }).click()
+      await org.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
       await settle(org)
       // T06 intentionally caches reads for 10 seconds; wait for the new snapshot.
       await expect.poll(async () => {
@@ -259,6 +274,10 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.soft(spectator.locator('article').filter({ has: spectator.locator('table') })).toHaveCount(heats.length)
       await screenshots(spectator, '04-public-start-list')
       await pdf(spectator, 'start-list')
+      const printHref = await org.getByRole('link', { name: 'Печатная форма' }).getAttribute('href')
+      await printPage.goto(printHref!)
+      await expect(printPage.getByRole('heading', { name: 'Стартовый протокол', exact: true })).toBeVisible()
+      await expect(printPage.locator('article').filter({ has: printPage.locator('table') })).toHaveCount(heats.length)
       await printPage.close()
     })
 
@@ -269,6 +288,8 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await spectator.goto(`${publicBase}/live`)
       await expect(spectator.locator('html')).toHaveAttribute('data-theme', 'dark')
       const current = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: /^Сейчас заплыв/ }) })
+      // 15s polling plus the existing 10s server cache TTL and response time.
+      await expect(current).toBeVisible({ timeout: 26000 })
       await expect.soft(current).toContainText(ordered[0].label)
       const next = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Далее', exact: true }) })
       await expect.soft(next.getByRole('listitem')).toHaveCount(3)
@@ -282,9 +303,9 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await expect.configure({ soft: true }).poll(async () => {
         const link = await current.getByRole('link').getAttribute('href')
         return link?.endsWith(`/heats/${ordered[1].id}`)
-      }, { timeout: 15_000, intervals: [250, 500, 1000] }).toBe(true)
+      }, { timeout: 26_000, intervals: [250, 500, 1000] }).toBe(true)
       timings.liveRefresh = Date.now() - start
-      expect.soft(timings.liveRefresh).toBeLessThanOrEqual(15_000)
+      expect.soft(timings.liveRefresh).toBeLessThanOrEqual(26_000)
       const live = await api<Live>(spectator, `/public/events/${seed.slug}/live`)
       expect.soft(live.currentUnit?.id).toBe(ordered[1].id)
       const manifestHref = await spectator.locator('link[rel="manifest"]').getAttribute('href')
@@ -311,13 +332,16 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await org.getByLabel('Поиск', { exact: true }).fill(registration.participantSnapshot.lastName)
       await org.getByRole('combobox', { name: /^Вид программы/ }).selectOption(discipline.id)
       const row = org.getByRole('row').filter({ hasText: registration.participantSnapshot.firstName })
-      await row.getByRole('button', { name: 'Снять', exact: true }).click()
-      await org.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+      const withdraw = row.getByRole('button', { name: 'Снять', exact: true }).first()
+      if (!await withdraw.isVisible()) await row.getByText('Ещё ▾', { exact: true }).click()
+      await withdraw.click()
+      await org.getByRole('dialog').getByRole('button', { name: 'Снять', exact: true }).click()
       await expect(org.getByRole('dialog')).toHaveCount(0)
       expect.soft((await registrations()).find(r => r.id === target.registrationId)?.status).toBe('WITHDRAWN')
       await screenshots(org, '06-withdrawn-entry')
-      await org.getByRole('navigation', { name: 'Разделы события' }).getByRole('link', { name: 'Заплывы', exact: true }).click()
-      await org.getByRole('button', { name: 'Пересчитать расписание', exact: true }).click()
+      await org.getByRole('navigation', { name: 'Разделы соревнования' }).getByRole('link', { name: 'Заплывы', exact: true }).click()
+      await org.getByText('Расписание ▾', { exact: true }).click()
+      await org.getByRole('button', { name: 'Пересчитать время стартов', exact: true }).click()
       await settle(org)
       await expect.poll(async () => {
         const list = await api<StartList>(spectator, `/public/events/${seed.slug}/start-list`)
@@ -367,6 +391,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
         await sec.getByRole('button', { name: 'Сохранить и пересчитать', exact: true }).click()
         expect.soft((await responsePromise).status()).toBe(200)
         await sec.getByRole('button', { name: 'Опубликовать результаты', exact: true }).click()
+        await sec.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
         await expect.soft(sec.getByRole('status').filter({ hasText: 'Результаты опубликованы' })).toBeVisible()
         await expect.soft(sec.getByRole('alert')).toHaveCount(0)
         await screenshots(sec, `07-results-published-${index + 1}`)

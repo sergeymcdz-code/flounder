@@ -23,6 +23,9 @@ export type CreateRegistrationRequest = {
 }
 
 export type RegistrationStatus =
+  | 'UNDER_REVIEW'
+  | 'ADMITTED'
+  | 'WITHDRAWN'
   | 'WAITLISTED'
   | 'SUBMITTED'
   | 'CONFIRMED'
@@ -33,6 +36,12 @@ export type RegistrationStatus =
   | 'CANCELLED'
 
 export type Registration = import('../../api/registration-payments.api').PaymentDetails & {
+  eventTitle?: string
+  disciplineName?: string
+  eventStartAt?: string | null
+  venueTimezone?: string
+  publicSlug?: string
+
   waitlistPosition?: number | null
   id: string
   eventId: string
@@ -51,3 +60,4 @@ export type Registration = import('../../api/registration-payments.api').Payment
   documents?: Partial<Record<import('../../api/documents.api').DocumentType, import('../../api/documents.api').DocumentStatus>>
   admissionWarnings?: string[]
 }
+export { statusLabel, statusTone } from '../../components/ui/status-dictionary'

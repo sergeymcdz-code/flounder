@@ -17,6 +17,12 @@ spring:
     compose:
       enabled: false
 
+  task:
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: app-scheduler-
+
   threads:
     virtual:
       enabled: false
@@ -79,7 +85,7 @@ management:
       enabled: true
 
   tracing:
-    enabled: true
+    enabled: false
     sampling:
       probability: 1.0
 

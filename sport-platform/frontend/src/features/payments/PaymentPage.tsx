@@ -1,5 +1,6 @@
 import { RegistrationPaymentBlock } from './RegistrationPaymentBlock'
 import { paymentInstructions, type PaymentSettings } from '../../api/registration-payments.api'
+import { statusLabel } from '../../components/ui/status-dictionary'
 import { useEffect, useState } from 'react'
 import {
   Link,
@@ -55,20 +56,7 @@ function paymentStatusLabel(status: string) {
   return labels[status] ?? status
 }
 
-function registrationStatusLabel(status: RegistrationStatus) {
-  const labels: Record<RegistrationStatus, string> = {
-    WAITLISTED: 'Лист ожидания',
-    SUBMITTED: 'На рассмотрении',
-    CONFIRMED: 'Подтверждена',
-    PAID: 'Оплачена',
-    ADMITTED: 'Допущена',
-    REJECTED: 'Отклонена',
-    NEEDS_CORRECTION: 'Требует уточнения',
-    CANCELLED: 'Отменена',
-  }
-
-  return labels[status]
-}
+const registrationStatusLabel = (status: RegistrationStatus) => statusLabel('registration', status)
 
 function paymentStatusClassName(status: string) {
   const statusClasses: Record<string, string> = {
@@ -297,7 +285,7 @@ export function PaymentPage() {
   if (isLoading) {
     return (
       <section className={styles.page}>
-        <div className={styles.stateCard}>
+        <div className={styles.stateCard} role="status" aria-live="polite">
           <h2>Загружаем оплату</h2>
           <p>Проверяем статус заявки и данные платежа.</p>
         </div>
@@ -372,16 +360,16 @@ export function PaymentPage() {
             </div>
 
             <div>
-              <dt>ID события</dt>
+              <dt>Соревнование</dt>
               <dd className={styles.technicalValue}>
-                {registration.eventId}
+                {registration.eventTitle || 'Соревнование'}
               </dd>
             </div>
 
             <div>
-              <dt>ID дисциплины</dt>
+              <dt>Вид программы</dt>
               <dd className={styles.technicalValue}>
-                {registration.eventDisciplineId}
+                {registration.disciplineName || 'Вид программы'}
               </dd>
             </div>
           </dl>

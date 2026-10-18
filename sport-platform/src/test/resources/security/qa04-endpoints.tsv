@@ -139,3 +139,4 @@ GET	/api/v1/events/{eventId}/payments/summary	manage-finance	true	200
 POST	/api/v1/events/{eventId}/payments/recalculate-fees	manage	true	200		
 GET	/api/v1/events/{eventId}/payment-instructions	authenticated	false	200		
 GET	/api/v1/events/{eventId}/payments/summary.xlsx	manage-finance	true	200
+POST	/api/v1/profiles/{profileId}/documents/{id}/review	documents	true	200	document	{"status":"ACCEPTED"}

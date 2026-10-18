@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
@@ -24,6 +24,18 @@ async function submitMockRegistration(page: Page, index: number) {
     })
     if (!response.ok) throw new Error('Could not prepare submitted registration fixture')
   }, index)
+}
+
+async function rowAction(row: Locator, label: string) {
+  const button = row.getByRole('button', { name: label, exact: true }).first()
+  if (!await button.isVisible()) await row.getByText('Ещё ▾', { exact: true }).click()
+  await button.click()
+}
+
+async function generateAll(page: Page) {
+  const button = page.getByRole('button', { name: 'Всё соревнование', exact: true })
+  if (!await button.isVisible()) await page.getByText('Сформировать заплывы ▾', { exact: true }).click()
+  await button.click()
 }
 
 async function mockTemplates(
@@ -85,7 +97,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await login(page)
-  await page.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
+  await page.getByRole('link', { name: 'Программа', exact: true }).click()
   await page
     .getByRole('button', { name: 'Добавить сессию', exact: true })
     .click()
@@ -102,25 +114,26 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   dialog = page.getByRole('dialog')
   await dialog.getByRole('textbox', { name: /^Код вида/ }).fill('F-200-FREE')
-  await dialog.getByRole('combobox', { name: /^Дистанция/ }).selectOption('200')
+  await dialog.getByRole('combobox', { name: /^Дистанция(?! и стиль)/ }).selectOption('200')
   await dialog
     .getByRole('combobox', { name: /^Сессия/ })
     .selectOption({ label: 'Тестовая сессия' })
   await dialog
-    .getByRole('button', { name: 'Добавить пресет', exact: true })
-    .click()
-  await dialog
-    .getByRole('button', { name: 'Применить пресет', exact: true })
+    .getByRole('button', { name: 'Применить', exact: true })
     .click()
   expect(await dialog.getByLabel('От года', { exact: true }).count()).toBe(2)
   await dialog
     .getByRole('button', { name: 'Сохранить вид', exact: true })
     .click()
   await dialog.waitFor({ state: 'hidden' })
+  const newDiscipline = page.getByRole('row').filter({ hasText: 'F-200-FREE' })
+  await newDiscipline.getByRole('button', { name: 'Показать на публичной странице' }).click()
+  await expect(newDiscipline).toContainText('Опубликовано')
+  await expect(newDiscipline.getByRole('button', { name: 'Показать на публичной странице' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Заявки', exact: true }).last().click()
   await page
     .getByRole('button', { name: 'Импорт из Excel', exact: true })
-    .click()
+    .first().click()
   dialog = page.getByRole('dialog')
   const downloadPromise = page.waitForEvent('download')
   await dialog
@@ -136,18 +149,14 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .click()
   await dialog.getByRole('heading', { name: 'Отчёт импорта' }).waitFor()
   expect(await dialog.innerText()).toMatch(/Создано: 3/)
-  await dialog.getByRole('button', { name: 'Закрыть и обновить' }).click()
+  await dialog.getByRole('button', { name: 'Закрыть' }).last().click()
   await dialog.waitFor({ state: 'hidden' })
   await page.getByRole('link', { name: 'Заплывы', exact: true }).click()
-  await page
-    .getByRole('button', {
-      name: 'Сформировать заплывы (всё событие)',
-      exact: true,
-    })
-    .click()
+  await generateAll(page)
   await page.getByRole('heading', { name: 'Последнее формирование' }).waitFor()
+  await page.getByText('Расписание ▾', { exact: true }).click()
   await page
-    .getByRole('button', { name: 'Пересчитать расписание', exact: true })
+    .getByRole('button', { name: 'Пересчитать время стартов', exact: true })
     .click()
   await page
     .getByRole('status')
@@ -187,20 +196,17 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor({ state: 'hidden' })
   await page
     .getByRole('button', {
-      name: 'Опубликовать стартовый протокол',
+      name: 'Опубликовать протокол',
       exact: true,
     })
     .click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await page
     .getByRole('status')
     .filter({ hasText: 'Выполняем действие' })
     .waitFor({ state: 'hidden' })
-  await page
-    .getByRole('button', {
-      name: 'Сформировать заплывы (всё событие)',
-      exact: true,
-    })
-    .click()
+  await generateAll(page)
   dialog = page.getByRole('dialog')
   await dialog
     .getByRole('heading', { name: 'Переформировать опубликованные заплывы?' })
@@ -220,7 +226,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .click()
   expect(
     await page
-      .getByRole('link', { name: 'Ввести', exact: true })
+      .getByRole('link', { name: 'Открыть →', exact: true })
       .first()
       .getAttribute('href'),
   ).toMatch(/^\/operator\/competition-units\//)
@@ -243,16 +249,16 @@ test('backend field errors stay beside inputs; event and result publication refr
     'Закрыть регистрацию',
     'Завершить соревнование',
   ]) {
-    await page.getByRole('button', { name: action, exact: true }).click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+    await page.getByRole('button', { name: action, exact: true }).last().click()
+    await page.getByRole('dialog').getByRole('button', { name: action, exact: true }).click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await page
       .getByRole('status')
       .filter({ hasText: 'Выполняем действие' })
       .waitFor({ state: 'hidden' })
   }
-  await expect(page.getByText('Завершено', { exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'Сессии и виды', exact: true }).click()
+  await expect(page.locator('.fl-page-title').getByText('Завершено', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Программа', exact: true }).click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('textbox', { name: /^Код вида/ }).fill('F-50-FREE')
@@ -274,7 +280,9 @@ test('backend field errors stay beside inputs; event and result publication refr
   await expect(dialog).not.toBeVisible()
   // Results publication requires an already published start list.
   await page.getByRole('link', { name: 'Заплывы', exact: true }).last().click()
-  await page.getByRole('button', { name: 'Опубликовать стартовый протокол', exact: true }).click()
+  await page.getByRole('button', { name: 'Опубликовать протокол', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.getByRole('status').filter({ hasText: 'Выполняем действие' }).waitFor({ state: 'hidden' })
   await page
     .getByRole('link', { name: 'Результаты', exact: true })
@@ -285,9 +293,11 @@ test('backend field errors stay beside inputs; event and result publication refr
     .nth(2)
   await expect(publish).toBeEnabled()
   await publish.click()
-  await expect(
-    page.getByRole('cell', { name: 'Опубликованы', exact: true }),
-  ).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Опубликовать', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  const list = page.locator('.fl-judging-list')
+  await list.getByText('Дневная сессия', { exact: true }).click()
+  await expect(list.getByRole('cell', { name: 'Завершён', exact: true })).toBeVisible()
 })
 
 test('unauthorized requests redirect and forbidden roles see access denial', async ({
@@ -335,7 +345,7 @@ test('unauthorized requests redirect and forbidden roles see access denial', asy
   })
   await page.goto(base)
   await expect(page.getByRole('alert')).toContainText(
-    'Нет доступа к кабинету организатора.',
+    'Нет доступа',
   )
 })
 
@@ -344,20 +354,20 @@ for (const width of [1280, 1024]) {
     await page.setViewportSize({ width, height: 900 })
     await login(page)
     const tabs = [
-      ['Обзор', 'overview'],
-      ['Сессии и виды', 'program'],
+      ['Главная', 'overview'],
+      ['Программа', 'program'],
       ['Заявки', 'entries'],
       ['Заплывы', 'heats'],
       ['Результаты', 'results'],
     ] as const
     for (const [label, name] of tabs) {
       await page
-        .getByRole('navigation', { name: 'Разделы события' })
+        .getByRole('navigation', { name: 'Разделы соревнования' })
         .getByRole('link', { name: label, exact: true })
         .click()
       await expect(
         page
-          .getByRole('navigation', { name: 'Разделы события' })
+          .getByRole('navigation', { name: 'Разделы соревнования' })
           .getByRole('link', { name: label, exact: true }),
       ).toHaveAttribute('aria-current', 'page')
       expect(
@@ -385,8 +395,8 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   await login(page)
   await submitMockRegistration(page, 1)
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page
     .getByRole('button', { name: 'Добавить сессию', exact: true })
@@ -413,18 +423,18 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .click()
   await expect(row).toHaveCount(0)
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
     .getByRole('link', { name: 'Заявки', exact: true })
     .click()
   row = page.getByRole('row').nth(2)
-  await row.getByRole('button', { name: 'Вернуть', exact: true }).click()
+  await rowAction(row, 'Вернуть')
   await page
     .getByRole('dialog')
-    .getByLabel('Комментарий')
+    .getByRole('textbox', { name: 'Причина' })
     .fill('Уточните время')
   await page
     .getByRole('dialog')
-    .getByRole('button', { name: 'Сохранить решение' })
+    .getByRole('button', { name: 'Вернуть', exact: true })
     .click()
   await expect(row).toContainText('На исправлении')
   await submitMockRegistration(page, 1)
@@ -463,9 +473,39 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .getByRole('dialog')
     .getByRole('button', { name: 'Подтвердить', exact: true })
     .click()
+  await expect(row).toContainText('Подтверждена')
+  const timeButton = row.getByRole('button', { name: 'Изменить заявочное время' })
+  await timeButton.click()
+  await row.getByRole('textbox').fill('00:31.25')
+  await row.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await expect(
+    row.getByRole('button', { name: 'Изменить заявочное время' }),
+  ).toContainText('00:31.25')
+  const paymentRow = page.getByRole('row').nth(2)
+  await paymentRow
+    .getByRole('button', { name: 'Оплачено', exact: true })
+    .click()
+  await expect(paymentRow.getByRole('cell', { name: 'Оплачена', exact: true })).toBeVisible()
+  await expect(paymentRow.getByRole('cell', { name: 'Оплачено', exact: true })).toBeVisible()
+  const rejectedRow = page.getByRole('row').nth(3)
+  await rowAction(rejectedRow, 'Отклонить')
+  await page
+    .getByRole('dialog')
+    .getByRole('textbox', { name: 'Причина' })
+    .fill('Ошибочная заявка')
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Отклонить', exact: true })
+    .click()
+  await expect(rejectedRow).toContainText('Отклонена')
+  await rowAction(row, 'Снять')
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Снять', exact: true })
+    .click()
   await expect(row).toContainText('Снята')
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
     .getByRole('link', { name: 'Заплывы', exact: true })
     .click()
   await page
@@ -496,12 +536,12 @@ test('template selection, optional code, explicit payloads and registration refr
       bodies.push(request.postDataJSON() as Record<string, unknown>)
   })
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   let dialog = page.getByRole('dialog')
-  await expect(dialog.getByLabel('Шаблон', { exact: true })).toHaveValue(
+  await expect(dialog.getByLabel('Дистанция и стиль', { exact: true })).toHaveValue(
     '00000012-1111-4111-8111-000000000001',
   )
   expect(gets).toContain('/api/v1/discipline-templates')
@@ -512,7 +552,7 @@ test('template selection, optional code, explicit payloads and registration refr
     ),
   ).toBe(false)
   await expect(
-    dialog.getByLabel('Шаблон', { exact: true }).getByRole('option'),
+    dialog.getByLabel('Дистанция и стиль', { exact: true }).getByRole('option'),
   ).toHaveCount(3)
   await expect(
     dialog.getByRole('option', { name: 'Шаблон другого спорта', exact: true }),
@@ -529,7 +569,7 @@ test('template selection, optional code, explicit payloads and registration refr
   await row.getByRole('button', { name: 'Изменить', exact: true }).click()
   dialog = page.getByRole('dialog')
   await dialog
-    .getByLabel('Шаблон', { exact: true })
+    .getByLabel('Дистанция и стиль', { exact: true })
     .selectOption('00000012-1111-4111-8111-000000000002')
   await dialog.getByRole('button', { name: 'Сохранить вид' }).click()
   await expect(dialog).not.toBeVisible()
@@ -551,7 +591,7 @@ test('template selection, optional code, explicit payloads and registration refr
       expect(body).not.toHaveProperty(key)
   }
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
     .getByRole('link', { name: 'Заявки', exact: true })
     .click()
   const entry = page.getByRole('row').nth(1)
@@ -559,20 +599,20 @@ test('template selection, optional code, explicit payloads and registration refr
     ['31.25', '00:31.25'],
     ['1:03.45', '01:03.45'],
   ]) {
-    await entry.getByRole('button', { name: /^(00:32.15|00:31.25)$/ }).click()
+    await entry.getByRole('button', { name: 'Изменить заявочное время' }).click()
     await entry.getByRole('textbox').fill(input)
     gets.length = 0
     await entry.getByRole('button', { name: 'Сохранить', exact: true }).click()
     await expect(
-      entry.getByRole('button', { name: display, exact: true }),
-    ).toBeVisible()
+      entry.getByRole('button', { name: 'Изменить заявочное время' }),
+    ).toContainText(display)
     expect(gets).toEqual(['/api/v1/registrations'])
   }
-  await entry.getByRole('button', { name: 'Снять', exact: true }).click()
+  await rowAction(entry, 'Снять')
   gets.length = 0
   await page
     .getByRole('dialog')
-    .getByRole('button', { name: 'Подтвердить', exact: true })
+    .getByRole('button', { name: 'Снять', exact: true })
     .click()
   await expect(
     page.getByText('Пересчитайте заплывы', { exact: false }),
@@ -645,12 +685,10 @@ test('generation admission persists across tabs with nested and flat summaries',
   })
   for (let call = 0; call < 2; call++) {
     await page
-      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('navigation', { name: 'Разделы соревнования' })
       .getByRole('link', { name: 'Заплывы', exact: true })
       .click()
-    await page
-      .getByRole('button', { name: 'Сформировать заплывы (всё событие)' })
-      .click()
+    await generateAll(page)
     await expect(
       page.getByRole('heading', { name: 'Последнее формирование' }),
     ).toBeVisible()
@@ -659,7 +697,7 @@ test('generation admission persists across tabs with nested and flat summaries',
       .filter({ hasText: 'Выполняем действие' })
       .waitFor({ state: 'hidden' })
     await page
-      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('navigation', { name: 'Разделы соревнования' })
       .getByRole('link', { name: 'Заявки', exact: true })
       .click()
     for (const code of [
@@ -677,7 +715,9 @@ test('generation admission persists across tabs with nested and flat summaries',
       .selectOption('EXCLUDED')
     await expect(page.getByRole('row')).toHaveCount(5)
     await page.getByRole('combobox', { name: /^Статус(?! оплаты)/ }).selectOption('')
-    await expect(page.getByText('✓', { exact: true }).first()).toBeVisible()
+    const admitted = page.getByRole('row').filter({ has: page.locator('[title="Заявка допущена по последнему результату формирования."]') }).first()
+    await admitted.locator('.fl-entry-details > summary').click()
+    await expect(admitted.getByText(/Допуск: ✓/)).toBeVisible()
   }
   await expect(
     page.getByText('ATHLETE_NOT_FOUND', { exact: true }),
@@ -724,12 +764,12 @@ test('missing pool dimensions retain lane editing and refresh only the changed h
     venues[0].venueMeta.courseLength = '25'
     worker.use(http.get('*/api/v1/venues', () => HttpResponse.json(venues)))
   })
-  await page.getByRole('link', { name: '← Мои события', exact: true }).click()
+  await page.getByRole('link', { name: '← Все соревнования', exact: true }).click()
   await page
-    .getByRole('link', { name: 'Управлять событием', exact: true })
+    .getByRole('link', { name: 'Открыть', exact: true })
     .click()
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
     .getByRole('link', { name: 'Заплывы', exact: true })
     .click()
   const lane = page.getByRole('combobox').first()
@@ -758,7 +798,7 @@ test('missing pool dimensions retain lane editing and refresh only the changed h
   ).toHaveValue('7')
 })
 
-test('session estimates honor server values and browser timezone; violations target the numbered heat', async ({
+test('session estimates honor server values and venue timezone; violations target the numbered heat', async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -769,12 +809,12 @@ test('session estimates honor server values and browser timezone; violations tar
   try {
     await login(page)
     await page
-      .getByRole('navigation', { name: 'Разделы события' })
-      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .getByRole('navigation', { name: 'Разделы соревнования' })
+      .getByRole('link', { name: 'Программа', exact: true })
       .click()
     await expect(
       page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
-    ).toContainText(/03:00.*03:16.*4 заплывов/)
+    ).toContainText(/03:00.*03:16.*4 заплыва/)
     await page.evaluate(async () => {
       const resources = performance
         .getEntriesByType('resource')
@@ -820,19 +860,19 @@ test('session estimates honor server values and browser timezone; violations tar
         ),
       )
     })
-    await page.getByRole('link', { name: '← Мои события', exact: true }).click()
+    await page.getByRole('link', { name: '← Все соревнования', exact: true }).click()
     await page
-      .getByRole('link', { name: 'Управлять событием', exact: true })
+      .getByRole('link', { name: 'Открыть', exact: true })
       .click()
     await page
-      .getByRole('navigation', { name: 'Разделы события' })
-      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .getByRole('navigation', { name: 'Разделы соревнования' })
+      .getByRole('link', { name: 'Программа', exact: true })
       .click()
     await expect(
       page.getByRole('row').filter({ hasText: 'Утренняя сессия' }).first(),
     ).toContainText(/03:00.*11:26.*99 заплывов/)
     await page
-      .getByRole('navigation', { name: 'Разделы события' })
+      .getByRole('navigation', { name: 'Разделы соревнования' })
       .getByRole('link', { name: 'Заплывы', exact: true })
       .click()
     await page
@@ -861,18 +901,18 @@ test('empty sport-filtered template list explains why saving is unavailable', as
   await login(page)
   await mockTemplates(page, 'empty')
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page.getByRole('button', { name: 'Добавить вид', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await expect(
-    dialog.getByText('Для вида спорта события нет шаблонов дисциплин', {
+    dialog.getByText('Для вида спорта соревнования нет шаблонов дисциплин', {
       exact: true,
     }),
   ).toBeVisible()
   await expect(
-    dialog.getByLabel('Шаблон', { exact: true }).getByRole('option'),
+    dialog.getByLabel('Дистанция и стиль', { exact: true }).getByRole('option'),
   ).toHaveCount(1)
   await expect(
     dialog.getByRole('button', { name: 'Сохранить вид', exact: true }),
@@ -886,8 +926,8 @@ for (const mode of ['failure', 'forbidden', 'unauthorized'] as const) {
     await login(page)
     await mockTemplates(page, mode)
     await page
-      .getByRole('navigation', { name: 'Разделы события' })
-      .getByRole('link', { name: 'Сессии и виды', exact: true })
+      .getByRole('navigation', { name: 'Разделы соревнования' })
+      .getByRole('link', { name: 'Программа', exact: true })
       .click()
     await page
       .getByRole('button', { name: 'Добавить вид', exact: true })
@@ -900,14 +940,14 @@ for (const mode of ['failure', 'forbidden', 'unauthorized'] as const) {
     await expect(page.getByRole('alert')).toHaveCount(1)
     if (mode === 'forbidden') {
       await expect(dialog.getByRole('alert')).toContainText(
-        'Нет доступа к этому событию.',
+        'Нет доступа к этому соревнованию.',
       )
       await expect(
         dialog.getByRole('heading', { name: 'Ошибка', exact: true }),
       ).toBeVisible()
     } else {
       await expect(
-        dialog.getByLabel('Шаблон', { exact: true }).locator('..'),
+        dialog.getByLabel('Дистанция и стиль', { exact: true }).locator('..'),
       ).toContainText('Шаблоны временно недоступны.')
       await expect(
         page.getByRole('heading', { name: 'Ошибка', exact: true }),
@@ -924,8 +964,8 @@ test('editing an existing discipline remains possible when template loading fail
   await login(page)
   await mockTemplates(page, 'failure')
   await page
-    .getByRole('navigation', { name: 'Разделы события' })
-    .getByRole('link', { name: 'Сессии и виды', exact: true })
+    .getByRole('navigation', { name: 'Разделы соревнования' })
+    .getByRole('link', { name: 'Программа', exact: true })
     .click()
   await page
     .getByRole('row')
@@ -936,7 +976,7 @@ test('editing an existing discipline remains possible when template loading fail
   await expect(
     dialog.getByText('Шаблоны временно недоступны.', { exact: true }),
   ).toBeVisible()
-  await expect(dialog.getByLabel('Шаблон', { exact: true })).toHaveValue(
+  await expect(dialog.getByLabel('Дистанция и стиль', { exact: true })).toHaveValue(
     '00000012-1111-4111-8111-000000000001',
   )
   await expect(

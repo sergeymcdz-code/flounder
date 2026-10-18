@@ -1,0 +1,53 @@
+# S03 — ревью 2 (PR #62, d5ba936)
+
+PR #62 «feat(performance): S03 pre-demo database and runtime tuning», ветка `pr/62`, раунд 2: один коммит d5ba936 «fix(performance): address S03 review feedback» поверх 2dcc9e1 (ревью 1 от 15.10.2026). Диф раунда: 8 файлов, +87/−3891 (−3860 — удалённый дамп `docker stats`). `origin/main` с момента ревью 1 ушёл вперёд (4571b33 → bdb8cd8: слиты S02 #56, docs #57/#67/#69) — пересечений с файлами PR нет, `git merge-tree --write-tree origin/main pr/62` — чисто (exit 0). CI для d5ba936: backend/frontend/infra — `success` (по описанию PR: `mvn -q test` 1629 тестов, 0 ошибок). Локально Maven офлайн по-прежнему не резолвит `spring-boot-starter-parent:3.5.6`, поэтому новый unit-тест `PublicHttpCacheConfigTest` прогнать не смог — принимаю по CI. Ревьюер: Claude, 17.10.2026.
+
+**Вердикт: слить.** Все четыре пункта правок выполнены ровно так, как просили, тесты не ослаблены, чужой код не тронут, миграций/эндпоинтов не добавлено. Отдельно проверена безопасность деплоя на стенд через `./infra/deploy.sh` — пошаговый список для владельца с ожидаемым простоем в разделе «Деплой на стенд».
+
+## Проверено
+
+| № | Пункт правок | Где | Результат |
+|---|---|---|---|
+| 1 | Убрать бин `ThreadPoolTaskScheduler`, задать `spring.task.scheduling.*`, тест на `applicationTaskExecutor` | `events/infrastructure/EventLifecycleConfig.java` — бин `taskScheduler()` и импорт удалены, остались `@EnableScheduling` + `eventClock` (`:1-13`); `application.yml:20-24` — `spring.task.scheduling.pool.size: 2`, `thread-name-prefix: app-scheduler-`; `spring.threads.virtual.enabled: false` (`application.yml:26-28`) сохранён, поэтому Boot создаёт именно `ThreadPoolTaskScheduler` (при виртуальных потоках был бы `SimpleAsyncTaskScheduler` и `pool.size` игнорировался бы — не наш случай, в `application-prod.yml` `threads:` относится к Tomcat `:53-55`). Тест `scheduling/integration/SchedulingIntegrationTest.java:41-50` `schedulingKeepsApplicationAsyncExecutorSeparate`: `applicationTaskExecutor` — `ThreadPoolTaskExecutor`, `taskScheduler` — `ThreadPoolTaskScheduler`, `assertNotSame`, core pool size 2, префикс `app-scheduler-`. Единственный `@EnableAsync` — `SchedulingAsyncConfiguration.java:4`, других `TaskExecutor`/`Executor`-бинов в `src/main` нет (`git grep`) | **Выполнено.** Тест — в `@SpringBootTest`-классе (Testcontainers), т. е. проверяет реальный контекст с `prod`-подобной автоконфигурацией; в CI зелёный. Побочный эффект Б1 ревью 1 устранён: `TaskExecutionAutoConfiguration` снова создаёт `applicationTaskExecutor` (8 core-потоков), `@ApplicationModuleListener` не делит пул с почтовым воркером |
+| 2 | Сократить дамп `docker stats` | `docs/perf/2026-10-16_docker-stats.txt` удалён (−3860 строк); `docs/perf/2026-10-16_k6_report.md:108-131` — таблица min/avg/max CPU и памяти по контейнерам и фазам (12 строк) с числом отсчётов и описанием метода (дедупликация одинаковых соседних пар, avg — арифметическое по отсчётам). Ссылка на дамп в отчёте (`:116`) теперь историческая — «в коммите 2dcc9e1», других ссылок на файл в репозитории нет (`git grep docker-stats`). Описание PR обновлено (ссылка на «агрегаты docker stats») | **Выполнено.** Числа min/max в таблице совпадают с таблицей из 2dcc9e1 (сверено построчно: 4.87–65.33 / 578.9 и т. д.) |
+| 3 | `shouldNotFilter` для PDF и документов в ETag-фильтре | `publication/infrastructure/PublicHttpCacheConfig.java:13-19` — анонимный подкласс `ShallowEtagHeaderFilter`, `shouldNotFilter` = `path.endsWith(".pdf") \|\| path.startsWith("/api/v1/public/documents/")`, путь берётся из `getRequestURI()` минус `getContextPath()` (контекст-путь учтён). Покрывает `/api/v1/public/events/{slug}/start-list.pdf|results.pdf` (`DocumentsController.java:42-47`) и `/api/v1/public/documents/{id}/content` (`ParticipantDocumentController.java:46`, ссылка формируется в `FileCryptography.java:82`). `url-pattern` `/api/v1/public/*` не менялся (`:22`). Новый unit-тест `PublicHttpCacheConfigTest.java:11-25` (без Spring-контекста): для трёх путей с context path `/sportgate` в цепочку приходит тот же `response` без `ContentCachingResponseWrapper` | **Выполнено.** `OncePerRequestFilter.shouldNotFilter == true` → `chain.doFilter(request, response)` без обёртки, буферизации 10-МБ документов в памяти больше нет. Поведение JSON-эндпоинтов не изменилось — тесты 200→304 (`PublicPublicationIntegrationTest.java:125-140`) и `publicPdfRemainsNoStoreWithoutEtagOrConditional304` в CI зелёные |
+| 4 | Убрать `-Xss512k` | `infra/compose.prod.yaml:100-104` — флаг удалён, остальные JVM-опции без изменений; описание PR (строка про `compose.prod.yaml` и п. 4 «Правки по ревью 1») обновлено | **Выполнено.** Non-heap бюджет при стеке 1 МБ × ~70 потоков ≈ +35 МБ — в рамках 1664 − 998 ≈ 660 МБ |
+| — | Тесты не ослаблены, чужое не удалено, область | Диф раунда 2 — только файлы из текста правок + 2 теста; удалений в тестах нет (`+26`, `+16`); миграции не тронуты (V038 без изменений, новых нет); новых эндпоинтов нет → `qa04-endpoints.tsv` без изменений корректно; UI-текстов в раунде нет; полный диф PR теперь 34 файла, +2031/−42 | **Выполнено** |
+| — | Конфликты с `origin/main` | `merge-tree` чисто; коммиты main после 4571b33 (S02 seed, docs) не касаются `application.yml`, `compose.prod.yaml`, `events/`, `publication/`, `scheduling/` | **Чисто** |
+
+## Блокирующие
+
+Нет.
+
+## Желательные
+
+1. `docs/perf/2026-10-16_k6_report.md:6-10` честно говорит, что замеры сделаны до правок ревью 1 и не повторялись. Для демо это приемлемо (правки не меняют горячий путь: scheduler тот же по параметрам, ETag для JSON тот же), фиксирую как известное ограничение — повторять k6 не требую.
+2. `PublicHttpCacheConfigTest` проверяет только «не оборачивать»; позитивный случай (JSON-путь оборачивается) покрыт интеграционными тестами 304, отдельный unit-кейс не обязателен.
+3. Остаётся из ревью 1 (ж. 3): `stale-while-revalidate=30` на `/live` — до 35 с устаревания в браузере; решение за владельцем.
+
+## Деплой на стенд (для владельца)
+
+Что изменится при `./infra/deploy.sh` по сравнению с текущим стендом (compose на `origin/main`): у `postgres` появились `command` (12 параметров, в т. ч. `shared_preload_libraries=pg_stat_statements`), `shm_size`, `mem_limit`, `stop_grace_period`, интервал healthcheck; у `api` — `mem_limit/memswap_limit`, `stop_grace_period`, новые `JAVA_TOOL_OPTIONS`, readiness-healthcheck; у `web` и `caddy` — `mem_limit`. Любое из этих изменений заставляет Compose **пересоздать все четыре контейнера**; `caddy` при пересоздании заново читает `Caddyfile` (bind-mount `:ro`, `compose.prod.yaml:141`) — новые retry/503-страница применятся без отдельного `caddy reload`. Данные не затрагиваются: Postgres живёт в именованном томе `postgres_data`, файлы — в `flounder_files`, сертификаты — в `caddy_data`; `command: [postgres, -c …]` не меняет entrypoint и не запускает initdb повторно. Обязательных новых переменных в `.env.prod` нет: все новые параметры жёстко прописаны или имеют default (`app.mail.worker-*-ms:15000`), `deploy.sh` по-прежнему проверяет только `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD`, `JWT_SECRET` (`infra/deploy.sh:26-31`). Flyway применит V038 (10 `create index if not exists`, на демо-объёме — миллисекунды) до открытия порта API.
+
+Порядок действий (всё из `/home/deploy/flounder`, не во время репетиции):
+
+| Шаг | Команда | Ожидание |
+|---|---|---|
+| 1 | `./infra/backup.sh` и убедиться, что появился свежий `flounder-<дата>.dump` | ~10–30 с, простоя нет |
+| 2 | `./infra/deploy.sh` — сначала `git pull`, затем сборка образов `api`/`web` (Maven в Docker) — **старые контейнеры продолжают работать**, простоя нет | 3–8 мин на 2 vCPU (зависит от кэша слоёв) |
+| 3 | Та же команда, этап `compose up -d`: Compose останавливает `caddy`/`api`/`web` (api — graceful до 40 с, обычно 1–3 с), пересоздаёт `postgres` и ждёт `pg_isready` (первая проба healthcheck через 30 с), затем стартует `api` (Flyway V038 + Spring ≈ 40–70 с), `web`, `caddy`. Caddy поднимается первым и до готовности API отдаёт русскую HTML-страницу 503 с `Retry-After: 30`, не белый экран | **Простой публичного сайта ≈ 1,5–2,5 мин** (от остановки до первого 200 от API). `deploy.sh` ждёт `healthy` до 3 мин; readiness-проба идёт каждые 30 с, `start_period` 120 с — укладывается с запасом |
+| 4 | Проверка после «API is healthy»: `fl ps` — четыре контейнера `Up`, `flounder-api (healthy)`; `docker inspect --format '{{.HostConfig.Memory}}' flounder-api` → `1744830464`; `fl exec postgres psql -U sport_user -d sport_platform -c 'show shared_buffers'` → `256MB`; `-c 'select count(*) from pg_stat_statements'` → число (не ошибка про `shared_preload_libraries`); `-c "select version from flyway_schema_history order by installed_rank desc limit 1"` → `038` | 1 мин |
+| 5 | `curl -sI https://sportgate.pro/api/v1/public/events/<slug>/live` → `Cache-Control: max-age=5, public, stale-while-revalidate=30` + `ETag: W/"…"`; повтор с `-H 'If-None-Match: <etag>'` → 304; `curl -sI …/start-list.pdf` → `no-store`, без `ETag`; `docker logs flounder-api 2>&1 \| grep -i SimpleAsyncTaskExecutor` — пусто | 1 мин |
+| 6 | Если что-то пошло не так: `fl logs --tail=200 api` / `postgres`; откат — `git checkout <sha до слияния> && ./infra/deploy.sh --no-pull`: контейнеры пересоздадутся со старыми параметрами (ещё один простой ≈ 1,5–2 мин). Базу откатывать не нужно: индексы V038 для старого кода безвредны, а запись `038` в `flyway_schema_history` старый код (макс. V037) видит как *future*-миграцию, которую Flyway по умолчанию игнорирует (`ignore-migration-patterns=*:future`; в `application*.yml` эта настройка не переопределена, `application.yml:46-50`, `application-prod.yml:26-29`). Бэкап шага 1 нужен только на случай повреждения данных | 3–8 мин |
+
+Примечания: (а) на сервере может появиться предупреждение Docker «Your kernel does not support swap limit capabilities» из-за `memswap_limit` — это не ошибка, контейнер стартует; (б) сборка образа `api` (Maven) на шаге 2 временно занимает ~1–1,5 ГБ памяти рядом с работающим старым стеком — так было и раньше, лимиты новых контейнеров на этот момент ещё не действуют; (в) при пересоздании `postgres` активных сессий нет (api остановлен раньше), поэтому `stop_grace_period: 30s` не выбирается.
+
+## Текст правок для Codex
+
+(пусто — слить)
+
+## Порядок слияния
+
+- Зависимостей от других открытых PR нет; `merge-tree origin/main pr/62` чисто, main после ревью 1 (S02 #56, docs #57/#67/#69) не пересекается с файлами PR.
+- Если параллельно сливаются S05/S06/S07 (V035–V037) — порядок с S03 безразличен (V038 не зависит от их таблиц).
+- Деплой на стенд — отдельным окном после слияния по таблице выше (пересоздаются все четыре контейнера, простой ≈ 1,5–2,5 мин); не совмещать с репетицией демо и с окном S02-сидов.

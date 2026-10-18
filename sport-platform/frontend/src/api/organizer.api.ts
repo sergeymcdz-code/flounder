@@ -1,3 +1,4 @@
+import { publicApi } from './public.api'
 import { getVenues } from './venues.api'
 import { apiFetch } from './http'
 import type {
@@ -12,6 +13,7 @@ export const getEventDisciplines = (id: string, accessToken: string) =>
 export async function getOrganizerEvent(
   id: string,
   accessToken: string,
+  includePrivateVenues = true,
 ): Promise<OrganizerEventDetails> {
   const [event, disciplines, venues] = await Promise.all([
     apiFetch<OrganizerEventDetails>(
@@ -19,9 +21,10 @@ export async function getOrganizerEvent(
       { accessToken },
     ),
     getEventDisciplines(id, accessToken),
-    getVenues(accessToken).catch(() => []),
+    includePrivateVenues ? getVenues(accessToken).catch(() => []) : Promise.resolve([]),
   ])
   const venue = venues.find((v) => v.id === event.venueId)
+  const publicEvent = !venue && !event.venue && event.publicSlug && event.status !== 'DRAFT' ? await publicApi.event(event.publicSlug).catch(() => null) : null
   return {
     ...event,
     disciplines,
@@ -39,7 +42,7 @@ export async function getOrganizerEvent(
               ? venue.venueMeta.courseLength
               : null,
         }
-      : undefined,
+      : event.venue ?? publicEvent?.venue ?? undefined,
   }
 }
 export const getOrganizerRegistrations = (

@@ -4,7 +4,10 @@ import { money, paymentLabels, type PaymentAction } from '../../api/registration
 import { useState, type FormEvent } from 'react'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { documentTypes, documentStatusLabels, type DocumentType } from '../../api/documents.api'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { statusLabel } from '../../components/ui/status-dictionary'
 import {
   reviewRegistration,
   type RegistrationReviewDecision,
@@ -18,10 +21,9 @@ import type {
   OrganizerRegistration,
   ImportReport,
 } from '../../api/organizer.types'
-import { OrganizerDialog, OrganizerConfirm } from './OrganizerDialog'
+import { OrganizerDialog } from './OrganizerDialog'
 import {
   formatSeed,
-  statusLabels,
   useOrganizerEvent,
 } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
@@ -32,13 +34,35 @@ export function OrganizerEntriesPage() {
     heats,
     generationResults,
     accessToken,
-    busy,
-    run,
+    busy, error, clearError,
+    run, refresh,
   } = useOrganizerEvent()
   const [paymentFilter, setPaymentFilter] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [paymentDialog, setPaymentDialog] = useState<{ ids: string[]; action?: PaymentAction; amount?: number | null; bulk?: boolean } | null>(null)
   const [historyId, setHistoryId] = useState<string | null>(null)
+  const [bulkAction, setBulkAction] = useState<'CONFIRMED' | 'REJECTED' | null>(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [bulkErrors, setBulkErrors] = useState<string[]>([])
+  function eligible(action: string, r: OrganizerRegistration) { return action === 'PAID' ? ['CONFIRMED', 'ADMITTED'].includes(r.status) && r.paymentStatus !== 'PAID' : ['SUBMITTED', 'UNDER_REVIEW', ...(action === 'CONFIRMED' ? ['WAITLISTED'] : [])].includes(r.status) }
+  async function applyBulk(reason: string) {
+    if (!bulkAction) return
+    const action = bulkAction
+    const rows = registrations.filter(r => selected.includes(r.id) && eligible(action, r))
+    setBulkBusy(true); setBulkErrors([])
+    const failures: string[] = []; const completed: string[] = []
+    for (const [index, row] of rows.entries()) {
+      setProgress(`${index + 1} из ${rows.length}`)
+      try {
+        await reviewRegistration(row.id, { decision: action, reviewNote: reason }, accessToken)
+        completed.push(row.id)
+      } catch (cause) { failures.push(`${row.participantSnapshot.lastName} ${row.participantSnapshot.firstName}: ${cause instanceof Error ? cause.message : 'Не удалось выполнить действие'}`) }
+    }
+    setSelected(previous => previous.filter(id => !completed.includes(id)))
+    try { await refresh() } catch (cause) { failures.push(cause instanceof Error ? cause.message : 'Не удалось обновить список. Обновите страницу.') }
+    setBulkErrors(failures); setBulkAction(null); setBulkBusy(false)
+  }
   const [withdrawNotice, setWithdrawNotice] = useState(false)
   function admission(r: OrganizerRegistration) {
     const result = generationResults[r.eventDisciplineId]
@@ -77,7 +101,9 @@ export function OrganizerEntriesPage() {
   }
   const [missingMedical, setMissingMedical] = useState(false)
   const [documentProfile, setDocumentProfile] = useState<OrganizerRegistration | null>(null)
-  const [status, setStatus] = useState('')
+  const [params, setParams] = useSearchParams()
+  const status = params.get('status') ?? ''
+  const setStatus = (value: string) => setParams(previous => { const next = new URLSearchParams(previous); if (value) next.set('status', value); else next.delete('status'); return next })
   const [discipline, setDiscipline] = useState('')
   const [search, setSearch] = useState('')
   const [importOpen, setImportOpen] = useState(false)
@@ -85,31 +111,31 @@ export function OrganizerEntriesPage() {
     id: string
     decision: RegistrationReviewDecision
   } | null>(null)
-  const [note, setNote] = useState('')
   const [withdraw, setWithdraw] = useState<OrganizerRegistration | null>(null)
   const visible = registrations.filter(
     (r) =>
       (!status ||
         (status === 'EXCLUDED'
           ? admission(r).excluded
-          : r.status === status)) &&
+          : r.status === status || status === 'SUBMITTED' && r.status === 'UNDER_REVIEW')) &&
       (!paymentFilter || r.paymentStatus === paymentFilter) &&
       (!discipline || r.eventDisciplineId === discipline) &&
+      (!params.get('payment') || r.paymentStatus === params.get('payment')) &&
       (!missingMedical || !r.documents?.MEDICAL_CERT || r.documents.MEDICAL_CERT === 'NOT_UPLOADED') &&
       `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''} ${r.participantSnapshot.clubName ?? ''}`
         .toLocaleLowerCase('ru')
         .includes(search.toLocaleLowerCase('ru')),
   )
   function openReview(id: string, decision: RegistrationReviewDecision) {
-    setNote('')
+    clearError()
     setReview({ id, decision })
   }
   return (
-    <article className={styles.card}>
+    <article className={`${styles.card} fl-entries`}>
       <div className={styles.toolbar}>
         <h2>Заявки участников · {registrations.length}</h2>
         <button
-          className={styles.primary}
+          className="fl-btn fl-btn-primary"
           disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => setImportOpen(true)}
         >
@@ -129,10 +155,25 @@ export function OrganizerEntriesPage() {
       )}
       {paymentDialog && <PaymentMutationDialog {...paymentDialog} onClose={() => { setPaymentDialog(null); setSelected([]) }} />}
       {historyId && <PaymentHistoryDialog id={historyId} token={accessToken} onClose={() => setHistoryId(null)} />}
-      <button disabled={busy || event.status === 'ARCHIVED' || !selected.length} onClick={() => setPaymentDialog({ ids: selected, bulk: true })}>Отметить оплату выбранных ({selected.length})</button>
+      <div className="fl-filter-segments" role="group" aria-label="Быстрые фильтры">
+        {[
+          { label: 'Все', value: '', active: !status && !missingMedical && !params.get('payment') },
+          { label: 'Новые', value: 'SUBMITTED', active: status === 'SUBMITTED' },
+          { label: 'Не допущены', value: 'EXCLUDED', active: status === 'EXCLUDED' },
+          { label: 'Без справки', value: 'medical', active: missingMedical },
+          { label: 'Не оплачены', value: 'payment', active: params.get('payment') === 'PENDING' },
+        ].map(filter => <button key={filter.label} className={`fl-btn fl-btn-sm ${filter.active ? 'fl-btn-secondary' : 'fl-btn-ghost'}`} aria-pressed={filter.active} onClick={() => {
+          const next = new URLSearchParams(params)
+          next.delete('status'); next.delete('payment')
+          if (filter.value === 'payment') next.set('payment', 'PENDING')
+          else if (filter.value && filter.value !== 'medical') next.set('status', filter.value)
+          setMissingMedical(filter.value === 'medical'); setParams(next)
+        }}>{filter.label}</button>)}
+      </div>
+      {bulkErrors.length > 0 && <div className="fl-notice fl-notice-danger" role="alert"><p>Не все действия выполнены:</p><ul>{bulkErrors.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
       <div className={styles.filters}>
-        <label className={styles.field}>Статус оплаты<select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}><option value="">Все</option>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <label className={styles.field}>
+        <label className="fl-field">Статус оплаты<select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}><option value="">Все</option>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label className="fl-field">
           Поиск
           <input
             placeholder="ФИО или клуб"
@@ -140,7 +181,7 @@ export function OrganizerEntriesPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Статус
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Все статусы</option>
@@ -157,12 +198,12 @@ export function OrganizerEntriesPage() {
               'CANCELLED',
             ].map((s) => (
               <option key={s} value={s}>
-                {statusLabels[s]}
+                {statusLabel('registration', s)}
               </option>
             ))}
           </select>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Вид программы
           <select
             value={discipline}
@@ -176,7 +217,7 @@ export function OrganizerEntriesPage() {
             ))}
           </select>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           <span><input type="checkbox" checked={missingMedical} onChange={(e) => setMissingMedical(e.target.checked)} /> Нет справки</span>
         </label>
       </div>
@@ -184,17 +225,15 @@ export function OrganizerEntriesPage() {
         <DocumentsPanel profileId={documentProfile.participantProfileId} eventId={event.id} accessToken={accessToken} manager
           onChanged={() => { void run(async () => undefined, 'registrations') }} />
       </OrganizerDialog>}
-      <p className={styles.muted}>Найдено: {visible.length}</p>
-      <div className={styles.table}>
-        <table>
+      <div className="fl-entries-meta"><p>Найдено: {visible.length}</p><p>✓ принят · ◷ на проверке · ✕ отклонён · — нет</p></div>
+      <div className={`${styles.table} fl-table-scroll`}>
+        <table className="fl-table">
           <thead>
             <tr>
               {[
-                'Выбор',
                 '№',
                 'ФИО',
                 'Год',
-                'Пол',
                 'Клуб',
                 'Вид',
                 'Допуск',
@@ -202,100 +241,66 @@ export function OrganizerEntriesPage() {
                 'Заявочное время',
                 'Статус',
                 'Оплата',
-                'Источник',
                 'Действия',
               ].map((h) => (
-                <th key={h}>{h}</th>
+                <th key={h} data-numeric={['Год','Заявочное время'].includes(h) || undefined} data-priority={['Год', 'Допуск'].includes(h) ? 'low' : undefined}>{h === '№' ? <label><input type="checkbox" aria-label="Выбрать все видимые заявки" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} checked={visible.length > 0 && visible.every(r => selected.includes(r.id))} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...visible.map(r => r.id)])] : selected.filter(id => !visible.some(r => r.id === id)))} /> №</label> : h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {visible.map((r, index) => (
               <tr key={r.id}>
-                <td><input aria-label={`Выбрать заявку ${r.participantSnapshot.lastName}`} type="checkbox" disabled={busy || event.status === 'ARCHIVED' || r.paymentStatus !== 'PENDING'} checked={selected.includes(r.id)} onChange={e => setSelected(previous => e.target.checked ? [...previous, r.id] : previous.filter(id => id !== r.id))} /></td>
-                <td>{index + 1}</td>
+                <td data-number><input type="checkbox" aria-label={`Выбрать заявку ${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName}`} checked={selected.includes(r.id)} disabled={bulkBusy || busy || event.status === 'ARCHIVED'} onChange={e => setSelected(e.target.checked ? [...selected, r.id] : selected.filter(id => id !== r.id))} /> {index + 1}</td>
                 <td>
-                  {r.participantSnapshot.lastName}{' '}
-                  {r.participantSnapshot.firstName}{' '}
-                  {r.participantSnapshot.middleName}
+                  <details className="fl-entry-details"><summary title="Подробнее о заявке">
+                    {r.participantSnapshot.lastName}{' '}{r.participantSnapshot.firstName}{' '}{r.participantSnapshot.middleName}
+                  </summary><p>Год: {r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'} · Пол: {r.participantSnapshot.gender ?? '—'} · Источник: {r.source === 'IMPORT' ? 'Импорт' : 'Форма'} · Допуск: {admission(r).label}</p></details>
                 </td>
-                <td>{r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'}</td>
-                <td>
-                  {r.participantSnapshot.gender === 'F'
-                    ? 'Ж'
-                    : r.participantSnapshot.gender === 'M'
-                      ? 'М'
-                      : '—'}
-                </td>
+                <td data-priority="low" data-numeric>{r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'}</td>
+
                 <td>{r.participantSnapshot.clubName || '—'}</td>
                 <td>
                   {event.disciplines.find((d) => d.id === r.eventDisciplineId)
                     ?.name ?? '—'}
                 </td>
-                <td>
+                <td data-priority="low">
                   <span title={admission(r).title}>{admission(r).label}</span>
                 </td>
                 <td>
-                  <button type="button" onClick={() => setDocumentProfile(r)} aria-label={`Документы ${r.participantSnapshot.lastName}`}>
-                    {(Object.keys(documentTypes) as DocumentType[]).map((type) => {
+                  <button className="fl-btn fl-btn-secondary" type="button" onClick={() => setDocumentProfile(r)} aria-label={`Документы ${r.participantSnapshot.lastName}`}>
+                    <span className="fl-btn-label">{(Object.keys(documentTypes) as DocumentType[]).map((type) => {
                       const status = r.documents?.[type] ?? 'NOT_UPLOADED'
                       return <span key={type} title={`${documentTypes[type]}: ${documentStatusLabels[status]}`}>
                         {status === 'ACCEPTED' ? '✓' : status === 'PENDING' ? '◷' : status === 'REJECTED' ? '✕' : '—'}{' '}
                       </span>
-                    })}
+                    })}</span>
                   </button>
                   {r.admissionWarnings?.map((warning) => <div key={warning} className={styles.error}>{warning}</div>)}
                 </td>
-                <td>
+                <td data-numeric>
                   <SeedTimeEditor registration={r} />
                 </td>
                 <td>
-                  <span className={styles.badge}>
-                    {statusLabels[r.status] ?? r.status}{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
-                  </span>
+                  <StatusBadge kind="registration" code={r.status} />{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
                 </td>
-                <td>{money(r.feeAmount, r.feeCurrency ?? 'RUB')} <span title="Статус оплаты" className={styles.badge}>{paymentLabels[r.paymentStatus] ?? '—'}</span></td>
-                <td>{statusLabels[r.source] ?? r.source ?? '—'}</td>
+                <td>{money(r.feeAmount, r.feeCurrency ?? 'RUB')} <span title="Статус оплаты"><StatusBadge kind="payment" code={r.paymentStatus} /></span></td>
                 <td>
                   <div className={styles.actions}>
                     {['CONFIRMED', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <>
-                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button>
-                      <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>
+                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button>
+                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>
                     </>}
-                    {r.paymentStatus === 'PAID' && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
-                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
-                    <button onClick={() => setHistoryId(r.id)}>История оплаты</button>
-                    {['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED'].includes(r.status) && (
-                      <button
-                        disabled={busy || event.status === 'ARCHIVED'}
-                        onClick={() => openReview(r.id, 'CONFIRMED')}
-                      >
-                        {r.status === 'WAITLISTED' ? 'Подтвердить вне лимита' : 'Подтвердить'}
-                      </button>
-                    )}
-                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED', 'PAID', 'ADMITTED'].includes(
-                      r.status,
-                    ) && (
-                      <>
-                        {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && (
-                          <button
-                            disabled={busy || event.status === 'ARCHIVED'}
-                            onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}
-                          >
-                            Вернуть
-                          </button>
-                        )}
-                        <button
-                          disabled={busy || event.status === 'ARCHIVED'}
-                          onClick={() => openReview(r.id, 'REJECTED')}
-                        >
-                          Отклонить
-                        </button>
-                        <button disabled={busy || event.status === 'ARCHIVED'} onClick={() => setWithdraw(r)}>
-                          Снять
-                        </button>
-                      </>
-                    )}
+                    {r.paymentStatus === 'PAID' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
+                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
+                    <button className="fl-btn fl-btn-ghost" onClick={() => setHistoryId(r.id)}>История оплаты</button>
+                    {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
+                      : ['PAID', 'ADMITTED'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
+                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <details><summary>Ещё ▾</summary>
+                      {r.status === 'WAITLISTED' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
+                      {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
+                      {!['PAID', 'ADMITTED'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
+                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>
+                    </details>}
                   </div>
                 </td>
               </tr>
@@ -305,56 +310,20 @@ export function OrganizerEntriesPage() {
       </div>
       {!visible.length && (
         <p className={`${styles.muted} fl-empty`}>
-          Заявок не найдено. Измените фильтры или импортируйте заявки.
+          Заявок не найдено. Измените фильтры или импортируйте заявки. <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
         </p>
       )}
-      {review && (
-        <OrganizerDialog
-          title={
-            review.decision === 'CONFIRMED'
-              ? 'Подтвердить заявку'
-              : review.decision === 'REJECTED'
-                ? 'Отклонить заявку'
-                : 'Вернуть на исправление'
-          }
-          onClose={() => setReview(null)}
-        >
-          <form
-            className={styles.form}
-            onSubmit={(e) => {
-              e.preventDefault()
-              void run(
-                () =>
-                  reviewRegistration(
-                    review.id,
-                    { decision: review.decision, reviewNote: note },
-                    accessToken,
-                  ),
-                'registrations',
-              ).then((ok) => {
-                if (ok) setReview(null)
-              })
-            }}
-          >
-            <label className={styles.field}>
-              Комментарий
-              <input
-                required={review.decision !== 'CONFIRMED'}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
-            <button disabled={busy || event.status === 'ARCHIVED'} className={styles.primary}>
-              Сохранить решение
-            </button>
-          </form>
-        </OrganizerDialog>
-      )}
+      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong><button className="fl-btn fl-btn-secondary fl-btn-sm" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: selected, bulk: true })}>Отметить оплату выбранных ({selected.length})</button>{(['CONFIRMED','REJECTED'] as const).map(action => <button className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => { clearError(); setBulkAction(action) }}>{action === 'CONFIRMED' ? 'Подтвердить' : action === 'REJECTED' ? 'Отклонить' : 'Оплачено'}</button>)}<button className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
+      {bulkAction && <ConfirmDialog title={`${bulkAction === 'CONFIRMED' ? 'Подтвердить заявки' : bulkAction === 'REJECTED' ? 'Отклонить заявки' : 'Отметить оплату'}?`} description={`Подходящих заявок: ${registrations.filter(r => selected.includes(r.id) && eligible(bulkAction, r)).length} из ${selected.length}. Действия выполняются последовательно; участники увидят новый статус.`} confirmLabel={bulkBusy ? progress : 'Применить'} tone={bulkAction === 'REJECTED' ? 'danger' : 'primary'} reason={bulkAction === 'REJECTED'} busy={bulkBusy} busyLabel={progress} onClose={() => setBulkAction(null)} onConfirm={reason => void applyBulk(reason)} />}
+      {review && <ConfirmDialog title={review.decision === 'CONFIRMED' ? 'Подтвердить заявку?' : review.decision === 'REJECTED' ? 'Отклонить заявку?' : 'Вернуть на исправление?'}
+        description={review.decision === 'CONFIRMED' ? 'Участник получит подтверждение и сможет оплатить участие.' : review.decision === 'REJECTED' ? 'Участник получит причину отклонения. Оплата станет недоступна.' : 'Участник получит комментарий и сможет исправить данные.'}
+        confirmLabel={review.decision === 'CONFIRMED' ? 'Подтвердить' : review.decision === 'REJECTED' ? 'Отклонить' : 'Вернуть'} tone={review.decision === 'REJECTED' ? 'danger' : 'primary'} reason reasonRequired={review.decision !== 'CONFIRMED'} busy={busy} error={error}
+        onClose={() => setReview(null)} onConfirm={note => { void run(() => reviewRegistration(review.id, { decision: review.decision, reviewNote: note }, accessToken), 'registrations').then(ok => { if (ok) setReview(null) }) }} />}
       {withdraw && (
-        <OrganizerConfirm
+        <ConfirmDialog
           title="Снять заявку?"
-          message={`${withdraw.participantSnapshot.lastName} ${withdraw.participantSnapshot.firstName} не будет участвовать в этом виде.`}
-          busy={busy}
+          confirmLabel="Снять" tone="danger" busy={busy} error={error}
+          description={`${withdraw.participantSnapshot.lastName} ${withdraw.participantSnapshot.firstName} не будет участвовать в этом виде.`}
           onClose={() => setWithdraw(null)}
           onConfirm={() => {
             void run(
@@ -419,8 +388,8 @@ function SeedTimeEditor({
         }}
       />
       <div className={styles.actions}>
-        <button disabled={busy || event.status === 'ARCHIVED'}>Сохранить</button>
-        <button type="button" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setEditing(false)}>
+        <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}>Сохранить</button>
+        <button className="fl-btn fl-btn-secondary" type="button" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setEditing(false)}>
           Отмена
         </button>
       </div>
@@ -432,8 +401,9 @@ function SeedTimeEditor({
     </form>
   ) : (
     <button
-      disabled={busy || event.status === 'ARCHIVED'}
+      className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
       title="Изменить заявочное время"
+      aria-label="Изменить заявочное время"
       onClick={() => {
         setValue(
           registration.seedTimeMs == null
@@ -444,7 +414,7 @@ function SeedTimeEditor({
         setEditing(true)
       }}
     >
-      {formatSeed(registration.seedTimeMs)}
+      {formatSeed(registration.seedTimeMs)} ✎
     </button>
   )
 }
@@ -497,8 +467,8 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
         >
           Скачать шаблон
         </button>
-        <form className={styles.form} onSubmit={submit}>
-          <label className={styles.field}>
+        <form className={`${styles.form} fl-form`} onSubmit={submit}>
+          <label className="fl-field">
             Файл .xlsx
             <input
               type="file"
@@ -512,7 +482,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
             />
           </label>
           {error && <p className={styles.error}>{error}</p>}
-          <button className={styles.primary} disabled={busy || !file}>
+          <button className="fl-btn fl-btn-primary" disabled={busy || !file}>
             Импортировать
           </button>
         </form>
@@ -532,8 +502,8 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>Ошибок: {report.errors.length}</p>
             {report.errors.length > 0 && (
-              <div className={styles.table}>
-                <table>
+              <div className={`${styles.table} fl-table-scroll`}>
+                <table className="fl-table">
                   <thead>
                     <tr>
                       <th>Строка</th>
@@ -556,14 +526,12 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
         <button
-          disabled={busy || event.status === 'ARCHIVED'}
+          className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => {
-            void run(async () => undefined, 'registrations').then((ok) => {
-              if (ok) onClose()
-            })
+            onClose()
           }}
         >
-          Закрыть и обновить
+          Закрыть
         </button>
       </div>
     </OrganizerDialog>

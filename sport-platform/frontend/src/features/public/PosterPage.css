@@ -1,0 +1,15 @@
+.fl-poster { text-align: center; padding: 24px; background: var(--surface-1); color: var(--color-text); }
+body .fl-poster h1 { font: 600 64px var(--font-heading); overflow-wrap: anywhere; }
+body .fl-poster p { font-size: 28px; }
+.fl-poster svg { display: block; width: 60mm; height: 60mm; margin: 40px auto; max-width: 100%; }
+.fl-poster > strong { display: block; margin-top: 48px; font: 600 28px var(--font-heading); }
+@page sportgate-poster { size: A4 portrait; margin: 15mm; }
+@media print {
+ body:has(.fl-poster) { background: #fff; page: sportgate-poster; }
+ body:has(.fl-poster) .fl-poster { page: sportgate-poster; color: #000; padding: 0; }
+ body:has(.fl-poster) .fl-poster-controls, body:has(.fl-poster) header, body:has(.fl-poster) nav, body:has(.fl-poster) footer { display: none !important; }
+ body:has(.fl-poster) main { margin: 0; padding: 0; width: 100%; }
+ .fl-poster { break-inside: avoid; }
+ body .fl-poster h1 { font-size: 48pt; }
+ body .fl-poster p { font-size: 21pt; }
+}

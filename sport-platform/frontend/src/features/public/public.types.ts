@@ -41,6 +41,8 @@ export type Discipline = {
 }
 export type PublicEvent = {
   payment?: import('../../api/registration-payments.api').PaymentSettings | null
+  organization?: { name: string }
+
   id: string
   sportId: string
   status: EventStatus

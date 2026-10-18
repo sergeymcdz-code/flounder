@@ -1,3 +1,6 @@
+import { plural } from '../../utils/plural'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { useLocation } from 'react-router'
 import { useState, useEffect, useEffectEvent, type FormEvent } from 'react'
 import { ApiError, type FieldViolation } from '../../api/http'
 import {
@@ -7,8 +10,8 @@ import {
 } from '../../api/sessions.api'
 import {
   saveDiscipline,
-  deleteDiscipline,
   publishDiscipline,
+  deleteDiscipline,
   getDisciplineTemplates,
 } from '../../api/organizer.api'
 import type {
@@ -36,8 +39,8 @@ const strokes: Record<string, string> = {
   MEDLEY: 'Комплекс',
 }
 const genders: Record<string, string> = {
-  F: 'Женский',
-  M: 'Мужской',
+  F: 'Девушки',
+  M: 'Юноши',
   X: 'Смешанный',
 }
 function disciplineLimit(d: SwimDiscipline) {
@@ -50,6 +53,7 @@ function localDateTime(value: string) {
   return local.toISOString().slice(0, 16)
 }
 export function OrganizerProgramPage() {
+  const location = useLocation()
   const ctx = useOrganizerEvent()
   const { event, sessions, heats, registrations, accessToken, busy, run } = ctx
   const [sessionEdit, setSessionEdit] = useState<Session | 'new' | null>(null)
@@ -62,19 +66,20 @@ export function OrganizerProgramPage() {
   } | null>(null)
   return (
     <div className={styles.stack}>
+      {(location.state as { createdEventId?: string } | null)?.createdEventId === event.id && <p role="status">Соревнование создано как черновик. Добавьте сессии и виды программы</p>}
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Сессии соревнования</h2>
           <button
-            className={styles.primary}
+            className="fl-btn fl-btn-primary"
             disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => setSessionEdit('new')}
           >
             Добавить сессию
           </button>
         </div>
-        <div className={styles.table}>
-          <table>
+        <div className={`${styles.table} fl-table-scroll`}>
+          <table className="fl-table">
             <thead>
               <tr>
                 <th>Порядок</th>
@@ -92,25 +97,26 @@ export function OrganizerProgramPage() {
                     <td>{s.orderNo}</td>
                     <td>{s.name}</td>
                     <td>
-                      {formatDate(s.startsAt)} —{' '}
+                      {formatDate(s.startsAt, event.venue?.timezone)} —{' '}
                       {formatDate(
                         sessionSummary(s, event.disciplines, heats)
                           .estimatedEndsAt,
+                        event.venue?.timezone,
                       )}{' '}
                       · {sessionSummary(s, event.disciplines, heats).heatsCount}{' '}
-                      заплывов
+                      {plural(sessionSummary(s, event.disciplines, heats).heatsCount, ['заплыв', 'заплыва', 'заплывов'])}
                     </td>
                     <td>{s.breakBetweenEventsSec} с</td>
                     <td>
                       <div className={styles.actions}>
                         <button
-                          disabled={busy || event.status === 'ARCHIVED'}
+                          className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() => setSessionEdit(s)}
                         >
                           Изменить
                         </button>
                         <button
-                          disabled={busy || event.status === 'ARCHIVED'}
+                          className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() =>
                             setRemove({
                               title: `Удалить сессию «${s.name}»?`,
@@ -128,22 +134,22 @@ export function OrganizerProgramPage() {
           </table>
         </div>
         {sessions.length === 0 && (
-          <p className={styles.muted}>Добавьте первую сессию.</p>
+          <EmptyState title="Сессий пока нет" action={<button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setSessionEdit('new')}>Добавить сессию</button>} />
         )}
       </article>
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Виды программы</h2>
           <button
-            className={styles.primary}
+            className="fl-btn fl-btn-primary"
             disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => setDisciplineEdit('new')}
           >
             Добавить вид
           </button>
         </div>
-        <div className={styles.table}>
-          <table>
+        <div className={`${styles.table} fl-table-scroll`}>
+          <table className="fl-table">
             <thead>
               <tr>
                 {[
@@ -191,13 +197,13 @@ export function OrganizerProgramPage() {
                   <td>
                     <div className={styles.actions}>
                       <button
-                        disabled={busy || event.status === 'ARCHIVED'}
+                        className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() => setDisciplineEdit(d)}
                       >
                         Изменить
                       </button>
                       <button
-                        disabled={busy || event.status === 'ARCHIVED'}
+                        className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() =>
                           setRemove({
                             title: `Удалить вид «${d.name}»?`,
@@ -207,18 +213,12 @@ export function OrganizerProgramPage() {
                       >
                         Удалить
                       </button>
-                      {d.status !== 'PUBLISHED' && (
-                        <button
-                          disabled={busy || event.status === 'ARCHIVED'}
-                          onClick={() => {
-                            void run(() =>
-                              publishDiscipline(event.id, d.id, accessToken),
-                            )
-                          }}
-                        >
-                          Опубликовать вид
-                        </button>
-                      )}
+
+                      {d.status !== 'PUBLISHED' && <button className="fl-btn fl-btn-secondary"
+                        disabled={busy || event.status === 'ARCHIVED'}
+                        title="Вид появится в форме заявки, импорте и результатах"
+                        onClick={() => void run(() => publishDiscipline(event.id, d.id, accessToken))}
+                      >Показать на публичной странице</button>}
                     </div>
                   </td>
                 </tr>
@@ -227,7 +227,7 @@ export function OrganizerProgramPage() {
           </table>
         </div>
         {event.disciplines.length === 0 && (
-          <p className={styles.muted}>Добавьте первый вид программы.</p>
+          <EmptyState title="Видов программы пока нет" action={<button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setDisciplineEdit('new')}>Добавить вид</button>} />
         )}
       </article>
       {sessionEdit && (
@@ -304,46 +304,46 @@ function SessionEditor({
       title={session ? 'Изменить сессию' : 'Добавить сессию'}
       onClose={onClose}
     >
-      <form className={styles.form} onSubmit={submit}>
-        <label className={styles.field}>
+      <form className={`${styles.form} fl-form`} onSubmit={submit}>
+        <label className="fl-field">
           Название
           <input
             required
-            value={form.name}
+            value={form.name} aria-invalid={!!error('name')} aria-describedby={error('name') ? 'editor-name-error' : undefined}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
-          <span className={styles.error}>{error('name')}</span>
+          <span id="editor-name-error" className={styles.error}>{error('name')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Дата и время старта (местное время)
           <input
             required
             type="datetime-local"
-            value={date}
+            value={date} aria-invalid={!!error('startsAt')} aria-describedby={error('startsAt') ? 'editor-startsAt-error' : undefined}
             onChange={(e) => setDate(e.target.value)}
           />
-          <span className={styles.error}>{error('startsAt')}</span>
+          <span id="editor-startsAt-error" className={styles.error}>{error('startsAt')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Порядок
           <input
             required
             type="number"
             min="1"
-            value={form.orderNo}
+            value={form.orderNo} aria-invalid={!!error('orderNo')} aria-describedby={error('orderNo') ? 'editor-orderNo-error' : undefined}
             onChange={(e) =>
               setForm({ ...form, orderNo: Number(e.target.value) })
             }
           />
-          <span className={styles.error}>{error('orderNo')}</span>
+          <span id="editor-orderNo-error" className={styles.error}>{error('orderNo')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Пауза между видами, секунды
           <input
             required
             type="number"
             min="0"
-            value={form.breakBetweenEventsSec}
+            value={form.breakBetweenEventsSec} aria-invalid={!!error('breakBetweenEventsSec')} aria-describedby={error('breakBetweenEventsSec') ? 'editor-breakBetweenEventsSec-error' : undefined}
             onChange={(e) =>
               setForm({
                 ...form,
@@ -351,9 +351,9 @@ function SessionEditor({
               })
             }
           />
-          <span className={styles.error}>{error('breakBetweenEventsSec')}</span>
+          <span id="editor-breakBetweenEventsSec-error" className={styles.error}>{error('breakBetweenEventsSec')}</span>
         </label>
-        <button className={styles.primary} disabled={busy || event.status === 'ARCHIVED'}>
+        <button className="fl-btn fl-btn-primary" disabled={busy || event.status === 'ARCHIVED'}>
           Сохранить сессию
         </button>
       </form>
@@ -426,6 +426,7 @@ function DisciplineEditor({
   })
   useEffect(() => {
     let active = true
+    void loadPresets()
     getDisciplineTemplates(accessToken)
       .then((items) => {
         if (active) onTemplatesLoaded(items)
@@ -480,13 +481,14 @@ function DisciplineEditor({
       title={discipline ? 'Изменить вид программы' : 'Добавить вид программы'}
       onClose={onClose}
     >
-      <form className={styles.form} onSubmit={submit}>
+      <form className={`${styles.form} fl-form`} onSubmit={submit}>
+        <fieldset className="fl-fieldset"><legend>Основные параметры вида</legend>
         <label className={styles.field}>Взнос за дистанцию<input disabled={busy || event.status === 'ARCHIVED'} type="number" min="0" step="0.01" value={form.entryFeeAmount ?? ''} onChange={e => patch('entryFeeAmount', e.target.value === '' ? null : Number(e.target.value))} /></label>
         <label className={styles.field}>Валюта взноса<input disabled={busy || event.status === 'ARCHIVED'} pattern="[A-Z]{3}" maxLength={3} value={form.entryFeeCurrency ?? 'RUB'} onChange={e => patch('entryFeeCurrency', e.target.value.toUpperCase())} /></label>
-        <label className={styles.field}>
-          Шаблон
+        <label className="fl-field">
+          Дистанция и стиль
           <select
-            aria-label="Шаблон"
+            aria-label="Дистанция и стиль" aria-invalid={!!error('disciplineTemplateId')} aria-describedby={error('disciplineTemplateId') ? 'editor-disciplineTemplateId-error' : undefined}
             required
             disabled={templatesLoading}
             value={form.disciplineTemplateId ?? ''}
@@ -515,12 +517,12 @@ function DisciplineEditor({
           )}
           {templatesState === 'loaded' && templates.length === 0 && (
             <span className={styles.muted}>
-              Для вида спорта события нет шаблонов дисциплин
+              Для вида спорта соревнования нет шаблонов дисциплин
             </span>
           )}
-          <span className={styles.error}>{error('disciplineTemplateId')}</span>
+          <span id="editor-disciplineTemplateId-error" className={styles.error}>{error('disciplineTemplateId')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Код вида (необязательно)
           <input
             value={form.code ?? ''}
@@ -529,19 +531,19 @@ function DisciplineEditor({
           />
           <span className={styles.error}>{error('code')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Название (необязательно)
           <input
             value={form.name ?? ''}
             onChange={(e) => patch('name', e.target.value)}
             placeholder="Формируется автоматически"
           />
-          <span className={styles.error}>{error('name')}</span>
+          <span id="editor-name-error" className={styles.error}>{error('name')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Дистанция
           <select
-            value={form.distanceM}
+            value={form.distanceM} aria-invalid={!!error('distanceM')} aria-describedby={error('distanceM') ? 'editor-distanceM-error' : undefined}
             onChange={(e) => patch('distanceM', Number(e.target.value))}
           >
             {[25, 50, 100, 200, 400, 800, 1500].map((n) => (
@@ -550,12 +552,12 @@ function DisciplineEditor({
               </option>
             ))}
           </select>
-          <span className={styles.error}>{error('distanceM')}</span>
+          <span id="editor-distanceM-error" className={styles.error}>{error('distanceM')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Стиль
           <select
-            value={form.stroke}
+            value={form.stroke} aria-invalid={!!error('stroke')} aria-describedby={error('stroke') ? 'editor-stroke-error' : undefined}
             onChange={(e) => patch('stroke', e.target.value)}
           >
             {Object.entries(strokes).map(([key, name]) => (
@@ -564,12 +566,12 @@ function DisciplineEditor({
               </option>
             ))}
           </select>
-          <span className={styles.error}>{error('stroke')}</span>
+          <span id="editor-stroke-error" className={styles.error}>{error('stroke')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Пол
           <select
-            value={form.gender}
+            value={form.gender} aria-invalid={!!error('gender')} aria-describedby={error('gender') ? 'editor-gender-error' : undefined}
             onChange={(e) => patch('gender', e.target.value)}
           >
             {Object.entries(genders).map(([key, name]) => (
@@ -578,20 +580,21 @@ function DisciplineEditor({
               </option>
             ))}
           </select>
-          <span className={styles.error}>{error('gender')}</span>
+          <span id="editor-gender-error" className={styles.error}>{error('gender')}</span>
         </label>
-        <label className={styles.field}>
+        <label><input type="checkbox" disabled checked={false} /> Круговой посев — этап 2</label>
+        <label className="fl-field">
           Режим посева
           <select
-            value={form.seedingMode}
+            value={form.seedingMode} aria-invalid={!!error('seedingMode')} aria-describedby={error('seedingMode') ? 'editor-seedingMode-error' : undefined}
             onChange={(e) => patch('seedingMode', e.target.value)}
           >
             <option value="BY_AGE_GROUP">По возрастным группам</option>
             <option value="BY_TIME_ALL">Абсолютный</option>
           </select>
-          <span className={styles.error}>{error('seedingMode')}</span>
+          <span id="editor-seedingMode-error" className={styles.error}>{error('seedingMode')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Сессия
           <select
             required
@@ -605,20 +608,20 @@ function DisciplineEditor({
               </option>
             ))}
           </select>
-          <span className={styles.error}>{error('sessionId')}</span>
+          <span id="editor-sessionId-error" className={styles.error}>{error('sessionId')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Порядок в сессии
           <input
             required
             min="1"
             type="number"
-            value={form.orderInSession}
+            value={form.orderInSession} aria-invalid={!!error('orderInSession')} aria-describedby={error('orderInSession') ? 'editor-orderInSession-error' : undefined}
             onChange={(e) => patch('orderInSession', Number(e.target.value))}
           />
-          <span className={styles.error}>{error('orderInSession')}</span>
+          <span id="editor-orderInSession-error" className={styles.error}>{error('orderInSession')}</span>
         </label>
-        <label className={styles.field}>
+        <label className="fl-field">
           Длительность заплыва, секунды (необязательно)
           <input
             min="1"
@@ -631,28 +634,21 @@ function DisciplineEditor({
               )
             }
           />
-          <span className={styles.error}>{error('heatDurationSec')}</span>
+          <span id="editor-heatDurationSec-error" className={styles.error}>{error('heatDurationSec')}</span>
         </label>
-        <label className={styles.field}>Лимит участников вида
+        <label className="fl-field">Лимит участников вида
           <input type="number" min="1" step="1" value={form.maxParticipants ?? ''} placeholder="Без лимита"
             onChange={e => patch('maxParticipants', e.target.value ? Number(e.target.value) : null)} />
           <span className={styles.error}>{error('maxParticipants')}</span>
         </label>
+        </fieldset><fieldset className="fl-fieldset"><legend>Возрастные группы</legend>
         <div className={styles.toolbar}>
           <h2>Возрастные группы</h2>
-          <button
-            type="button"
-            disabled={presetBusy}
-            onClick={() => {
-              void loadPresets()
-            }}
-          >
-            {presetBusy ? 'Загружаем…' : 'Добавить пресет'}
-          </button>
+          {presetBusy && <p role="status">Загружаем пресеты…</p>}
         </div>
         {presets.length > 0 && (
           <div className={styles.actions}>
-            <label className={styles.field}>
+            <label className="fl-field">
               Пресет
               <select
                 value={preset}
@@ -666,7 +662,7 @@ function DisciplineEditor({
               </select>
             </label>
             <button
-              type="button"
+              className="fl-btn fl-btn-secondary" type="button"
               onClick={() => {
                 const groups =
                   presets.find((p) => p.code === preset)?.groups ?? []
@@ -680,10 +676,9 @@ function DisciplineEditor({
                       ),
                   ),
                 ])
-                setPresets([])
               }}
             >
-              Применить пресет
+              Применить
             </button>
           </div>
         )}
@@ -699,17 +694,17 @@ function DisciplineEditor({
                   'birthYearTo',
                 ] as const
               ).map((key) => (
-                <label className={styles.field} key={key}>
+                <label className="fl-field" key={key}>
                   {
                     {
                       code: 'Код',
                       name: 'Название',
-                      gender: 'Пол (M/F/X)',
+                      gender: 'Пол',
                       birthYearFrom: 'От года',
                       birthYearTo: 'До года',
                     }[key]
                   }
-                  <input
+                  {key === 'gender' ? <select aria-label={`Пол группы ${index + 1}`} value={g.gender} onChange={e => patch('ageGroups', form.ageGroups.map((item, i) => i === index ? { ...item, gender: e.target.value } : item))}>{Object.entries(genders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <input
                     required={!key.startsWith('birth')}
                     type={key.startsWith('birth') ? 'number' : 'text'}
                     min={key.startsWith('birth') ? 1900 : undefined}
@@ -732,18 +727,18 @@ function DisciplineEditor({
                         ),
                       )
                     }
-                  />
+                  />}
                   <span className={styles.error}>
                     {error(`ageGroups[${index}].${key}`)}
                   </span>
                 </label>
               ))}
-              <label className={styles.field}>Лимит группы
+              <label className="fl-field">Лимит группы
                 <input type="number" min="1" step="1" value={form.limitsByAgeGroup?.[g.code] ?? ''} placeholder="Без лимита"
                   onChange={e => { const limits = { ...form.limitsByAgeGroup }; if (e.target.value) limits[g.code] = Number(e.target.value); else delete limits[g.code]; patch('limitsByAgeGroup', limits) }} />
               </label>
               <button
-                type="button"
+                className="fl-btn fl-btn-secondary" type="button"
                 onClick={() =>
                   patch(
                     'ageGroups',
@@ -758,7 +753,7 @@ function DisciplineEditor({
         </div>
         <span className={styles.error}>{error('ageGroups')}</span>
         <button
-          type="button"
+          className="fl-btn fl-btn-secondary" type="button"
           onClick={() =>
             patch('ageGroups', [
               ...form.ageGroups,
@@ -774,8 +769,9 @@ function DisciplineEditor({
         >
           Добавить группу вручную
         </button>
+        </fieldset>
         <button
-          className={styles.primary}
+          className="fl-btn fl-btn-primary"
           disabled={
             busy ||
             templatesLoading ||

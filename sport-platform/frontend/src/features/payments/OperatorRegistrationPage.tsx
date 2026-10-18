@@ -1,3 +1,4 @@
+import { statusLabel } from '../../components/ui/status-dictionary'
 import { useEffect, useState } from 'react'
 import { NavLink, useParams } from 'react-router'
 import { ApiError } from '../../api/http'
@@ -48,23 +49,10 @@ function paymentStatusLabel(status: string) {
   return labels[status] ?? status
 }
 
-function registrationStatusLabel(status: RegistrationStatus) {
-  const labels: Record<RegistrationStatus, string> = {
-    WAITLISTED: 'Лист ожидания',
-    SUBMITTED: 'На рассмотрении',
-    CONFIRMED: 'Подтверждена',
-    PAID: 'Оплачена',
-    ADMITTED: 'Допущена',
-    NEEDS_CORRECTION: 'Требует уточнения',
-    REJECTED: 'Отклонена',
-    CANCELLED: 'Отменена',
-  }
-
-  return labels[status]
-}
+const registrationStatusLabel = (status: RegistrationStatus) => statusLabel('registration', status)
 
 function registrationStatusClassName(status: RegistrationStatus) {
-  const classes: Record<RegistrationStatus, string> = {
+  const classes: Partial<Record<RegistrationStatus, string>> = {
     WAITLISTED: styles.statusCorrection,
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
@@ -307,7 +295,7 @@ export function OperatorRegistrationPage() {
             </div>
 
             <div>
-              <dt>ID события</dt>
+              <dt>ID соревнования</dt>
               <dd className={styles.technicalValue}>
                 {registration.eventId}
               </dd>
