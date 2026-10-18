@@ -32,7 +32,7 @@ public class NotificationOutboxRepository {
         return jdbc.query("""
                 select id from notification_outbox
                 where status='PENDING' and next_attempt_at<=? and attempts<5
-                order by created_at,id limit 50
+                order by created_at,id limit 20
                 """, (rs, n) -> rs.getObject("id", UUID.class), Timestamp.from(now));
     }
     // Recheck eligibility while locking one row in its delivery transaction.

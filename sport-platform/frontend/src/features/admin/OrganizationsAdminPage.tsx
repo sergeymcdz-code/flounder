@@ -13,7 +13,7 @@ import styles from './Admin.module.css'
 const memberRoles = [ ['owner', 'Владелец'], ['admin', 'Администратор'], ['member', 'Участник'],
   ['organizer', 'Организатор'], ['operator', 'Оператор'], ['judge', 'Судья'] ]
 function MemberRoleSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <label>Роль в организации<select aria-label="Роль в организации" value={value} onChange={event => onChange(event.target.value)}>
+  return <label className="fl-field">Роль в организации<select aria-label="Роль в организации" value={value} onChange={event => onChange(event.target.value)}>
     {memberRoles.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
   </select></label>
 }
@@ -47,24 +47,24 @@ export function OrganizationsAdminPage() {
     } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
   }
   return <section className={styles.page}>
-    <div className={styles.heading}><h1>Организации</h1><button onClick={() => { setOpen(true); setFormError('') }}>Создать организацию</button></div>
-    {loading ? <p role="status">Загружаем организации…</p> : error ? <p role="alert" className={styles.error}>{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !organizations.length ? <p className="fl-empty">Организаций пока нет — создайте первую.</p> : <table className={styles.table}>
-        <thead><tr><th>Название</th><th>Город</th><th>Владелец</th><th>Членов / события</th></tr></thead>
+    <div className={styles.heading}><h1>Организации</h1><button className="fl-btn fl-btn-secondary" onClick={() => { setOpen(true); setFormError('') }}>Создать организацию</button></div>
+    {loading ? <p role="status">Загружаем организации…</p> : error ? <p role="alert" className={styles.error}>{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
+      : !organizations.length ? <p className="fl-empty">Организаций пока нет — создайте первую. <button className="fl-btn fl-btn-ghost" onClick={() => setOpen(true)}>Создать организацию</button></p> : <div className="fl-table-scroll"><table className={`${styles.table} fl-table fl-admin-table`}>
+        <thead><tr><th>Название</th><th>Город</th><th>Владелец</th><th>Членов / соревнования</th></tr></thead>
         <tbody>{organizations.map(org => <tr key={org.id}><td><Link to={`/admin/organizations/${org.id}`}>{org.name}</Link></td>
-          <td>{org.city || '—'}</td><td>{org.owner || 'Не назначен'}</td><td>{org.memberCount ?? '—'}<br /><Link to={`/admin/organizations/${org.id}#events`}>События</Link></td></tr>)}</tbody>
-      </table>}
+          <td>{org.city || '—'}</td><td>{org.owner || 'Не назначен'}</td><td>{org.memberCount ?? '—'}<br /><Link to={`/admin/organizations/${org.id}#events`}>Соревнования</Link></td></tr>)}</tbody>
+      </table></div>}
     {open && <AdminDialog title="Создать организацию" busy={busy} onClose={() => setOpen(false)}>
       <form className={styles.form} onSubmit={submit}><fieldset className={styles.form} disabled={busy}>
-        <label>Название<input name="name" maxLength={255} required /></label>
-        <label>Тип организации<select name="type" aria-label="Тип организации"><option value="club">Клуб</option><option value="school">Школа</option><option value="federation">Федерация</option><option value="other">Другое</option></select></label>
-        <label>Город<input name="city" maxLength={128} /></label>
-        <label>Юридическое название<input name="legalName" maxLength={255} /></label>
-        <label>ИНН<input name="inn" maxLength={32} /></label>
-        <label>Контактный email<input name="contactEmail" type="email" /></label>
-        <label>Контактный телефон<input name="contactPhone" maxLength={32} /></label>
+        <label className="fl-field">Название<input name="name" maxLength={255} required /></label>
+        <label className="fl-field">Тип организации<select name="type" aria-label="Тип организации"><option value="club">Клуб</option><option value="school">Школа</option><option value="federation">Федерация</option><option value="other">Другое</option></select></label>
+        <label className="fl-field">Город<input name="city" maxLength={128} /></label>
+        <label className="fl-field">Юридическое название<input name="legalName" maxLength={255} /></label>
+        <label className="fl-field">ИНН<input name="inn" maxLength={32} /></label>
+        <label className="fl-field">Контактный email<input name="contactEmail" type="email" /></label>
+        <label className="fl-field">Контактный телефон<input name="contactPhone" maxLength={32} /></label>
       </fieldset>{formError && <p className={styles.error} role="alert">{formError}</p>}
-        <button type="submit" disabled={busy}>{busy ? 'Создаём…' : 'Создать'}</button>
+        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Создаём…' : 'Создать'}</button>
       </form>
     </AdminDialog>}
   </section>
@@ -116,24 +116,24 @@ export function OrganizationAdminPage() {
     } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
   }
   return <section className={styles.page}><Link to="/admin/organizations">← Организации</Link>
-    <div className={styles.heading}><h1>{organization?.name ?? 'Организация'}</h1><button disabled={loading || !!error} onClick={() => open({ type: 'add' })}>Добавить участника</button></div>
-    {loading ? <p role="status">Загружаем участников…</p> : error ? <p role="alert" className={styles.error}>{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !members.length ? <p className="fl-empty">Участников пока нет — добавьте пользователя по email.</p> : <table className={styles.table}>
+    <div className={styles.heading}><h1>{organization?.name ?? 'Организация'}</h1><button className="fl-btn fl-btn-secondary" disabled={loading || !!error} onClick={() => open({ type: 'add' })}>Добавить участника</button></div>
+    {loading ? <p role="status">Загружаем участников…</p> : error ? <p role="alert" className={styles.error}>{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
+      : !members.length ? <p className="fl-empty">Участников пока нет — добавьте пользователя по email. <button className="fl-btn fl-btn-ghost" onClick={() => open({ type: 'add' })}>Добавить участника</button></p> : <div className="fl-table-scroll"><table className={`${styles.table} fl-table fl-admin-table`}>
         <thead><tr><th>Email</th><th>ФИО</th><th>Роль в организации</th><th>Действия</th></tr></thead>
         <tbody>{members.map(member => <tr key={member.userId}><td>{member.email}</td><td>{member.lastName} {member.firstName}</td>
           <td>{memberRoles.find(([code]) => code === member.memberRole)?.[1] ?? member.memberRole}</td><td className={styles.actions}>
-            <button onClick={() => open({ type: 'edit', member })}>Изменить роль</button><button onClick={() => open({ type: 'delete', member })}>Удалить</button></td></tr>)}</tbody>
-      </table>}
+            <button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'edit', member })}>Изменить роль</button><button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'delete', member })}>Удалить</button></td></tr>)}</tbody>
+      </table></div>}
     <OrganizationInvitationList organizationId={id} />
-    <h2 id="events">События организации</h2>
+    <h2 id="events">Соревнования организации</h2>
     {eventError ? <p role="alert" className={styles.error}>{eventError}</p> : events.length ? <ul>{events.map(event =>
-      <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p className="fl-empty">Событий пока нет.</p>}
+      <li key={event.id}><Link to={`/organizer/events/${event.id}`}>{event.title}</Link></li>)}</ul> : <p className="fl-empty">Соревнований пока нет.</p>}
     {action && <AdminDialog title={action.type === 'add' ? 'Добавить участника' : action.type === 'edit' ? 'Изменить роль' : 'Удалить участника'} busy={busy} onClose={() => setAction(null)}>
       <form className={styles.form} onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
-        {action.type === 'add' ? <label>Email пользователя<input name="email" type="email" required /></label> : <p>{action.member.email}</p>}
+        {action.type === 'add' ? <label className="fl-field">Email пользователя<input name="email" type="email" required /></label> : <p>{action.member.email}</p>}
         {action.type === 'delete' ? <p>Удалить пользователя из организации?</p> : <MemberRoleSelect value={role} onChange={setRole} />}
       </fieldset>{formError && <p className={styles.error} role="alert">{formError}</p>}
-        <button type="submit" disabled={busy}>{busy ? 'Сохраняем…' : action.type === 'delete' ? 'Удалить' : 'Сохранить'}</button>
+        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : action.type === 'delete' ? 'Удалить' : 'Сохранить'}</button>
       </form>
     </AdminDialog>}
   </section>

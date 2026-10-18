@@ -43,7 +43,7 @@ type AuthContextValue = {
   isOperator: boolean
   isParticipant: boolean
   isAdmin: boolean
-  login: (request: LoginRequest) => Promise<void>
+  login: (request: LoginRequest) => Promise<AuthSession & { roles: string[] }>
   logout: () => Promise<void>
   sessionMessage: string | null
 }
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [])
   const authLoading = !!token && profile?.token !== token
 
-  const login = useCallback(async (request: LoginRequest): Promise<void> => {
+  const login = useCallback(async (request: LoginRequest): Promise<AuthSession & { roles: string[] }> => {
     const response = await loginRequest(request)
 
     const nextSession: AuthSession = {
@@ -126,7 +126,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       expiresAt: Date.now() + response.expiresIn * 1000,
     }
 
+    const user = await apiFetch<Profile>('/api/v1/auth/me', { accessToken: nextSession.accessToken }).catch(() => null)
+    setProfile({ token: nextSession.accessToken, user })
     setAuthSession(nextSession)
+    return { ...nextSession, roles: user?.effectiveRoles ?? getRoles(nextSession.accessToken) }
   }, [])
 
   const logout = useCallback(async () => {

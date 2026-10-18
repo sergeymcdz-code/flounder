@@ -33,6 +33,14 @@ public class ParticipantDocumentController {
     @PreAuthorize("hasAnyRole('PARTICIPANT','ORGANIZER','OPERATOR','PLATFORM_ADMIN')")
     public List<ParticipantDocumentResponse> list(@PathVariable UUID profileId, @RequestParam(required = false) UUID eventId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal) { return service.list(profileId, eventId, principal); }
+    @PostMapping("/profiles/{profileId}/documents/{id}/review")
+    @PreAuthorize("hasAnyRole('ORGANIZER','OPERATOR','PLATFORM_ADMIN')")
+    public ParticipantDocumentResponse review(@PathVariable UUID profileId, @PathVariable UUID id,
+            @RequestParam UUID eventId,
+            @jakarta.validation.Valid @RequestBody com.acme.sportplatform.registrations.api.ReviewParticipantDocumentRequest request,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        return service.review(profileId, id, eventId, request, principal);
+    }
     @DeleteMapping("/profiles/{profileId}/documents/{id}")
     @PreAuthorize("hasRole('PARTICIPANT')")
     public ResponseEntity<Void> delete(@PathVariable UUID profileId, @PathVariable UUID id,

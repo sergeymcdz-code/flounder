@@ -1,4 +1,7 @@
 export type EventStatus =
+  | 'LIVE'
+  | 'COMPLETED'
+  | 'ARCHIVED'
   | 'DRAFT'
   | 'PUBLISHED'
   | 'REGISTRATION_OPEN'

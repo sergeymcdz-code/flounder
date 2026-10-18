@@ -22,8 +22,8 @@ beforeEach(() => {
 it('uses effective membership roles for navigation without global staff roles', async () => {
   server.use(http.get('*/api/v1/auth/me', () => HttpResponse.json({ id: 'user', roles: ['participant'], effectiveRoles: ['operator', 'participant'], memberships })))
   render(<MemoryRouter><AuthProvider><AppLayout /></AuthProvider></MemoryRouter>)
-  expect(await screen.findByRole('link', { name: 'Мои события' })).toHaveAttribute('href', '/organizer/events')
-  expect(screen.getByRole('link', { name: 'Заявки и платежи' })).toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: 'Мои соревнования' })).toHaveAttribute('href', '/organizer/events')
+  expect(screen.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', '/organizer/events')
 })
 it('filters events and creation rights when switching and persists the selected organization', async () => {
   const organizations: (string | null)[] = []
@@ -35,15 +35,15 @@ it('filters events and creation rights when switching and persists the selected 
       return HttpResponse.json([{ id: id ?? 'all', title: id === 'two' ? 'Второй старт' : 'Первый старт', status: 'DRAFT', eventStartAt: '2030-01-01T10:00:00Z' }])
     }),
   )
-  render(<MemoryRouter><AuthProvider><OrganizationSwitcher /><OrganizerEventsPage /></AuthProvider></MemoryRouter>)
+  render(<MemoryRouter initialEntries={['/organizer/events?all=1']}><AuthProvider><OrganizationSwitcher /><OrganizerEventsPage /></AuthProvider></MemoryRouter>)
   await screen.findByRole('combobox', { name: 'Организация' })
   await vi.waitFor(() => expect(organizations).toContain('one'))
-  expect(screen.queryByRole('link', { name: 'Создать мероприятие' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Создать соревнование' })).not.toBeInTheDocument()
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Организация' }), 'two')
   expect(await screen.findByText('Второй старт')).toBeInTheDocument()
   expect(organizations.at(-1)).toBe('two')
   expect(localStorage.getItem('flounder.current-org')).toBe('two')
-  expect(screen.getByRole('link', { name: 'Создать мероприятие' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Создать соревнование' })).toBeInTheDocument()
 })
 it('restores a valid selection and shows a single organization as text', async () => {
   localStorage.setItem('flounder.current-org', 'removed-organization')
@@ -74,15 +74,33 @@ it('shows all events for a platform administrator even with a selected membershi
   render(<MemoryRouter><AuthProvider><ReadyEvents /></AuthProvider></MemoryRouter>)
   const selector = await screen.findByRole('combobox', { name: 'Организация' })
   await vi.waitFor(() => {
-    expect(screen.queryByText('Загружаем мероприятия…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Загружаем соревнования…')).not.toBeInTheDocument()
     expect(screen.getByText('Первый старт')).toBeInTheDocument()
     expect(screen.getByText('Второй старт')).toBeInTheDocument()
   })
   await userEvent.selectOptions(selector, 'two')
   await vi.waitFor(() => {
-    expect(screen.queryByText('Загружаем мероприятия…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Загружаем соревнования…')).not.toBeInTheDocument()
     expect(screen.getByText('Первый старт')).toBeInTheDocument()
     expect(screen.getByText('Второй старт')).toBeInTheDocument()
   })
   expect(filters.every(filter => filter === null)).toBe(true)
+})
+
+it('returns effective organization roles at login for the D03 home redirect', async () => {
+  setAuthSession(null)
+  server.use(
+    http.post('*/api/v1/auth/login', () => HttpResponse.json({ accessToken: 'membership-token', refreshToken: 'refresh', tokenType: 'Bearer', expiresIn: 3600 })),
+    http.get('*/api/v1/auth/me', () => HttpResponse.json({ id: 'secretary', roles: ['participant'], effectiveRoles: ['participant', 'operator'], memberships })),
+  )
+  const loggedIn = vi.fn()
+  function LoginProbe() {
+    const { login } = useAuth()
+    return <button onClick={() => { void login({ email: 'secretary@example.com', password: 'test-password' }).then(loggedIn) }}>Вход</button>
+  }
+  render(<MemoryRouter><AuthProvider><LoginProbe /><AppLayout /></AuthProvider></MemoryRouter>)
+  await userEvent.click(screen.getByRole('button', { name: 'Вход' }))
+  await vi.waitFor(() => expect(loggedIn).toHaveBeenCalledWith(expect.objectContaining({ roles: ['participant', 'operator'] })))
+  expect(screen.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', '/organizer/events')
+  expect(screen.getByRole('link', { name: 'Мои соревнования' })).toBeInTheDocument()
 })

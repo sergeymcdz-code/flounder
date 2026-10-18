@@ -137,3 +137,4 @@ GET	/api/v1/invitations/{token}	public	false	200	invitation
 POST	/api/v1/invitations/{token}/accept	authenticated	false	403	invitation
 GET	/api/v1/organizations/mine	authenticated	false	200
 PATCH	/api/v1/organizations/{id}	owner	true	200		{"type":"club","name":"QA04 клуб","city":"Москва"}
+POST	/api/v1/profiles/{profileId}/documents/{id}/review	documents	true	200	document	{"status":"ACCEPTED"}

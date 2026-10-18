@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 public class NotificationScheduler {
     private final NotificationWorker worker;
     public NotificationScheduler(NotificationWorker worker) { this.worker = worker; }
-    @Scheduled(fixedDelay = 10000, initialDelay = 10000)
+    @Scheduled(fixedDelayString = "${app.mail.worker-delay-ms:15000}",
+            initialDelayString = "${app.mail.worker-initial-delay-ms:15000}")
     public void deliver() { worker.sendBatch(); }
 }

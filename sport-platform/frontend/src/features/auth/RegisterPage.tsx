@@ -95,6 +95,7 @@ export function RegisterPage() {
         clubName: clubName.trim() || null,
       })
 
+      sessionStorage.setItem(`sportgate.profile.${normalizedEmail}`, JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), middleName: middleName.trim(), birthDate, club: clubName.trim() }))
       await login({
         email: normalizedEmail,
         password,
@@ -111,7 +112,7 @@ export function RegisterPage() {
   return (
     <section className={styles.page}>
       <Link className={styles.backLink} to="/">
-        ← К событиям
+        ← К соревнованиям
       </Link>
 
       <div className={styles.card}>
@@ -124,12 +125,12 @@ export function RegisterPage() {
           оплачивать стартовые взносы и отслеживать статус регистрации.
         </p>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form className={`${styles.form} fl-form`} onSubmit={handleSubmit}>
           <fieldset className={styles.fieldset} disabled={isSubmitting}>
-            <legend className={styles.legend}>Данные участника</legend>
+            <legend className={styles.legend}>Ваши данные (родитель или спортсмен)</legend>
 
             <div className={styles.twoColumns}>
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span>Имя</span>
                 <input
                   autoComplete="given-name"
@@ -140,7 +141,7 @@ export function RegisterPage() {
                 />
               </label>
 
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span>Фамилия</span>
                 <input
                   autoComplete="family-name"
@@ -152,8 +153,8 @@ export function RegisterPage() {
               </label>
             </div>
 
-            <label className={styles.field}>
-              <span>Отчество</span>
+            <label className="fl-field">
+              <span>Отчество (необязательно)</span>
               <input
                 autoComplete="additional-name"
                 maxLength={120}
@@ -162,7 +163,7 @@ export function RegisterPage() {
               />
             </label>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span>Дата рождения</span>
               <input
                 max={new Date().toISOString().slice(0, 10)}
@@ -177,7 +178,7 @@ export function RegisterPage() {
           <fieldset className={styles.fieldset} disabled={isSubmitting}>
             <legend className={styles.legend}>Контакты и вход</legend>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span>Email</span>
               <input
                 autoComplete="email"
@@ -190,8 +191,8 @@ export function RegisterPage() {
               />
             </label>
 
-            <label className={styles.field}>
-              <span>Телефон</span>
+            <label className="fl-field">
+              <span>Телефон (необязательно)</span>
               <input
                 autoComplete="tel"
                 inputMode="tel"
@@ -204,7 +205,7 @@ export function RegisterPage() {
             </label>
 
             <div className={styles.twoColumns}>
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span>Пароль</span>
                 <input
                   autoComplete="new-password"
@@ -216,7 +217,7 @@ export function RegisterPage() {
                 />
               </label>
 
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span>Повторите пароль</span>
                 <input
                   autoComplete="new-password"
@@ -236,7 +237,7 @@ export function RegisterPage() {
             <legend className={styles.legend}>Дополнительно</legend>
 
             <div className={styles.twoColumns}>
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span>Город</span>
                 <input
                   autoComplete="address-level2"
@@ -246,7 +247,7 @@ export function RegisterPage() {
                 />
               </label>
 
-              <label className={styles.field}>
+              <label className="fl-field">
                 <span>Клуб</span>
                 <input
                   maxLength={180}
@@ -279,7 +280,7 @@ export function RegisterPage() {
           ) : null}
 
           <button
-            className={styles.submitButton}
+            className="fl-btn fl-btn-primary"
             disabled={isSubmitting}
             type="submit"
           >

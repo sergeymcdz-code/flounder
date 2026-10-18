@@ -410,6 +410,18 @@ $ df -h /                  # свободно ли место на диске (�
 $ free -m                  # память; если available < 200 МБ — API мог быть убит по OOM
 ```
 
+Диагностика CPU и памяти: [аудит S03, §2](perf/2026-10-15_perf_audit.md#2-команды-для-владельца-копировать-по-строке).
+После V038 и перезапуска Postgres с `shared_preload_libraries=pg_stat_statements`
+медленные запросы видны так:
+
+```bash
+$ fl exec postgres psql -U sport_user -d sport_platform -c "select calls, round(total_exec_time::numeric,1) as total_ms, round(mean_exec_time::numeric,2) as mean_ms, left(query,160) as query from pg_stat_statements order by total_exec_time desc limit 10"
+```
+
+Продовые лимиты S03: API 1664 МБ (heap 60 %), Postgres 640 МБ, web/Caddy по
+128 МБ. Сравнивайте `docker stats` в простое и под нагрузкой с
+[локальным отчётом k6](perf/2026-10-16_k6_report.md).
+
 ### Контейнер `Restarting` или `Exited`
 
 ```bash
@@ -424,7 +436,7 @@ $ fl up -d                 # зачем: пересоздать упавшие �
 | `FATAL: password authentication failed` | в `.env.prod` сменили `POSTGRES_PASSWORD` после создания базы | вернуть старый пароль или сменить его в БД (п. 10) |
 | `Schema-validation: missing table/column` | код ждёт миграцию, которой нет в базе; или база старее кода | `fl logs postgres`; обычно помогает `./infra/deploy.sh` (Flyway применит миграции). Если миграция упала — восстановить бэкап (п. 9) и сообщить разработчикам |
 | `Migration checksum mismatch` / `FlywayValidateException` | в репозитории изменили уже применённую миграцию | не чинить руками — сообщить разработчикам, приложить лог |
-| `OutOfMemoryError` или контейнер просто исчез, в `dmesg` есть `Killed process` | мало памяти | `fl restart api`; если повторяется — уменьшить `-Xmx1024m` до `-Xmx768m` в `compose.prod.yaml` или увеличить сервер |
+| `OutOfMemoryError` или контейнер просто исчез, в `dmesg` есть `Killed process` | мало памяти | `fl restart api`; если повторяется — уменьшить `-XX:MaxRAMPercentage=60` (например, до `45`) в `compose.prod.yaml` или увеличить сервер |
 | `JWT_SECRET` / `Could not resolve placeholder` | пустая переменная в `.env.prod` | заполнить и `fl up -d` |
 | `port is already allocated` (caddy) | порт 80/443 занят другим сервисом (nginx/apache) | `sudo ss -ltnp | grep ':80\|:443'`, остановить лишнее: `sudo systemctl disable --now nginx` |
 

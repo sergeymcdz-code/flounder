@@ -58,3 +58,10 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e DEMO_DATE=2026-10-19 
 3. `https://sportgate.pro/e/pervenstvo-oblasti-sredi-yunoshey` — регистрация открыта, лимит 150.
 4. Вход `org@flounder.demo` → три события в кабинете.
 5. Письмо на `sergeymcdzkz@gmail.com` (сброс пароля участника) — приходит.
+
+## Выполнено 17.10 09:00–09:10 МСК
+- Деплой `main` 8d709be (S01 + M05-3 + S02), health UP; бренд SportGate на стенде.
+- Сид трёх событий за 18,7 с: A `kubok-sportgate-osen` (`1db85455-…`, COMPLETED, 160 результатов, 26 заплывов), B `otkrytyy-kubok-samary-po-plavaniyu` (`47995082-…`, REGISTRATION_CLOSED, 200 заявок, 2 заплыва FINISHED), C `pervenstvo-oblasti-sredi-yunoshey` (`3b60406f-…`, REGISTRATION_OPEN, 124 заявки: 114 + 6 NEEDS_CORRECTION + 4 WAITLISTED, 2 документа). Бэкап до сброса: `/home/deploy/backups/flounder-20261017-0903.dump`.
+- Старое событие «… (демо)» (`edeec78e-…`) удалено через `reset.sql` (COMMIT, 201 заявка, 31 заплыв); публичный URL отдаёт 404.
+- Инцидент SSH: `Connection closed … port 22` до запроса пароля — перебор паролей (109.160.32.142, 188.241.187.128, 45.148.10.152; 221 неудача за минуты). `infra/harden.sh` ранее не выполнялся, fail2ban отсутствовал. Поставлен вручную через веб-консоль Timeweb: `apt install fail2ban`, `/etc/fail2ban/jail.d/flounder.conf` = `[sshd] enabled=true, backend=systemd, maxretry=5, findtime=10m, bantime=1h`; `systemctl restart ssh`. Это же — вероятная причина фонового CPU 20–30 % (перф-аудит §1 п.1). Снять бан своего IP: `fail2ban-client set sshd unbanip <IP>` из веб-консоли.
+- Не сделано: перезагрузка сервера (`System restart required`) — после демо; cron бэкапов и restore-проверка — по чек-листу репетиции.
