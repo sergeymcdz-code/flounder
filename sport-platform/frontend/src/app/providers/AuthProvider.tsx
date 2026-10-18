@@ -34,7 +34,7 @@ type AuthContextValue = {
   isOperator: boolean
   isParticipant: boolean
   isAdmin: boolean
-  login: (request: LoginRequest) => Promise<void>
+  login: (request: LoginRequest) => Promise<AuthSession & { roles: string[] }>
   logout: () => Promise<void>
   sessionMessage: string | null
 }
@@ -82,7 +82,7 @@ function getRoles(accessToken: string | null): string[] {
 export function AuthProvider({ children }: PropsWithChildren) {
   const { session, message: sessionMessage } = useSyncExternalStore(subscribeAuth, getAuthState)
 
-  async function login(request: LoginRequest): Promise<void> {
+  async function login(request: LoginRequest) {
     const response = await loginRequest(request)
 
     const nextSession: AuthSession = {
@@ -93,6 +93,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     setAuthSession(nextSession)
+    return { ...nextSession, roles: getRoles(nextSession.accessToken) }
   }
 
   async function logout() {

@@ -1,0 +1,8 @@
+.list { list-style: none; padding: 0; margin: 0; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 64px; border-bottom: 1px solid var(--border-subtle); padding: 8px 0; }
+.row:last-child { border-bottom: 0; }
+.row[aria-current] { font-weight: 600; }
+.stepLink { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.stepLink small { display: block; margin-top: 4px; font: 400 12px var(--font-body); color: var(--color-text-muted); }
+.number { font: 600 18px var(--font-heading); }
+@media(max-width: 600px) { .row { flex-wrap: wrap; } .stepLink { flex-basis: calc(100% - 40px); } .row > a:last-child, .row > button { margin-left: 32px; } }

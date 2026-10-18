@@ -192,7 +192,7 @@ export function RegistrationReviewPage() {
         ) : null}
 
         <button
-          className="button button-primary"
+          className="fl-btn fl-btn-primary"
           disabled={isSubmitting}
           type="submit"
         >
@@ -233,12 +233,12 @@ export function OrganizationRegistrationReviewPage() {
     } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
   }
   return <section className={adminStyles.page}><h1>Заявки организаций</h1>
-    {loading ? <p role="status">Загружаем заявки…</p> : error ? <p className={adminStyles.error} role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>
+    {loading ? <p role="status">Загружаем заявки…</p> : error ? <p className={adminStyles.error} role="alert">{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
       : !requests.length ? <p className="fl-empty">Заявок организаций на рассмотрении нет.</p> : <div className={adminStyles.queue}>
         {requests.map(request => <article key={request.id} className={adminStyles.card}>
           <h2>{request.organizationName}</h2><p>{request.legalName || request.organizationType} · ИНН: {request.inn || '—'}</p>
           <p>{request.contactEmail} {request.contactPhone}</p><p>Подана: {new Date(request.createdAt).toLocaleDateString('ru-RU')}</p>
-          <div className={adminStyles.actions}>{[true, false].map(approve => <button key={String(approve)} onClick={() => {
+          <div className={adminStyles.actions}>{[true, false].map(approve => <button className="fl-btn fl-btn-secondary" key={String(approve)} onClick={() => {
             setSelected({ id: request.id, name: request.organizationName, approve }); setReason(''); setFormError('')
           }}>{approve ? 'Одобрить' : 'Отклонить'}</button>)}</div>
         </article>)}
@@ -247,7 +247,7 @@ export function OrganizationRegistrationReviewPage() {
       <form className={adminStyles.form} onSubmit={decide}><p>{selected.name}</p>
         {selected.approve ? <p>Создать организацию и назначить заявителя владельцем?</p> : <label>Причина отклонения<textarea required maxLength={2000} disabled={busy} value={reason} onChange={event => setReason(event.target.value)} /></label>}
         {formError && <p className={adminStyles.error} role="alert">{formError}</p>}
-        <button type="submit" disabled={busy}>{busy ? 'Сохраняем…' : 'Подтвердить'}</button>
+        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : 'Подтвердить'}</button>
       </form>
     </AdminDialog>}
   </section>

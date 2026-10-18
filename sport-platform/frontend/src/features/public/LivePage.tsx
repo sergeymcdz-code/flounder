@@ -1,3 +1,6 @@
+import { plural } from '../../utils/plural'
+import { sameSwimmer, swimmerStarts, useMySwimmers } from './my-swimmers'
+import { StarIcon } from '../../components/ui/icons'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { publicApi } from '../../api/public.api'
@@ -108,7 +111,7 @@ export function LiveBoard({
             </p>
             <LaneTable heat={live.currentUnit} lanes={lanes} />
             <Link
-              className={`${styles.button} fl-button-ghost`}
+              className="fl-btn fl-btn-ghost"
               to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(live.currentUnit.id)}`}
             >
               Открыть заплыв
@@ -147,11 +150,11 @@ export function LiveBoard({
             })}
           </ol>
         ) : (
-          <p className="fl-empty">Следующих заплывов нет.</p>
+          <p className="fl-empty">Следующих заплывов нет · <Link to={`/e/${encodeURIComponent(slug)}/schedule`}>Открыть расписание</Link></p>
         )}
       </section>
       <p className={styles.muted}>
-        Обновлено: {time(live.updatedAt, timeZone)} · каждые 5 секунд
+        Обновлено: {time(live.updatedAt, timeZone)} · Обновляется каждые 15 с
       </p>
     </>
   )
@@ -164,6 +167,7 @@ export function AthleteSearch({
   slug: string
   timeZone?: string
 }) {
+  const { swimmers, toggle } = useMySwimmers()
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
   const [state, setState] = useState<{
@@ -202,7 +206,7 @@ export function AthleteSearch({
   return (
     <section id="find-me" className={styles.card}>
       <h2>Найти себя</h2>
-      <label className={styles.field}>
+      <label className="fl-field">
         Фамилия
         <input
           type="search"
@@ -227,6 +231,7 @@ export function AthleteSearch({
           current &&
           state.data?.map((athlete) => (
             <article key={athlete.athleteKey} className={styles.athlete}>
+              <button className="fl-btn fl-btn-ghost fl-btn-sm" type="button" aria-label={`Мои пловцы: ${athlete.lastName} ${athlete.firstName}`} aria-pressed={swimmers.some(v => sameSwimmer(v, { name: `${athlete.lastName} ${athlete.firstName}`, club: athlete.club, yearOfBirth: athlete.birthYear }))} onClick={() => toggle({ name: `${athlete.lastName} ${athlete.firstName}`, club: athlete.club, yearOfBirth: athlete.birthYear })}><StarIcon filled={swimmers.some(v => sameSwimmer(v, { name: `${athlete.lastName} ${athlete.firstName}`, club: athlete.club, yearOfBirth: athlete.birthYear }))} /></button>
               <h3>
                 {athlete.lastName} {athlete.firstName}
               </h3>
@@ -269,6 +274,7 @@ export function AthleteSearch({
 
 export function LivePage() {
   const event = usePublicEvent()
+  const { swimmers } = useMySwimmers()
   const loadList = useCallback(
     (signal: AbortSignal) => publicApi.startList(event.publicSlug, signal),
     [event.publicSlug],
@@ -296,6 +302,7 @@ export function LivePage() {
         data={live.data}
         retry={live.retry}
       />
+      {swimmers.length > 0 && live.data && list.data && <section className="fl-my-swimmers" aria-label="Мои пловцы"><h2>★ Мои пловцы</h2>{swimmers.map(swimmer => <div key={`${swimmer.name}-${swimmer.club}-${swimmer.yearOfBirth}`}><strong>{swimmer.name}</strong>{swimmerStarts(swimmer, list.data!, live.data!).length ? swimmerStarts(swimmer, list.data!, live.data!).slice(0, 1).map(start => <p key={start.heat.id}>Вид № {start.discipline.number} · {start.discipline.name} · заплыв {start.heat.number} · дорожка {start.lane} · ~{time(start.heat.scheduledAt, event.venue?.timezone)}<br /><span className="fl-swimmer-distance">{start.remaining === null ? 'Ожидает старта' : start.remaining === 0 ? 'Сейчас' : `через ${start.remaining} ${plural(start.remaining, ['заплыв', 'заплыва', 'заплывов'])}`}</span></p>) : <p>Предстоящих стартов в опубликованном протоколе нет.</p>}</div>)}<a className="fl-btn fl-btn-ghost" href="#find-me" onClick={() => document.getElementById('find-me')?.scrollIntoView({ block: 'start' })}>Изменить</a></section>}
       {live.data && (
         <LiveBoard
           live={live.data}

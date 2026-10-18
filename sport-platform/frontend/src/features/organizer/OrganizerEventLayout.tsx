@@ -1,5 +1,11 @@
+import { plural } from '../../utils/plural'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { Tabs, type TabItem } from '../../components/ui/Tabs'
+import { Notice } from '../../components/ui/Notice'
+import { isHeatPublished } from './organizer-event-context'
 import { useCallback, useEffect, useEffectEvent, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { useParams } from 'react-router'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { ApiError } from '../../api/http'
@@ -34,8 +40,9 @@ export function OrganizerEventLayout() {
 
 function OrganizerEventContent() {
   const { eventId = '' } = useParams()
-  const { session, logout, isOrganizer, isPlatformAdmin } = useAuth()
+  const { session, logout, isOrganizer, isPlatformAdmin, isOperator, hasRole } = useAuth()
   const token = session?.accessToken ?? ''
+  const judgeOnly = hasRole('judge') && !isOrganizer && !isPlatformAdmin && !isOperator
   const navigate = useNavigate()
   const location = useLocation()
   const [data, setData] = useState<{
@@ -84,6 +91,7 @@ function OrganizerEventContent() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const clearError = useCallback(() => setError(''), [])
   const reportError = useCallback(
     (cause: unknown) => {
       if (cause instanceof ApiError && cause.status === 401) {
@@ -96,7 +104,8 @@ function OrganizerEventContent() {
       }
       setError(
         cause instanceof ApiError && cause.status === 403
-          ? 'Нет доступа к этому событию.'
+          ? 'Нет доступа к этому соревнованию.'
+          : cause instanceof ApiError && cause.status === 404 ? 'Соревнование не найдено.'
           : cause instanceof Error
             ? cause.message
             : 'Не удалось выполнить действие.',
@@ -106,15 +115,15 @@ function OrganizerEventContent() {
   )
   const load = useCallback(async () => {
     const [event, registrations, sessions] = await Promise.all([
-      getOrganizerEvent(eventId, token),
-      getOrganizerRegistrations(eventId, token),
+      getOrganizerEvent(eventId, token, isOrganizer || isPlatformAdmin),
+      judgeOnly ? Promise.resolve([]) : getOrganizerRegistrations(eventId, token),
       getSessions(eventId, token),
     ])
     const heats = (
       await Promise.all(event.disciplines.map((d) => getHeats(d.id, token)))
     ).flat()
     return { event, registrations, sessions, heats }
-  }, [eventId, token])
+  }, [eventId, token, judgeOnly, isOrganizer, isPlatformAdmin])
   const refresh = useCallback(async () => {
     setData(await load())
   }, [load])
@@ -170,11 +179,12 @@ function OrganizerEventContent() {
       setBusy(false)
     }
   }
-  if (loading) return <LoadingState message="Загружаем событие…" />
+  useEffect(() => { if (data?.event) document.title = `${data.event.title} · Соревнование · SportGate` }, [data?.event.title])
+  if (loading) return <LoadingState message="Загружаем соревнование…" />
   if (!data)
     return (
       <ErrorState
-        message={error || 'Событие не найдено.'}
+        message={error || 'Соревнование не найдено.'}
         onRetry={() => {
           void run(refresh)
         }}
@@ -182,43 +192,21 @@ function OrganizerEventContent() {
     )
   return (
     <div className={styles.page}>
-      <Link to="/organizer/events" className={styles.muted}>
-        ← Мои события
+      <Link to={judgeOnly ? '/operator/results' : '/organizer/events?all=1'} className={styles.muted}>
+        {judgeOnly ? '← Судейство' : '← Все соревнования'}
       </Link>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.eyebrow}>Кабинет организатора</p>
-          <h1>{data.event.title}</h1>
-          <p className={styles.muted}>
-            {formatDate(data.event.eventStartAt)} ·{' '}
-            {data.event.venue?.name ?? 'Площадка события'}
-          </p>
-        </div>
-      </header>
-      {data.event.status === 'ARCHIVED' && <p role="status">Событие в архиве. Доступен только просмотр.</p>}
-      <nav className={styles.tabs} aria-label="Разделы события">
-        {[
-          ['', 'Обзор'],
-          ['program', 'Сессии и виды'],
-          ['entries', 'Заявки'],
-          ['heats', 'Заплывы'],
-          ['results', 'Результаты'],
-          ['diploma', 'Грамоты'],
-          ['notifications', 'Уведомления'],
-          ...(isOrganizer || isPlatformAdmin ? [['analytics', 'Аналитика']] : []),
-        ].map(([path, title]) => (
-          <NavLink
-            key={path}
-            end
-            to={`/organizer/events/${eventId}${path ? `/${path}` : ''}`}
-            className={({ isActive }) =>
-              isActive ? styles.activeTab : styles.tab
-            }
-          >
-            {title}
-          </NavLink>
-        ))}
-      </nav>
+      <PageHeader title={data.event.title} badge={<StatusBadge kind="event" code={data.event.status} />} meta={<>{formatDate(data.event.eventStartAt, data.event.venue?.timezone)} — {formatDate(data.event.eventEndAt, data.event.venue?.timezone)} · {data.event.venue?.name ?? 'Площадка соревнования'}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}{data.event.venue?.lanes ? ` · ${data.event.venue.lanes} дорожек` : ''}{data.event.venue?.courseLength ? ` · ${data.event.venue.courseLength} м` : ''}</>} actions={<><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}`}>Публичная страница ↗</Link><details className="fl-overflow-menu"><summary className="fl-btn fl-btn-ghost" aria-label="Действия соревнования">⋯</summary><div><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}/poster`}>QR-плакат A4</Link>{data.event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) && <Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${eventId}?archive=1`}>В архив</Link>}</div></details></>} />
+      {data.event.status === 'ARCHIVED' && <Notice>Соревнование в архиве. Доступен только просмотр.</Notice>}
+      <Tabs items={([
+        { path: '', label: 'Главная' },
+        { path: 'program', label: 'Программа', count: `${data.event.disciplines.length} ${plural(data.event.disciplines.length, ['вид', 'вида', 'видов'])}` },
+        { path: 'entries', label: 'Заявки', count: data.registrations.length, attention: data.registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW'].includes(r.status)).length },
+        { path: 'heats', label: 'Заплывы', count: `${data.heats.length} · ${data.heats.length && data.heats.every(h => isHeatPublished(h.status)) ? 'опубликовано' : 'черновик'}` },
+        { path: 'results', label: 'Результаты', count: `${data.heats.filter(h => ['FINISHED', 'COMPLETED'].includes(h.status)).length} из ${data.heats.length}` },
+        { path: 'diploma', label: 'Грамоты' },
+        { path: 'notifications', label: 'Уведомления' },
+        ...(isOrganizer || isPlatformAdmin ? [{ path: 'analytics', label: 'Аналитика' }] : []),
+      ]).filter(item => !judgeOnly || item.path === 'results').map(({ path, ...item }) => ({ ...item, to: `/organizer/events/${eventId}${path ? `/${path}` : ''}` }) satisfies TabItem)} />
       {error && dialogCount === 0 && (
         <ErrorState title="Ошибка" message={error} />
       )}
@@ -230,6 +218,7 @@ function OrganizerEventContent() {
             accessToken: token,
             busy,
             error,
+            clearError,
             generationResults,
             lastGeneration,
             saveGeneration,

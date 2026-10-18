@@ -1,3 +1,5 @@
+import { MemoryRouter } from 'react-router'
+import { ToastProvider } from '../../components/ui/Toast'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -30,6 +32,7 @@ const context: EventContext = {
   registrations: [], sessions: [], heats: [], accessToken: 'test-token', error: '', busy: false,
   generationResults: {}, lastGeneration: null,
   saveGeneration: vi.fn(), registerDialog: () => () => {}, refresh: async () => {},
+  clearError: vi.fn(),
   run: async (action) => { await action(); return true },
 }
 beforeEach(() => {
@@ -39,19 +42,13 @@ beforeEach(() => {
   vi.mocked(useOrganizerEvent).mockReturnValue(context)
 })
 
-it('QA05-01: displays the disabled circle seeding option in Russian', async () => {
-  render(<OrganizerHeatsPage />)
-  const option = screen.getByRole('checkbox', { name: 'Круговой посев трёх сильнейших заплывов' })
-  expect(screen.getAllByRole('checkbox')).toHaveLength(1)
-  expect(option).not.toBeChecked()
-  expect(option).toBeDisabled()
-  expect(option).toHaveAccessibleDescription('Круговой посев выключен. Настройка доступна только для просмотра.')
-  await userEvent.click(option)
-  expect(option).not.toBeChecked()
+it('QA05-01: circle seeding is removed from heat actions and kept for the program editor', () => {
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
 })
 
 it.each([
-  ['Сформировать заплывы (всё событие)', 'events', 'event'],
+  ['Всё соревнование', 'events', 'event'],
   ['Сформировать по виду', 'event-disciplines', 'discipline'],
 ])('keeps circle seeding off when clicking %s', async (button, scope, id) => {
   const requestBody = vi.fn()
@@ -62,11 +59,24 @@ it.each([
       ? { disciplines: [{ eventDisciplineId: 'discipline', result }], durationMs: 12 }
       : result)
   }))
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  if (button === 'Всё соревнование') await userEvent.click(screen.getByText('Сформировать заплывы ▾'))
   await userEvent.click(screen.getByRole('button', { name: button }))
   await waitFor(() => expect(context.saveGeneration).toHaveBeenCalledOnce())
   expect(requestBody).toHaveBeenCalledExactlyOnceWith({ force: false, circleSeedTopHeats: false })
-  expect(screen.getByRole('checkbox')).not.toBeChecked()
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+})
+
+it('does not publish before confirmation, then shows a toast with a public link', async () => {
+  vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, heats: [{ id: 'heat', eventDisciplineId: 'discipline', label: '1', sequenceNumber: 1, status: 'DRAFT', scheduledAt: null, entries: [] }] })
+  const publish = vi.fn()
+  server.use(http.post('*/api/v1/events/event/competition-units/publish', () => { publish(); return HttpResponse.json({}) }))
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  await userEvent.click(screen.getByRole('button', { name: 'Опубликовать протокол' }))
+  expect(publish).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Опубликовать' }))
+  await waitFor(() => expect(publish).toHaveBeenCalledOnce())
+  expect(await screen.findByRole('link', { name: 'Открыть публичную страницу ↗' })).toHaveAttribute('href', '/e/cup/start-list')
 })
 
 
@@ -76,7 +86,7 @@ it('assigns bibs from the dialog and reports the assigned count', async () => {
     body(await request.json())
     return HttpResponse.json({ assigned: 12, kept: 3, total: 15 })
   }))
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
   await userEvent.click(screen.getByRole('button', { name: 'Стартовые номера…' }))
   await userEvent.selectOptions(screen.getByLabelText('Порядок'), 'BY_NAME')
   const start = screen.getByLabelText('Начать с')
@@ -90,7 +100,7 @@ it('assigns bibs from the dialog and reports the assigned count', async () => {
 
 it('offers both card formats and filters print requests without disabling archived printing', async () => {
   vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' } })
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
   expect(screen.getAllByText('Печать ▾', { selector: 'summary' })).toHaveLength(1)
   expect(screen.getByRole('button', { name: 'Стартовые номера…' })).toBeDisabled()
   await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
@@ -112,7 +122,7 @@ it('uses a valid query string for card printing without filters', async () => {
     requested(new URL(request.url).search)
     return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
   }))
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
   await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
   await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (A5)' }))
   await waitFor(() => expect(requested).toHaveBeenCalledWith('?format=A5'))

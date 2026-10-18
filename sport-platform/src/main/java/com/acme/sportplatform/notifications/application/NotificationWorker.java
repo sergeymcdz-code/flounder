@@ -23,7 +23,11 @@ public class NotificationWorker {
         this.deliveryTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
     public void sendBatch() {
+        var deadline = clock.instant().plusSeconds(30);
+        int attempted = 0;
         for (var id : outbox.dueBatch(clock.instant())) {
+            if (attempted >= 20 || !clock.instant().isBefore(deadline)) break;
+            attempted++;
             deliveryTransaction.executeWithoutResult(tx -> outbox.lockPending(id, clock.instant()).ifPresent(this::deliver));
         }
     }

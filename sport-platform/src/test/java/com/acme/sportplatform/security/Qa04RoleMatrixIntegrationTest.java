@@ -48,6 +48,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     int expected(Endpoint e, String actor) {
         if (e.policy().equals("public")) return e.allowedStatus();
         if (actor.equals("anonymous")) return e.policy().equals("signed-document") ? 404 : 401;
+        if (e.path().endsWith("/documents/{id}/review") && actor.equals("participant")) return 403;
         boolean allowed = switch (e.policy()) {
             case "authenticated" -> true;
             case "admin", "owner" -> actor.equals("platform_admin");
