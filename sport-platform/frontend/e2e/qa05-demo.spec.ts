@@ -182,7 +182,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await login(sec, 'sec@flounder.demo', `${base}/entries`)
       await expect(sec.getByRole('heading', { name: 'Заявки участников · 202' }), 'QA05-02: secretary cabinet is accessible').toBeVisible()
       await sec.getByLabel('Поиск', { exact: true }).fill('Демов')
-      await expect(sec.getByRole('button', { name: 'Оплачено', exact: true })).toHaveCount(2)
+      await expect(sec.getByRole('button', { name: 'Отметить оплату…', exact: true })).toHaveCount(2)
       await screenshots(sec, '03-secretary-cabinet')
       for (const registration of rows) {
         if (await sec.getByLabel('Поиск', { exact: true }).count()) {

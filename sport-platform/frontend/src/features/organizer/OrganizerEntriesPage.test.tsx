@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -46,7 +46,7 @@ it('opens payment details with the frozen fee and submits transfer reference', a
   expect(screen.getByRole('dialog', { name: 'Отметить оплату' })).toBeInTheDocument()
   expect(screen.getByLabelText('Сумма')).toHaveValue(500)
   await user.type(screen.getByLabelText('Номер документа'), 'ПП-42')
-  await user.click(screen.getByRole('button', { name: 'Подтвердить' }))
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Подтвердить' }))
   expect(paymentAction).toHaveBeenCalledWith('registration', 'mark-paid', expect.objectContaining({ amount: 500, method: 'TRANSFER', reference: 'ПП-42' }), 'test')
 })
 it('disables payment changes for archived events', () => {
@@ -62,7 +62,7 @@ it('shows participant names for skipped bulk payments', async () => {
   const user = userEvent.setup()
   await user.click(screen.getByLabelText('Выбрать заявку Тестов Иван'))
   await user.click(screen.getByRole('button', { name: 'Отметить оплату выбранных (1)' }))
-  await user.click(screen.getByRole('button', { name: 'Подтвердить' }))
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Подтвердить' }))
   expect(await screen.findByText('Тестов Иван: Уже оплачена')).toBeInTheDocument()
   expect(screen.queryByText('registration: Уже оплачена')).not.toBeInTheDocument()
 })
@@ -118,6 +118,6 @@ it('includes confirmed zero-fee entries in bulk payment', async () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('Заявок: 1')
     expect(bulkPayment).not.toHaveBeenCalled()
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Подтвердить' }))
-    await waitFor(() => expect(bulkPayment).toHaveBeenCalledWith('event', expect.objectContaining({ registrationIds: ['zero-fee'] }), 'test'))
+    await waitFor(() => expect(bulkPayment).toHaveBeenCalledWith('event', ['zero-fee'], expect.objectContaining({ method: 'CLUB_INVOICE' }), 'test'))
   } finally { bulkPayment.mockClear() }
 })

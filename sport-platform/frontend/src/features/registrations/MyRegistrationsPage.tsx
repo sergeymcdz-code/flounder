@@ -130,7 +130,7 @@ export function MyRegistrationsPage() {
                     </h3>
                   </div>
 
-                  <StatusBadge kind="registration" code={registration.status} /><StatusBadge kind="payment" code={registration.paymentStatus ?? (registration.status === 'PAID' ? 'PAID' : 'PENDING')} />
+                  <StatusBadge kind="registration" code={registration.status} /><StatusBadge kind="payment" code={registration.paymentStatus === 'WAIVED' ? 'PAID' : registration.paymentStatus ?? (registration.status === 'PAID' ? 'PAID' : 'PENDING')} />
                 </div>
 
                 <dl className={styles.facts}>
@@ -155,7 +155,7 @@ export function MyRegistrationsPage() {
                 </dl>
 
                 <RegistrationPaymentBlock registration={registration} settings={instructions[registration.eventId]} />
-                {statusHint && (!['CONFIRMED', 'PAID', 'ADMITTED'].includes(registration.status) || registration.paymentStatus == null) ? (
+                {statusHint ? (
                   <p
                     className={styles.statusHint}
                   >

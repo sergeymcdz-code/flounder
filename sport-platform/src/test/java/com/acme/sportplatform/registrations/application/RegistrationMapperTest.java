@@ -40,6 +40,12 @@ class RegistrationMapperTest {
                         row -> {
                             assertThat(row.dueAt()).isEqualTo(reviewed.plusDays(7));
                             assertThat(row.paidBy().name()).isEqualTo("Иван Тестов");
+                            var enriched = row.withEventContext("Кубок", "50 м", reviewed, "Europe/Samara", "cup")
+                                    .withDocuments(Map.of("MEDICAL_CERT", "ACCEPTED"), List.of());
+                            assertThat(enriched.paidBy()).isEqualTo(row.paidBy());
+                            assertThat(enriched.dueAt()).isEqualTo(row.dueAt());
+                            assertThat(enriched.eventTitle()).isEqualTo("Кубок");
+                            assertThat(enriched.venueTimezone()).isEqualTo("Europe/Samara");
                         });
         verify(users).findAllByIds(Set.of(actor));
         verifyNoMoreInteractions(users);

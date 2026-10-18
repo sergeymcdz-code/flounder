@@ -327,7 +327,8 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         em.clear();
         mvc.perform(put("/api/v1/organizations/" + id("org") + "/notification-settings").with(authentication(auth("organizer")))
                 .contentType("application/json").content("[{\"templateCode\":\"registration_confirmed\",\"enabled\":false}]"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[1].enabled").value(false));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(7))
+                .andExpect(jsonPath("$[1].enabled").value(false));
         confirmed(); assertThat(count()).isZero();
         jdbc.update("update organization_members set member_role='admin' where organization_id=? and user_id=?", id("org"), id("organizer"));
         em.clear();
