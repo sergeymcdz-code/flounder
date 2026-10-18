@@ -199,8 +199,9 @@ export const handlers = [
       }
       if (payload.exp && payload.exp * 1000 < Date.now())
         return error(401, 'auth.expired', 'Сессия истекла. Войдите снова.')
+      const judgeRead = payload.roles?.includes('judge') && request.method === 'GET' && /^\/api\/v1\/(?:organizer\/events|events\/[^/]+(?:\/disciplines|\/sessions)?|event-disciplines\/[^/]+\/competition-units|competition-units\/[^/]+)$/.test(pathname)
       if (
-        !payload.roles?.some((r) =>
+        !judgeRead && !payload.roles?.some((r) =>
           ['organizer', 'operator', 'platform_admin', 'platformadmin'].includes(
             r.toLowerCase(),
           ),

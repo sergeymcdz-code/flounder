@@ -107,54 +107,54 @@ export function UsersAdminPage() {
       onChange={() => toggle(item.code)} />{roleLabel(item.code, item.name)}</label>)}
   </div></fieldset>
   const passwordFields = <>
-    <label>Новый пароль<input autoComplete="new-password" type={showPassword ? 'text' : 'password'} minLength={8} maxLength={72}
+    <label className="fl-field">Новый пароль<input autoComplete="new-password" type={showPassword ? 'text' : 'password'} minLength={8} maxLength={72}
       required value={password} onChange={event => setPassword(event.target.value)} /></label>
-    <label>Повторите пароль<input autoComplete="new-password" type={showPassword ? 'text' : 'password'} required
+    <label className="fl-field">Повторите пароль<input autoComplete="new-password" type={showPassword ? 'text' : 'password'} required
       value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>
-    <label><span><input type="checkbox" checked={showPassword} onChange={event => setShowPassword(event.target.checked)} /> Показать пароль</span></label>
+    <label className="fl-field"><span><input type="checkbox" checked={showPassword} onChange={event => setShowPassword(event.target.checked)} /> Показать пароль</span></label>
   </>
   return <section className={styles.page}>
-    <div className={styles.heading}><h1>Пользователи</h1><button type="button" disabled={!roles.length} onClick={() => open({ type: 'create' })}>Создать пользователя</button></div>
+    <div className={styles.heading}><h1>Пользователи</h1><button className="fl-btn fl-btn-secondary" type="button" disabled={!roles.length} onClick={() => open({ type: 'create' })}>Создать пользователя</button></div>
     <div className={styles.toolbar}>
-      <label>Поиск пользователей<input placeholder="Email, фамилия или имя" value={query} onChange={event => setQuery(event.target.value)} /></label>
-      <label>Фильтр по роли<select aria-label="Фильтр по роли" value={role} onChange={event => { setRole(event.target.value); setPage(0) }}><option value="">Все роли</option>
+      <label className="fl-field">Поиск пользователей<input placeholder="Email, фамилия или имя" value={query} onChange={event => setQuery(event.target.value)} /></label>
+      <label className="fl-field">Фильтр по роли<select aria-label="Фильтр по роли" value={role} onChange={event => { setRole(event.target.value); setPage(0) }}><option value="">Все роли</option>
         {roles.map(item => <option key={item.code} value={item.code}>{roleLabel(item.code, item.name)}</option>)}</select></label>
     </div>
     {success && <p role="status">{success}</p>}
-    {error && <p className={styles.error} role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Повторить</button></p>}
+    {error && <p className={styles.error} role="alert">{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>}
     {loading ? <p role="status">Загружаем пользователей…</p> : !error && data && <>
-      {!data.items.length ? <p className="fl-empty">Пользователи не найдены — измените запрос</p> : <table className={styles.table}>
+      {!data.items.length ? <p className="fl-empty">Пользователи не найдены — измените запрос. <button className="fl-btn fl-btn-ghost" onClick={() => { setQuery(''); setRole(''); setPage(0) }}>Сбросить поиск</button></p> : <div className="fl-table-scroll"><table className={`${styles.table} fl-table fl-admin-table`}>
         <thead><tr><th>Email</th><th>ФИО</th><th>Роли</th><th>Статус / создан</th><th>Действия</th></tr></thead>
         <tbody>{data.items.map(user => <tr key={user.id}>
           <td>{user.email}</td><td>{user.lastName} {user.firstName}</td>
           <td>{user.roles.map(code => <span className={styles.badge} key={code}>{roleLabel(code, roles.find(item => item.code === code)?.name)}</span>)}</td>
           <td>{user.status === 'ACTIVE' ? 'Активен' : user.status === 'INACTIVE' ? 'Удалён' : 'Заблокирован'}<br />{new Date(user.createdAt).toLocaleDateString('ru-RU')}</td>
-          <td><div className={styles.actions}><button onClick={() => open({ type: 'roles', user })}>Роли</button>
-            {user.status !== 'INACTIVE' && <button onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</button>}
-            <button onClick={() => open({ type: 'password', user })}>Сменить пароль</button></div></td>
-        </tr>)}</tbody></table>}
-      <div className={styles.pagination}><button disabled={page === 0} onClick={() => setPage(value => value - 1)}>Назад</button>
-        <span>Страница {page + 1} · Всего {data.total}</span><button disabled={(page + 1) * data.size >= data.total} onClick={() => setPage(value => value + 1)}>Далее</button></div>
+          <td><div className={styles.actions}><button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'roles', user })}>Роли</button>
+            {user.status !== 'INACTIVE' && <button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</button>}
+            <button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'password', user })}>Сменить пароль</button></div></td>
+        </tr>)}</tbody></table></div>}
+      <div className={styles.pagination}><button className="fl-btn fl-btn-secondary" disabled={page === 0} onClick={() => setPage(value => value - 1)}>Назад</button>
+        <span>Страница {page + 1} · Всего {data.total}</span><button className="fl-btn fl-btn-secondary" disabled={(page + 1) * data.size >= data.total} onClick={() => setPage(value => value + 1)}>Далее</button></div>
     </>}
     {action && <AdminDialog title={action.type === 'create' ? 'Создать пользователя' : action.type === 'roles' ? 'Роли пользователя' : action.type === 'password' ? 'Сменить пароль' : 'Изменить статус'} busy={busy} onClose={() => setAction(null)}>
       <form className={styles.form} onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
         {action.type !== 'create' && <p>{action.user.email}</p>}
         {action.type === 'create' && <>
-          <label>Email<input name="email" type="email" autoComplete="off" required /></label>
-          <label>Имя<input name="firstName" maxLength={128} required /></label>
-          <label>Фамилия<input name="lastName" maxLength={128} required /></label>
-          <label>Дата рождения<input name="birthDate" type="date" required /></label>
+          <label className="fl-field">Email<input name="email" type="email" autoComplete="off" required /></label>
+          <label className="fl-field">Имя<input name="firstName" maxLength={128} required /></label>
+          <label className="fl-field">Фамилия<input name="lastName" maxLength={128} required /></label>
+          <label className="fl-field">Дата рождения<input name="birthDate" type="date" required /></label>
           {passwordFields}{roleCheckboxes}
         </>}
         {action.type === 'password' && passwordFields}
         {action.type === 'roles' && <><p>Глобальные роли пользователя</p>{roleCheckboxes}
-          {scopedRoles.length > 0 && <p>Роли в отдельных организациях или событиях: {scopedRoles.join(', ')}. Они сохраняются при изменении глобальных ролей.</p>}
+          {scopedRoles.length > 0 && <p>Роли в отдельных организациях или соревнованиях: {scopedRoles.join(', ')}. Они сохраняются при изменении глобальных ролей.</p>}
         </>}
-        {removesAdmin && <label><span><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /> Подтверждаю снятие роли администратора платформы</span></label>}
+        {removesAdmin && <label className="fl-field"><span><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /> Подтверждаю снятие роли администратора платформы</span></label>}
         {action.type === 'status' && <p>{action.user.status === 'ACTIVE' ? 'Заблокировать пользователя? Вход и существующие токены станут недоступны.' : 'Разблокировать пользователя?'}</p>}
       </fieldset>
         {formError && <p className={styles.error} role="alert">{formError}</p>}
-        <button type="submit" disabled={busy || (action.type === 'roles' && !roleReady)}>{busy ? 'Сохраняем…' : action.type === 'status' ? 'Подтвердить' : 'Сохранить'}</button>
+        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy || (action.type === 'roles' && !roleReady)}>{busy ? 'Сохраняем…' : action.type === 'status' ? 'Подтвердить' : 'Сохранить'}</button>
       </form>
     </AdminDialog>}
   </section>

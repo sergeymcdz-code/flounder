@@ -4,6 +4,12 @@ import { eligible, maskSeedTime, parseSeedTime } from './registrationFields'
 import { authReturnTarget } from '../../utils/authReturn'
 
 describe('Public registration', () => {
+  it('keeps disciplines unavailable until gender and birth date are supplied', () => {
+    const discipline = { ...demoForm.disciplines[0], gender: 'X' as const, ageGroups: [] }
+    expect(eligible(discipline, { birthDate: '2014-04-18', gender: '' })).toBe(false)
+    expect(eligible(discipline, { birthDate: '', gender: 'M' })).toBe(false)
+    expect(eligible(discipline, { birthDate: '2014-04-18', gender: 'M' })).toBe(true)
+  })
   it('filters disciplines by gender and inclusive birth-year boundaries', () => {
     const profile = {
       lastName: 'Иванов',

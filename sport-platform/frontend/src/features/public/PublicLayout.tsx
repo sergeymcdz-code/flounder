@@ -13,6 +13,8 @@ import { date } from './format'
 import styles from './Public.module.css'
 import { PublicConnectionContext } from './publicContext'
 import { DirectoryLayout } from './DirectoryLayout'
+import { useAuth } from '../../app/providers/AuthProvider'
+import { roleHomeTarget } from '../../utils/authReturn'
 import { ThemeToggle } from '../../components/ThemeToggle'
 
 export function DataState({
@@ -37,7 +39,7 @@ export function DataState({
         {data !== undefined &&
           ' Показаны последние данные. Обновление продолжится при подключении.'}
       </p>
-      {retry && <button className="fl-button-ghost" onClick={retry}>Повторить</button>}
+      {retry && <button className="fl-btn fl-btn-ghost" onClick={retry}>Повторить</button>}
     </div>
   )
 }
@@ -49,6 +51,7 @@ export function PublicLayout() {
 
 function EventPublicLayout() {
   const { slug = '' } = useParams()
+  const { roles, isAuthenticated } = useAuth()
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),
     [slug],
@@ -83,17 +86,17 @@ function EventPublicLayout() {
   }, [eventState.data, eventState.errorStatus])
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
+    ['start-list', 'Протокол'],
     ['schedule', 'Расписание'],
     ['live', 'Табло'],
     ['results', 'Результаты'],
-    ['live#find-me', 'Найти себя'],
   ]
   if (eventState.errorStatus === 404) {
     return (
       <main className={styles.main}>
         <h1>Соревнование не найдено</h1>
-        <Link className={styles.button} to="/">
-          К событиям
+        <Link className="fl-btn fl-btn-secondary" to="/">
+          К соревнованиям
         </Link>
       </main>
     )
@@ -105,13 +108,15 @@ function EventPublicLayout() {
           К содержимому
         </a>
         <header className={styles.header}>
-          <Link className={styles.brand} to={base}>
+          <Link className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">
             <span className={styles.logo} aria-hidden="true">
               S
             </span>{' '}
             SportGate
           </Link>
-          <div>
+          <ThemeToggle />
+        </header>
+        <div className={styles.eventMeta}>
             <Link to={base}>
               <strong>{eventState.data?.title ?? 'Соревнование'}</strong>
             </Link>
@@ -121,8 +126,11 @@ function EventPublicLayout() {
                 : 'Загружаем сведения…'}
             </p>
           </div>
-          <ThemeToggle />
-        </header>
+        <nav className={styles.directoryNav} aria-label="Основная навигация">
+          <Link to="/">Календарь</Link>
+          {eventState.data?.organization?.publicSlug && <Link to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Link>}
+        </nav>
+
         {(offline || cached) && (
           <div className={`${styles.notice} ${styles.noPrint}`} role="status">
             Нет связи, показаны последние данные. Табло обновится после

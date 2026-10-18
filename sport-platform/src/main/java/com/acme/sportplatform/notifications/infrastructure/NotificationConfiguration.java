@@ -6,12 +6,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 @Configuration
-@EnableScheduling
 @EnableConfigurationProperties(MailProperties.class)
 public class NotificationConfiguration {
     private static final Logger log = LoggerFactory.getLogger(NotificationConfiguration.class);

@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router'
+import { Link, Navigate, Outlet, useLocation } from 'react-router'
 import { ErrorState } from './ErrorState'
 import { useAuth } from '../app/providers/AuthProvider'
 
@@ -22,9 +22,7 @@ export function RequireRole({ roles, deniedMessage }: RequireRoleProps) {
   }
 
   if (!hasAnyRole(roles)) {
-    return deniedMessage
-      ? <ErrorState title="Нет доступа" message={deniedMessage} />
-      : <Navigate replace to="/" />
+    return <div><ErrorState title="Нет доступа" message={deniedMessage ?? 'У вашей учётной записи нет доступа к этой странице.'} /><Link to="/">На главную</Link></div>
   }
 
   return <Outlet />

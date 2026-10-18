@@ -519,9 +519,9 @@
   .live > p, .live h2 { margin: 0; }
   .liveDescription { grid-column: 1; grid-row: 2; font-size: 16px; white-space: nowrap; }
   .live > p:not(.eyebrow):not(.liveDescription) { grid-column: 2; grid-row: 2; white-space: nowrap; }
-  .live .table, .live .button { grid-column: 1 / -1; min-width: 0; }
+  .live .table, .live .button, .live > :global(.fl-btn) { grid-column: 1 / -1; min-width: 0; }
   .live .table th, .live .table td { padding: 5px 8px; line-height: 1.2; }
-  .live .button { justify-self: start; margin-top: 0; }
+  .live .button, .live > :global(.fl-btn) { justify-self: start; margin-top: 0; }
 }
 
 @media screen and (min-width: 1600px) {
@@ -698,3 +698,39 @@
     font-size: 18pt;
   }
 }
+
+@media screen {
+ .header { min-height: var(--header-h); height: var(--header-h); display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 12px; padding-block: 4px; border-bottom: 3px solid var(--border-rule); }
+ .header > button { grid-column: auto; grid-row: auto; }
+ .eventMeta { padding: 12px max(16px, calc((100% - 960px) / 2)); background: var(--surface-1); font-size: 14px; }
+ .eventMeta p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 12px; }
+}
+@media print { .eventMeta { display: none; } }
+@media screen and (min-width: 768px) {
+  .root { position: relative; }
+  .eventMeta {
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    margin-inline: auto;
+    max-width: min(560px, calc(100% - 420px));
+    height: calc(var(--header-h) - 3px);
+    background: transparent;
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
+
+@media screen and (min-width: 768px) {
+  .eventMeta > a, .eventMeta p { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.brand { cursor: pointer; }
+.brand:hover { color: var(--color-primary); }
+.brand:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
+
+.directoryNav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 4px max(16px, calc((100% - 960px) / 2)); border-bottom: 1px solid var(--border-subtle); background: var(--surface-1); font-size: 14px; }
+.directoryNav a { display: inline-flex; align-items: center; min-height: 44px; }
+@media print { .directoryNav { display: none; } }

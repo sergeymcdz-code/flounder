@@ -6,6 +6,7 @@ import { server } from '../../test/setup'
 import { AuthProvider } from '../../app/providers/AuthProvider'
 import { setAuthSession } from '../../api/auth-session'
 import { DirectoryLayout } from './DirectoryLayout'
+import { PublicLayout } from './PublicLayout'
 import { PublicEventPage } from './EventPage'
 import { demoEvent } from '../../mocks/demo-data'
 import { CalendarCards } from './CalendarCards'
@@ -69,13 +70,14 @@ it('hides organization details when its slug is missing', async () => {
 })
 
 it.each([
-  ['participant', 'Мои заявки', '/my/registrations'],
-  ['organizer', 'Мои соревнования', '/organizer/events'],
-  ['operator', 'Мои соревнования', '/organizer/events'],
-  ['platform_admin', 'Администрирование', '/admin/users'],
-  ['judge', 'Судейство', '/operator/results'],
-])('directory navigation sends %s to the correct workspace', async (role, label, path) => {
+  ['participant', 'Мои заявки', '/my/registrations', '/my/registrations'],
+  ['organizer', 'Мои соревнования', '/organizer/events', '/organizer/events'],
+  ['operator', 'Мои соревнования', '/organizer/events', '/organizer/events'],
+  ['platform_admin', 'Администрирование', '/admin/users', '/organizer/events'],
+  ['judge', 'Судейство', '/operator/results', '/operator/results'],
+])('directory navigation sends %s to the correct workspace', async (role, label, path, home) => {
   directory([role])
+  expect(screen.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', home)
   const nav = within(screen.getByRole('navigation', { name: 'Основная навигация' }))
   expect(nav.getByRole('link', { name: label })).toHaveAttribute('href', path)
   expect(nav.queryByRole('link', { name: 'Кабинет' })).not.toBeInTheDocument()
@@ -129,4 +131,16 @@ it('public event has exactly one organizer row linking to its public page', () =
   render(<MemoryRouter><Routes><Route element={<Outlet context={{ event }} />}><Route index element={<PublicEventPage />} /></Route></Routes></MemoryRouter>)
   expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
   expect(screen.getByRole('link', { name: 'Клуб Волна' })).toHaveAttribute('href', '/o/volna')
+})
+
+it('public event layout preserves role home and links to the calendar and organization', async () => {
+  setAuthSession({ accessToken: `test.${btoa(JSON.stringify({ roles: ['participant'] }))}.test`, tokenType: 'Bearer', expiresAt: Date.now() + 3600000 })
+  server.use(http.get('*/api/v1/public/events/demo', () => HttpResponse.json({ ...demoEvent, organization: { name: 'Клуб Волна', publicSlug: 'volna', hasLogo: false } })))
+  render(<MemoryRouter initialEntries={['/e/demo']}><AuthProvider><Routes><Route path="/e/:slug" element={<PublicLayout />}><Route index element={<PublicEventPage />} /></Route></Routes></AuthProvider></MemoryRouter>)
+  expect(screen.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', '/my/registrations')
+  const nav = within(screen.getByRole('navigation', { name: 'Основная навигация' }))
+  expect(nav.getByRole('link', { name: 'Календарь' })).toHaveAttribute('href', '/')
+  expect(await nav.findByRole('link', { name: 'Страница организации' })).toHaveAttribute('href', '/o/volna')
+  expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
+  expect(screen.getByRole('navigation', { name: 'Разделы соревнования' })).toBeInTheDocument()
 })

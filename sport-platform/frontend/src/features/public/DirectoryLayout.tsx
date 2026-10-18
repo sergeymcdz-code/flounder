@@ -1,10 +1,11 @@
 import { Link, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../../app/providers/AuthProvider'
+import { roleHomeTarget } from '../../utils/authReturn'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import styles from './Calendar.module.css'
 
 export function DirectoryLayout() {
-  const { isAuthenticated, isPlatformAdmin, isOrganizer, isOperator, isParticipant, hasRole, logout, sessionMessage } = useAuth()
+  const { roles, isAuthenticated, isPlatformAdmin, isOrganizer, isOperator, isParticipant, hasRole, logout, sessionMessage } = useAuth()
   const navigate = useNavigate()
   function handleLogout() {
     void logout().catch(() => { /* The local session is already cleared. */ })
@@ -13,7 +14,7 @@ export function DirectoryLayout() {
   return <div className={styles.root}>
     <a className={styles.skip} href="#public-content">К содержимому</a>
     <header className={styles.header}>
-      <Link className={styles.brand} to="/">SportGate</Link>
+      <Link className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">SportGate</Link>
       <nav aria-label="Основная навигация">
         <Link to="/">Календарь</Link>
         {isAuthenticated ? <>

@@ -1,3 +1,5 @@
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { formatDateTime } from '../../utils/formatDateTime'
 import { Link } from 'react-router'
 import { usePublicEvent } from './publicContext'
 import { date, localTimeLabel, time } from './format'
@@ -36,11 +38,11 @@ export function PublicEventPage() {
           ? <Link to={`/o/${encodeURIComponent(event.organization.publicSlug)}`}>{event.organization.name}</Link>
           : event.organization.name}</p>}
         {event.description && <p>{event.description}</p>}
-        {!event.registrationOpen && <p>Регистрация закрыта</p>}
+        {!event.registrationOpen && <p>Регистрация закрыта {formatDateTime(event.registrationCloseAt, event.venue?.timezone)}</p>}
         {event.maxParticipants != null && <p>Лимит: {event.participantsCount ?? 0}/{event.maxParticipants}</p>}
         {event.registrationOpen && event.maxParticipants != null && (event.participantsCount ?? 0) >= event.maxParticipants && <p>Мест нет, запись в лист ожидания</p>}
         {event.registrationOpen && (
-          <Link className={`${styles.button} fl-button-primary`} to={`${base}/register`}>
+          <Link className={`${styles.button} fl-btn fl-btn-primary`} to={`${base}/register`}>
             Подать заявку
           </Link>
         )}
@@ -55,9 +57,9 @@ export function PublicEventPage() {
           ['schedule', 'Расписание', 'Все старты по сессиям'],
           ['live', 'Табло', 'Сейчас в бассейне и следующие заплывы'],
           ['results', 'Результаты', 'Абсолют и возрастные группы'],
-        ].map(([path, title, description]) => (
+        ].sort((a, b) => event.status === 'LIVE' ? Number(b[0] === 'live') - Number(a[0] === 'live') : 0).map(([path, title, description]) => (
           <Link key={path} className={styles.cardLink} to={`${base}/${path}`}>
-            <strong>{title} →</strong>
+            <strong>{title} → {path === 'live' && event.status === 'LIVE' && <StatusBadge kind="event" code="LIVE" />}</strong>
             <span>{description}</span>
           </Link>
         ))}

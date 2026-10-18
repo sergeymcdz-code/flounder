@@ -45,6 +45,16 @@ class DocumentsSecurityIntegrationTest extends Qa04SecurityFixture {
     }
 
     @Test
+    void publicPdfRemainsNoStoreWithoutEtagOrConditional304() throws Exception {
+        for (var type : List.of("start-list", "results")) {
+            mvc.perform(get(publicUrl("/" + type + ".pdf")).header("If-None-Match", "*"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Cache-Control", "no-store"))
+                    .andExpect(header().doesNotExist("ETag"));
+        }
+    }
+
+    @Test
     void draftHeatAppearsOnlyInOrganizerPdf() throws Exception {
         jdbc.update("update competition_units set status='DRAFT' where id=?", id("unit"));
         em.clear();
