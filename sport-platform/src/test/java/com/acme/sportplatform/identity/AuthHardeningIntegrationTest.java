@@ -4,6 +4,7 @@ import com.acme.sportplatform.common.MailSender;
 import com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens;
 import com.acme.sportplatform.identity.infrastructure.security.JwtService;
 import com.acme.sportplatform.support.AbstractPostgresIntegrationTest;
+import com.acme.sportplatform.support.TestAdmin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.*;
@@ -109,7 +110,8 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void blockRevokesRefreshAndAccessEvenAfterUnblocking() throws Exception {
         JsonNode pair = login();
-        var admin = body(send("/login", Map.of("email", "admin@flounder.demo", "password", "Demo2026!"), null, ip)
+        var testAdmin = TestAdmin.create(jdbc);
+        var admin = body(send("/login", Map.of("email", testAdmin.email(), "password", TestAdmin.PASSWORD), null, ip)
                 .andExpect(status().isOk()).andReturn());
         for (String status : List.of("BLOCKED", "ACTIVE"))
             mvc.perform(patch("/api/v1/users/" + userId).header("Authorization", "Bearer " + admin.get("accessToken").asText())
@@ -335,7 +337,8 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void administratorPasswordResetRevokesRefreshAndOutstandingResetLinks() throws Exception {
         JsonNode pair = login(); requestReset();
-        var admin = body(send("/login", Map.of("email", "admin@flounder.demo", "password", "Demo2026!"), null, ip)
+        var fixture = com.acme.sportplatform.support.TestAdmin.create(jdbc);
+        var admin = body(send("/login", Map.of("email", fixture.email(), "password", com.acme.sportplatform.support.TestAdmin.PASSWORD), null, ip)
                 .andExpect(status().isOk()).andReturn());
         mvc.perform(patch("/api/v1/users/" + userId + "/password").header("Authorization", "Bearer " + admin.get("accessToken").asText())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"Admin123!\"}"))

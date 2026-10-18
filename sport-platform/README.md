@@ -191,6 +191,7 @@ GET /api/v1/public/events/{eventId}/disciplines/{eventDisciplineId}/results
 ```bash
 cd sport-platform
 cp .env.example .env
+export JWT_SECRET="$(openssl rand -base64 48)" # либо сохраните сгенерированное значение в локальном .env
 docker compose up -d postgres
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 # В другом терминале:

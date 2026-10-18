@@ -23,6 +23,11 @@ logging:
     root: INFO
 
 app:
+  auth:
+    registration:
+      max-per-ip: 1000
+    password-reset:
+      max-per-ip: 1000
   mail:
     worker-enabled: false
   security:

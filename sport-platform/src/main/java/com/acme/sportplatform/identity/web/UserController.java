@@ -87,8 +87,9 @@ public class UserController {
     public UserResponse create(@Valid @RequestBody CreateUserRequest request,
             jakarta.servlet.http.HttpServletRequest servletRequest,
             org.springframework.security.core.Authentication authentication) {
+        com.acme.sportplatform.identity.domain.PasswordPolicy.validate(request.password());
         if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)
+                || authentication.getAuthorities().stream().noneMatch(a -> "ROLE_PLATFORM_ADMIN".equals(a.getAuthority())))
             accountLimits.assertRegistrationAllowed(request.email(), servletRequest.getRemoteAddr());
         return createUserUseCase.execute(request);
     }

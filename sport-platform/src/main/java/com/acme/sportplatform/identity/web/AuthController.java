@@ -66,6 +66,7 @@ public class AuthController {
     public UserResponse register(
             @Valid @RequestBody CreateUserRequest request, HttpServletRequest servletRequest
     ) {
+        com.acme.sportplatform.identity.domain.PasswordPolicy.validate(request.password());
         accountLimits.assertRegistrationAllowed(request.email(), servletRequest.getRemoteAddr());
         return createUserUseCase.execute(request);
     }
