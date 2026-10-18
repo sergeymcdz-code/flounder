@@ -11,6 +11,7 @@ public enum NotificationTemplate {
     registration_rejected("Заявка отклонена"),
     start_list_published("Стартовый протокол опубликован"),
     results_published("Результаты опубликованы"),
+    schedule_changed("Изменилось расписание"),
     password_reset("Восстановление пароля SportGate");
 
     private final String subject;

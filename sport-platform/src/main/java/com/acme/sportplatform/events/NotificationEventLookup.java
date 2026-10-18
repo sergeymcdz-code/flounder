@@ -22,8 +22,8 @@ public interface NotificationEventLookup {
                 UUID organizationId,
                 String title,
                 OffsetDateTime startsAt,
-                String publicSlug) {
-            this(id, organizationId, title, startsAt, publicSlug, null, "UTC");
+                String publicSlug, UUID venueId) {
+            this(id, organizationId, title, startsAt, publicSlug, venueId, "UTC");
         }
     }
 }
