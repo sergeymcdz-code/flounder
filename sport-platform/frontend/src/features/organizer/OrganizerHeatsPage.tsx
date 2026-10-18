@@ -132,7 +132,7 @@ export function OrganizerHeatsPage() {
           </details>
           <details><summary className="fl-btn fl-btn-secondary">Расписание ▾</summary>
             <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
-            <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
+            <button className="fl-btn fl-btn-secondary" title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           </details>
           <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
           <details><summary className="fl-btn fl-btn-secondary">Печать ▾</summary>
