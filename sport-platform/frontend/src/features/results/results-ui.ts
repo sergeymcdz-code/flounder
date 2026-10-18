@@ -1,3 +1,4 @@
+import { statusLabel } from '../../components/ui/status-dictionary'
 import { ApiError } from '../../api/http'
 
 export function resultErrorMessage(error: unknown, fallback: string): string {
@@ -10,11 +11,4 @@ export function resultErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-export function heatStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    SCHEDULED: 'Запланирован', CANCELLED: 'Отменён',
-    DRAFT: 'Черновик', PUBLISHED: 'Стартовый протокол опубликован', STARTED: 'Идёт заплыв',
-    IN_PROGRESS: 'Идёт заплыв', FINISHED: 'Завершён, результаты опубликованы', COMPLETED: 'Завершён',
-  }
-  return labels[status] ?? status
-}
+export const heatStatusLabel = (status: string) => statusLabel('heat', status)

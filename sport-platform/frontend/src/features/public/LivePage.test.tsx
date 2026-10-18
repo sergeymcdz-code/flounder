@@ -115,7 +115,7 @@ describe('Public live', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
-  it('polls every five seconds, pauses when hidden and refreshes on return', async () => {
+  it('polls every fifteen seconds, pauses when hidden and refreshes on return', async () => {
     let calls = 0
     server.use(
       http.get('*/api/v1/public/events/demo/live', () => {
@@ -135,7 +135,7 @@ describe('Public live', () => {
       ).toBeInTheDocument(),
     )
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000)
+      await vi.advanceTimersByTimeAsync(15_000)
     })
     await vi.waitFor(() =>
       expect(
@@ -161,7 +161,7 @@ describe('Public live', () => {
     await vi.waitFor(() => expect(calls).toBe(3))
     unmount()
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000)
+      await vi.advanceTimersByTimeAsync(15_000)
     })
     expect(calls).toBe(3)
   })
@@ -187,7 +187,7 @@ describe('Public live', () => {
       ).toBeInTheDocument(),
     )
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000)
+      await vi.advanceTimersByTimeAsync(15_000)
     })
     await vi.waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Нет связи'),

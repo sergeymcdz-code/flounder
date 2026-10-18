@@ -22,12 +22,28 @@
 	# Backend: REST API, OpenAPI/Swagger and the public health endpoint.
 	@api path /api/* /v3/api-docs* /swagger-ui* /actuator/health /actuator/health/*
 	handle @api {
-		reverse_proxy api:8080
+		reverse_proxy api:8080 {
+			lb_try_duration 20s
+			lb_try_interval 500ms
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 60s
+			}
+		}
 	}
 
 	# Everything else: SPA static files from the `web` image (SPA fallback is done there).
 	handle {
 		reverse_proxy web:80
+	}
+
+	handle_errors {
+		@upstream expression {http.error.status_code} in [502, 503, 504]
+		handle @upstream {
+			header Content-Type "text/html; charset=utf-8"
+			header Retry-After "30"
+			respond "<!doctype html><html lang=ru><meta charset=utf-8><title>SportGate — технические работы</title><p style='font:16px system-ui;margin:3em'>Сервис обновляется, страница откроется через минуту. Обновите её позже.</p></html>" 503
+		}
 	}
 
 	log {

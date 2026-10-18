@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { DocumentsPanel } from './DocumentsPanel'
 import * as api from '../../api/documents.api'
 vi.mock('../../api/documents.api', async (original) => ({
-  ...await original<typeof api>(), getDocuments: vi.fn(), uploadDocument: vi.fn(), deleteDocument: vi.fn(), downloadDocument: vi.fn(),
+  ...await original<typeof api>(), getDocuments: vi.fn(), uploadDocument: vi.fn(), deleteDocument: vi.fn(), downloadDocument: vi.fn(), reviewDocument: vi.fn(),
 }))
 const pending: api.ParticipantDocument = {
   id: 'document', profileId: 'child', eventId: null, type: 'MEDICAL_CERT', originalName: 'medical.pdf', contentType: 'application/pdf',
@@ -27,7 +27,8 @@ it('uploads multipart for the child with dates and updates the visible status', 
   vi.stubGlobal('FormData', class extends NativeFormData { constructor() { super(); for (const [key, value] of data) this.set(key, value) } })
   vi.mocked(api.getDocuments).mockResolvedValue([pending])
   fireEvent.submit(container.querySelector('form')!)
-  await screen.findByText('На проверке · medical.pdf')
+  await screen.findByText('На проверке')
+  expect(screen.getByText(/medical.pdf/)).toBeInTheDocument()
   expect(api.uploadDocument).toHaveBeenCalledWith('child', expect.any(NativeFormData), 'token')
   expect(changed).toHaveBeenCalledOnce()
   vi.unstubAllGlobals()
@@ -50,4 +51,18 @@ it('deletes a pending document and reports server errors in Russian', async () =
   fireEvent.click(button)
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument())
   expect(api.deleteDocument).toHaveBeenCalledWith('child', 'document', 'token')
+})
+it('lets a manager reject a pending document only with a reason, then refreshes the list', async () => {
+  const changed = vi.fn()
+  vi.mocked(api.getDocuments).mockResolvedValue([pending])
+  vi.mocked(api.reviewDocument).mockResolvedValue({ ...pending, status: 'REJECTED', rejectReason: 'Истёк срок' })
+  render(<DocumentsPanel profileId="child" accessToken="token" eventId="event" manager onChanged={changed} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Отклонить…' }))
+  expect(screen.getByRole('button', { name: 'Отклонить' })).toBeDisabled()
+  fireEvent.change(screen.getByLabelText('Причина'), { target: { value: 'Истёк срок' } })
+  vi.mocked(api.getDocuments).mockResolvedValue([{ ...pending, status: 'REJECTED', rejectReason: 'Истёк срок' }])
+  fireEvent.click(screen.getByRole('button', { name: 'Отклонить' }))
+  await waitFor(() => expect(changed).toHaveBeenCalledOnce())
+  expect(api.reviewDocument).toHaveBeenCalledWith('child', 'document', { status: 'REJECTED', rejectReason: 'Истёк срок' }, 'token', 'event')
+  expect(screen.getByText('Истёк срок')).toBeVisible()
 })

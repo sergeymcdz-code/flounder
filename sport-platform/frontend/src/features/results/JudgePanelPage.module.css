@@ -230,51 +230,18 @@
 .recalculateButton,
 .publishButton,
 .unpublishButton,
-.saveButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-weight: 750;
-  transition: background-color 160ms ease, transform 160ms ease;
-}
 
 .recalculateButton,
 .publishButton,
-.saveButton {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
 
 .recalculateButton:hover:not(:disabled),
 .publishButton:hover:not(:disabled),
-.saveButton:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  transform: translateY(-1px);
-}
 
-.unpublishButton {
-  flex: 0 0 auto;
-  border: 1px solid var(--color-warning);
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
-}
 
-.unpublishButton:hover:not(:disabled) {
-  background: var(--color-warning-soft);
-}
 
 .recalculateButton:disabled,
 .publishButton:disabled,
 .unpublishButton:disabled,
-.saveButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.62;
-}
 
 .recalculateHint {
   margin: 16px 0 0;
@@ -487,7 +454,6 @@
 .statusButtons { display: flex; gap: 4px; }
 .statusButtons button { padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; }
 .statusButtons button[aria-pressed='true'] { background: var(--color-surface-muted); color: var(--color-text); border-color: var(--color-border-strong); }
-.statusButtons button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .resultInput { min-height: 56px; min-width: 152px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .resultsTable { font-variant-numeric: tabular-nums; }
