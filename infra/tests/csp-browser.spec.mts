@@ -2,6 +2,9 @@
 import { test, expect } from '../../sport-platform/frontend/node_modules/@playwright/test/index.mjs'
 import { readFileSync } from 'node:fs'
 
+const password = process.env.QA05_PASSWORD
+if (!password) throw new Error('Задайте QA05_PASSWORD для браузерной проверки CSP.')
+
 test('CSP: public and organizer QA05 pages use the enforced policy without violations', async ({ context, page }, info) => {
   const violations: unknown[] = []
   const consoleViolations: string[] = []
@@ -33,7 +36,7 @@ test('CSP: public and organizer QA05 pages use the enforced policy without viola
     await visit('/login')
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
     await page.getByLabel('Email').fill('org@flounder.demo')
-    await page.getByLabel('Пароль', { exact: true }).fill(process.env.QA05_PASSWORD ?? 'Demo2026!')
+    await page.getByLabel('Пароль', { exact: true }).fill(password)
     await page.getByRole('button', { name: 'Войти', exact: true }).click()
     await page.waitForURL(url => url.pathname !== '/login')
     for (const suffix of ['', '/program', '/entries', '/heats']) {

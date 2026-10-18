@@ -5,8 +5,11 @@ set -euo pipefail
   echo 'Запустите от пользователя deploy: su - deploy.'; exit 1;
 }
 # Refuse all host changes until the fallback account has a public key.
-[[ -s /home/deploy/.ssh/authorized_keys ]] || {
+grep -Eq '^(ssh-(ed25519|rsa)|ecdsa-sha2-|sk-)' /home/deploy/.ssh/authorized_keys 2>/dev/null || {
   echo 'Добавьте ключ в /home/deploy/.ssh/authorized_keys и проверьте отдельный вход deploy по ключу.'; exit 1;
+}
+sudo -n true || {
+  echo 'Для deploy требуется sudo без запроса пароля. Настройки не изменены.'; exit 1;
 }
 echo 'Сохраните эту сессию и доступ к консоли провайдера. Проверьте вход по ключу во втором окне.'
 echo 'ssh -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no deploy@SERVER_IP'

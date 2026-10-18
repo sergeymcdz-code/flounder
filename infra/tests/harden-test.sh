@@ -24,6 +24,7 @@ for i in "${!args[@]}"; do
   esac
 done
 case "$1" in
+  -n) [[ "$*" == '-n true' && "${FAIL_SUDO:-0}" != 1 ]] ;;
   tee) if [[ "${args[1]}" == "$TEST_CONFIG" || "${args[1]}" == "$TEST_JAIL" ]]; then tee "${args[1]}"; else cat; fi ;;
   test|cat|cp|rm) "${args[@]}" ;;
   /usr/sbin/sshd)
@@ -41,19 +42,28 @@ SUDO
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 unset SSH_CONNECTION
-# Missing/empty keys and declined confirmation refuse ALL host mutations.
-for keys in missing empty; do
-  if [[ "$keys" == empty ]]; then : > "$TEST_KEYS"; fi
+# Missing/empty/comment-only files refuse even the sudo preflight.
+for keys in missing empty comments; do
+  case "$keys" in
+    empty) : > "$TEST_KEYS" ;;
+    comments) printf '# ssh-ed25519 test-only-comment\n' > "$TEST_KEYS" ;;
+  esac
   if bash "$TMP/harden.sh" </dev/null > "$TMP/output"; then exit 1; fi
   grep -q 'Добавьте ключ' "$TMP/output"
   [[ ! -e "$TEST_CONFIG" && ! -e "$TEST_SUDO_LOG" ]]
 done
 printf 'ssh-ed25519 test-only-key\n' > "$TEST_KEYS"
+# Missing noninteractive sudo access refuses all host mutations.
+if printf 'deploy-key-verified\n' | FAIL_SUDO=1 bash "$TMP/harden.sh" > "$TMP/output" 2>&1; then exit 1; fi
+grep -q 'требуется sudo' "$TMP/output"
+[[ "$(cat "$TEST_SUDO_LOG")" == '-n true' && ! -e "$TEST_CONFIG" ]]
+: > "$TEST_SUDO_LOG"
 if printf 'no\n' | bash "$TMP/harden.sh" > "$TMP/output"; then exit 1; fi
-[[ ! -e "$TEST_CONFIG" && ! -e "$TEST_SUDO_LOG" ]]
+[[ ! -e "$TEST_CONFIG" && "$(cat "$TEST_SUDO_LOG")" == '-n true' ]]
 for _ in 1 2; do
   : > "$TEST_SUDO_LOG"
   printf 'deploy-key-verified\ndeploy-key-verified\n' | bash "$TMP/harden.sh" > "$TMP/output"
+  [[ "$(head -1 "$TEST_SUDO_LOG")" == '-n true' ]]
   diff -u <(printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n') "$TEST_CONFIG"
   diff -u <(printf '[sshd]\nenabled = true\nbackend = systemd\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n') "$TEST_JAIL"
   grep -q 'user=deploy,host=localhost,addr=127.0.0.1' "$TEST_SUDO_LOG"

@@ -2,9 +2,10 @@
 
 Команды выполняет владелец в окно обслуживания. Историю Git не переписывать.
 Серверные IP, учётные записи и имена копий ниже — заменяемые обозначения.
-`<ssh-user>` — ваша учётная запись: для первого входа до настройки SSH нужна
-административная, после `su -` — владелец `~/flounder`, ожидаемый `infra/harden.sh`.
-После hardening входить сразу этой непривилегированной учётной записью: root SSH отключён.
+`<admin-user>` — административная учётная запись для входа до hardening, например root.
+`<ssh-user>` — непривилегированный владелец `~/flounder`, ожидаемый `infra/harden.sh`.
+Это разные роли: до hardening входите администратором, затем выполняйте `su - <ssh-user>`.
+После hardening входите напрямую через `ssh <ssh-user>@SERVER_IP`: root SSH отключён.
 Проверяйте результат каждого блока перед следующим; при ошибке остановитесь.
 
 ## Подготовка и сохранение состояния
@@ -13,7 +14,7 @@
 В первой SSH-сессии до hardening:
 
 ```bash
-ssh <ssh-user>@SERVER_IP
+ssh root@SERVER_IP
 install -d -m 0700 /root/flounder-hardening-before
 cp -a /etc/ssh /root/flounder-hardening-before/ssh
 cp -a /etc/fail2ban /root/flounder-hardening-before/fail2ban
@@ -32,15 +33,20 @@ chmod 700 ~/.config/flounder/before-hardening
 cp infra/.env.prod ~/.config/flounder/before-hardening/env.prod
 printf 'services:\n' > ~/.config/flounder/before-hardening/images.rollback.yaml
 for service in api web caddy postgres; do
-  image_id="$(docker inspect -f '{{.Image}}' "flounder-$service")"
-  docker image tag "$image_id" "flounder-rollback-$service:before-hardening"
-  printf '  %s:\n    image: %s\n' "$service" "$image_id" >> ~/.config/flounder/before-hardening/images.rollback.yaml
+  rollback_tag="flounder-rollback-$service:before-hardening"
+  docker image tag "$(docker inspect -f '{{.Image}}' "flounder-$service")" "$rollback_tag"
+  printf '  %s:\n    image: %s\n' "$service" "$rollback_tag" >> ~/.config/flounder/before-hardening/images.rollback.yaml
 done
 chmod 600 ~/.config/flounder/before-hardening/env.prod
 docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod ps
+docker exec flounder-postgres postgres --version
 ```
 
 Проверка: checkout чистый, службы работают, commit сохранён, копии доступны только владельцу.
+Сверьте вывод `postgres --version`: если сервер уже работает на патче PostgreSQL 16
+новее 16.14, после получения изменений закрепите фактически установленную версию
+в `infra/compose.prod.yaml` вместо 16.14 до первого `up -d`; не понижайте её. Изменение закреплённого образа
+проверьте через Compose config перед применением.
 Существующие локальные изменения сначала разберите вручную. Ничего не публикуйте из env.
 Не запускайте `down -v`. Перед изменением образа PostgreSQL сохраните проверенный дамп по
 разделу бэкапов. Установленный вручную fail2ban сохраняется в управляемой конфигурации скрипта.
@@ -48,7 +54,7 @@ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod ps
 Получите изменения после слияния PR (это ещё не перезапуск контейнеров):
 
 ```bash
-ssh <ssh-user>@SERVER_IP
+ssh <admin-user>@SERVER_IP
 su - <ssh-user>
 cd ~/flounder
 git pull --ff-only origin main
@@ -73,10 +79,11 @@ sudo -v
 В первой сессии, оставляя вторую открытой:
 
 ```bash
-ssh <ssh-user>@SERVER_IP
+ssh <admin-user>@SERVER_IP
 su - <ssh-user>
 cd ~/flounder
-test -s ~/.ssh/authorized_keys
+grep -Eq '^(ssh-(ed25519|rsa)|ecdsa-sha2-|sk-)' ~/.ssh/authorized_keys
+sudo -n true
 ./infra/harden.sh
 ```
 
@@ -318,8 +325,9 @@ docker compose -f infra/compose.rollback.yaml -f ~/.config/flounder/before-harde
 curl -fsS https://sportgate.pro/actuator/health
 ```
 
-Rollback использует сохранённые image ID, а не плавающие теги; локальные rollback-теги
-защищают эти образы от dangling-prune в deploy.sh. Не удаляйте эти образы
+Rollback использует теги `flounder-rollback-<service>:before-hardening`, созданные
+до изменений и записанные в images.rollback.yaml. Они защищают прежние образы от
+dangling-prune в deploy.sh; не переназначайте их до приёмки. Не удаляйте эти образы
 до приёмки и не скачивайте произвольный более старый patch поверх нового data volume.
 При проблеме совместимости восстановите проверенный дамп в отдельный новый volume;
 исходный не удалять. После успешного отката ожидаются healthy/UP; разберите локальные

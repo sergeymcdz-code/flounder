@@ -64,8 +64,8 @@ for port in (19280, 19282):
     assert response.headers.get('Server') is None
     assert request(port, '/api/v1/documents', 12_000_000, True).status == 200
     assert request(port, '/api/v1/documents', 12_000_001, True).status == 413
-    assert request(port, '/api/v1/payments/webhooks/test', 16_000, True).status == 200
-    assert request(port, '/api/v1/payments/webhooks/test', 16_001, True).status == 413
+    assert request(port, '/api/v1/payments/webhooks/test', 16_384, True).status == 200
+    assert request(port, '/api/v1/payments/webhooks/test', 16_385, True).status == 413
 assert request(19282).status == 401
 assert request(19282, '/actuator/health').status == 401
 print(f'Caddy: заголовки, staging auth и лимиты тела проверены ({mode})')

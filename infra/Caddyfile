@@ -22,7 +22,7 @@
 (api_body_limits) {
 	@webhook_body path /api/v1/payments/webhooks/*
 	request_body @webhook_body {
-		max_size 16KB
+		max_size 16KiB
 	}
 	@api_body {
 		path /api/*
