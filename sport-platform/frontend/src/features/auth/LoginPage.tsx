@@ -11,7 +11,7 @@ type LoginLocationState = {
 }
 
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, login, roles } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -21,7 +21,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const state = location.state as LoginLocationState | null
-  const returnTo = authReturnTarget(location.search, state?.from)
+  const returnTo = authReturnTarget(location.search, state?.from, roles)
 
   if (isAuthenticated) {
     return <Navigate to={returnTo} replace />
@@ -33,12 +33,12 @@ export function LoginPage() {
     setIsSubmitting(true)
 
     try {
-      await login({
+      const session = await login({
         email: email.trim(),
         password,
       })
 
-      navigate(returnTo, { replace: true })
+      navigate(authReturnTarget(location.search, state?.from, session?.roles ?? roles), { replace: true })
     } catch (error) {
       let message = 'Не удалось выполнить вход. Попробуйте ещё раз.'
       if (error instanceof ApiError) {
@@ -64,7 +64,7 @@ export function LoginPage() {
   return (
     <section className={styles.page}>
       <Link className={styles.backLink} to="/">
-        ← К событиям
+        ← К соревнованиям
       </Link>
 
       <div className={styles.card}>
@@ -73,11 +73,11 @@ export function LoginPage() {
         <h1 className={styles.title}>Войти</h1>
 
         <p className={styles.description}>
-          Войдите, чтобы подать заявку на дисциплину и посмотреть её статус.
+          Войдите в кабинет организатора, секретаря, судьи или участника
         </p>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <label className={styles.field}>
+        <form className={`${styles.form} fl-form`} onSubmit={handleSubmit}>
+          <label className="fl-field">
             <span>Email</span>
             <input
               autoComplete="email"
@@ -90,7 +90,7 @@ export function LoginPage() {
             />
           </label>
 
-          <label className={styles.field}>
+          <label className="fl-field">
             <span>Пароль</span>
             <input
               autoComplete="current-password"
@@ -110,7 +110,7 @@ export function LoginPage() {
           ) : null}
 
           <button
-            className={`${styles.submitButton} fl-button-primary`}
+            className="fl-btn fl-btn-primary"
             disabled={isSubmitting}
             type="submit"
           >

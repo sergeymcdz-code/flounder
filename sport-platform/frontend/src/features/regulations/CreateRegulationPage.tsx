@@ -176,7 +176,7 @@ export function CreateRegulationPage() {
   return (
     <section className={styles.page}>
       <NavLink className={styles.backLink} to="/organizer/events/new">
-        ← Вернуться к созданию мероприятия
+        ← Вернуться к созданию соревнования
       </NavLink>
 
       <p className={styles.eyebrow}>Панель организатора</p>
@@ -184,12 +184,12 @@ export function CreateRegulationPage() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>
-            Новый регламент
+            Регламенты
           </h1>
 
           <p className={styles.description}>
-            После сохранения регламент будет опубликован
-            и станет доступен при создании мероприятия.
+            Положение можно прикрепить к соревнованию позже. После сохранения регламент будет опубликован
+            и станет доступен при создании соревнования.
           </p>
         </div>
       </div>

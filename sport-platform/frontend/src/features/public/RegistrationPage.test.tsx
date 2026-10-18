@@ -27,11 +27,12 @@ function setup(count = 1, fillTimes = true) {
   const view = render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
   fireEvent.change(screen.getByLabelText('Фамилия'), { target: { value: 'Демов' } })
   fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Тимофей' } })
+  fireEvent.change(screen.getByLabelText('Пол'), { target: { value: 'M' } })
   fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
   for (let index = 0; index < count; index++) fireEvent.click(screen.getByLabelText(`Вид ${index + 1} · Бесплатно`))
   if (fillTimes) screen.getAllByPlaceholderText('мм:сс.сс').forEach((input, index) =>
     fireEvent.change(input, { target: { value: `0032${15 + index}` } }))
-  fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных (демо)'))
+  fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных'))
   return view.container.querySelector('form')!
 }
 
@@ -71,7 +72,7 @@ describe('QA03 public registration submission', () => {
 
   it('does not submit without consent', async () => {
     const element = setup()
-    fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных (демо)'))
+    fireEvent.click(screen.getByLabelText('Я даю согласие на обработку персональных данных'))
     fireEvent.submit(element)
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Необходимо согласие'))
     expect(publicApi.register).not.toHaveBeenCalled()
@@ -106,7 +107,8 @@ describe('QA03 public registration submission', () => {
     form.disciplines[0].participantsByAgeGroup = { young: 1 }
     render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
     expect(screen.queryByText(/Вид 1 · Мест нет/)).not.toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
+    fireEvent.change(screen.getByLabelText('Пол'), { target: { value: 'M' } })
+  fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
     expect(screen.getByText(/Вид 1 · Мест нет, запись в лист ожидания/)).toBeInTheDocument()
   })
 

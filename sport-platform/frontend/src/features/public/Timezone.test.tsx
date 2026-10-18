@@ -5,6 +5,7 @@ import { expect, it } from 'vitest'
 import { demoEvent, demoStartList } from '../../mocks/demo-data'
 import { server } from '../../test/setup'
 import { date, localTimeLabel, time } from './format'
+import { AuthProvider } from '../../app/providers/AuthProvider'
 import { PublicLayout } from './PublicLayout'
 import { PublicEventPage } from './EventPage'
 import { SchedulePage } from './SchedulePage'
@@ -18,7 +19,7 @@ const startsAt = '2026-10-17T06:00:00Z'
 it('formats public time and date in the venue timezone', () => {
   expect(time(startsAt, 'Europe/Samara')).toBe('10:00')
   expect(time(startsAt, 'Europe/Moscow')).toBe('09:00')
-  expect(date('2026-10-16T22:00:00Z', 'Europe/Samara')).toBe('17 октября 2026 г.')
+  expect(date('2026-10-16T22:00:00Z', 'Europe/Samara')).toBe('17.10.2026')
   expect(time(null, 'Europe/Samara')).toBe('Время уточняется')
 })
 
@@ -78,13 +79,13 @@ it.each(pages)('passes the venue timezone from PublicLayout to /e/demo/%s', asyn
   render(
     <MemoryRouter initialEntries={[`/e/demo/${path}`]}>
       <Routes>
-        <Route path="/e/:slug" element={<PublicLayout />}>
+        <Route path="/e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}>
           <Route path={path.startsWith('heats/') ? 'heats/:unitId' : path || undefined} index={!path} element={page} />
         </Route>
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByText('17 октября 2026 г. · Самара')).toBeInTheDocument()
+  expect(await screen.findByText('17.10.2026 · Самара')).toBeInTheDocument()
   if (path !== 'results') {
     expect((await screen.findAllByText(/10:00/)).length).toBeGreaterThan(0)
   }
@@ -108,7 +109,7 @@ it.each(['', 'schedule'])('renders /e/demo/%s when the venue timezone is empty',
   render(
     <MemoryRouter initialEntries={[`/e/demo/${path}`]}>
       <Routes>
-        <Route path="/e/:slug" element={<PublicLayout />}>
+        <Route path="/e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}>
           <Route path={path || undefined} index={!path}
             element={path ? <SchedulePage /> : <PublicEventPage />} />
         </Route>
@@ -132,7 +133,7 @@ it('shows the schedule shift timestamp in venue time without applying the live e
     }])),
   )
   render(<MemoryRouter initialEntries={['/e/demo/schedule']}><Routes>
-    <Route path="/e/:slug" element={<PublicLayout />}><Route path="schedule" element={<SchedulePage />} /></Route>
+    <Route path="/e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}><Route path="schedule" element={<SchedulePage />} /></Route>
   </Routes></MemoryRouter>)
   expect(await screen.findByText('Расписание сдвинуто в 10:05')).toBeInTheDocument()
   expect(screen.getByText('10:20 · Заплыв 1')).toBeInTheDocument()

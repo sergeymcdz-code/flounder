@@ -5,6 +5,7 @@ import { publicApi, PublicApiError } from '../../api/public.api'
 import type { Standings } from '../../api/standings.api'
 import { demoEvent } from '../../mocks/demo-data'
 import { PublicLayout } from './PublicLayout'
+import { AuthProvider } from '../../app/providers/AuthProvider'
 
 function Navigation() {
   const navigate = useNavigate()
@@ -20,13 +21,15 @@ describe('Public standings navigation', () => {
       return { title: null, scope: 'AGE_GROUP', medals: [], team: [], unitsPending: 0,
         preliminary: false, disciplinesIncluded: 0, calculatedAt: '2026-10-17T12:00:00Z' } satisfies Standings
     })
-    await act(async () => { render(<MemoryRouter initialEntries={['/e/demo']}>
+    await act(async () => { render(<MemoryRouter initialEntries={['/e/demo']}><AuthProvider>
       <Navigation /><Routes><Route path="/e/:slug" element={<PublicLayout />}>
         <Route index element={<p>Карточка события</p>} />
       </Route></Routes>
-    </MemoryRouter>) })
+    </AuthProvider></MemoryRouter>) })
     expect(load).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('link', { name: 'Зачёт' }) !== null).toBe(published)
+    expect(screen.getByRole('link', { name: 'Протокол' })).toHaveAttribute('href', '/e/demo/start-list')
+    expect(screen.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('link', { name: 'Командный зачёт' }) !== null).toBe(published)
     await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
     expect(load).toHaveBeenCalledTimes(1)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Другое событие' })) })
