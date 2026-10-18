@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import { ApiError, type Api, type Row } from './api.ts';
 import { ORGANIZATION_NAME } from './bodies.ts';
-import { calendarPlan, description, venues } from './calendar-plan.ts';
+import { calendarPlan, description, metadata, venues } from './calendar-plan.ts';
 import { profileKey } from './plan.ts';
 import { runCalendar, type RunOptions } from './calendar.ts';
 import { resetPlan } from './reset.ts';
@@ -15,6 +15,8 @@ class CalendarApi implements Api {
   profiles = new Map<string, string>();
   serial = 0;
   failImport = false;
+  failComplete?: string;
+  wrongPasswordEmail?: string;
   race = false;
   id() { return `00000000-0000-4000-8000-${String(++this.serial).padStart(12, '0')}`; }
   add(path: string, body: Record<string, unknown>) {
@@ -34,7 +36,7 @@ class CalendarApi implements Api {
       return undefined! as Row;
     };
     if (path === '/auth/login') {
-      if (!this.users.has(String(data.email))) throw new ApiError(400, 'identity.invalid_credentials', method, path);
+      if (!this.users.has(String(data.email)) || data.email === this.wrongPasswordEmail) throw new ApiError(400, 'identity.invalid_credentials', method, path);
       return { accessToken: data.email } as T;
     }
     if (path === '/auth/me') return this.users.get(token!) as T;
@@ -110,6 +112,7 @@ class CalendarApi implements Api {
     }
     if (/\/(publish|open-registration|close-registration|complete)$/.test(path)) {
       const event = row();
+      if (path === `/events/${this.failComplete}/complete`) throw new Error('Simulated complete failure');
       if (path.endsWith('/open-registration') && this.race && event.status === 'PUBLISHED' && String(event.registrationCloseAt) < '2026-10-19') {
         event.status = 'REGISTRATION_CLOSED'; throw new ApiError(400, 'events.invalid_dates', method, path);
       }
@@ -169,6 +172,77 @@ describe('calendar API orchestration', () => {
     expect((await runCalendar(api, { ...options, advance: true, demoDate: '2026-10-26' }, () => {})).events).toEqual(next.events);
     expect(mutations(api, advanced)).toEqual([]);
   });
+  it('preserves foreign confirmed registrations on seed and advance without adding own entries', async () => {
+    const api = new CalendarApi();
+    const initial = await runCalendar(api, options, () => {});
+    const event = api.lists.get('/events')!.find(e => e.status === 'REGISTRATION_OPEN')!;
+    const discipline = api.lists.get(`/events/${event.id}/disciplines`)!.find(d => d.code === 'M-50-FREE')!;
+    const outsider = api.register(event.id, discipline.id, { lastName: 'Посторонний', firstName: 'Посетитель', birthDate: '2012-01-01', gender: 'M' }, 40000, 'CONFIRMED');
+    const outsiderBefore = structuredClone(outsider);
+    const rows = () => api.lists.get(`/events/${event.id}/registrations`)!;
+    const ownIds = rows().filter(r => r.id !== outsider.id).map(r => r.id);
+    for (const advance of [false, true]) {
+      const result = await runCalendar(api, { ...options, advance }, () => {});
+      expect(result.events.every(e => !e.error)).toBe(true);
+      expect(rows().find(r => r.id === outsider.id)).toEqual(outsiderBefore);
+      expect(rows().filter(r => r.id !== outsider.id).map(r => r.id)).toEqual(ownIds);
+      const summary = result.events.find(e => e.slug === event.publicSlug)!;
+      const original = initial.events.find(e => e.slug === event.publicSlug)!;
+      expect(summary.registrations).toBe(original.registrations + 1);
+      expect(summary.states.CONFIRMED).toBe(original.states.CONFIRMED + 1);
+    }
+    const next = await runCalendar(api, { ...options, advance: true, demoDate: '2026-10-26' }, () => {});
+    expect(next.events.every(e => !e.error)).toBe(true);
+    expect(rows().find(r => r.id === outsider.id)).toEqual(outsiderBefore);
+    expect(ownIds.every(id => rows().some(r => r.id === id))).toBe(true);
+    expect(discipline.maxParticipants).toBe(rows().filter(r => r.eventDisciplineId === discipline.id).length);
+  });
+  it('continues advance after one completion fails and reports the error, then resumes', async () => {
+    const api = new CalendarApi();
+    await runCalendar(api, options, () => {});
+    const event = api.lists.get('/events')!.find(e => e.status === 'REGISTRATION_CLOSED')!;
+    api.failComplete = event.id;
+    const messages: string[] = [];
+    const result = await runCalendar(api, { ...options, advance: true, demoDate: '2026-10-26' }, x => messages.push(x));
+    expect(result.events).toHaveLength(29);
+    expect(result.events.filter(e => e.error)).toHaveLength(1);
+    expect(result.events.find(e => e.slug === event.publicSlug)).toMatchObject({ error: 'Simulated complete failure', registrations: 140, states: { CONFIRMED: 140 } });
+    expect(result.events.find(e => e.date === '2026-10-31')!.status).toBe('REGISTRATION_CLOSED');
+    expect(result.events.find(e => e.date === '2026-11-21')!.status).toBe('REGISTRATION_OPEN');
+    expect(result.events.find(e => e.date === '2026-11-14')!.registrations).toBe(107);
+    expect(JSON.parse(messages.at(-1)!.slice(4)).events.some((e: Row) => e.error)).toBe(true);
+    api.failComplete = undefined;
+    const resumed = await runCalendar(api, { ...options, advance: true, demoDate: '2026-10-26' }, () => {});
+    expect(resumed.events.every(e => !e.error)).toBe(true);
+    expect(resumed.events.find(e => e.slug === event.publicSlug)!.status).toBe('COMPLETED');
+  });
+  it('refuses an existing service account password mismatch without creating another account', async () => {
+    const api = new CalendarApi();
+    api.users.set('org@flounder.demo', { id: 'org', email: 'org@flounder.demo', roles: ['organizer'] });
+    api.wrongPasswordEmail = 'org@flounder.demo';
+    await expect(runCalendar(api, options, () => {})).rejects.toThrow('ORG_PASSWORD');
+    expect(api.calls.filter(c => c.method === 'POST' && c.path === '/users')).toEqual([]);
+    expect(api.lists.get('/events')).toBeUndefined();
+  });
+  it('keeps planned future deadlines and gives artificial past dates at least seven real days', async () => {
+    for (const now of [new Date('2026-10-18T12:00:00Z'), new Date('2027-10-18T12:00:00Z')]) {
+      const api = new CalendarApi();
+      await runCalendar(api, { ...options, now }, () => {});
+      for (const event of api.lists.get('/events')!.filter(e => e.status === 'REGISTRATION_OPEN')) {
+        const plan = calendarPlan(options).find(p => p.title === event.title)!;
+        const scheduled = Date.parse(plan.dates.registrationCloseAt);
+        expect(Date.parse(String(event.registrationCloseAt))).toBe(scheduled > now.getTime() ? scheduled : now.getTime() + 7 * 86400000);
+      }
+    }
+  });
+  it('refuses old JSON descriptions with a reset instruction before creating replacement events', async () => {
+    const api = new CalendarApi();
+    await runCalendar(api, { ...options, weeks: 1 }, () => {});
+    api.lists.get('/events')![0].description = `Тестовые данные SportGate\nS10 ${JSON.stringify(metadata(calendarPlan({ ...options, weeks: 1 })[0]))}`;
+    const before = api.calls.length;
+    await expect(runCalendar(api, { ...options, weeks: 1 }, () => {})).rejects.toThrow('DEMO_CALENDAR=true');
+    expect(mutations(api, before)).toEqual([]);
+  });
   it('resumes a partial import and handles an automatic lifecycle closure racing with open', async () => {
     const api = new CalendarApi(); api.failImport = true;
     await expect(runCalendar(api, { ...options, weeks: 2 }, () => {})).rejects.toThrow('Simulated interruption');
@@ -194,6 +268,25 @@ describe('calendar API orchestration', () => {
     await expect(runCalendar(api, options, () => {})).rejects.toThrow('Существующий профиль не меняется');
     expect(mutations(api, before)).toEqual([]);
   });
+  it('reset recognizes legacy venue names and selects every calendar copy without a prefix', async () => {
+    const api = new CalendarApi();
+    const org = api.add('/organizations', { name: ORGANIZATION_NAME });
+    const legacyVenue = api.add('/venues', { name: 'SportGate — Самара, Дворец спорта' });
+    const venue = api.add('/venues', { name: venues[0].name });
+    for (const prefix of ['', 'QA S10']) {
+      const plan = calendarPlan({ ...options, weeks: 1, prefix })[0];
+      api.add('/events', { title: plan.title, description: prefix ? description(plan) : 'Тестовые данные SportGate\nS10 {}',
+        organizationId: org.id, venueId: prefix ? venue.id : legacyVenue.id, publicSlug: prefix ? 'qa-copy' : 'legacy' });
+    }
+    const messages: string[] = [];
+    await resetPlan(api, options.adminEmail, options.adminPassword, x => messages.push(x), { calendar: true });
+    const targets = JSON.parse(messages.find(x => x.startsWith('demo_targets:'))!.slice(14));
+    expect(targets.map((t: Row) => t.slug)).toEqual(['legacy', 'qa-copy']);
+    expect(targets.map((t: Row) => t.venue)).toEqual(['SportGate — Самара, Дворец спорта', venues[0].name]);
+    messages.length = 0;
+    await resetPlan(api, options.adminEmail, options.adminPassword, x => messages.push(x), { calendar: true, calendarPrefix: 'QA S10' });
+    expect(JSON.parse(messages.find(x => x.startsWith('demo_targets:'))!.slice(14)).map((t: Row) => t.slug)).toEqual(['qa-copy']);
+  });
   it('calendar reset excludes S02 and foreign organizations, limits prefixes and stays read-only', async () => {
     const api = new CalendarApi();
     const org = api.add('/organizations', { name: ORGANIZATION_NAME });
@@ -207,6 +300,7 @@ describe('calendar API orchestration', () => {
     const before = api.calls.length;
     await resetPlan(api, options.adminEmail, options.adminPassword, x => messages.push(x), { calendar: true });
     expect(messages.find(x => x.startsWith('demo_targets:'))).toContain(event.id);
+    expect(JSON.parse(messages.find(x => x.startsWith('demo_targets:'))!.slice(14))[0].venue).toBe(venues[0].name);
     expect(messages.find(x => x.startsWith('demo_targets:'))).not.toContain('foreign');
     expect(messages.find(x => x.startsWith('demo_targets:'))).not.toContain('s02-b');
     expect(mutations(api, before)).toEqual([]);

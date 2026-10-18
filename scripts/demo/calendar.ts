@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { ensureAccounts } from './accounts.ts';
 import { ApiError, ensure, HttpApi, login, unique, type Api, type Row } from './api.ts';
-import { accounts, disciplineBody, memberBody, organizationBody, ORGANIZATION_NAME, REGULATION_CODE,
-  regulationTemplateBody, regulationVersionBody, roleBody, templateBody, userBody } from './bodies.ts';
+import { disciplineBody, organizationBody, ORGANIZATION_NAME, REGULATION_CODE,
+  regulationTemplateBody, regulationVersionBody, templateBody } from './bodies.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
 import { calendarEntries, calendarPlan, calendarSettings, description, metadata, readMetadata, swimmerPool,
   type CalendarEntry, type CalendarEvent, type CalendarMeta, type CalendarOptions, type Swimmer } from './calendar-plan.ts';
@@ -16,10 +17,12 @@ export type RunOptions = CalendarOptions & {
   enabled: boolean; now?: Date;
 };
 type Context = { organization: Row; sport: Row; version: Row; tokens: CalendarTokens; parentTokens: Map<string, string> };
-type Summary = { week: number; date: string; slug: unknown; status: unknown; registrations: number; states: Record<string, number>; [key: string]: unknown };
+type Summary = { week: number; date: string; slug: unknown; status: unknown; registrations: number; states: Record<string, number>; error?: string; [key: string]: unknown };
 const resetError = (message: string): never => { throw new Error(`${message} Выполните DEMO_CALENDAR=true npx tsx reset.ts, затем повторите calendar.ts.`); };
 const registrationKey = (profile: Parameters<typeof profileKey>[0], code: string) => profileKey(profile) + '|' + code;
 const registrations = (api: Api, event: Row, token: string) => api.request<CalendarRegistration[]>('GET', `/events/${event.id}/registrations`, undefined, token);
+const registrationStates = (rows: CalendarRegistration[]) => Object.fromEntries([...new Set(rows.map(r => String(r.status)))].sort()
+  .map(state => [state, rows.filter(r => r.status === state).length]));
 function progressDate(requested: string, meta: Pick<CalendarMeta, 'start' | 'weeks' | 'anchorDate' | 'prefix'>, events: Row[], organizationId: string) {
   let asOf = requested > meta.anchorDate ? requested : meta.anchorDate;
   for (const event of events) {
@@ -50,33 +53,7 @@ async function setup(api: Api, options: RunOptions, pool: Swimmer[]): Promise<Co
       throw new Error('Профиль DEMO_OWNER_EMAIL отличается от ребёнка S02 C. Существующий профиль не меняется.');
   }
   const organization = await ensure(api, admin, '/organizations', row => row.name === ORGANIZATION_NAME, organizationBody(), ORGANIZATION_NAME);
-  const memberPath = `/organizations/${organization.id}/members`;
-  const members = await api.request<Row[]>('GET', memberPath, undefined, admin);
-  const tokens = { admin, organizer: '', judge: '', secretary: '' };
-  for (const account of accounts) {
-    const password = options.passwords[account.key];
-    let token: string;
-    try { token = await login(api, account.email, password); }
-    catch (error) {
-      if (!(error instanceof ApiError) || error.code !== 'identity.invalid_credentials') throw error;
-      await api.request('POST', '/users', userBody(account, password), admin);
-      token = await login(api, account.email, password);
-    }
-    const user = await api.request<Row & { roles: string[] }>('GET', '/auth/me', undefined, token);
-    if (user.email !== account.email) throw new Error('API вернул другого пользователя.');
-    if (!user.roles.includes(account.role)) {
-      await api.request('POST', `/users/${user.id}/roles`, roleBody(account.role), admin);
-      token = await login(api, account.email, password);
-    }
-    if (account.memberRole) {
-      const member = unique(members, row => row.userId === user.id, account.email);
-      if (member && member.memberRole !== account.memberRole) throw new Error(`Неверное членство ${account.email}.`);
-      if (!member) await api.request('POST', memberPath, memberBody(user.id, account.memberRole), admin);
-    }
-    if (account.key === 'ORG') tokens.organizer = await login(api, account.email, password);
-    if (account.key === 'SEC') tokens.secretary = token;
-    if (account.key === 'JUDGE') tokens.judge = token;
-  }
+  const tokens = { admin, ...await ensureAccounts(api, admin, organization.id, options.passwords) };
   const sport = unique(await api.request<Row[]>('GET', '/sports', undefined, admin), row => row.code === 'swim', 'swim');
   if (!sport) throw new Error('Не найден спорт swim; примените миграции main.');
   const regulation = await ensure(api, admin, '/regulation-templates', row => row.code === REGULATION_CODE && row.sportId === sport.id,
@@ -167,7 +144,7 @@ async function fill(api: Api, event: Row, plan: CalendarEvent, disciplines: Row[
   const desired = calendarEntries(plan, pool);
   const possible = calendarEntries({ ...plan, count: plan.capacity - 10 }, pool);
   const possibleKeys = new Set(possible.map(e => registrationKey(e.profile, e.code)));
-  for (const row of rows) {
+  for (const row of event.status === 'COMPLETED' ? rows : []) {
     const code = String(disciplines.find(d => d.id === row.eventDisciplineId)?.code);
     if (!possibleKeys.has(registrationKey(row.participantSnapshot, code))) resetError(`Неожиданная заявка в «${plan.title}».`);
   }
@@ -291,37 +268,53 @@ export async function runCalendar(api: Api, options: RunOptions, log = console.l
   const summaries: Summary[] = [];
   for (const [index, plan] of plans.entries()) {
     log(`S10 [${index + 1}/${plans.length}] ${plan.date} · ${plan.title} → ${plan.status}`);
-    const prepared = await prepare(api, plan, context, known, !options.advance);
-    if (!prepared) continue;
-    let { event } = prepared;
-    const { disciplines } = prepared;
-    // Completed/open events never move backwards during a rerun with an older DEMO_DATE.
-    const rank = ['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'COMPLETED'];
-    if (!rank.includes(String(event.status))) resetError(`Неподходящий статус ${event.status}.`);
-    const effectivePlan = rank.indexOf(String(event.status)) > rank.indexOf(plan.status) ? { ...plan, status: String(event.status) } : plan;
-    const filled = await fill(api, event, effectivePlan, disciplines, pool, context, options);
-    event = filled.event;
-    if (effectivePlan.status === 'REGISTRATION_OPEN') {
-      event = await api.request<Row>('GET', `/events/${event.id}`, undefined, context.tokens.organizer);
-      const now = options.now ?? new Date();
-      const patch: Record<string, string> = {};
-      if (event.registrationOpenAt && Date.parse(String(event.registrationOpenAt)) > now.getTime()) patch.registrationOpenAt = new Date(now.getTime() - 86_400_000).toISOString();
-      if (event.registrationCloseAt && Date.parse(String(event.registrationCloseAt)) <= now.getTime()) patch.registrationCloseAt = new Date(now.getTime() + 86_400_000).toISOString();
-      if (Object.keys(patch).length) event = await api.request<Row>('PATCH', `/events/${event.id}`, patch, context.tokens.organizer);
-      if (event.status !== 'REGISTRATION_OPEN') event = await transition(api, event, 'open-registration', 'REGISTRATION_OPEN', context.tokens.organizer);
-    }
+    let latest = known.find(event => event.title === plan.title);
+    let observedRows: CalendarRegistration[] = [];
     let statistics: Record<string, number> = { heats: 0, finishedHeats: 0, results: 0, corrected: 0 };
-    if (['REGISTRATION_CLOSED', 'COMPLETED'].includes(effectivePlan.status)) {
-      event = await api.request<Row>('GET', `/events/${event.id}`, undefined, context.tokens.organizer);
-      if (event.status === 'PUBLISHED') event = await transition(api, event, 'open-registration', 'REGISTRATION_OPEN', context.tokens.organizer, ['REGISTRATION_OPEN', 'REGISTRATION_CLOSED']);
-      if (event.status === 'REGISTRATION_OPEN') event = await transition(api, event, 'close-registration', 'REGISTRATION_CLOSED', context.tokens.organizer);
-      statistics = await calendarCompetition(api, event, effectivePlan, disciplines, filled.rows, context.tokens);
-      if (effectivePlan.status === 'COMPLETED' && event.status !== 'COMPLETED') event = await transition(api, event, 'complete', 'COMPLETED', context.tokens.organizer);
+    try {
+      const prepared = await prepare(api, plan, context, known, !options.advance);
+      if (!prepared) continue;
+      let { event } = prepared;
+      latest = event;
+      const { disciplines } = prepared;
+      // Completed/open events never move backwards during a rerun with an older DEMO_DATE.
+      const rank = ['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'COMPLETED'];
+      if (!rank.includes(String(event.status))) resetError(`Неподходящий статус ${event.status}.`);
+      const effectivePlan = rank.indexOf(String(event.status)) > rank.indexOf(plan.status) ? { ...plan, status: String(event.status) } : plan;
+      const filled = await fill(api, event, effectivePlan, disciplines, pool, context, options);
+      event = filled.event;
+      observedRows = filled.rows;
+      if (effectivePlan.status === 'REGISTRATION_OPEN') {
+        event = await api.request<Row>('GET', `/events/${event.id}`, undefined, context.tokens.organizer);
+        const now = options.now ?? new Date();
+        const patch: Record<string, string> = {};
+        if (event.registrationOpenAt && Date.parse(String(event.registrationOpenAt)) > now.getTime()) patch.registrationOpenAt = new Date(now.getTime() - 86_400_000).toISOString();
+        if (event.registrationCloseAt && Date.parse(String(event.registrationCloseAt)) <= now.getTime()) {
+          const planned = Date.parse(plan.dates.registrationCloseAt);
+          patch.registrationCloseAt = new Date(planned > now.getTime() ? planned : now.getTime() + 7 * 86_400_000).toISOString();
+        }
+        if (Object.keys(patch).length) event = await api.request<Row>('PATCH', `/events/${event.id}`, patch, context.tokens.organizer);
+        if (event.status !== 'REGISTRATION_OPEN') event = await transition(api, event, 'open-registration', 'REGISTRATION_OPEN', context.tokens.organizer);
+      }
+      if (['REGISTRATION_CLOSED', 'COMPLETED'].includes(effectivePlan.status)) {
+        event = await api.request<Row>('GET', `/events/${event.id}`, undefined, context.tokens.organizer);
+        if (event.status === 'PUBLISHED') event = await transition(api, event, 'open-registration', 'REGISTRATION_OPEN', context.tokens.organizer, ['REGISTRATION_OPEN', 'REGISTRATION_CLOSED']);
+        if (event.status === 'REGISTRATION_OPEN') event = await transition(api, event, 'close-registration', 'REGISTRATION_CLOSED', context.tokens.organizer);
+        latest = event;
+        statistics = await calendarCompetition(api, event, effectivePlan, disciplines, filled.rows, context.tokens);
+        if (effectivePlan.status === 'COMPLETED' && event.status !== 'COMPLETED') event = await transition(api, event, 'complete', 'COMPLETED', context.tokens.organizer);
+      }
+      const states = registrationStates(filled.rows);
+      const summary = { week: plan.week + 1, date: plan.date, slug: event.publicSlug, status: event.status, registrations: filled.rows.length, states, ...statistics };
+      summaries.push(summary);
+      log(`S10 event: ${JSON.stringify(summary)}`);
+    } catch (error) {
+      if (!options.advance) throw error;
+      const summary: Summary = { week: plan.week + 1, date: plan.date, slug: latest?.publicSlug,
+        status: latest?.status, registrations: observedRows.length, states: registrationStates(observedRows), ...statistics, error: error instanceof Error ? error.message : 'Ошибка обновления события.' };
+      summaries.push(summary);
+      log(`S10 event: ${JSON.stringify(summary)}`);
     }
-    const states = Object.fromEntries([...new Set(filled.rows.map(r => String(r.status)))].sort().map(state => [state, filled.rows.filter(r => r.status === state).length]));
-    const summary = { week: plan.week + 1, date: plan.date, slug: event.publicSlug, status: event.status, registrations: filled.rows.length, states, ...statistics };
-    summaries.push(summary);
-    log(`S10 event: ${JSON.stringify(summary)}`);
   }
   summaries.sort((a, b) => a.date.localeCompare(b.date));
   const summary = { mode: options.advance ? 'advance' : 'seed', weeks: new Set(plans.map(p => p.start + ':' + p.week)).size,
@@ -340,7 +333,8 @@ async function main() {
   calendarSettings(options);
   if (args.has('--plan')) { console.log(JSON.stringify(calendarPlan(options), null, 2)); return; }
   const settings = config(process.env);
-  await runCalendar(new HttpApi(settings.apiUrl, advance ? 600_000 : 5_400_000), { ...settings, ...options, enabled: process.env.DEMO_SEED_ENABLED === 'true' });
+  const summary = await runCalendar(new HttpApi(settings.apiUrl, advance ? 600_000 : 5_400_000), { ...settings, ...options, enabled: process.env.DEMO_SEED_ENABLED === 'true' });
+  if (summary.events.some(event => event.error)) process.exitCode = 1;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
   main().catch(error => { console.error(error instanceof Error ? error.message : 'Ошибка календаря.'); process.exitCode = 1; });

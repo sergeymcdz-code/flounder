@@ -1,13 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { ensureAccounts } from './accounts.ts';
 import { ApiError, ensure, HttpApi, login, unique, type Api, type Row } from './api.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
 import { dataset, DEFAULT_DEMO_DATE, eventDates, ownerEmail, profileKey, selectedEvents, type DemoEvent, type Entry } from './plan.ts';
 import { workbook } from './workbook.ts';
 import {
-  accounts, disciplineBody, disciplineSpecs, demoEventTitle, importBody, memberBody,
+  disciplineBody, disciplineSpecs, demoEventTitle, importBody,
   ORGANIZATION_NAME, organizationBody, REGULATION_CODE, regulationTemplateBody,
-  regulationVersionBody, roleBody, sessionBodies, templateBody, userBody, validateDemoDate, VENUE_NAME, venueBody,
+  regulationVersionBody, sessionBodies, templateBody, validateDemoDate, VENUE_NAME, venueBody,
 } from './bodies.ts';
 
 export type SeedOptions = {
@@ -29,35 +30,8 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
     if (existing) ownerToken = await participantLogin(api, email, options.passwords.PARENT);
   }
   const organization = await ensure(api, adminToken, '/organizations', row => row.name === ORGANIZATION_NAME, organizationBody(), ORGANIZATION_NAME);
-  const membersPath = `/organizations/${organization.id}/members`;
-  const members = await api.request<Row[]>('GET', membersPath, undefined, adminToken);
-  let organizerToken = '';
-  for (const account of accounts) {
-    const password = options.passwords[account.key];
-    let userToken: string;
-    try { userToken = await login(api, account.email, password); } catch (error) {
-      if (!(error instanceof ApiError) || error.code !== 'identity.invalid_credentials') throw error;
-      try { await api.request('POST', '/users', userBody(account, password), adminToken); } catch (creationError) {
-        if (creationError instanceof ApiError && creationError.code === 'identity.user_already_exists') {
-          throw new Error(`Пользователь ${account.email} существует, но пароль не подходит. Проверьте ${account.key}_PASSWORD; пароль не изменяется сидом.`);
-        }
-        throw creationError;
-      }
-      userToken = await login(api, account.email, password);
-    }
-    const user = await api.request<Row & { roles: string[] }>('GET', '/auth/me', undefined, userToken);
-    if (user.email !== account.email) throw new Error(`API вернул неверного пользователя для ${account.email}.`);
-    if (!user.roles.includes(account.role)) {
-      await api.request('POST', `/users/${user.id}/roles`, roleBody(account.role), adminToken);
-    }
-    if (account.memberRole) {
-      const member = unique(members, row => row.userId === user.id, account.email);
-      if (member && member.memberRole !== account.memberRole) throw new Error(`Неверное членство ${account.email}: требуется ${account.memberRole}. Исправьте через администратора.`);
-      if (!member) await api.request('POST', membersPath, memberBody(user.id, account.memberRole), adminToken);
-    }
-    if (account.key === 'ORG') organizerToken = await login(api, account.email, password);
-    log(`Пользователь готов: ${account.email} (${account.role}).`);
-  }
+  const serviceTokens = await ensureAccounts(api, adminToken, organization.id, options.passwords, log);
+  const organizerToken = serviceTokens.organizer;
   const venue = await ensure(api, adminToken, '/venues', row => row.name === VENUE_NAME, venueBody(), VENUE_NAME);
   const venueDetails = await api.request<Row>('GET', `/venues/${venue.id}`, undefined, adminToken);
   if (venueDetails.timezone !== 'Europe/Samara') throw new Error('Демо-площадка должна использовать Europe/Samara. Создайте площадку заново через API.');
@@ -82,8 +56,8 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   if (String(version.status).toUpperCase() !== 'PUBLISHED') await api.request('POST', `/regulation-versions/${version.id}/publish`, undefined, adminToken);
   const tokens = {
     organizer: organizerToken,
-    judge: await login(api, 'judge@flounder.demo', options.passwords.JUDGE),
-    secretary: await login(api, 'sec@flounder.demo', options.passwords.SEC),
+    judge: serviceTokens.judge,
+    secretary: serviceTokens.secretary,
     admin: adminToken, owner: ownerToken,
   };
   const events: Row[] = [];

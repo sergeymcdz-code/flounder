@@ -9,7 +9,7 @@ describe('calendar plan and stable identities', () => {
     const pool = await swimmerPool();
     const plan = calendarPlan(options);
     expect(plan).toHaveLength(29);
-    expect(plan.map(e => ({ week: e.week + 1, date: e.date, city: e.venue.city, status: e.status,
+    expect(plan.map(e => ({ week: e.week + 1, date: e.date, city: e.venue.city, title: e.title, venue: e.venue.name, status: e.status,
       entries: calendarEntries(e, pool).length, imported: e.count, corrections: e.corrections, waitlisted: e.waitlisted,
       corrected: e.correctedResults, dnsDnf: e.exceptionalResults, dsq: e.dsq }))).toMatchSnapshot();
     expect(calendarPlan(options)).toEqual(plan);
@@ -67,9 +67,24 @@ describe('calendar plan and stable identities', () => {
   });
   it('round trips immutable metadata and refuses malformed descriptions', () => {
     const event = calendarPlan(options)[0];
+    expect(description(event)).toBe('Тестовые данные SportGate. Сезон с 2026-07-27, 25 недель, неделя 1, суббота (точка отсчёта 2026-10-19).');
     expect(readMetadata(description(event))).toMatchObject({ start: '2026-07-27', weeks: 25, anchorDate: options.demoDate });
     expect(readMetadata('Вымышленные данные SportGate. S02')).toBeUndefined();
+    const copy = calendarPlan({ ...options, prefix: 'QA «осень»' })[3];
+    expect(description(copy)).toContain(', воскресенье (точка отсчёта 2026-10-19), копия «QA «осень»».');
+    expect(readMetadata(description(copy))).toMatchObject({ version: 1, week: 2, slot: 1, prefix: 'QA «осень»' });
+    for (const [before, after] of [['неделя 1', 'неделя 0'], ['неделя 1', 'неделя 26'], ['25 недель', '105 недель'],
+      ['2026-07-27', '2026-07-28'], ['2026-07-27', '2026-02-30'], ['суббота', 'пятница'], ['2026-10-19', '2026-02-30']])
+      expect(() => readMetadata(description(event).replace(before, after))).toThrow();
     expect(() => readMetadata('Тестовые данные SportGate\nS10 {')).toThrow('маркер');
+  });
+  it('uses month/year titles, stage numbers only for SportGate and unbranded venues', () => {
+    const plan = calendarPlan({ ...options, weeks: 104 });
+    expect(new Set(plan.map(e => e.title)).size).toBe(plan.length);
+    expect(plan.filter(e => e.title.includes('этап')).every(e => e.title.includes('кубок SportGate'))).toBe(true);
+    expect(plan.filter(e => !e.title.includes('этап')).every(e => /, [а-я]+ \d{4}/.test(e.title))).toBe(true);
+    expect(venues.every(v => !v.name.includes('SportGate'))).toBe(true);
+    expect(venues[1].name).toBe('Бассейн «Волга», Самара');
   });
   it('advances only the expected events and preserves the original season bounds', () => {
     const before = calendarPlan(options);

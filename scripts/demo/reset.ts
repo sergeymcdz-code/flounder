@@ -7,7 +7,7 @@ import { selectedEvents } from './plan.ts';
 import { CALENDAR_MARKER, calendarSettings, venues as calendarVenues } from './calendar-plan.ts';
 
 export type ResetOptions = { apply?: boolean; databaseUrl?: string; eventTitleSuffix?: string; demoEvents?: string; demoSlugs?: string; calendar?: boolean; calendarPrefix?: string };
-export type ResetTarget = { id: string; title: string; slug: string; calendar?: boolean; prefix?: string };
+export type ResetTarget = { id: string; title: string; slug: string; venue: string; calendar?: boolean; prefix?: string };
 // Keep the database URL out of argv and diagnostics; libpq reads PGDATABASE.
 export function applyReset(targets: ResetTarget[], databaseUrl: string): Promise<string> {
   const args = ['-v', 'ON_ERROR_STOP=1', '-v', `demo_targets=${JSON.stringify(targets)}`,
@@ -55,13 +55,15 @@ export async function resetPlan(api: Api, adminEmail: string, adminPassword: str
       api.request<Row>('GET', `/venues/${event.venueId}`, undefined, token),
     ]);
     if (options.calendar && !selected && organization.name !== ORGANIZATION_NAME) continue;
-    const permittedVenue = options.calendar ? calendarVenues.some(spec => spec.name === venue.name) : venue.name === VENUE_NAME;
+    // Accept legacy venue names so calendars from the old description format can be reset.
+    const permittedVenue = options.calendar ? calendarVenues.some(spec => spec.name === venue.name ||
+      spec.name.replace(/^Бассейн «(.+)», (.+)$/, 'SportGate — $2, $1') === venue.name) : venue.name === VENUE_NAME;
     const marked = String(event.description ?? '').includes(CALENDAR_MARKER) || !!options.calendarPrefix && title.startsWith(options.calendarPrefix + ' ');
     if (organization.name !== ORGANIZATION_NAME || !permittedVenue || (options.calendar && !marked) ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event.id) ||
         !/^[a-z0-9-]+$/.test(String(event.publicSlug)))
       throw new Error('Событие не соответствует демо-организации/площадке. Сброс остановлен.');
-    targets.push({ id: event.id, title, slug: String(event.publicSlug), ...(options.calendar ? { calendar: true, prefix: options.calendarPrefix ?? '' } : {}) });
+    targets.push({ id: event.id, title, slug: String(event.publicSlug), venue: String(venue.name), ...(options.calendar ? { calendar: true, prefix: options.calendarPrefix ?? '' } : {}) });
   }
   if (selected?.some(slug => !targets.some(target => target.slug === slug)))
     throw new Error('DEMO_SLUGS содержит отсутствующее или чужое событие. Сброс остановлен.');

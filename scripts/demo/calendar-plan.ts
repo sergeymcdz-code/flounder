@@ -5,15 +5,15 @@ import { fullName } from './names.ts';
 export const CALENDAR_MARKER = 'Тестовые данные SportGate';
 export const WEEK_MS = 7 * 86_400_000;
 export const venues = [
-  { city: 'Самара', name: 'SportGate — Самара, Дворец спорта', timezone: 'Europe/Samara', offset: '+04:00', lanes: 8, courseLength: 25 },
-  { city: 'Самара', name: 'SportGate — Самара, Волга', timezone: 'Europe/Samara', offset: '+04:00', lanes: 10, courseLength: 50 },
-  { city: 'Тольятти', name: 'SportGate — Тольятти, Олимп', timezone: 'Europe/Samara', offset: '+04:00', lanes: 8, courseLength: 25 },
-  { city: 'Казань', name: 'SportGate — Казань, Акватика', timezone: 'Europe/Moscow', offset: '+03:00', lanes: 10, courseLength: 50 },
-  { city: 'Уфа', name: 'SportGate — Уфа, Урал', timezone: 'Asia/Yekaterinburg', offset: '+05:00', lanes: 10, courseLength: 50 },
-  { city: 'Саратов', name: 'SportGate — Саратов, Юность', timezone: 'Europe/Saratov', offset: '+04:00', lanes: 8, courseLength: 25 },
-  { city: 'Ульяновск', name: 'SportGate — Ульяновск, Заря', timezone: 'Europe/Ulyanovsk', offset: '+04:00', lanes: 8, courseLength: 25 },
-  { city: 'Пенза', name: 'SportGate — Пенза, Сура', timezone: 'Europe/Moscow', offset: '+03:00', lanes: 8, courseLength: 25 },
-  { city: 'Оренбург', name: 'SportGate — Оренбург, Нептун', timezone: 'Asia/Yekaterinburg', offset: '+05:00', lanes: 8, courseLength: 25 },
+  { city: 'Самара', name: 'Бассейн «Дворец спорта», Самара', timezone: 'Europe/Samara', offset: '+04:00', lanes: 8, courseLength: 25 },
+  { city: 'Самара', name: 'Бассейн «Волга», Самара', timezone: 'Europe/Samara', offset: '+04:00', lanes: 10, courseLength: 50 },
+  { city: 'Тольятти', name: 'Бассейн «Олимп», Тольятти', timezone: 'Europe/Samara', offset: '+04:00', lanes: 8, courseLength: 25 },
+  { city: 'Казань', name: 'Бассейн «Акватика», Казань', timezone: 'Europe/Moscow', offset: '+03:00', lanes: 10, courseLength: 50 },
+  { city: 'Уфа', name: 'Бассейн «Урал», Уфа', timezone: 'Asia/Yekaterinburg', offset: '+05:00', lanes: 10, courseLength: 50 },
+  { city: 'Саратов', name: 'Бассейн «Юность», Саратов', timezone: 'Europe/Saratov', offset: '+04:00', lanes: 8, courseLength: 25 },
+  { city: 'Ульяновск', name: 'Бассейн «Заря», Ульяновск', timezone: 'Europe/Ulyanovsk', offset: '+04:00', lanes: 8, courseLength: 25 },
+  { city: 'Пенза', name: 'Бассейн «Сура», Пенза', timezone: 'Europe/Moscow', offset: '+03:00', lanes: 8, courseLength: 25 },
+  { city: 'Оренбург', name: 'Бассейн «Нептун», Оренбург', timezone: 'Asia/Yekaterinburg', offset: '+05:00', lanes: 8, courseLength: 25 },
 ] as const;
 export type CalendarVenue = typeof venues[number];
 export const clubs = [
@@ -86,10 +86,14 @@ export function calendarPlan(options: CalendarOptions = {}): CalendarEvent[] {
       const cityGenitive = { Самара: 'Самары', Тольятти: 'Тольятти', Казань: 'Казани', Уфа: 'Уфы', Саратов: 'Саратова', Ульяновск: 'Ульяновска', Пенза: 'Пензы', Оренбург: 'Оренбурга' }[venue.city];
       const titleTemplates = [
         `Кубок города ${cityGenitive}`, `Открытое первенство ${cityGenitive} среди юношей и девушек`,
-        'Клубные старты «Волна»', `Первенство области — ${venue.city}`, 'Мемориал тренеров Поволжья',
+        `Клубные старты «Волна» — ${venue.city}`, `Первенство области — ${venue.city}`, `Мемориал тренеров Поволжья — ${venue.city}`,
         `Спринт-фестиваль — ${venue.city}`, `${Number(date.slice(5, 7)) >= 9 && Number(date.slice(5, 7)) <= 11 ? 'Осенний' : 'Зимний'} кубок SportGate`,
       ];
-      const title = `${settings.prefix ? settings.prefix + ' ' : ''}${titleTemplates[week % titleTemplates.length]} · этап ${week + 1}${slot ? ' (воскресенье)' : ''}`;
+      const month = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'][Number(date.slice(5, 7)) - 1];
+      const series = week % titleTemplates.length === 6;
+      const suffix = series ? ` · этап ${week + 1}${slot ? ' (воскресенье)' : ''}` : `, ${month} ${date.slice(0, 4)}`;
+      let title = `${settings.prefix ? settings.prefix + ' ' : ''}${titleTemplates[week % titleTemplates.length]}${suffix}`;
+      if (result.some(event => event.title === title)) title += ` (${date})`;
       const scenarios = initialOffset >= 1 && offset <= 3;
       const sessionCount = week % 4 === 1 ? 1 : 2;
       result.push({ ...settings, version: 1, week, slot, title, date, venue, offset, status, capacity, initialCount: base, count,
@@ -112,13 +116,18 @@ export function metadata(event: CalendarEvent): CalendarMeta {
   const { version, start, weeks, prefix, anchorDate, week, slot } = event;
   return { version, start, weeks, prefix, anchorDate, week, slot };
 }
-export function description(event: CalendarEvent) { return `${CALENDAR_MARKER}\nS10 ${JSON.stringify(metadata(event))}`; }
+export function description(event: CalendarEvent) {
+  return `${CALENDAR_MARKER}. Сезон с ${event.start}, ${event.weeks} недель, неделя ${event.week + 1}, ${event.slot ? 'воскресенье' : 'суббота'} (точка отсчёта ${event.anchorDate})${event.prefix ? `, копия «${event.prefix}»` : ''}.`;
+}
 export function readMetadata(value: unknown): CalendarMeta | undefined {
-  if (typeof value !== 'string' || !value.startsWith(CALENDAR_MARKER + '\nS10 ')) return;
-  let meta: CalendarMeta;
-  try { meta = JSON.parse(value.slice(value.indexOf('\nS10 ') + 5)); } catch { throw new Error('Повреждён маркер календаря S10. Проверьте событие и reset.'); }
+  if (typeof value !== 'string' || !value.startsWith(CALENDAR_MARKER)) return;
+  const match = /^Тестовые данные SportGate\. Сезон с (\d{4}-\d{2}-\d{2}), (\d+) недель, неделя (\d+), (суббота|воскресенье) \(точка отсчёта (\d{4}-\d{2}-\d{2})\)(?:, копия «(.+)»)?\.$/.exec(value);
+  if (!match) throw new Error('Повреждён маркер календаря S10. Выполните DEMO_CALENDAR=true npx tsx reset.ts, затем повторите calendar.ts.');
+  // This fixed human-readable grammar is metadata version 1; unknown formats are refused.
+  const meta: CalendarMeta = { version: 1, start: match[1], weeks: Number(match[2]), prefix: match[6] ?? '',
+    anchorDate: match[5], week: Number(match[3]) - 1, slot: match[4] === 'суббота' ? 0 : 1 };
   calendarSettings({ ...meta, demoDate: meta.anchorDate });
-  if (meta.version !== 1 || !Number.isInteger(meta.week) || meta.week < 0 || meta.week >= meta.weeks || ![0, 1].includes(meta.slot))
+  if (meta.version !== 1 || !Number.isSafeInteger(meta.week) || meta.week < 0 || meta.week >= meta.weeks || ![0, 1].includes(meta.slot))
     throw new Error('Неверный маркер календаря S10. Проверьте событие и reset.');
   return meta;
 }
