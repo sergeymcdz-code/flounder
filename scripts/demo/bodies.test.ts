@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  accounts, disciplineBody, disciplineSpecs, eventBody, importBody, loginBody, memberBody,
-  nextSaturday, samaraDate, demoEventTitle, organizationBody, regulationTemplateBody, regulationVersionBody, roleBody,
+  accounts, disciplineBody, disciplineSpecs, importBody, loginBody, memberBody,
+  samaraDate, demoEventTitle, organizationBody, regulationTemplateBody, regulationVersionBody, roleBody,
   sessionBodies, templateBody, userBody, validateDemoDate, venueBody,
 } from './bodies.ts';
 import { config } from './config.ts';
 
-const ids = { organizationId: 'org', venueId: 'venue', sportId: 'swim', regulationVersionId: 'reg' };
+import { DEFAULT_OWNER_EMAIL, demoEvents, eventDates } from './plan.ts';
 describe('request bodies: existing API and specification §5', () => {
   it('takes passwords from its caller, and assigns roles and membership separately', () => {
     for (const account of accounts) {
@@ -22,37 +22,26 @@ describe('request bodies: existing API and specification §5', () => {
     expect(venueBody()).toMatchObject({ timezone: 'Europe/Samara' });
     expect(venueBody()).toHaveProperty('venueMeta', { lanes: 8, courseLength: 25 });
   });
-  it('uses a Saturday in Samara regardless of host timezone', () => {
+  it('accepts a Monday demo date and converts timestamps to Samara independently of the host', () => {
     expect(samaraDate('2026-10-16T22:00:00Z')).toBe('2026-10-17');
     expect(samaraDate('2026-10-17T00:30:00+04:00')).toBe('2026-10-17');
     expect(() => samaraDate('invalid')).toThrow();
-    expect(nextSaturday(new Date('2026-10-12T12:00:00Z'))).toBe('2026-10-17');
-    expect(nextSaturday(new Date('2026-10-16T21:00:00Z'))).toBe('2026-10-17');
-    expect(nextSaturday(new Date('2026-10-17T06:00:00Z'))).toBe('2026-10-24');
-    expect(() => validateDemoDate('2026-10-15')).toThrow('субботой');
+    expect(validateDemoDate('2026-10-19')).toBe('2026-10-19');
     expect(() => validateDemoDate('2026-02-31')).toThrow();
-    expect(eventBody(ids, '2026-10-17', new Date('2026-10-12T12:00:00Z'))).toMatchObject({ ...ids,
-      registrationOpenAt: '2026-10-12T12:00:00.000Z', registrationCloseAt: '2026-10-17T09:30:00+04:00',
-      eventStartAt: '2026-10-17T10:00:00+04:00', eventEndAt: '2026-10-17T18:00:00+04:00' });
   });
   it.each(['2026-10-18T12:00:00Z', '2026-10-17T05:31:00Z', '2026-10-17T05:30:00Z'])
-  ('opens a demo registration window when the Samara close time has passed (%s)', value => {
-    const now = new Date(value);
-    const log = vi.fn();
-    const body = eventBody(ids, '2026-10-17', now, '', log);
-    expect(Date.parse(body.registrationOpenAt)).toBe(now.getTime() - 60_000);
-    expect(Date.parse(body.registrationCloseAt)).toBe(now.getTime() + 60_000);
-    expect(body.eventStartAt).toBe('2026-10-17T10:00:00+04:00');
-    expect(body.eventEndAt).toBe('2026-10-17T18:00:00+04:00');
-    expect(log).toHaveBeenCalledOnce();
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('WARNING: плановое закрытие регистрации уже наступило'));
+  ('keeps demo-relative registration dates after wall-clock time passes (%s)', value => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(value));
+      expect(eventDates('2026-10-19', demoEvents[2])).toMatchObject({
+        registrationOpenAt: '2026-09-19T09:00:00+04:00', registrationCloseAt: '2026-10-23T18:00:00+04:00',
+        eventStartAt: '2026-10-24T10:00:00+04:00', eventEndAt: '2026-10-24T18:00:00+04:00',
+      });
+    } finally { vi.useRealTimers(); }
   });
-  it('keeps the scheduled registration window before 09:30 in Samara', () => {
-    const log = vi.fn();
-    const body = eventBody(ids, '2026-10-17', new Date('2026-10-17T05:29:00Z'), '', log);
-    expect(body.registrationOpenAt).toBe('2026-10-17T05:29:00.000Z');
-    expect(body.registrationCloseAt).toBe('2026-10-17T09:30:00+04:00');
-    expect(log).not.toHaveBeenCalled();
+  it('closes B registration one day before the demo', () => {
+    expect(eventDates('2026-10-19', demoEvents[1]).registrationCloseAt).toBe('2026-10-18T18:00:00+04:00');
   });
   it('creates two sessions and four disciplines in specification order', () => {
     expect(sessionBodies('2026-10-17')).toEqual([
@@ -66,7 +55,7 @@ describe('request bodies: existing API and specification §5', () => {
       expect(body).toMatchObject({ disciplineTemplateId: 'template', code: spec.code, distanceM: spec.distanceM,
         gender: spec.gender, stroke: 'FREE', seedingMode: 'BY_AGE_GROUP', sessionId: `session-${spec.sessionIndex + 1}`,
         orderInSession: spec.orderInSession, heatDurationSec: null, entryFeeAmount: 0 });
-      expect(body.ageGroups.map(group => [group.birthYearFrom, group.birthYearTo])).toEqual([[2014, 2015], [2012, 2013], [2010, 2011]]);
+      expect(body.ageGroups.map(group => [group.birthYearFrom, group.birthYearTo])).toEqual([[2014, 2016], [2012, 2013], [2010, 2011]]);
       expect(body.ageGroups.every(group => group.gender === spec.gender && group.code === `${spec.gender}-${group.birthYearFrom}-${group.birthYearTo}`)).toBe(true);
       expect(templateBody('swim', spec)).toMatchObject({ sportId: 'swim', resultType: 'TIME', rankingStrategy: 'ASC' });
     }
@@ -84,8 +73,8 @@ describe('request bodies: existing API and specification §5', () => {
   });
 });
 it('uses an exact suffix for backup event identity', () => {
-  expect(demoEventTitle(' · резерв')).toContain(' (демо) · резерв');
-  expect(eventBody(ids, '2026-10-17', new Date(), ' · резерв').title).toBe(demoEventTitle(' · резерв'));
+  expect(demoEventTitle(' · резерв')).toContain('по плаванию · резерв');
+  expect(demoEventTitle(' · резерв')).not.toBe(demoEventTitle());
   expect(() => demoEventTitle('\nother')).toThrow();
 });
 describe('configuration guard', () => {
@@ -97,6 +86,11 @@ describe('configuration guard', () => {
     expect(() => config({ ...env, DEMO_PASSWORD: '' })).toThrow('DEMO_PASSWORD');
     expect(config({ ...env, ORG_PASSWORD: 'unit-test-org' }).passwords.ORG).toBe('unit-test-org');
     expect(config({ ...env, REQUIRE_VENUE_META: 'true', EVENT_TITLE_SUFFIX: ' · резерв' })).toMatchObject({ requireVenueMeta: true, eventTitleSuffix: ' · резерв' });
+  });
+  it('reads DEMO_OWNER_EMAIL and defaults to the owner-approved separate mailbox', () => {
+    expect(config(env).ownerEmail).toBe(DEFAULT_OWNER_EMAIL);
+    expect(config({ ...env, DEMO_OWNER_EMAIL: ' Owner@Example.com ' }).ownerEmail).toBe('owner@example.com');
+    expect(() => config({ ...env, DEMO_OWNER_EMAIL: 'not-an-email' })).toThrow('DEMO_OWNER_EMAIL');
   });
   it('rejects URL credentials and a duplicated API prefix', () => {
     expect(() => config({ ...env, API_URL: 'https://user:pass@example.invalid' })).toThrow();

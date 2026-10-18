@@ -36,12 +36,12 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
   const current = valid && preview?.key === key ? preview : undefined
   const changes = current?.data?.units ?? []
   return <form className={styles.stack} onSubmit={e => { e.preventDefault(); if (!archived && changes.length) onApply(from, delta) }}>
-    <label className={styles.field}>С какого заплыва
+    <label className="fl-field">С какого заплыва
       <select value={from} disabled={busy} onChange={e => setFrom(e.target.value)} required>
         {candidates.map(h => <option key={h.id} value={h.id}>{disciplineNames[h.eventDisciplineId]} · {h.label} · {time(h.scheduledAt, timeZone)}</option>)}
       </select>
     </label>
-    <label className={styles.field}>Сдвиг в минутах
+    <label className="fl-field">Сдвиг в минутах
       <input type="number" min={-1440} max={1440} step={1} required value={minutes} disabled={busy} onChange={e => setMinutes(e.target.value)} />
     </label>
     <p>Положительное число — позже, отрицательное — раньше. При перекрытии следующая сессия этого дня сдвигается на величину перекрытия.</p>
@@ -54,8 +54,8 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
       <p>Будет сдвинуто заплывов: {changes.length}.</p>
     </div>}
     <div className={styles.actions}>
-      <button type="button" disabled={busy} onClick={onClose}>Отмена</button>
-      <button className={styles.primary} title={archived ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || archived || !changes.length} type="submit">Подтвердить сдвиг</button>
+      <button className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={onClose}>Отмена</button>
+      <button className="fl-btn fl-btn-primary" title={archived ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || archived || !changes.length} type="submit">Подтвердить сдвиг</button>
     </div>
   </form>
 }

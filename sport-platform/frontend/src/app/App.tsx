@@ -1,4 +1,6 @@
+import { PosterPage } from '../features/public/PosterPage'
 import { lazy, Suspense } from 'react'
+import { ToastProvider } from '../components/ui/Toast'
 import { Navigate, Route, Routes } from 'react-router'
 
 import { AppLayout } from '../components/AppLayout'
@@ -38,9 +40,6 @@ const EventsPage = lazy(() =>
 
 const CreateEventPage = lazy(() =>
   import('../features/organizer/CreateEventPage').then(module => ({ default: module.CreateEventPage })),
-)
-const OrganizerDashboardPage = lazy(() =>
-  import('../features/organizer/OrganizerDashboardPage').then(module => ({ default: module.OrganizerDashboardPage })),
 )
 const OrganizerEventsPage = lazy(() =>
   import('../features/organizer/OrganizerEventsPage').then(module => ({ default: module.OrganizerEventsPage })),
@@ -115,6 +114,7 @@ export default function App() {
         <Route path="start-list" element={<StartListPage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="live" element={<LivePage />} />
+        <Route path="poster" element={<PosterPage />} />
         <Route path="results" element={<ResultsPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />
@@ -163,13 +163,13 @@ export default function App() {
         <Route
           element={
             <RequireRole
-              roles={['platform_admin', 'platformadmin', 'organizer', 'operator']}
+              roles={['platform_admin', 'platformadmin', 'organizer', 'operator', 'judge']}
               deniedMessage="Нет доступа к кабинету организатора."
             />
           }
         >
           <Route path="organizer" element={<OrganizerLayout />}>
-            <Route index element={<OrganizerDashboardPage />} />
+            <Route index element={<Navigate replace to="/organizer/events" />} />
             <Route path="notification-settings" element={<NotificationSettingsPage />} />
             <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
               <Route path="organizations" element={<OrganizationsAnalyticsListPage />} />
@@ -207,8 +207,7 @@ export default function App() {
 
           <Route
             path="organizer/registrations/review"
-            element={<RegistrationReviewPage />}
-          />
+            element={<Navigate replace to="/admin/registrations/review" />} />
         </Route>
 
         <Route
@@ -277,5 +276,5 @@ export default function App() {
       </Route>
     </Routes>
   )
-  return <Suspense fallback={<p role="status">Загружаем страницу…</p>}>{routes}</Suspense>
+  return <ToastProvider><Suspense fallback={<p role="status">Загружаем страницу…</p>}>{routes}</Suspense></ToastProvider>
 }

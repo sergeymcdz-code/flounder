@@ -19,7 +19,7 @@ function getRegistrationErrorMessage(error: unknown) {
     'registrations.discipline_not_available':
       'Эта дисциплина сейчас недоступна для регистрации.',
     'registrations.registration_not_open':
-      'Регистрация на это событие сейчас не открыта.',
+      'Регистрация на это соревнование сейчас не открыта.',
   }
 
   return knownMessages[error.code ?? ''] ?? error.message
@@ -138,7 +138,7 @@ export function RegistrationPage() {
               Контакт для экстренной связи
             </legend>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span>Контактное лицо</span>
 
               <input
@@ -153,7 +153,7 @@ export function RegistrationPage() {
               />
             </label>
 
-            <label className={styles.field}>
+            <label className="fl-field">
               <span>Телефон контактного лица</span>
 
               <input
@@ -217,7 +217,7 @@ export function RegistrationPage() {
           ) : null}
 
           <button
-            className={styles.submitButton}
+            className="fl-btn fl-btn-primary"
             disabled={isSubmitting}
             type="submit"
           >

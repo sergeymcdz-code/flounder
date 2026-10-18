@@ -57,7 +57,7 @@ it('sends the token for JSON and XLSX and uses the server timezone', async () =>
   vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }))
   const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
   eventPage()
-  await screen.findByRole('heading', { name: 'Аналитика события' })
+  await screen.findByRole('heading', { name: 'Аналитика соревнования' })
   expect(screen.getByText(/02.10.2026, 01:30/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Скачать XLSX' }))
   await waitFor(() => expect(click).toHaveBeenCalled())

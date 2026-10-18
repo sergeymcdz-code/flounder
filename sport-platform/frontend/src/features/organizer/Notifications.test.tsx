@@ -71,7 +71,7 @@ it('paginates the journal and displays Russian delivery states', async () => {
   expect(screen.getByRole('button', { name: 'Далее' })).toBeDisabled()
 })
 it('shows an access denial for a foreign event', async () => {
-  server.use(http.get('*/api/v1/events/cup/notifications', () => HttpResponse.json({ message: 'Нет доступа к управлению этим событием' }, { status: 403 })))
+  server.use(http.get('*/api/v1/events/cup/notifications', () => HttpResponse.json({ message: 'Нет доступа к управлению этим соревнованием' }, { status: 403 })))
   journal()
   expect(await screen.findByRole('alert')).toHaveTextContent('Нет доступа')
   expect(screen.queryByRole('table')).not.toBeInTheDocument()

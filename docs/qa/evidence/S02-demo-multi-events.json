@@ -1,0 +1,151 @@
+{
+  "verified_at": "2026-10-15T01:09:54+03:00",
+  "base_commit": "a9338d1",
+  "environment": "isolated local PostgreSQL 16 / API, MAIL_ENABLED=false",
+  "demo_date": "2026-10-19",
+  "seed_seconds": 19.36,
+  "repeat_seed_seconds": 2.92,
+  "events": {
+    "A": {
+      "slug": "kubok-sportgate-osen",
+      "status": "COMPLETED",
+      "registrations": 160,
+      "profiles": 96,
+      "states": {
+        "CONFIRMED": 160
+      },
+      "heats": 26,
+      "finishedHeats": 26,
+      "results": 160
+    },
+    "B": {
+      "slug": "otkrytyy-kubok-samary-po-plavaniyu",
+      "status": "REGISTRATION_CLOSED",
+      "registrations": 200,
+      "profiles": 120,
+      "states": {
+        "CONFIRMED": 200
+      },
+      "heats": 31,
+      "finishedHeats": 2,
+      "results": 14
+    },
+    "C": {
+      "slug": "pervenstvo-oblasti-sredi-yunoshey",
+      "status": "REGISTRATION_OPEN",
+      "registrations": 124,
+      "profiles": 124,
+      "states": {
+        "CONFIRMED": 114,
+        "NEEDS_CORRECTION": 6,
+        "WAITLISTED": 4
+      },
+      "heats": 0,
+      "results": 0,
+      "documents": 2
+    }
+  },
+  "unique_swimmers": 300,
+  "shared_B_C_profile_ids": 40,
+  "clubs": 12,
+  "unique_full_name_birth_date": 300,
+  "owner_email_registrations_in_C": 1,
+  "repeat_database_snapshot_unchanged": true,
+  "snapshot_sha256": "c7ac34f9a7e923a62abec21edff227d4b881448f6c78e8eaff9609f397001fdf",
+  "reset_C": {
+    "reset": "C",
+    "preservedSharedProfiles": 40,
+    "otherEventCountsUnchanged": true
+  },
+  "checks": {
+    "demo_unit_tests": "51 passed",
+    "demo_typecheck": "passed",
+    "test_demo": "2 passed (1.9m), real backend + Chromium",
+    "frontend_build": "passed",
+    "frontend_lint": "passed (existing warnings)",
+    "backend": {
+      "command": "mvn -q clean test",
+      "exit_code": 0,
+      "tests": 1621,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "note": "Surefire terminated its fork JVM after the 30-second shutdown timeout; all test reports passed."
+    }
+  },
+  "notes": [
+    "No S02 migrations or backend endpoint changes.",
+    "Planning dates use DEMO_DATE/Europe/Samara; actual start and audit timestamps are assigned by the existing API when seeding.",
+    "Local SMTP delivery and physical Android/iOS rehearsal were not performed."
+  ],
+  "initial_verification_commit": "519ed77 (before review 1)",
+  "review_1": {
+    "base_commit": "4571b33",
+    "demo_tests": 64,
+    "typecheck": "passed",
+    "frontend_build": "passed",
+    "frontend_lint": "passed (existing warnings)",
+    "backend_tests": 1621,
+    "backend_failures": 0,
+    "backend_errors": 0,
+    "backend_exit_code": 0,
+    "e2e": "2 passed (1.7m), real backend / Chromium, after rebase on 4571b33",
+    "name_pools": {
+      "male_first_names": 48,
+      "female_first_names": 48,
+      "surname_bases": 120
+    },
+    "defaultOwnerEmail": "sergeymcdzkz@gmail.com",
+    "adminConflictRejectedBeforeEvents": true,
+    "adminProfileUnchanged": true,
+    "repeatEventsUnchanged": true,
+    "firstNamesInA": {
+      "M": 48,
+      "F": 48
+    },
+    "uniqueSwimmers": 300,
+    "sharedBC": 40,
+    "summaries": {
+      "A": {
+        "slug": "kubok-sportgate-osen",
+        "status": "COMPLETED",
+        "registrations": 160,
+        "profiles": 96,
+        "states": {
+          "CONFIRMED": 160
+        },
+        "heats": 26,
+        "finishedHeats": 26,
+        "results": 160
+      },
+      "B": {
+        "slug": "otkrytyy-kubok-samary-po-plavaniyu",
+        "status": "REGISTRATION_CLOSED",
+        "registrations": 200,
+        "profiles": 120,
+        "states": {
+          "CONFIRMED": 200
+        },
+        "heats": 31,
+        "finishedHeats": 2,
+        "results": 14
+      },
+      "C": {
+        "slug": "pervenstvo-oblasti-sredi-yunoshey",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 124,
+        "profiles": 124,
+        "states": {
+          "CONFIRMED": 114,
+          "NEEDS_CORRECTION": 6,
+          "WAITLISTED": 4
+        },
+        "heats": 0,
+        "results": 0,
+        "documents": 2
+      }
+    },
+    "seedSeconds": 15.1,
+    "repeatSeconds": 2.67
+  }
+}
