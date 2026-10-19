@@ -129,6 +129,8 @@ app:
   payments:
     provider: ${APP_PAYMENTS_PROVIDER:MANUAL}
     yookassa:
+      # https://yookassa.ru/developers/using-api/webhooks
+      allowed-cidrs: ${YOOKASSA_ALLOWED_CIDRS:185.71.76.0/27,185.71.77.0/27,77.75.153.0/25,77.75.156.11/32,77.75.156.35/32,77.75.154.128/25,2a02:5180::/32}
       base-url: https://api.yookassa.ru/v3
       shop-id: ${YOOKASSA_SHOP_ID:}
       secret-key: ${YOOKASSA_SECRET_KEY:}

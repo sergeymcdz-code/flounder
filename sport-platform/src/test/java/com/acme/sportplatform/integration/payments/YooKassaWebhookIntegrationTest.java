@@ -44,9 +44,33 @@ import com.acme.sportplatform.sports.infrastructure.jpa.DisciplineTemplateReposi
 import com.acme.sportplatform.support.AbstractPostgresIntegrationTest;
 import com.jayway.jsonpath.JsonPath;
 
+@org.springframework.boot.test.context.SpringBootTest(properties = {
+        "app.payments.provider=YOOKASSA", "app.payments.yookassa.shop-id=test-shop",
+        "app.payments.yookassa.secret-key=test-key"})
 @AutoConfigureMockMvc
 class YooKassaWebhookIntegrationTest
         extends AbstractPostgresIntegrationTest {
+
+        @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+        private com.acme.sportplatform.payments.infrastructure.yookassa.YooKassaPaymentProviderClient providerClient;
+
+        @org.junit.jupiter.api.BeforeEach
+        void providerResponse() {
+                org.mockito.Mockito.doAnswer(invocation -> response(invocation.getArgument(0), "succeeded", "1500.00", "RUB"))
+                        .when(providerClient).getPayment(org.mockito.ArgumentMatchers.anyString());
+        }
+
+        private com.acme.sportplatform.payments.infrastructure.yookassa.api.YooKassaPaymentResponse response(
+                String id, String status, String amount, String currency) {
+                return new com.acme.sportplatform.payments.infrastructure.yookassa.api.YooKassaPaymentResponse(
+                        id, status, "succeeded".equals(status),
+                        new com.acme.sportplatform.payments.infrastructure.yookassa.api.YooKassaAmount(amount, currency),
+                        null, null);
+        }
+
+        private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder webhookRequest() {
+                return post(WEBHOOK_URL).with(request -> {request.setRemoteAddr("185.71.76.1"); return request;});
+        }
 
         private static final UUID SWIMMING_SPORT_ID =
                 UUID.fromString("10000000-0000-0000-0000-000000000001");
@@ -99,7 +123,7 @@ class YooKassaWebhookIntegrationTest
                 String payload = succeededWebhookPayload(externalPaymentId);
 
                 mockMvc.perform(
-                        post(WEBHOOK_URL)
+                        webhookRequest()
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .header("X-Request-Id", "webhook-test-request")
                                 .content(payload)
@@ -119,7 +143,7 @@ class YooKassaWebhookIntegrationTest
 
                 PaymentWebhookEventEntity event = webhookEventRepository
                         .findByDeduplicationKey(
-                                "payment.succeeded:" + externalPaymentId
+                                "verified:" + externalPaymentId + ":succeeded"
                         )
                         .orElseThrow();
 
@@ -141,7 +165,7 @@ class YooKassaWebhookIntegrationTest
         void shouldRejectMalformedYooKassaWebhookPayload()
                 throws Exception {
                 mockMvc.perform(
-                        post(WEBHOOK_URL)
+                        webhookRequest()
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{ invalid-json")
                 ).andExpect(status().isBadRequest());
@@ -160,7 +184,7 @@ class YooKassaWebhookIntegrationTest
                 String payload = succeededWebhookPayload(externalPaymentId);
 
                 mockMvc.perform(
-                        post(WEBHOOK_URL)
+                        webhookRequest()
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(payload)
                 ).andExpect(status().isOk());
@@ -179,7 +203,7 @@ class YooKassaWebhookIntegrationTest
                 assertNotNull(paidAtAfterFirstDelivery);
 
                 mockMvc.perform(
-                        post(WEBHOOK_URL)
+                        webhookRequest()
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(payload)
                 ).andExpect(status().isOk());
@@ -199,7 +223,7 @@ class YooKassaWebhookIntegrationTest
 
                 PaymentWebhookEventEntity event = webhookEventRepository
                         .findByDeduplicationKey(
-                                "payment.succeeded:" + externalPaymentId
+                                "verified:" + externalPaymentId + ":succeeded"
                         )
                         .orElseThrow();
 
@@ -218,16 +242,14 @@ class YooKassaWebhookIntegrationTest
                 String payload = succeededWebhookPayload(externalPaymentId);
 
                 mockMvc.perform(
-                        post(WEBHOOK_URL)
+                        webhookRequest()
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(payload)
                 ).andExpect(status().isOk());
 
                 PaymentWebhookEventEntity event = webhookEventRepository
-                        .findByDeduplicationKey(
-                                "payment.succeeded:" + externalPaymentId
-                        )
-                        .orElseThrow();
+                        .findAll().stream().filter(e -> externalPaymentId.equals(e.getExternalEventId()))
+                        .findFirst().orElseThrow();
 
                 assertEquals(
                         PaymentWebhookProcessingStatus.REJECTED.name(),
@@ -235,9 +257,146 @@ class YooKassaWebhookIntegrationTest
                 );
                 assertNotNull(event.getProcessedAt());
                 assertEquals(
-                        "Payment not found for YooKassa external payment ID",
+                        "Платёж ЮKassa не найден",
                         event.getProcessingError()
                 );
+        }
+
+        @Test
+        void pendingThenVerifiedSucceededProcessesRegistration() throws Exception {
+                String id = UUID.randomUUID().toString();
+                PaymentEntity payment = createPendingYooKassaPayment(id);
+                org.mockito.Mockito.when(providerClient.getPayment(id))
+                        .thenReturn(response(id, "pending", "1500.00", "RUB"))
+                        .thenReturn(response(id, "succeeded", "1500.0", "RUB"));
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                        .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                assertEquals("PENDING", paymentRepository.findById(payment.getId()).orElseThrow().getStatus());
+                assertEquals("PENDING", registrationPaymentStatus(payment.getRegistrationId()));
+                assertEquals("REJECTED", webhookEventRepository.findAll().stream()
+                        .filter(e -> id.equals(e.getExternalEventId())).findFirst().orElseThrow().getProcessingStatus());
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                        .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                assertEquals("SUCCEEDED", paymentRepository.findById(payment.getId()).orElseThrow().getStatus());
+                assertEquals("PAID", registrationPaymentStatus(payment.getRegistrationId()));
+        }
+
+        @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+        private String registrationPaymentStatus(UUID id) {
+                return jdbc.queryForObject("select payment_status from registrations where id = ?", String.class, id);
+        }
+
+        @Test
+        void rejectsAmountAndCurrencyMismatchWithoutConsumingVerifiedKey() throws Exception {
+                String id = UUID.randomUUID().toString();
+                PaymentEntity payment = createPendingYooKassaPayment(id);
+                org.mockito.Mockito.when(providerClient.getPayment(id))
+                        .thenReturn(response(id, "succeeded", "1.00", "RUB"))
+                        .thenReturn(response(id, "succeeded", "1500.00", "USD"))
+                        .thenReturn(response(id, "succeeded", "1500.00", "RUB"));
+                for (int i = 0; i < 2; i++) {
+                        mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                                .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                        assertEquals("PENDING", registrationPaymentStatus(payment.getRegistrationId()));
+                }
+                var rejected = webhookEventRepository.findAll().stream()
+                        .filter(e -> id.equals(e.getExternalEventId())).toList();
+                assertEquals(2, rejected.size());
+                org.junit.jupiter.api.Assertions.assertTrue(rejected.stream().allMatch(e -> "REJECTED".equals(e.getProcessingStatus())));
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                        .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                assertEquals("PAID", registrationPaymentStatus(payment.getRegistrationId()));
+        }
+
+        @Test
+        void usesApiCancellationAndStoresOnlyAllowedHeaders() throws Exception {
+                String id = UUID.randomUUID().toString();
+                PaymentEntity payment = createPendingYooKassaPayment(id);
+                org.mockito.Mockito.when(providerClient.getPayment(id)).thenReturn(response(id, "canceled", "1500.00", "RUB"));
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON).header("Authorization", "test-secret")
+                        .header("Cookie", "session=test-secret").header("User-Agent", "test-agent")
+                        .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                assertEquals("CANCELED", paymentRepository.findById(payment.getId()).orElseThrow().getStatus());
+                assertEquals("PENDING", registrationPaymentStatus(payment.getRegistrationId()));
+                var event = webhookEventRepository.findByDeduplicationKey("verified:" + id + ":canceled").orElseThrow();
+                var headers = new com.fasterxml.jackson.databind.ObjectMapper().readTree(event.getHeadersJson());
+                assertEquals(3, headers.size());
+                assertEquals("test-agent", headers.path("User-Agent").asText());
+                assertEquals("185.71.76.1", headers.path("Client-IP").asText());
+        }
+
+        @Test
+        void rejectsOversizedBodyWithoutPersistence() throws Exception {
+                long before = webhookEventRepository.count();
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON).content("x".repeat(16385)))
+                        .andExpect(status().isPayloadTooLarge());
+                assertEquals(before, webhookEventRepository.count());
+        }
+
+        @Test
+        void rejectsUntrustedIpDespiteForwardedHeader() throws Exception {
+                long before = webhookEventRepository.count();
+                mockMvc.perform(post(WEBHOOK_URL).header("X-Forwarded-For", "185.71.76.1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                        .andExpect(status().isForbidden());
+                assertEquals(before, webhookEventRepository.count());
+        }
+
+        @Test
+        void apiUnavailableDeliveryCanBeRetried() throws Exception {
+                String id = UUID.randomUUID().toString();
+                PaymentEntity payment = createPendingYooKassaPayment(id);
+                org.mockito.Mockito.when(providerClient.getPayment(id))
+                        .thenThrow(new com.acme.sportplatform.common.exception.BusinessException(
+                                "payments.provider_unavailable", "Платёжный сервис временно недоступен"))
+                        .thenReturn(response(id, "succeeded", "1500.00", "RUB"));
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                        .content(succeededWebhookPayload(id))).andExpect(status().isServiceUnavailable());
+                assertEquals("PENDING", registrationPaymentStatus(payment.getRegistrationId()));
+                mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                        .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                assertEquals("PAID", registrationPaymentStatus(payment.getRegistrationId()));
+        }
+
+        @Test
+        void rejectsMissingOrInconsistentApiPayment() throws Exception {
+                String id = UUID.randomUUID().toString();
+                PaymentEntity payment = createPendingYooKassaPayment(id);
+                org.mockito.Mockito.when(providerClient.getPayment(id))
+                        .thenReturn(null)
+                        .thenReturn(response("another-id", "succeeded", "1500.00", "RUB"));
+                for (int i = 0; i < 2; i++) {
+                        mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                                .content(succeededWebhookPayload(id))).andExpect(status().isOk());
+                        assertEquals("PENDING", registrationPaymentStatus(payment.getRegistrationId()));
+                }
+                org.junit.jupiter.api.Assertions.assertTrue(webhookEventRepository.findAll().stream()
+                        .filter(e -> id.equals(e.getExternalEventId()))
+                        .allMatch(e -> "REJECTED".equals(e.getProcessingStatus())));
+        }
+
+        @Test
+        void concurrentDeliveriesShareOneVerifiedState() throws Exception {
+                String id = UUID.randomUUID().toString();
+                PaymentEntity payment = createPendingYooKassaPayment(id);
+                String payload = "{\"object\":{\"id\":\"" + id + "\"}}";
+                var start = new java.util.concurrent.CountDownLatch(1);
+                try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+                        java.util.concurrent.Callable<Integer> delivery = () -> {
+                                start.await();
+                                return mockMvc.perform(webhookRequest().contentType(MediaType.APPLICATION_JSON)
+                                        .content(payload)).andReturn().getResponse().getStatus();
+                        };
+                        var first = executor.submit(delivery);
+                        var second = executor.submit(delivery);
+                        start.countDown();
+                        assertEquals(200, first.get(20, java.util.concurrent.TimeUnit.SECONDS));
+                        assertEquals(200, second.get(20, java.util.concurrent.TimeUnit.SECONDS));
+                }
+                assertEquals("PAID", registrationPaymentStatus(payment.getRegistrationId()));
+                assertEquals(1, webhookEventRepository.findAll().stream()
+                        .filter(e -> ("verified:" + id + ":succeeded").equals(e.getDeduplicationKey())).count());
         }
 
         private PaymentEntity createPendingYooKassaPayment(
