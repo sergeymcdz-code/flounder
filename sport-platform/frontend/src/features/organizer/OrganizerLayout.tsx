@@ -28,7 +28,10 @@ const navigationItems: NavigationItem[] = [
 ]
 
 export function OrganizerLayout() {
-  const { isOrganizer, isPlatformAdmin, isOperator, hasRole } = useAuth()
+  const { isOrganizer, isPlatformAdmin, isOperator, hasRole, memberships = [], currentOrgId } = useAuth()
+  const current = memberships.find(m => m.organizationId === currentOrgId)
+  const canCreate = isPlatformAdmin || !!current && ['owner', 'admin', 'organizer'].includes(current.memberRole)
+  const canManageOrg = !!current && ['owner', 'admin'].includes(current.memberRole)
   const location = useLocation()
   if (hasRole('judge') && !isOrganizer && !isPlatformAdmin && !isOperator) {
     return /\/organizer\/events\/[^/]+\/results\/?$/.test(location.pathname) ? <Outlet /> : <div><ErrorState title="Нет доступа" message="Судье доступен раздел результатов соревнования." /><Link to="/operator/results">Судейство</Link></div>
@@ -41,7 +44,7 @@ export function OrganizerLayout() {
         </div>
 
         <nav className={styles.navigation} aria-label="Навигация организатора">
-          {[...(isOrganizer || isPlatformAdmin ? navigationItems : navigationItems.slice(0, 1)), ...(isOrganizer || isPlatformAdmin ? [{ to: '/organizer/organizations', label: 'Аналитика' }] : [])].map((item) => (
+          {[...(isOrganizer || isPlatformAdmin ? navigationItems.filter(item => item.to !== '/organizer/events/new' || canCreate) : navigationItems.slice(0, 1)), ...(canManageOrg ? [{ to: '/organizer/organization', label: 'Организация' }] : []), ...(isOrganizer || isPlatformAdmin ? [{ to: '/organizer/organizations', label: 'Аналитика' }] : [])].map((item) => (
             <NavLink
               key={item.to}
               className={({ isActive }) =>

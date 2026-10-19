@@ -13,6 +13,10 @@ public interface AuthenticatedUserPrincipal {
         return List.of();
     }
 
+    default List<UserMembershipLookup.Membership> getMemberships() {
+        return List.of();
+    }
+
     default boolean isPlatformAdmin() {
         return getAuthorities().stream().anyMatch(a -> "ROLE_PLATFORM_ADMIN".equals(a.getAuthority()));
     }

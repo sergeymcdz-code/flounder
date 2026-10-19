@@ -355,7 +355,9 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
                 organizationId);
         jdbc.update("insert into organization_members (id,organization_id,user_id,member_role,created_at) values (?,?,?,'OPERATOR',now())",
                 UUID.randomUUID(), organizationId, member);
-        var operator = principal(member, "OPERATOR");
+        var operator = new PlatformUserPrincipal(member, "member-" + member + "@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "operator")));
         for (String endpoint : List.of("/import-template", "/export")) {
             mvc.perform(get(base(event) + endpoint).with(user(operator))).andExpect(status().isOk());
         }

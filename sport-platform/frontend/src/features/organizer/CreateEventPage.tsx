@@ -225,7 +225,7 @@ function validateForm(form: FormState): FormErrors {
 export function CreateEventPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { session } = useAuth()
+  const { session, currentOrgId, memberships, isPlatformAdmin } = useAuth()
   const accessToken = session?.accessToken
 
   const createdRegulationVersionId =
@@ -290,7 +290,10 @@ export function CreateEventPage() {
           (regulationVersion) => isPublishedRegulation(regulationVersion.status),
         )
 
-        setOrganizations(loadedOrganizations)
+        const eligible = isPlatformAdmin ? loadedOrganizations : loadedOrganizations.filter(org => (memberships ?? []).some(m =>
+          m.organizationId === org.id && ['owner', 'admin', 'organizer'].includes(m.memberRole)))
+        setOrganizations(eligible)
+        setForm(current => ({ ...current, organizationId: eligible.some(o => o.id === currentOrgId) ? currentOrgId : eligible[0]?.id ?? '' }))
         setVenues(loadedVenues)
         setSports(loadedSports.filter((sport) => sport.isActive))
         setRegulationVersions(publishedRegulationVersions)
@@ -323,7 +326,7 @@ export function CreateEventPage() {
     return () => {
       isMounted = false
     }
-  }, [accessToken, createdRegulationVersionId])
+  }, [accessToken, createdRegulationVersionId, memberships, currentOrgId, isPlatformAdmin])
 
   function updateField<K extends keyof FormState>(
     field: K,

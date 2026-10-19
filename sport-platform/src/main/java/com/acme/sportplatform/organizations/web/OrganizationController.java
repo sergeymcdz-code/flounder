@@ -43,6 +43,21 @@ public class OrganizationController {
         this.organizationService = organizationService;
     }
 
+    @GetMapping("/mine")
+    @PreAuthorize("isAuthenticated()")
+    public List<com.acme.sportplatform.organizations.api.MyOrganizationResponse> mine(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        return organizationService.mine(principal.getUserId());
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public OrganizationResponse updateOrganization(@PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @Valid @RequestBody CreateOrganizationRequest request) {
+        return organizationService.updateOrganization(id, request, principal.getUserId(), principal.isPlatformAdmin());
+    }
+
     @PostMapping("/{id}/members")
     @PreAuthorize("isAuthenticated()")
     @io.swagger.v3.oas.annotations.Operation(summary = "Добавить участника организации")

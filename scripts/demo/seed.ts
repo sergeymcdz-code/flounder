@@ -34,16 +34,14 @@ export async function seed(api: Api, options: SeedOptions, log = console.log) {
   let organizerToken = '';
   for (const account of accounts) {
     const password = options.passwords[account.key];
+    const existing = await findUser(api, account.email, adminToken);
+    if (!existing) {
+      await api.request('POST', '/users', userBody(account, password), adminToken);
+    }
     let userToken: string;
     try { userToken = await login(api, account.email, password); } catch (error) {
       if (!(error instanceof ApiError) || error.code !== 'identity.invalid_credentials') throw error;
-      try { await api.request('POST', '/users', userBody(account, password), adminToken); } catch (creationError) {
-        if (creationError instanceof ApiError && creationError.code === 'identity.user_already_exists') {
-          throw new Error(`Пользователь ${account.email} существует, но пароль не подходит. Проверьте ${account.key}_PASSWORD; пароль не изменяется сидом.`);
-        }
-        throw creationError;
-      }
-      userToken = await login(api, account.email, password);
+      throw new Error(`Пользователь ${account.email} существует, но пароль не подходит. Проверьте ${account.key}_PASSWORD; пароль не изменяется сидом.`);
     }
     const user = await api.request<Row & { roles: string[] }>('GET', '/auth/me', undefined, userToken);
     if (user.email !== account.email) throw new Error(`API вернул неверного пользователя для ${account.email}.`);
@@ -203,9 +201,12 @@ async function importEntries(api: Api, id: string, bytes: Uint8Array, count: num
     throw new Error(`Импорт не подтвердил ${count} корректных строк без ошибок. Проверьте отчёт импорта. SQL-обход запрещён.`);
   log(`Импорт: всего ${report.total}, создано ${report.created}, обновлено ${report.updated}, пропущено ${report.skipped}, ошибок 0.`);
 }
-async function findParticipant(api: Api, email: string, adminToken: string) {
+async function findUser(api: Api, email: string, adminToken: string) {
   const users = await api.request<{ items: (Row & { roles: string[] })[] }>('GET', `/users?query=${encodeURIComponent(email)}&size=100`, undefined, adminToken);
-  const user = unique(users.items, row => String(row.email).toLowerCase() === email, email);
+  return unique(users.items, row => String(row.email).toLowerCase() === email, email);
+}
+async function findParticipant(api: Api, email: string, adminToken: string) {
+  const user = await findUser(api, email, adminToken);
   const roles = user?.roles;
   if (user && (!Array.isArray(roles) || !roles.includes('participant') || roles.some(role => role !== 'participant')))
     throw new Error(`Аккаунт ${email} уже существует и не является отдельным участником. Задайте другой DEMO_OWNER_EMAIL; роли и профиль существующего пользователя не изменяются.`);

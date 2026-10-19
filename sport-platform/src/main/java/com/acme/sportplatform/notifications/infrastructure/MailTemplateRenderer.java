@@ -19,6 +19,7 @@ public class MailTemplateRenderer {
         var context = new Context(Locale.forLanguageTag("ru"), payload);
         String subject = template == NotificationTemplate.password_reset
                 ? (String) payload.getOrDefault("subject", template.subject()) : template.subject();
+        if (template == NotificationTemplate.schedule_changed) subject += ": " + payload.get("event");
         return new Message(subject, text.process(template.name(), context), html.process(template.name(), context));
     }
     private static TemplateEngine engine(TemplateMode mode, String suffix) {

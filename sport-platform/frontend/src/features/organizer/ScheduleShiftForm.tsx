@@ -4,12 +4,13 @@ import { time } from '../public/format'
 import type { Heat } from '../../api/organizer.types'
 import styles from './OrganizerEventPage.module.css'
 
-export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disciplineNames = {}, busy, onApply, onClose }: {
+export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disciplineNames = {}, busy, archived = false, onApply, onClose }: {
   eventId: string
   heats: Heat[]
   accessToken: string
   timeZone?: string
   disciplineNames?: Record<string, string>
+  archived?: boolean
   busy: boolean
   onApply: (fromUnitId: string, deltaSec: number) => void
   onClose: () => void
@@ -19,7 +20,7 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
   const [from, setFrom] = useState(candidates[0]?.id ?? '')
   const [minutes, setMinutes] = useState('20')
   const delta = Number(minutes) * 60
-  const valid = from && Number.isInteger(delta) && delta !== 0 && Math.abs(delta) <= 86400
+  const valid = !archived && from && Number.isInteger(delta) && delta !== 0 && Math.abs(delta) <= 86400
   const key = `${from}/${delta}`
   const [preview, setPreview] = useState<{ key: string; data?: ScheduleShift; error?: string }>()
   useEffect(() => {
@@ -34,7 +35,7 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
   }, [eventId, from, delta, accessToken, key, valid])
   const current = valid && preview?.key === key ? preview : undefined
   const changes = current?.data?.units ?? []
-  return <form className={styles.stack} onSubmit={e => { e.preventDefault(); if (changes.length) onApply(from, delta) }}>
+  return <form className={styles.stack} onSubmit={e => { e.preventDefault(); if (!archived && changes.length) onApply(from, delta) }}>
     <label className="fl-field">С какого заплыва
       <select value={from} disabled={busy} onChange={e => setFrom(e.target.value)} required>
         {candidates.map(h => <option key={h.id} value={h.id}>{disciplineNames[h.eventDisciplineId]} · {h.label} · {time(h.scheduledAt, timeZone)}</option>)}
@@ -54,7 +55,7 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
     </div>}
     <div className={styles.actions}>
       <button className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={onClose}>Отмена</button>
-      <button className="fl-btn fl-btn-primary" disabled={busy || !changes.length} type="submit">Подтвердить сдвиг</button>
+      <button className="fl-btn fl-btn-primary" title={archived ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || archived || !changes.length} type="submit">Подтвердить сдвиг</button>
     </div>
   </form>
 }

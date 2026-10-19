@@ -1,0 +1,6 @@
+[(${inviter})] приглашает вас в организацию [(${organization})] на роль [(${role})].
+Принять: [(${link})]
+Приглашение действует 7 дней.
+
+Команда SportGate
+SportGate · sportgate.pro

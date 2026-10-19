@@ -8,7 +8,7 @@ type RequireRoleProps = {
 }
 
 export function RequireRole({ roles, deniedMessage }: RequireRoleProps) {
-  const { isAuthenticated, hasAnyRole } = useAuth()
+  const { isAuthenticated, hasAnyRole, authLoading } = useAuth()
   const location = useLocation()
 
   if (!isAuthenticated) {
@@ -20,6 +20,8 @@ export function RequireRole({ roles, deniedMessage }: RequireRoleProps) {
       />
     )
   }
+
+  if (authLoading) return <p role="status">Загружаем права доступа…</p>
 
   if (!hasAnyRole(roles)) {
     return <div><ErrorState title="Нет доступа" message={deniedMessage ?? 'У вашей учётной записи нет доступа к этой странице.'} /><Link to="/">На главную</Link></div>

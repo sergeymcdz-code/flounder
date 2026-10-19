@@ -72,12 +72,14 @@ public class FileService implements FileLookup {
         return new StoredFile(key, detected, size);
     }
     @Override public InputStream get(String key, UUID documentId, UUID userId) {
-        InputStream input = storage.get(key);
-        try { log(key, documentId, userId, "DOWNLOAD"); return input; }
-        catch (RuntimeException ex) {
-            try { input.close(); } catch (IOException close) { ex.addSuppressed(close); }
-            throw ex;
-        }
+        // Authenticate the complete immutable object before HTTP headers are committed.
+        // Discard plaintext without buffering it in an array or writing it to disk.
+        try (InputStream input = storage.get(key)) {
+            try { input.transferTo(OutputStream.nullOutputStream()); }
+            catch (IOException | RuntimeException ex) { throw cryptography.corrupt(); }
+        } catch (IOException ex) { throw cryptography.corrupt(); }
+        log(key, documentId, userId, "DOWNLOAD");
+        return storage.get(key);
     }
     @Override public void delete(String key, UUID documentId, UUID userId) {
         log(key, documentId, userId, "DELETE");
@@ -98,7 +100,8 @@ public class FileService implements FileLookup {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logDenied(String key, UUID documentId, UUID userId) {
-        // No document FK: preserve denied attempts even after deletion, and record unknown IDs.
+        if (userId == null) return;
+        // No document FK: preserve authenticated denied attempts even after deletion.
         log(key, documentId, userId, "DENIED");
     }
     private void log(String key, UUID documentId, UUID userId, String action) {
