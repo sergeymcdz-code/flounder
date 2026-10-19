@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { ensureAccounts } from './accounts.ts';
+import { ensureAccounts, findUser } from './accounts.ts';
 import { ApiError, ensure, HttpApi, login, unique, type Api, type Row } from './api.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
 import { dataset, DEFAULT_DEMO_DATE, eventDates, ownerEmail, profileKey, selectedEvents, type DemoEvent, type Entry } from './plan.ts';
@@ -178,8 +178,7 @@ export async function importEntries(api: Api, id: string, bytes: Uint8Array, cou
   log(`Импорт: всего ${report.total}, создано ${report.created}, обновлено ${report.updated}, пропущено ${report.skipped}, ошибок 0.`);
 }
 export async function findParticipant(api: Api, email: string, adminToken: string) {
-  const users = await api.request<{ items: (Row & { roles: string[] })[] }>('GET', `/users?query=${encodeURIComponent(email)}&size=100`, undefined, adminToken);
-  const user = unique(users.items, row => String(row.email).toLowerCase() === email, email);
+  const user = await findUser(api, email, adminToken);
   const roles = user?.roles;
   if (user && (!Array.isArray(roles) || !roles.includes('participant') || roles.some(role => role !== 'participant')))
     throw new Error(`Аккаунт ${email} уже существует и не является отдельным участником. Задайте другой DEMO_OWNER_EMAIL; роли и профиль существующего пользователя не изменяются.`);

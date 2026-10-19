@@ -4,8 +4,9 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-mkdir -p "$TMP/prod/infra" "$TMP/prod/scripts/demo" "$TMP/prod/sport-platform/frontend" "$TMP/bin"
+mkdir -p "$TMP/prod/infra/tests" "$TMP/prod/scripts/demo" "$TMP/prod/sport-platform/frontend" "$TMP/bin"
 cp "$REPO/infra/deploy-staging.sh" "$REPO/infra/compose.staging.yaml" "$REPO/infra/Caddyfile.staging" "$TMP/prod/infra/"
+cp "$REPO/infra/tests/legacy-admin-login.json" "$TMP/prod/infra/tests/"
 git init -q --initial-branch=main "$TMP/prod"
 git -C "$TMP/prod" config user.email test@example.invalid
 git -C "$TMP/prod" config user.name 'M09 Test'
@@ -31,6 +32,12 @@ cat > "$TMP/bin/docker" <<'DOCKER'
 #!/usr/bin/env bash
 printf 'docker %s\n' "$*" >> "$TEST_LOG"
 DOCKER
+cat > "$TMP/bin/curl" <<'CURL'
+#!/usr/bin/env bash
+printf 'curl %s\n' "$*" >> "$TEST_LOG"
+[[ "${TEST_CURL_FAIL:-}" != 1 ]] || exit 7
+printf '%s' "${TEST_LOGIN_STATUS:-401}"
+CURL
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 "$TMP/prod/infra/deploy-staging.sh" feat/test
@@ -45,6 +52,28 @@ for expected in '--network host' "--user $(id -u):$(id -g)" '-e HOME=/tmp' \
   "-v $STAGING_DIR:/repo" '-w /repo/scripts/demo' 'node:22-alpine sh -c npm ci && npx tsx seed.ts'; do
   [[ "$seed_call" == *"$expected"* ]] || { echo "Missing seed argument: $expected"; exit 1; }
 done
+# Fail closed before the seed on an unexpected login response or a transport error.
+for status in 200 403 429 500; do
+  previous_seeds="$(grep -c '^docker run ' "$TEST_LOG")"
+  if TEST_LOGIN_STATUS="$status" "$TMP/prod/infra/deploy-staging.sh" feat/test; then
+    echo 'Ожидался отказ проверки встроенного администратора'; exit 1
+  fi
+  [[ "$(grep -c '^docker run ' "$TEST_LOG")" == "$previous_seeds" ]]
+done
+previous_seeds="$(grep -c '^docker run ' "$TEST_LOG")"
+if TEST_CURL_FAIL=1 "$TMP/prod/infra/deploy-staging.sh" feat/test; then
+  echo 'Ожидался отказ при сетевой ошибке'; exit 1
+fi
+[[ "$(grep -c '^docker run ' "$TEST_LOG")" == "$previous_seeds" ]]
+grep -q 'http://127.0.0.1:8081/api/v1/auth/login' "$TEST_LOG"
+grep -q -- "--data-binary @$TMP/prod/infra/tests/legacy-admin-login.json" "$TEST_LOG"
+python3 - "$TMP/prod/infra/tests/legacy-admin-login.json" <<'PYTEST'
+import json, sys
+with open(sys.argv[1]) as fixture:
+    body = json.load(fixture)
+assert body == {"email": "admin@flounder.demo", "password": "Demo2026!"}
+PYTEST
+grep -q -- '--output /dev/null --write-out %{http_code}' "$TEST_LOG"
 # A subdirectory of production must never be mistaken for a worktree.
 export STAGING_DIR="$TMP/prod/infra"
 if "$TMP/prod/infra/deploy-staging.sh" feat/test; then echo 'Expected worktree guard'; exit 1; fi

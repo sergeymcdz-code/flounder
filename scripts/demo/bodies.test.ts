@@ -83,9 +83,19 @@ describe('configuration guard', () => {
   it('requires an explicit demo environment and passwords', () => {
     expect(() => config({ ...env, DEMO_SEED_ENABLED: '' })).toThrow();
     expect(() => config({ ...env, NODE_ENV: 'production' })).toThrow();
-    expect(() => config({ ...env, DEMO_PASSWORD: '' })).toThrow('DEMO_PASSWORD');
+    expect(() => config({ ...env, DEMO_PASSWORD: undefined })).toThrow('DEMO_PASSWORD');
     expect(config({ ...env, ORG_PASSWORD: 'unit-test-org' }).passwords.ORG).toBe('unit-test-org');
     expect(config({ ...env, REQUIRE_VENUE_META: 'true', EVENT_TITLE_SUFFIX: ' · резерв' })).toMatchObject({ requireVenueMeta: true, eventTitleSuffix: ' · резерв' });
+  });
+  it.each(['ADMIN_PASSWORD', 'DEMO_PASSWORD', 'ORG_PASSWORD', 'SEC_PASSWORD', 'JUDGE_PASSWORD', 'PARENT_PASSWORD', 'OTHER_PASSWORD'])
+  ('rejects published and short passwords in %s before seed or reset', name => {
+    for (const value of ['Demo2026!', '', 'short', '12345678901']) {
+      for (const needsUsers of [true, false]) {
+        expect(() => config({ ...env, [name]: value }, needsUsers))
+          .toThrow('Задайте свой пароль: опубликованный пароль запрещён');
+      }
+    }
+    expect(config({ ...env, [name]: '123456789012' }).adminEmail).toBe(env.ADMIN_EMAIL);
   });
   it('reads DEMO_OWNER_EMAIL and defaults to the owner-approved separate mailbox', () => {
     expect(config(env).ownerEmail).toBe(DEFAULT_OWNER_EMAIL);

@@ -1,6 +1,11 @@
 import { ApiError, login, unique, type Api, type Row } from './api.ts';
 import { accounts, memberBody, roleBody, userBody } from './bodies.ts';
 
+export async function findUser(api: Api, email: string, adminToken: string) {
+  const users = await api.request<{ items: (Row & { roles: string[] })[] }>('GET', `/users?query=${encodeURIComponent(email)}&size=100`, undefined, adminToken);
+  return unique(users.items, row => String(row.email).toLowerCase() === email, email);
+}
+
 // Look up accounts before login so missing accounts do not consume failed-login limits.
 export async function ensureAccounts(api: Api, admin: string, organizationId: string,
   passwords: Record<string, string>, log = (_message: string) => {}) {
@@ -9,8 +14,7 @@ export async function ensureAccounts(api: Api, admin: string, organizationId: st
   const tokens = { organizer: '', judge: '', secretary: '' };
   for (const account of accounts) {
     const password = passwords[account.key];
-    const users = await api.request<{ items: Row[] }>('GET', `/users?query=${encodeURIComponent(account.email)}&size=100`, undefined, admin);
-    const existing = unique(users.items, row => String(row.email).toLowerCase() === account.email, account.email);
+    const existing = await findUser(api, account.email, admin);
     if (!existing) await api.request('POST', '/users', userBody(account, password), admin);
     let token: string;
     try { token = await login(api, account.email, password); }
