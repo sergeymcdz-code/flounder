@@ -40,11 +40,6 @@
 	import api_body_limits
 
 	# Backend: REST API, OpenAPI/Swagger and the public health endpoint.
-	@yookassa path /api/v1/payments/webhooks/yookassa
-	request_body @yookassa {
-		max_size 16KiB
-	}
-
 	@api path /api/* /v3/api-docs* /swagger-ui* /actuator/health /actuator/health/*
 	handle @api {
 		reverse_proxy api:8080 {
