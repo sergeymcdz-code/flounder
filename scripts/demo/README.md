@@ -5,7 +5,7 @@
 ```bash
 cd scripts/demo
 npm ci
-# Set ADMIN_EMAIL/ADMIN_PASSWORD and DEMO_PASSWORD (or account-specific passwords).
+# Set ADMIN_EMAIL/ADMIN_PASSWORD for the bootstrap admin and DEMO_PASSWORD (or account-specific passwords).
 DEMO_SEED_ENABLED=true API_URL=http://localhost:8080 DEMO_DATE=2026-10-19 DEMO_EVENTS=A,B,C npx tsx seed.ts
 ```
 
@@ -102,3 +102,5 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:demo
 При MAIL_ENABLED=true сид создаёт уведомления и для вымышленных адресов @flounder.demo; это может приводить к возвратам SMTP. Для e2e после 18.10 требуется актуальный DEMO_DATE, чтобы окно регистрации отдельного QA05-события B оставалось открытым.
 
 Unit-тесты проверяют даты/границы календаря, состав, повторы, выбор событий, роли, ошибки и сброс без сети. E2e проверяет три жизненных цикла через настоящий API/браузер, общие profile ID и документы; прежний семишаговый тест использует отдельный пустой B с суффиксом QA05. Для удалённого API требуется явный QA05_ALLOW_REMOTE=1; рабочие данные для e2e не использовать. Подробный сценарий: [docs/demo-script.md](../../docs/demo-script.md), чек-лист: [репетиция 17.10](../../docs/qa/rehearsal-2026-10-17.md).
+
+Перед обновлением стенда владелец должен задать в `scripts/demo/.env` рабочий `ADMIN_EMAIL` bootstrap-администратора, а не `admin@flounder.demo`. `ADMIN_PASSWORD`, `DEMO_PASSWORD` и все переопределения `*_PASSWORD` должны содержать собственные пароли длиной не менее 12 символов. Пароль — в менеджере паролей владельца, в репозитории не хранится. Исторический встроенный администратор отключается миграцией V050.

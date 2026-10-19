@@ -129,7 +129,7 @@ test('anonymous registration returns after login; authenticated form validates p
   await page.getByRole('link', { name: 'Войти', exact: true }).click()
   await expect(page).toHaveURL(/next=%2Fe%2Fdemo%2Fregister/)
   await page.getByLabel('Email', { exact: true }).fill('parent@flounder.demo')
-  await page.getByLabel('Пароль', { exact: true }).fill('Demo2026!')
+  await page.getByLabel('Пароль', { exact: true }).fill('Mock-only-password1!')
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await expect(page).toHaveURL(/\/e\/demo\/register$/)
   const roles = await page.evaluate(() => {

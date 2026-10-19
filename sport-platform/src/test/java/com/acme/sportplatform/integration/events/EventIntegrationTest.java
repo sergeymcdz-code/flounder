@@ -372,13 +372,15 @@ class EventIntegrationTest
     }
 
     @Test
-    void shouldExposeOpenApiAndAuthenticateSeedAdmin() throws Exception {
+    void shouldExposeOpenApiAndAuthenticateTestAdmin() throws Exception {
         mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"));
         mockMvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
         mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+        var fixture = com.acme.sportplatform.support.TestAdmin.create(jdbc);
         mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"admin@flounder.demo\",\"password\":\"Demo2026!\"}"))
+                .content(objectMapper.writeValueAsBytes(java.util.Map.of("email", fixture.email(),
+                        "password", com.acme.sportplatform.support.TestAdmin.PASSWORD))))
                 .andExpect(status().isOk());
     }
 

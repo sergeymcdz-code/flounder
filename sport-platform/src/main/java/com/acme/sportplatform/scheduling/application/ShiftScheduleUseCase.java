@@ -25,8 +25,8 @@ public class ShiftScheduleUseCase {
     @Transactional
     public ShiftScheduleResponse execute(UUID eventId, ShiftScheduleRequest request,
             AuthenticatedUserPrincipal principal, boolean preview) {
-        data.access.assertCanManage(eventId, principal);
-        data.locks.lockForUpdate(eventId);
+        data.access.assertCanModify(eventId, principal);
+        data.locks.lockWritableForUpdate(eventId);
         data.units.lockForEvent(eventId);
         long started = System.nanoTime();
         if (request.deltaSec() == 0) throw invalid("Укажите ненулевой сдвиг расписания");
@@ -87,7 +87,10 @@ public class ShiftScheduleUseCase {
             var log = logs.begin(eventId, null, "SCHEDULE_SHIFT", request, SchedulingData.userId(principal));
             changes.forEach(u -> data.units.schedule(u.id(), u.scheduledAt()));
             logs.finish(log, response, List.of(), (System.nanoTime() - started) / 1_000_000);
-            events.publishEvent(new ScheduleChangedEvent(eventId, changes.stream().map(ShiftScheduleResponse.Unit::id).toList(), response.shiftedAt()));
+            events.publishEvent(new ScheduleChangedEvent(eventId,
+                    changes.stream().map(ShiftScheduleResponse.Unit::id).toList(), response.shiftedAt(),
+                    changes.stream().map(u -> new ScheduleChangedEvent.UnitChange(
+                            u.id(), u.previousScheduledAt(), u.scheduledAt())).toList()));
         }
         return response;
     }

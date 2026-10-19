@@ -11,6 +11,7 @@ public enum NotificationTemplate {
     start_list_published("Стартовый протокол опубликован"),
     results_published("Результаты опубликованы"),
     organization_invitation("Приглашение в организацию SportGate"),
+    schedule_changed("Изменилось расписание"),
     password_reset("Восстановление пароля SportGate");
 
     private final String subject;

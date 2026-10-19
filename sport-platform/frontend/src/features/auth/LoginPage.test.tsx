@@ -21,7 +21,7 @@ it.each([
   render(<MemoryRouter><AuthProvider><LoginPage /></AuthProvider></MemoryRouter>)
 
   await userEvent.type(screen.getByLabelText('Email'), 'user@flounder.demo')
-  await userEvent.type(screen.getByLabelText('Пароль'), 'Demo2026!')
+  await userEvent.type(screen.getByLabelText('Пароль'), 'Mock-only-password1!')
   await userEvent.click(screen.getByRole('button', { name: 'Войти' }))
 
   expect(await screen.findByRole('alert')).toHaveTextContent(expected)

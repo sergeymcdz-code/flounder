@@ -177,7 +177,13 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
             case "empty-session" -> jdbc.update("update event_disciplines set session_id=null where id=?", id("discipline"));
             case "empty-discipline" -> jdbc.update("update events set status='DRAFT' where id=?", id("event"));
             case "unit-draft" -> jdbc.update("update competition_units set status='DRAFT' where id=?", id("unit"));
-            case "unit-published" -> jdbc.update("update competition_units set status='PUBLISHED' where id=?", id("unit"));
+            case "unit-published" -> {
+                // Keep the allowed 20-minute shift inside the venue day even near midnight.
+                var zone = java.time.ZoneId.of("Europe/Samara");
+                var start = java.time.LocalDate.now(zone).plusDays(1).atTime(10, 0).atZone(zone).toOffsetDateTime();
+                jdbc.update("update event_sessions set starts_at=? where id=?", start, id("session"));
+                jdbc.update("update competition_units set status='PUBLISHED',scheduled_at=? where id=?", start, id("unit"));
+            }
             case "unit-in-progress" -> jdbc.update("update competition_units set status='IN_PROGRESS' where id=?", id("unit"));
             case "registration-submitted" -> jdbc.update("update registrations set status='SUBMITTED' where id=?", id("registration"));
             case "registration-correction" -> jdbc.update("update registrations set status='NEEDS_CORRECTION' where id=?", id("registration"));
