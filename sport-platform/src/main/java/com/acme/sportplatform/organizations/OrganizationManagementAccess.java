@@ -7,6 +7,8 @@ public interface OrganizationManagementAccess {
 
     Set<UUID> organizationIdsOf(UUID userId);
 
+    Set<UUID> manageableOrganizationIdsOf(UUID userId);
+
     boolean isMember(UUID organizationId, UUID userId);
 
     boolean canManageOrganization(UUID organizationId, UUID userId);

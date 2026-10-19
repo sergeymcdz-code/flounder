@@ -6,9 +6,9 @@ import type {
   RegisterResponse,
 } from '../features/auth/auth.types'
 
-// Development only: the published demo account from the specification.
-const demoAccounts = new Map([['parent@flounder.demo', 'Demo2026!']])
-const otherPasswords = new Map(['admin', 'org', 'sec', 'judge'].map(account => [`${account}@flounder.demo`, 'Demo2026!']))
+// Development only: synthetic credentials, never used against the backend.
+const demoAccounts = new Map([['parent@flounder.demo', 'Mock-only-password1!']])
+const otherPasswords = new Map(['admin', 'org', 'sec', 'judge'].map(account => [`${account}@flounder.demo`, 'Mock-only-password1!']))
 export function mockPassword(email: string): string | undefined {
   const normalized = email.trim().toLowerCase()
   return demoAccounts.get(normalized) ?? otherPasswords.get(normalized)

@@ -35,6 +35,18 @@ import static java.util.stream.Collectors.toMap;
 @Service
 public class OrganizationService implements OrganizationLookup, OrganizationManagementAccess, UserMembershipLookup {
 
+    private final PublicOrganizationProfileService publicProfiles;
+
+    @Override
+    public com.acme.sportplatform.organizations.PublicOrganization publicBySlug(String slug) {
+        return publicProfiles.publicBySlug(slug);
+    }
+
+    @Override
+    public java.util.Map<UUID, com.acme.sportplatform.organizations.PublicOrganizationCard> cards(java.util.Collection<UUID> ids) {
+        return publicProfiles.cards(ids);
+    }
+
     private final ObjectMapper objectMapper;
     private final UserRoleLookup userRoleLookup;
     private final UserLookup userLookup;
@@ -44,8 +56,9 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public OrganizationService(
             OrganizationRepository organizationRepository,
             OrganizationMemberRepository organizationMemberRepository,
-            UserRoleLookup userRoleLookup, UserLookup userLookup, ObjectMapper objectMapper
+            UserRoleLookup userRoleLookup, UserLookup userLookup, ObjectMapper objectMapper, PublicOrganizationProfileService publicProfiles
     ) {
+        this.publicProfiles = publicProfiles;
         this.objectMapper = objectMapper;
         this.organizationRepository = organizationRepository;
         this.userRoleLookup = userRoleLookup;
@@ -110,6 +123,27 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     }
 
     @Transactional(readOnly = true)
+    public List<com.acme.sportplatform.organizations.api.MyOrganizationResponse> mine(UUID userId) {
+        return organizationMemberRepository.mine(userId).stream().map(m ->
+                new com.acme.sportplatform.organizations.api.MyOrganizationResponse(m.getId(), m.getName(), m.getCity(), m.getMemberRole(), m.getEventsCount())).toList();
+    }
+
+    @Transactional
+    public OrganizationResponse updateOrganization(UUID id, CreateOrganizationRequest request, UUID actor, boolean admin) {
+        assertOwner(id, actor, admin);
+        var entity = organizationRepository.findById(id).orElseThrow(this::organizationNotFound);
+        entity.setType(request.type()); entity.setName(request.name()); entity.setLegalName(nullIfBlank(request.legalName()));
+        entity.setInn(nullIfBlank(request.inn())); entity.setContactEmail(nullIfBlank(request.contactEmail())); entity.setContactPhone(nullIfBlank(request.contactPhone()));
+        try {
+            var meta = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(entity.getMeta());
+            meta.put("city", nullIfBlank(request.city()));
+            entity.setMeta(meta.toString());
+        } catch (JsonProcessingException e) { throw new IllegalStateException(e); }
+        entity.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        return mapToResponse(organizationRepository.save(entity));
+    }
+
+    @Transactional(readOnly = true)
     public List<OrganizationResponse> getOrganizations(
             UUID currentUserId,
             boolean platformAdmin
@@ -160,6 +194,14 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
 
     @Override
     @Transactional(readOnly = true)
+    public Set<UUID> manageableOrganizationIdsOf(UUID userId) {
+        return organizationMemberRepository.findAllByUserId(userId).stream()
+                .filter(member -> UserMembershipLookup.effectiveRole(member.getMemberRole()) != null)
+                .map(OrganizationMemberEntity::getOrganizationId).collect(java.util.stream.Collectors.toSet());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean isMember(UUID organizationId, UUID userId) {
         return organizationMemberRepository.existsByOrganizationIdAndUserId(organizationId, userId);
     }
@@ -186,10 +228,15 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
             UUID organizationId, AddOrganizationMemberRequest request,
             UUID userId, boolean admin) {
         assertOwner(organizationId, userId, admin);
+        normalizeMemberRole(request.memberRole());
         if ((request.userId() == null) == (request.email() == null || request.email().isBlank()))
             throw new BusinessException("organizations.invalid_member_user", "Укажите email или userId пользователя, только одно поле");
         UUID memberUserId = request.userId() != null ? request.userId() : userLookup.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException("organizations.user_not_found", "Пользователь с таким email не найден")).id();
+        if (!admin) {
+            organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, memberUserId)
+                    .ifPresent(m -> assertMutableMember(m, userId));
+        }
         return memberResponse(putMember(organizationId, memberUserId, request.memberRole()));
     }
 
@@ -197,10 +244,7 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public OrganizationMemberEntity putMember(
             UUID organizationId, UUID userId, String role) {
         userRoleLookup.requireUser(userId);
-        String normalized = role.toLowerCase(Locale.ROOT);
-        if (!Set.of("owner", "admin", "member", "organizer", "operator", "judge").contains(normalized)) {
-            throw new BusinessException("organizations.invalid_member_role", "Неизвестная роль участника организации");
-        }
+        String normalized = normalizeMemberRole(role);
         var member = organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, userId)
                 .orElseGet(OrganizationMemberEntity::new);
         member.setOrganizationId(organizationId);
@@ -208,6 +252,12 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
         member.setMemberRole(normalized);
         if (member.getCreatedAt() == null) member.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         return organizationMemberRepository.save(member);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AuthenticationRow> authenticationOf(UUID userId) {
+        return organizationMemberRepository.authenticationOf(userId);
     }
 
     @Override
@@ -228,14 +278,37 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     @Transactional
     public OrganizationMemberResponse updateMember(UUID organizationId, UUID targetUserId, String role, UUID actor, boolean admin) {
         assertOwner(organizationId, actor, admin);
-        requireMember(organizationId, targetUserId);
+        var member = requireMember(organizationId, targetUserId);
+        if (!admin) {
+            assertMutableMember(member, actor);
+        }
         return memberResponse(putMember(organizationId, targetUserId, role));
     }
 
     @Transactional
     public void deleteMember(UUID organizationId, UUID targetUserId, UUID actor, boolean admin) {
         assertOwner(organizationId, actor, admin);
-        organizationMemberRepository.delete(requireMember(organizationId, targetUserId));
+        var member = requireMember(organizationId, targetUserId);
+        if (!admin) assertMutableMember(member, actor);
+        organizationMemberRepository.delete(member);
+    }
+
+    private static String nullIfBlank(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeMemberRole(String role) {
+        String normalized = role.toLowerCase(Locale.ROOT);
+        if (!Set.of("owner", "admin", "member", "organizer", "operator", "judge").contains(normalized))
+            throw new BusinessException("organizations.invalid_member_role", "Неизвестная роль участника организации");
+        return normalized;
+    }
+
+    private void assertMutableMember(OrganizationMemberEntity member, UUID actor) {
+        if (member.getUserId().equals(actor) || "owner".equalsIgnoreCase(member.getMemberRole())) throw protectedMember();
+    }
+    private BusinessException protectedMember() {
+        return new BusinessException("organizations.protected_member", "Нельзя изменять собственное членство или членство владельца");
     }
 
     private OrganizationMemberEntity requireMember(UUID organizationId, UUID userId) {

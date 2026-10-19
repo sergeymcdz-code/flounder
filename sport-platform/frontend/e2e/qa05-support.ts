@@ -1,3 +1,4 @@
+import { requiredCredential } from './credentials'
 import { expect, type Page } from '@playwright/test'
 import { mkdir, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -23,7 +24,7 @@ export async function login(page: Page, email: string, destination: string) {
   await page.goto(`/login?next=${encodeURIComponent(destination)}`)
   await page.getByLabel('Email').fill(email)
   await screenshots(page, `login-${email.split('@')[0]}`)
-  await page.getByLabel('Пароль', { exact: true }).fill(process.env.QA05_PASSWORD ?? 'Demo2026!')
+  await page.getByLabel('Пароль', { exact: true }).fill(email === process.env.ADMIN_EMAIL ? requiredCredential('ADMIN_PASSWORD') : requiredCredential('QA05_PASSWORD', 'DEMO_PASSWORD'))
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await page.waitForURL(url => url.pathname !== '/login')
 }

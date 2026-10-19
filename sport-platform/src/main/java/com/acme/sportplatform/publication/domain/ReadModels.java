@@ -8,7 +8,7 @@ public final class ReadModels {
     public record Event(UUID id, UUID sportId, String title, String description,
             OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
             OffsetDateTime eventStartAt, OffsetDateTime eventEndAt, String status,
-            String slug, String venueName, String venueCity, String venueTimezone, String venueMeta) {}
+            String slug, UUID organizationId, String venueName, String venueCity, String venueTimezone, String venueMeta) {}
     public record Capacity(Integer maxParticipants, long participantsCount) {}
     public record Session(UUID id, String name, int orderNo, OffsetDateTime startsAt,
             int breakBetweenEventsSec) {}

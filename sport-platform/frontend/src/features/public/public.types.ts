@@ -38,8 +38,7 @@ export type Discipline = {
   unitsPublished: boolean
 }
 export type PublicEvent = {
-  organization?: { name: string }
-
+  organization?: { name: string; publicSlug: string | null; hasLogo: boolean } | null
   id: string
   sportId: string
   status: EventStatus

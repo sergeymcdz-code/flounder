@@ -1,0 +1,2 @@
+.switcher { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.switcher select { max-width: 100%; min-width: 0; padding: 8px; }

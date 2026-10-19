@@ -34,8 +34,11 @@ export function PublicEventPage() {
               : 'длина бассейна не указана'}
           </p>
         )}
+        {event.organization && <p>Организатор: {event.organization.publicSlug
+          ? <Link to={`/o/${encodeURIComponent(event.organization.publicSlug)}`}>{event.organization.name}</Link>
+          : event.organization.name}</p>}
         {event.description && <p>{event.description}</p>}
-        {!event.registrationOpen && <p>Регистрация закрыта {formatDateTime(event.registrationCloseAt, event.venue?.timezone)}{event.organization?.name && ` · Организатор: ${event.organization.name}`}</p>}
+        {!event.registrationOpen && <p>Регистрация закрыта {formatDateTime(event.registrationCloseAt, event.venue?.timezone)}</p>}
         {event.maxParticipants != null && <p>Лимит: {event.participantsCount ?? 0}/{event.maxParticipants}</p>}
         {event.registrationOpen && event.maxParticipants != null && (event.participantsCount ?? 0) >= event.maxParticipants && <p>Мест нет, запись в лист ожидания</p>}
         {event.registrationOpen && (

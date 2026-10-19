@@ -102,7 +102,8 @@ public class UpdateEventDisciplineUseCase {
     public void delete(
             UUID id, com.acme.sportplatform.identity.AuthenticatedUserPrincipal principal) {
         var d = require(id);
-        access.assertCanModify(d.getEventId(), principal);
+        access.assertCanAdminister(d.getEventId(), principal);
+        access.assertWritable(d.getEventId());
         if (registrations.isInUse(id))
             throw new BusinessException(
                     "competition.discipline_in_use",

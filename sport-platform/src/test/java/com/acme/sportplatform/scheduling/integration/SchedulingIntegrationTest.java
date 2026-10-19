@@ -413,6 +413,12 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                         return userId;
                     }
 
+                    public List<com.acme.sportplatform.identity.UserMembershipLookup.Membership> getMemberships() {
+                        return jdbc.query("select organization_id,member_role from organization_members where user_id=?",
+                                (rs, n) -> new com.acme.sportplatform.identity.UserMembershipLookup.Membership(
+                                        rs.getObject(1, UUID.class), "Клуб", rs.getString(2)), userId);
+                    }
+
                     public java.util.Collection<
                                     ? extends org.springframework.security.core.GrantedAuthority>
                             getAuthorities() {
