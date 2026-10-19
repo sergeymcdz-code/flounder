@@ -211,7 +211,7 @@ docker compose -f infra/compose.monitoring.yaml up -d
 mkdir -p /home/<ssh-user>/.config/flounder && chmod 700 /home/<ssh-user>/.config/flounder
 cp ~/flounder/infra/.env.staging.example /home/<ssh-user>/.config/flounder/.env.staging
 chmod 600 /home/<ssh-user>/.config/flounder/.env.staging
-nano /home/<ssh-user>/.config/flounder/.env.staging        # свои пароль БД, JWT, ADMIN_PASSWORD (Demo2026! на чистой БД), DEMO_PASSWORD
+nano /home/<ssh-user>/.config/flounder/.env.staging        # свои пароль БД, JWT, ADMIN_PASSWORD (<пароль — в менеджере паролей владельца, в репозитории не хранится> на чистой БД), DEMO_PASSWORD
 free -m; df -h /                                        # убедиться, что ≥1.5 ГБ свободно
 ./infra/deploy-staging.sh main                          # или имя ветки
 curl -fsS http://127.0.0.1:8081/actuator/health; echo

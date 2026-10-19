@@ -464,9 +464,11 @@ curl -fsS http://127.0.0.1:8081/actuator/health
 ```
 
 В `.env.staging` заполнить независимые секреты БД/JWT, актуальные `ADMIN_EMAIL/ADMIN_PASSWORD`
-seed-админа выделенной staging-БД и `DEMO_PASSWORD`. На чистой БД seed-админ приходит из
-существующих миграций (см. `docs/02_ТЗ_демо.md` §1), затем сменить его пароль через UI.
-Скрипт дожидается health и запускает **настоящий HTTP-сид** `scripts/demo/seed.ts`
+bootstrap-администратора выделенной staging-БД и `DEMO_PASSWORD`. На чистой БД задайте
+`APP_ADMIN_EMAIL`/`APP_ADMIN_PASSWORD` для создания администратора; встроенный аккаунт отключён V050.
+Перед обновлением убедиться, что `scripts/demo/.env` на сервере указывает рабочий bootstrap-аккаунт
+через `ADMIN_EMAIL`, а не `admin@flounder.demo`; пароли — собственные, не менее 12 символов.
+Скрипт дожидается health, проверяет отключение встроенного администратора (ожидается 401), затем запускает **настоящий HTTP-сид** `scripts/demo/seed.ts`
 с `DEMO_SEED_ENABLED=true`. Он не полагается на неработающий флаг `DEMO_SEED` backend.
 Node/npm на хосте не нужны: сид выполняется в `node:22-alpine` с UID/GID `<ssh-user>`, `HOME=/tmp` и host network. Ветка должна содержать `scripts/demo` и совместимые миграции/API.
 Сид обращается к loopback gateway, а не к production. Его профиль процесса `staging`

@@ -1,3 +1,4 @@
+import { requiredCredential } from './credentials'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -14,9 +15,9 @@ export default function setup() {
   const output = execFileSync(process.execPath, [cli, 'seed.ts'], {
     cwd: directory, timeout: 120_000, encoding: 'utf8',
     env: {
-      ...process.env, API_URL: api, ADMIN_EMAIL: 'admin@flounder.demo',
-      ADMIN_PASSWORD: process.env.QA07_PASSWORD ?? 'Demo2026!',
-      DEMO_PASSWORD: process.env.QA07_PASSWORD ?? 'Demo2026!',
+      ...process.env, API_URL: api, ADMIN_EMAIL: requiredCredential('ADMIN_EMAIL'),
+      ADMIN_PASSWORD: requiredCredential('ADMIN_PASSWORD'),
+      DEMO_PASSWORD: requiredCredential('QA07_PASSWORD', 'DEMO_PASSWORD'),
       DEMO_SEED_ENABLED: 'true', REQUIRE_VENUE_META: 'true',
       DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-24', EVENT_TITLE_SUFFIX: suffix,
     },
