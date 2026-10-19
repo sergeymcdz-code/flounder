@@ -85,6 +85,8 @@ describe('calendar plan and stable identities', () => {
     expect(plan.filter(e => !e.title.includes('этап')).every(e => /, [а-я]+ \d{4}/.test(e.title))).toBe(true);
     expect(venues.every(v => !v.name.includes('SportGate'))).toBe(true);
     expect(venues[1].name).toBe('Бассейн «Волга», Самара');
+    const series = plan.filter(e => e.title.includes('кубок SportGate'));
+    expect(series.map(e => Number(/· этап (\d+)/.exec(e.title)![1]))).toEqual(series.map((_, i) => i + 1));
   });
   it('advances only the expected events and preserves the original season bounds', () => {
     const before = calendarPlan(options);

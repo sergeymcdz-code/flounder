@@ -16,6 +16,7 @@ class CalendarApi implements Api {
   serial = 0;
   failImport = false;
   failComplete?: string;
+  failRegistrationRead?: string;
   wrongPasswordEmail?: string;
   race = false;
   id() { return `00000000-0000-4000-8000-${String(++this.serial).padStart(12, '0')}`; }
@@ -26,6 +27,7 @@ class CalendarApi implements Api {
   }
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     this.calls.push({ method, path });
+    if (method === 'GET' && path === `/events/${this.failRegistrationRead}/registrations`) throw new Error('Simulated registration read failure');
     const data = body as Row;
     const all = () => [...this.lists.values()].flat();
     const row = () => {
@@ -159,8 +161,8 @@ describe('calendar API orchestration', () => {
     expect(next.events.filter(e => e.status === 'REGISTRATION_OPEN' && e.states.WAITLISTED === 4)).toHaveLength(1);
     for (const event of next.events.filter(e => e.status === 'REGISTRATION_OPEN')) {
       const previous = first.events.find(e => e.slug === event.slug)!;
-      expect(event.registrations - previous.registrations).toBeGreaterThanOrEqual(5);
-      expect(event.registrations - previous.registrations).toBeLessThanOrEqual(15);
+      expect(event.registrations! - previous.registrations!).toBeGreaterThanOrEqual(5);
+      expect(event.registrations! - previous.registrations!).toBeLessThanOrEqual(15);
     }
     const seededAgain = api.calls.length;
     expect((await runCalendar(api, options, () => {})).events).toEqual(next.events);
@@ -188,7 +190,7 @@ describe('calendar API orchestration', () => {
       expect(rows().filter(r => r.id !== outsider.id).map(r => r.id)).toEqual(ownIds);
       const summary = result.events.find(e => e.slug === event.publicSlug)!;
       const original = initial.events.find(e => e.slug === event.publicSlug)!;
-      expect(summary.registrations).toBe(original.registrations + 1);
+      expect(summary.registrations).toBe(original.registrations! + 1);
       expect(summary.states.CONFIRMED).toBe(original.states.CONFIRMED + 1);
     }
     const next = await runCalendar(api, { ...options, advance: true, demoDate: '2026-10-26' }, () => {});
@@ -196,6 +198,32 @@ describe('calendar API orchestration', () => {
     expect(rows().find(r => r.id === outsider.id)).toEqual(outsiderBefore);
     expect(ownIds.every(id => rows().some(r => r.id === id))).toBe(true);
     expect(discipline.maxParticipants).toBe(rows().filter(r => r.eventDisciplineId === discipline.id).length);
+    for (const demoDate of ['2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23']) {
+      const result = await runCalendar(api, { ...options, advance: true, demoDate }, () => {});
+      expect(result.events.every(e => !e.error)).toBe(true);
+      expect(result.events.find(e => e.slug === event.publicSlug)!.status).toBe('COMPLETED');
+      expect(rows().find(r => r.id === outsider.id)).toEqual(outsiderBefore);
+      expect(rows().filter(r => r.id !== outsider.id).map(r => r.id)).toEqual(ownIds);
+      const starts = [...api.lists.values()].flat().flatMap(row => (row.entries as Row[] | undefined) ?? []);
+      expect(starts.find(start => start.registrationId === outsider.id)).toMatchObject({ resultStatus: 'VALID', timeMs: expect.any(Number) });
+    }
+  });
+  it('recognizes old week-numbered stages without recreating events or losing results', async () => {
+    const api = new CalendarApi();
+    const initial = await runCalendar(api, options, () => {});
+    for (const event of api.lists.get('/events')!) {
+      const meta = metadata(calendarPlan(options).find(plan => plan.title === event.title)!);
+      if (String(event.title).includes('кубок SportGate · этап '))
+        event.title = String(event.title).replace(/ · этап \d+/, ` · этап ${meta.week + 1}`);
+    }
+    const before = api.calls.length;
+    expect((await runCalendar(api, options, () => {})).events).toEqual(initial.events);
+    expect(mutations(api, before)).toEqual([]);
+    const advanced = await runCalendar(api, { ...options, advance: true, demoDate: '2026-11-09' }, () => {});
+    expect(advanced.events).toHaveLength(29);
+    expect(advanced.events.every(event => !event.error)).toBe(true);
+    expect(api.lists.get('/events')).toHaveLength(29);
+    expect(advanced.events.find(event => event.date === '2026-10-31')!.status).toBe('COMPLETED');
   });
   it('continues advance after one completion fails and reports the error, then resumes', async () => {
     const api = new CalendarApi();
@@ -215,6 +243,26 @@ describe('calendar API orchestration', () => {
     const resumed = await runCalendar(api, { ...options, advance: true, demoDate: '2026-10-26' }, () => {});
     expect(resumed.events.every(e => !e.error)).toBe(true);
     expect(resumed.events.find(e => e.slug === event.publicSlug)!.status).toBe('COMPLETED');
+  });
+  it.each(['prepare', 'fill', 'unavailable'])('reports actual or unknown registration counts after a %s failure', async failure => {
+    const api = new CalendarApi();
+    await runCalendar(api, options, () => {});
+    const event = api.lists.get('/events')!.find(e => e.status === 'REGISTRATION_OPEN')!;
+    const rows = api.lists.get(`/events/${event.id}/registrations`)!;
+    if (failure === 'fill') {
+      rows.splice(rows.findIndex(r => r.status === 'CONFIRMED' && !r.participantUserId), 1);
+      api.failImport = true;
+    } else {
+      event.eventStartAt = '2026-10-31T11:00:00+04:00';
+      if (failure === 'unavailable') api.failRegistrationRead = event.id;
+    }
+    const result = await runCalendar(api, { ...options, advance: true }, () => {});
+    const summary = result.events.find(e => e.slug === event.publicSlug)!;
+    expect(summary.error).toBeTruthy();
+    expect(summary.registrations).toBe(failure === 'unavailable' ? null : rows.length);
+    if (failure !== 'unavailable') expect(summary.states.CONFIRMED).toBe(rows.filter(r => r.status === 'CONFIRMED').length);
+    expect(result.events.filter(e => e.error)).toHaveLength(1);
+    expect(result.events).toHaveLength(29);
   });
   it('refuses an existing service account password mismatch without creating another account', async () => {
     const api = new CalendarApi();
@@ -241,6 +289,15 @@ describe('calendar API orchestration', () => {
     api.lists.get('/events')![0].description = `Тестовые данные SportGate\nS10 ${JSON.stringify(metadata(calendarPlan({ ...options, weeks: 1 })[0]))}`;
     const before = api.calls.length;
     await expect(runCalendar(api, { ...options, weeks: 1 }, () => {})).rejects.toThrow('DEMO_CALENDAR=true');
+    expect(mutations(api, before)).toEqual([]);
+  });
+  it('still rejects missing own registrations in a completed event', async () => {
+    const api = new CalendarApi();
+    await runCalendar(api, { ...options, weeks: 1 }, () => {});
+    const event = api.lists.get('/events')![0];
+    api.lists.get(`/events/${event.id}/registrations`)!.pop();
+    const before = api.calls.length;
+    await expect(runCalendar(api, { ...options, weeks: 1 }, () => {})).rejects.toThrow('В завершённом событии отсутствуют заявки');
     expect(mutations(api, before)).toEqual([]);
   });
   it('resumes a partial import and handles an automatic lifecycle closure racing with open', async () => {

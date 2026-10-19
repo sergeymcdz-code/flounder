@@ -68,6 +68,7 @@ export function calendarPlan(options: CalendarOptions = {}): CalendarEvent[] {
   const settings = calendarSettings(options);
   const elapsed = Math.max(0, weekDifference(settings.demoDate, settings.anchorDate));
   const result: CalendarEvent[] = [];
+  let seriesNumber = 0;
   for (let week = 0; week < settings.weeks; week++) {
     for (let slot = 0; slot < (week % 6 === 2 ? 2 : 1); slot++) {
       const venue = venues[(week + slot * 3) % venues.length];
@@ -91,7 +92,7 @@ export function calendarPlan(options: CalendarOptions = {}): CalendarEvent[] {
       ];
       const month = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'][Number(date.slice(5, 7)) - 1];
       const series = week % titleTemplates.length === 6;
-      const suffix = series ? ` · этап ${week + 1}${slot ? ' (воскресенье)' : ''}` : `, ${month} ${date.slice(0, 4)}`;
+      const suffix = series ? ` · этап ${++seriesNumber}${slot ? ' (воскресенье)' : ''}` : `, ${month} ${date.slice(0, 4)}`;
       let title = `${settings.prefix ? settings.prefix + ' ' : ''}${titleTemplates[week % titleTemplates.length]}${suffix}`;
       if (result.some(event => event.title === title)) title += ` (${date})`;
       const scenarios = initialOffset >= 1 && offset <= 3;

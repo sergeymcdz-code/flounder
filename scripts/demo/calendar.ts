@@ -17,9 +17,8 @@ export type RunOptions = CalendarOptions & {
   enabled: boolean; now?: Date;
 };
 type Context = { organization: Row; sport: Row; version: Row; tokens: CalendarTokens; parentTokens: Map<string, string> };
-type Summary = { week: number; date: string; slug: unknown; status: unknown; registrations: number; states: Record<string, number>; error?: string; [key: string]: unknown };
+type Summary = { week: number; date: string; slug: unknown; status: unknown; registrations: number | null; states: Record<string, number>; error?: string; [key: string]: unknown };
 const resetError = (message: string): never => { throw new Error(`${message} Выполните DEMO_CALENDAR=true npx tsx reset.ts, затем повторите calendar.ts.`); };
-const registrationKey = (profile: Parameters<typeof profileKey>[0], code: string) => profileKey(profile) + '|' + code;
 const registrations = (api: Api, event: Row, token: string) => api.request<CalendarRegistration[]>('GET', `/events/${event.id}/registrations`, undefined, token);
 const registrationStates = (rows: CalendarRegistration[]) => Object.fromEntries([...new Set(rows.map(r => String(r.status)))].sort()
   .map(state => [state, rows.filter(r => r.status === state).length]));
@@ -88,6 +87,11 @@ async function transition(api: Api, event: Row, action: string, expected: string
 async function prepare(api: Api, plan: CalendarEvent, context: Context, known: Row[], create: boolean) {
   const { admin, organizer } = context.tokens;
   let event = unique(known, row => row.title === plan.title, plan.title);
+  // The API cannot rename events; keep existing IDs/results from week-numbered stages.
+  if (!event && plan.title.includes('кубок SportGate · этап ')) {
+    const previousTitle = plan.title.replace(/ · этап \d+/, ` · этап ${plan.week + 1}`);
+    event = unique(known, row => row.title === previousTitle, previousTitle);
+  }
   if (!event && !create) return;
   if (event && (event.organizationId !== context.organization.id || JSON.stringify(readMetadata(event.description)) !== JSON.stringify(metadata(plan))))
     resetError(`Событие «${plan.title}» не соответствует календарю/демо-организации.`);
@@ -142,12 +146,6 @@ async function fill(api: Api, event: Row, plan: CalendarEvent, disciplines: Row[
   const token = context.tokens.organizer;
   let rows = await registrations(api, event, token);
   const desired = calendarEntries(plan, pool);
-  const possible = calendarEntries({ ...plan, count: plan.capacity - 10 }, pool);
-  const possibleKeys = new Set(possible.map(e => registrationKey(e.profile, e.code)));
-  for (const row of event.status === 'COMPLETED' ? rows : []) {
-    const code = String(disciplines.find(d => d.id === row.eventDisciplineId)?.code);
-    if (!possibleKeys.has(registrationKey(row.participantSnapshot, code))) resetError(`Неожиданная заявка в «${plan.title}».`);
-  }
   const find = (entry: CalendarEntry) => rows.find(r => r.eventDisciplineId === disciplines.find(d => d.code === entry.code)?.id && profileKey(r.participantSnapshot) === profileKey(entry.profile));
   const missing = desired.filter(entry => !entry.scenario && !find(entry));
   if (missing.length) {
@@ -269,7 +267,7 @@ export async function runCalendar(api: Api, options: RunOptions, log = console.l
   for (const [index, plan] of plans.entries()) {
     log(`S10 [${index + 1}/${plans.length}] ${plan.date} · ${plan.title} → ${plan.status}`);
     let latest = known.find(event => event.title === plan.title);
-    let observedRows: CalendarRegistration[] = [];
+    let observedRows: CalendarRegistration[] | undefined;
     let statistics: Record<string, number> = { heats: 0, finishedHeats: 0, results: 0, corrected: 0 };
     try {
       const prepared = await prepare(api, plan, context, known, !options.advance);
@@ -310,8 +308,12 @@ export async function runCalendar(api: Api, options: RunOptions, log = console.l
       log(`S10 event: ${JSON.stringify(summary)}`);
     } catch (error) {
       if (!options.advance) throw error;
+      if (!observedRows && latest) {
+        try { observedRows = await registrations(api, latest, context.tokens.organizer); }
+        catch { /* Leave the count unknown if the API is unavailable; preserve the original error. */ }
+      }
       const summary: Summary = { week: plan.week + 1, date: plan.date, slug: latest?.publicSlug,
-        status: latest?.status, registrations: observedRows.length, states: registrationStates(observedRows), ...statistics, error: error instanceof Error ? error.message : 'Ошибка обновления события.' };
+        status: latest?.status, registrations: observedRows?.length ?? null, states: observedRows ? registrationStates(observedRows) : {}, ...statistics, error: error instanceof Error ? error.message : 'Ошибка обновления события.' };
       summaries.push(summary);
       log(`S10 event: ${JSON.stringify(summary)}`);
     }
