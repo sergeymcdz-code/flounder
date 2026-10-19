@@ -14,6 +14,6 @@ public class NotificationEventLookupService implements NotificationEventLookup {
     public NotificationEventLookupService(EventRepository events) { this.events = events; }
     public Optional<Context> findNotificationContext(UUID id) {
         return events.findById(id).map(e -> new Context(e.getId(), e.getOrganizationId(),
-                e.getTitle(), e.getEventStartAt(), e.getPublicSlug()));
+                e.getTitle(), e.getEventStartAt(), e.getPublicSlug(), e.getVenueId()));
     }
 }

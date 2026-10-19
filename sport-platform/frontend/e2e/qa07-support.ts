@@ -1,14 +1,15 @@
+import { requiredCredential } from './credentials'
 import { expect, type Page, type APIRequestContext } from '@playwright/test'
 
 export const apiUrl = process.env.QA07_API_URL ?? 'http://localhost:8080'
-export const password = process.env.QA07_PASSWORD ?? 'Demo2026!'
+export const password = requiredCredential('QA07_PASSWORD', 'DEMO_PASSWORD')
 
 export async function login(page: Page, email: string, next: string, secret = password) {
   await page.goto('/')
   await page.evaluate(() => sessionStorage.removeItem('flounder.auth-session'))
   await page.goto(`/login?next=${encodeURIComponent(next)}`)
   await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Пароль', { exact: true }).fill(secret)
+  await page.getByLabel('Пароль', { exact: true }).fill(email === process.env.ADMIN_EMAIL ? requiredCredential('ADMIN_PASSWORD') : secret)
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await page.waitForURL(url => url.pathname !== '/login')
 }

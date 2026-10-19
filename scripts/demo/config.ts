@@ -14,6 +14,12 @@ export function config(env: NodeJS.ProcessEnv, needsUsers = true) {
     if (!env[name]?.trim()) throw new Error(`Задайте ${name} через окружение или scripts/demo/.env (см. .env.example).`);
     return env[name]!;
   };
+  for (const [name, value] of Object.entries(env)) {
+    // The published legacy password is also below this minimum.
+    if (name.endsWith('_PASSWORD') && value !== undefined && value.length < 12) {
+      throw new Error('Задайте свой пароль: опубликованный пароль запрещён');
+    }
+  }
   const url = new URL(required('API_URL'));
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || !['', '/'].includes(url.pathname)) {
     throw new Error('API_URL должен быть HTTP(S) origin без пути /api/v1, пароля и query-параметров.');

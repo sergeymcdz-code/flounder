@@ -21,7 +21,7 @@
 | 11 | «17.10.2026 — пример» | **выполнен** | README `:37`, demo-script `:3,26` |
 | 12 | `npm run typecheck` в проверках PR | **выполнен** | тело PR, раздел «Проверки» |
 
-Прочее: `docs/` кроме `demo-script.md` и `tasks/` не тронуты (`git diff --name-only`); паролей в коде нет (`.env.example` — только `Demo2026!` из ТЗ §1 и `user:password@localhost` как шаблон URL; в тестах `unit-test-password`/`test-only-password`); `reset.ts` без `--apply` по-прежнему ничего не удаляет; `reset.sql` без `TRUNCATE`, цель фиксируется UUID + название + организация + площадка.
+Прочее: `docs/` кроме `demo-script.md` и `tasks/` не тронуты (`git diff --name-only`); паролей в коде нет (`.env.example` — только `<пароль — в менеджере паролей владельца, в репозитории не хранится>` из ТЗ §1 и `user:password@localhost` как шаблон URL; в тестах `unit-test-password`/`test-only-password`); `reset.ts` без `--apply` по-прежнему ничего не удаляет; `reset.sql` без `TRUNCATE`, цель фиксируется UUID + название + организация + площадка.
 
 ## Новые замечания
 

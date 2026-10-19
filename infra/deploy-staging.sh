@@ -41,6 +41,17 @@ export STAGING_CADDYFILE="$REPO_DIR/infra/Caddyfile.staging"
 compose() { docker compose --project-name flounder-staging --project-directory "$STAGING_DIR/infra" -f "$REPO_DIR/infra/compose.staging.yaml" --env-file "$STAGING_ENV" "$@"; }
 compose config --quiet
 compose up -d --build --wait --wait-timeout 300
+# Refuse to seed until the retired account is confirmed inaccessible.
+legacy_status="$(curl --silent --show-error --connect-timeout 5 --max-time 15 \
+  --output /dev/null --write-out '%{http_code}' \
+  --header 'Content-Type: application/json' \
+  --data-binary @"$REPO_DIR/infra/tests/legacy-admin-login.json" \
+  http://127.0.0.1:8081/api/v1/auth/login)" || {
+  echo 'Деплой остановлен: не удалось проверить отключение встроенного администратора.' >&2; exit 1;
+}
+[[ "$legacy_status" == 401 ]] || {
+  echo "Деплой остановлен: вход встроенного администратора должен вернуть 401 (получен $legacy_status). Проверьте миграции." >&2; exit 1;
+}
 # Run the HTTP seed in Docker; Node/npm are not required on the host.
 docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e API_URL=http://127.0.0.1:8081 -e DEMO_SEED_ENABLED=true -e NODE_ENV=development \

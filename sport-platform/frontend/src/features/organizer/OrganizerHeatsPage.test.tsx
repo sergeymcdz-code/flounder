@@ -76,3 +76,14 @@ it('does not publish before confirmation, then shows a toast with a public link'
   await waitFor(() => expect(publish).toHaveBeenCalledOnce())
   expect(await screen.findByRole('link', { name: 'Открыть публичную страницу ↗' })).toHaveAttribute('href', '/e/cup/start-list')
 })
+
+it('disables schedule shifting for archived events with a read-only explanation', () => {
+  vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' }, heats: [{
+    id: 'heat', eventDisciplineId: 'discipline', label: 'Заплыв 1', sequenceNumber: 1,
+    scheduledAt: '2026-10-19T06:00:00Z', status: 'PUBLISHED', entries: [],
+  }] })
+  render(<OrganizerHeatsPage />)
+  const button = screen.getByRole('button', { name: 'Сдвинуть расписание…' })
+  expect(button).toBeDisabled()
+  expect(button).toHaveAttribute('title', 'Архивное событие доступно только для чтения')
+})

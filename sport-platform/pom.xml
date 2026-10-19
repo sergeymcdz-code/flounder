@@ -223,10 +223,13 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.4</version>
                 <configuration>
-                    <excludes>
-                        <exclude>**/*IT.java</exclude>
-                        <exclude>**/*ITCase.java</exclude>
-                    </excludes>
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/LegacySeedAdminDisabledIT.java</include>
+                    </includes>
                 </configuration>
             </plugin>
 
