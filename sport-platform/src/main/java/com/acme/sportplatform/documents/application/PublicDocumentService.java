@@ -40,6 +40,14 @@ public class PublicDocumentService {
                 key -> forms.awards(event.id(), true, Scope.AGE_GROUP, 3, null));
     }
 
+    public PdfDocument standings(String slug) {
+        // Recheck visibility even when returning a cached publication.
+        var event = events.getPublicBySlug(slug);
+        return cache.get(
+                slug + ":" + event.id() + ":standings",
+                key -> documents.publicStandings(event));
+    }
+
     public PdfDocument get(String slug, boolean results) {
         // Recheck event visibility even on a cache hit; never cache organizer drafts.
         var event = events.getPublicBySlug(slug);

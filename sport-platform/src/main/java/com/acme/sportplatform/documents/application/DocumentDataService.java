@@ -62,11 +62,7 @@ public class DocumentDataService {
         var venue = event.venueId() == null ? null : venues.protocolVenue(event.venueId());
         var zone = venue == null ? ZoneOffset.UTC : ZoneId.of(venue.timezone());
         int laneCount = laneCount(venue);
-        var header = new Header(event.title(), venue == null ? "Площадка не указана" :
-                venue.name() + (venue.city() == null ? "" : ", " + venue.city()),
-                date(event.startsAt(), zone), organizations.nameById(event.organizationId()),
-                DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss z", Locale.forLanguageTag("ru"))
-                        .format(clock.instant().atZone(zone)));
+        var header = header(event, venue, zone);
         var sessions = events.getById(eventId).sessions();
         var sessionOrder = sessions.stream().collect(Collectors.toMap(s -> s.id(), s -> s.orderNo()));
         var sessionNames = sessions.stream().collect(Collectors.toMap(s -> s.id(), s -> s.name()));
@@ -104,6 +100,22 @@ public class DocumentDataService {
                     startHeats, List.copyOf(sections), discipline.id(), discipline.sessionId()));
         }
         return new Protocol(header, List.copyOf(views), !numbers.isEmpty());
+    }
+
+    public Header header(UUID eventId) {
+        var event = events.protocolHeader(eventId);
+        var venue = event.venueId() == null ? null : venues.protocolVenue(event.venueId());
+        var zone = venue == null ? ZoneOffset.UTC : ZoneId.of(venue.timezone());
+        return header(event, venue, zone);
+    }
+
+    private Header header(com.acme.sportplatform.events.EventProtocolHeader event,
+            VenueLookup.ProtocolVenue venue, ZoneId zone) {
+        return new Header(event.title(), venue == null ? "Площадка не указана" :
+                venue.name() + (venue.city() == null ? "" : ", " + venue.city()),
+                date(event.startsAt(), zone), organizations.nameById(event.organizationId()),
+                DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss z", Locale.forLanguageTag("ru"))
+                        .format(clock.instant().atZone(zone)));
     }
 
     private int laneCount(VenueLookup.ProtocolVenue venue) {

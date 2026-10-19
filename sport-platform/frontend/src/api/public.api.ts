@@ -1,3 +1,4 @@
+import type { Standings } from './standings.api'
 import type {
   AthleteMatch,
   FieldViolation,
@@ -77,6 +78,8 @@ async function request<T>(
 }
 
 export const publicApi = {
+  standings: (slug: string, signal?: AbortSignal) =>
+    request<Standings>(slug, '/standings', { signal }),
   event: (slug: string, signal?: AbortSignal) =>
     request<PublicEvent>(slug, '', { signal }),
   startList: (slug: string, signal?: AbortSignal) =>

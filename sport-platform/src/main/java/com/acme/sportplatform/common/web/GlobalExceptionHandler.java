@@ -57,7 +57,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = switch (ex.getCode()) {
             case "documents.generation_failed" -> HttpStatus.INTERNAL_SERVER_ERROR;
             case "documents.busy" -> HttpStatus.SERVICE_UNAVAILABLE;
-            case "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
+            case "standings.not_published", "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
             case "documents.access_denied" -> HttpStatus.FORBIDDEN;
             case "documents.too_many_pages", "scheduling.bib_locked", "scheduling.bib_taken", "documents.diploma_disabled" -> HttpStatus.CONFLICT;
             case "scheduling.bib_not_found" -> HttpStatus.NOT_FOUND;

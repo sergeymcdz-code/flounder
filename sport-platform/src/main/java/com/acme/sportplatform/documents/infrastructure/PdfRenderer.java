@@ -2,6 +2,7 @@ package com.acme.sportplatform.documents.infrastructure;
 
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.documents.domain.Protocol;
+import com.acme.sportplatform.standings.StandingsView;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
@@ -45,6 +46,10 @@ public class PdfRenderer {
 
     public byte[] render(Protocol protocol, boolean results) {
         return render(results ? "results" : "start-list", Map.of("protocol", protocol));
+    }
+
+    public byte[] renderStandings(Protocol.Header event, StandingsView standings) {
+        return render("standings", Map.of("event", event, "standings", standings));
     }
 
     public byte[] render(String template, Map<String, Object> model) {

@@ -49,6 +49,18 @@ public class DocumentsController {
         return response(published.get(slug, true));
     }
 
+    @GetMapping("/events/{eventId}/documents/standings.pdf")
+    @PreAuthorize("hasAnyRole('ORGANIZER','OPERATOR','PLATFORM_ADMIN')")
+    public ResponseEntity<byte[]> standings(@PathVariable UUID eventId, @AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
+        access.assertCanManage(eventId, principal);
+        return response(documents.standings(eventId));
+    }
+
+    @GetMapping("/public/events/{slug}/standings.pdf")
+    public ResponseEntity<byte[]> publicStandings(@PathVariable String slug) {
+        return response(published.standings(slug));
+    }
+
     static ResponseEntity<byte[]> response(PdfDocument pdf) {
         // Server caches public generation for 60s; clients must recheck visibility on each download.
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).cacheControl(CacheControl.noStore())
