@@ -33,6 +33,8 @@ public class AnalyticsExport {
             row(results,"Опубликовано заплывов",r.publishedHeats());row(results,"Медиана публикации, сек",r.medianPublicationSec());
             row(results,"p95 публикации, сек",r.p95PublicationSec());row(results,"Измерений задержки",r.latencySamples());
             row(results,"Источник задержки",r.latencySource());row(results,"Исправленные результаты",r.corrected());
+            row(results,"Определение задержки","От фактического финиша до первого RANKING по виду; без него — последнее обновление результатов заплыва. Отрицательные и отсутствующие интервалы исключены.");
+            row(results,"Пояснение источника","RANKING_LOG — все измерения по журналу; RESULTS_UPDATED_AT — есть измерения по обновлению результатов; UNAVAILABLE — нет данных.");
             var validator=sheet(w,"Валидатор","Прогон","Время","Ошибки","Предупреждения");var v=a.validator();
             row(validator,v.runId(),v.executedAt(),v.errors(),v.warnings());
             var imports=sheet(w,"Импорты","Доступно","Причина","Время","Строк","Создано","Обновлено","Ошибок","Длительность, мс");

@@ -182,8 +182,16 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void fiveFailuresForDifferentEmailsDoNotBlockAnotherAccountOnTheSameIp() throws Exception {
+        for (int i=0;i<5;i++)
+            send("/login", Map.of("email", "other"+i+"@example.org", "password", "wrong"), null, ip)
+                    .andExpect(status().isUnauthorized());
+        login();
+    }
+
+    @Test
     void rateLimitByIpIgnoresEmailAndForwardedHeaderChangesAndDoesNotLimitOtherEndpoints() throws Exception {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 30; i++)
             send("/login", Map.of("email", "unknown" + i + "@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/login").with(r -> { r.setRemoteAddr(ip); return r; })
                 .header("X-Forwarded-For", "198.51.100.8").contentType(MediaType.APPLICATION_JSON)
@@ -225,10 +233,10 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void successfulLoginDoesNotClearIpFailures() throws Exception {
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 29; i++)
             send("/login", Map.of("email", "unknown" + i + "@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
         login();
-        send("/login", Map.of("email", "fifth@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
+        send("/login", Map.of("email", "thirtieth@example.org", "password", "wrong"), null, ip).andExpect(status().isUnauthorized());
         send("/login", Map.of("email", email, "password", PASSWORD), null, ip).andExpect(status().isTooManyRequests());
     }
 

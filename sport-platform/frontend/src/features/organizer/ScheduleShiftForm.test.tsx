@@ -44,3 +44,16 @@ it('disables stale preview after a change and displays backend validation errors
   expect(confirm).toBeDisabled()
   expect(onApply).not.toHaveBeenCalled()
 })
+
+it('blocks an open shift dialog when the event becomes archived', async () => {
+  const onApply = vi.fn()
+  server.use(http.post('*/api/v1/events/event/schedule/shift/preview', () =>
+    HttpResponse.json({ units: [{ id: 'one', previousScheduledAt: heats[0].scheduledAt, scheduledAt: '2026-10-17T06:20:00Z' }] })))
+  const props = { eventId: 'event', heats, accessToken: 'test-token', busy: false, onApply, onClose: vi.fn() }
+  const { rerender } = render(<ScheduleShiftForm {...props} />)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить сдвиг' })).toBeEnabled())
+  rerender(<ScheduleShiftForm {...props} archived />)
+  await userEvent.click(screen.getByRole('button', { name: 'Подтвердить сдвиг' }))
+  expect(screen.getByRole('button', { name: 'Подтвердить сдвиг' })).toBeDisabled()
+  expect(onApply).not.toHaveBeenCalled()
+})
