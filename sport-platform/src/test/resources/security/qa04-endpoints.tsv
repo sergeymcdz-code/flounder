@@ -47,7 +47,7 @@ GET	/api/v1/payments/review/registrations/{registrationId}	manage	true	200
 POST	/api/v1/payments/{paymentId}/confirm	manage	true	200		
 GET	/api/v1/registrations/{registrationId}/payments	participant	false	200		
 POST	/api/v1/registrations/{registrationId}/payments	participant	false	409		
-POST	/api/v1/payments/webhooks/yookassa	public	false	400		{}
+POST	/api/v1/payments/webhooks/yookassa	public	false	404		{}
 GET	/api/v1/public/events/{slug}	public	false	200		
 GET	/api/v1/public/events/{slug}/start-list	public	false	200		
 GET	/api/v1/public/events/{slug}/schedule	public	false	200		

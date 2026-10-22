@@ -1,10 +1,10 @@
 package com.acme.sportplatform.payments.application;
 
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,16 +31,8 @@ public class ReceiveYooKassaWebhookUseCase {
             String payload,
             String headersJson
     ) {
-        String deduplicationKey = eventType + ":" + externalPaymentId;
-
-        PaymentWebhookEventEntity existingEvent =
-                webhookEventRepository
-                        .findByDeduplicationKey(deduplicationKey)
-                        .orElse(null);
-
-        if (existingEvent != null) {
-            return existingEvent.getId();
-        }
+        // Unverified deliveries must never reserve a provider state key.
+        String deduplicationKey = "received:" + UUID.randomUUID();
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 
@@ -52,22 +44,21 @@ public class ReceiveYooKassaWebhookUseCase {
         event.setExternalEventId(externalPaymentId);
         event.setDeduplicationKey(deduplicationKey);
         event.setEventType(eventType);
-        event.setPayload(payload);
+        event.setPayload(truncatePayload(payload));
         event.setHeadersJson(headersJson);
         event.setProcessingStatus(
                 PaymentWebhookProcessingStatus.RECEIVED.name()
         );
         event.setReceivedAt(now);
 
-        try {
-            return webhookEventRepository
-                    .saveAndFlush(event)
-                    .getId();
-        } catch (DataIntegrityViolationException exception) {
-            return webhookEventRepository
-                    .findByDeduplicationKey(deduplicationKey)
-                    .map(PaymentWebhookEventEntity::getId)
-                    .orElseThrow(() -> exception);
-        }
+        return webhookEventRepository.saveAndFlush(event).getId();
+    }
+
+    private String truncatePayload(String payload) {
+        byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
+        int length = Math.min(bytes.length, 16 * 1024);
+        // Keep complete UTF-8 code points at the boundary.
+        while (length < bytes.length && length > 0 && (bytes[length] & 0xc0) == 0x80) length--;
+        return new String(bytes, 0, length, StandardCharsets.UTF_8);
     }
 }
