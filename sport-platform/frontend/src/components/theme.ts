@@ -11,6 +11,6 @@ export function readTheme(): Theme | null {
 }
 
 export function resolveTheme(pathname: string, saved: Theme | null, systemDark: boolean): Theme {
-  if (!/^\/e\/[^/]+(?:\/|$)/.test(pathname)) return 'light'
+  if (!(pathname === '/' || /^\/(e|o)\/[^/]+(?:\/|$)/.test(pathname))) return 'light'
   return saved ?? (systemDark || /\/(live|results)\/?$/.test(pathname) ? 'dark' : 'light')
 }

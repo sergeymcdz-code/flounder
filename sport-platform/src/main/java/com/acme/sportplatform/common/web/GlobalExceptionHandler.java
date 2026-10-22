@@ -31,7 +31,10 @@ public class GlobalExceptionHandler {
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex) {
+    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex, jakarta.servlet.http.HttpServletRequest request) {
+        if (request.getRequestURI().matches("/api/v1/organizations/[^/]+/logo"))
+            return ResponseEntity.badRequest().body(new ApiErrorResponse(
+                    "organizations.logo_too_large", "Размер логотипа превышает 2 МБ", OffsetDateTime.now(), List.of()));
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiErrorResponse(
                 "files.too_large", "Размер файла превышает допустимый", OffsetDateTime.now(), List.of()));
     }
@@ -55,6 +58,8 @@ public class GlobalExceptionHandler {
             BusinessException ex
     ) {
         HttpStatus status = switch (ex.getCode()) {
+            case "organizations.not_found" -> HttpStatus.NOT_FOUND;
+            case "organizations.slug_taken" -> HttpStatus.CONFLICT;
             case "documents.generation_failed" -> HttpStatus.INTERNAL_SERVER_ERROR;
             case "documents.busy" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "standings.not_published", "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;

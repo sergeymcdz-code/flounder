@@ -73,9 +73,14 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
           globIgnores: ['**/mockServiceWorker.js'],
           navigateFallback: '/index.html',
-          navigateFallbackAllowlist: [/^\/$/, /^\/e\//, /^\/events\/[^/]+\/?$/],
+          navigateFallbackAllowlist: [/^\/$/, /^\/e\//, /^\/o\//, /^\/events\/[^/]+\/?$/],
           cleanupOutdatedCaches: true,
           runtimeCaching: [
+            {
+              urlPattern: /^https?:\/\/[^/]+\/api\/v1\/public\/organizations\/[^/?#]+\/logo(?:[?#]|$)/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'sportgate-public-logos-v1', cacheableResponse: { statuses: [200] }, expiration: { maxEntries: 80, maxAgeSeconds: 3600 } },
+            },
             {
               urlPattern: publicApiCachePattern,
               handler: 'NetworkFirst',

@@ -38,8 +38,8 @@ const RegisterPage = lazy(() =>
   import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })),
 )
 
-const EventsPage = lazy(() =>
-  import('../features/events/EventsPage').then(module => ({ default: module.EventsPage })),
+const CalendarPage = lazy(() =>
+  import('../features/public/CalendarPage').then(module => ({ default: module.CalendarPage })),
 )
 
 const CreateEventPage = lazy(() =>
@@ -112,9 +112,16 @@ const EventAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPag
 const OrganizationAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationAnalyticsPage })))
 const OrganizationsAnalyticsListPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationsAnalyticsListPage })))
 
+const PublicOrganizationPage = lazy(() => import('../features/public/PublicOrganizationPage').then(m => ({ default: m.PublicOrganizationPage })))
+const OrganizationPublicSettingsPage = lazy(() => import('../features/organizer/OrganizationPublicSettingsPage').then(m => ({ default: m.OrganizationPublicSettingsPage })))
+
 export default function App() {
   const routes = (
     <Routes>
+      <Route element={<PublicLayout />}>
+        <Route index element={<CalendarPage />} />
+        <Route path="o/:slug" element={<PublicOrganizationPage />} />
+      </Route>
       <Route path="e/:slug" element={<PublicLayout />}>
         <Route index element={<PublicEventPage />} />
         <Route path="start-list" element={<StartListPage />} />
@@ -127,8 +134,6 @@ export default function App() {
         <Route path="heats/:unitId" element={<HeatPage />} />
       </Route>
       <Route element={<AppLayout />}>
-        <Route index element={<EventsPage />} />
-
         <Route
           path="events/:eventCode"
           element={<LegacyEventRedirect />}
@@ -178,6 +183,7 @@ export default function App() {
         >
           <Route path="organizer" element={<OrganizerLayout />}>
             <Route index element={<Navigate replace to="/organizer/events" />} />
+            <Route path="organization/public" element={<OrganizationPublicSettingsPage />} />
             <Route path="organization" element={<OrganizationPage />} />
             <Route path="notification-settings" element={<NotificationSettingsPage />} />
             <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>

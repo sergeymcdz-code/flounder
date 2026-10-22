@@ -35,6 +35,18 @@ import static java.util.stream.Collectors.toMap;
 @Service
 public class OrganizationService implements OrganizationLookup, OrganizationManagementAccess, UserMembershipLookup {
 
+    private final PublicOrganizationProfileService publicProfiles;
+
+    @Override
+    public com.acme.sportplatform.organizations.PublicOrganization publicBySlug(String slug) {
+        return publicProfiles.publicBySlug(slug);
+    }
+
+    @Override
+    public java.util.Map<UUID, com.acme.sportplatform.organizations.PublicOrganizationCard> cards(java.util.Collection<UUID> ids) {
+        return publicProfiles.cards(ids);
+    }
+
     private final ObjectMapper objectMapper;
     private final UserRoleLookup userRoleLookup;
     private final UserLookup userLookup;
@@ -44,8 +56,9 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public OrganizationService(
             OrganizationRepository organizationRepository,
             OrganizationMemberRepository organizationMemberRepository,
-            UserRoleLookup userRoleLookup, UserLookup userLookup, ObjectMapper objectMapper
+            UserRoleLookup userRoleLookup, UserLookup userLookup, ObjectMapper objectMapper, PublicOrganizationProfileService publicProfiles
     ) {
+        this.publicProfiles = publicProfiles;
         this.objectMapper = objectMapper;
         this.organizationRepository = organizationRepository;
         this.userRoleLookup = userRoleLookup;

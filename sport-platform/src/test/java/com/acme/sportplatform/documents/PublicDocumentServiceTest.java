@@ -88,6 +88,6 @@ class PublicDocumentServiceTest {
 
     private EventPublicLookupResult event(UUID id, String slug) {
         return new EventPublicLookupResult(id, UUID.randomUUID(), "Кубок", null, null, null, null,
-                null, "PUBLISHED", slug, List.of());
+                null, "PUBLISHED", slug, List.of(), null, null, null);
     }
 }
