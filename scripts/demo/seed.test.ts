@@ -225,6 +225,24 @@ describe('seed and reset API orchestration', () => {
     expect(api.lists.has('/events')).toBe(false);
     expect(api.calls.some(call => call.path.includes('/public/events/'))).toBe(false);
   });
+  it('creates missing service accounts before their first login', async () => {
+    const api = new FakeApi();
+    await seed(api, { ...options, skipImport: true, demoEvents: 'A' }, quiet);
+    for (const account of accounts) {
+      const creation = api.calls.findIndex(c => c.method === 'POST' && c.path === '/users' && (c.body as Row).email === account.email);
+      const firstLogin = api.calls.findIndex(c => c.path === '/auth/login' && (c.body as Row).email === account.email);
+      expect(creation).toBeGreaterThanOrEqual(0);
+      expect(firstLogin).toBeGreaterThan(creation);
+    }
+  });
+  it('refuses an existing service account password mismatch without attempting creation', async () => {
+    const api = new FakeApi();
+    api.users.set('org@flounder.demo', { id: 'org', email: 'org@flounder.demo', roles: ['organizer'] });
+    api.wrongPasswordEmail = 'org@flounder.demo';
+    await expect(seed(api, options, quiet)).rejects.toThrow('ORG_PASSWORD');
+    expect(api.calls.filter(c => c.method === 'POST' && c.path === '/users')).toEqual([]);
+    expect(api.lists.get('/events')).toBeUndefined();
+  });
   it('uses a separate configured owner while the original owner is an administrator', async () => {
     const api = new FakeApi(); api.users.set('sergeymcdz@yandex.ru', { id: 'real-admin', email: 'sergeymcdz@yandex.ru', roles: ['platform_admin'] });
     await seed(api, { ...options, demoEvents: 'C', ownerEmail: 'owner@example.com' }, quiet);

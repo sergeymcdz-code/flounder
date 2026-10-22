@@ -1,5 +1,7 @@
 # Демо SportGate: три соревнования S02
 
+Календарь S10 на 25 недель (−12…+12), еженедельное обновление и отдельный сброс: [инструкция](../../docs/qa/demo-calendar.md).
+
 Требуется выделенная демо-БД с миграциями main, backend API, Node ≥22. Миграций S02 нет. Секреты задаются окружением или `scripts/demo/.env` (см. `.env.example`, в Git не добавлять).
 
 ```bash
@@ -36,10 +38,10 @@ with open('/tmp/s02-legacy-event.json') as source:
     event = json.load(source)
 assert event['title'] == 'Открытый кубок Самары по плаванию (демо)'
 assert event['publicSlug'] == 'otkrytyy-kubok-samary-po-plavaniyu-demo'
-print(json.dumps([{'id': event['id'], 'title': event['title'], 'slug': event['publicSlug']}], ensure_ascii=False))
+print(json.dumps([{'id': event['id'], 'title': event['title'], 'slug': event['publicSlug'], 'venue': 'Дворец спорта, 25 м, 8 дорожек'}], ensure_ascii=False))
 PYJSON
 cat /tmp/s02-legacy-targets.json
-# Verify the UUID/title/slug JSON before stopping the API.
+# Verify the UUID/title/slug/venue JSON before stopping the API.
 LEGACY_DEMO_TARGETS="$(cat /tmp/s02-legacy-targets.json)"
 docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
 docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform \
@@ -49,7 +51,7 @@ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
 curl -fsS https://sportgate.pro/actuator/health
 ```
 
-Формат `demo_targets`: `[{"id":"UUID из API","title":"Открытый кубок Самары по плаванию (демо)","slug":"otkrytyy-kubok-samary-po-plavaniyu-demo"}]`. SQL повторно сверяет эти значения и демо-организацию/площадку; при несовпадении откатывает всю транзакцию. Если psql завершился ошибкой, сохранить вывод и проверить откат до продолжения; API запустить обратно и проверить health. До удаления перенастроить keyword-монитор Uptime Kuma со старого slug на B либо согласовать окно обслуживания.
+Формат `demo_targets`: `[{"id":"UUID из API","title":"Открытый кубок Самары по плаванию (демо)","slug":"otkrytyy-kubok-samary-po-plavaniyu-demo","venue":"Дворец спорта, 25 м, 8 дорожек"}]`. SQL повторно сверяет эти значения и демо-организацию/площадку; при несовпадении откатывает всю транзакцию. Если psql завершился ошибкой, сохранить вывод и проверить откат до продолжения; API запустить обратно и проверить health. До удаления перенастроить keyword-монитор Uptime Kuma со старого slug на B либо согласовать окно обслуживания.
 
 DEMO_DATE — день показа, формат YYYY-MM-DD, любой день недели; по умолчанию 2026-10-19. DEMO_EVENTS — непустой список A/B/C без повторов, по умолчанию все три. Даты не зависят от текущего времени: начало события/сессии 1 — 10:00 Europe/Samara, сессии 2 — 15:00; регистрация открывается за 30 дней до демо, закрывается A за 9 дней, B за 1 день, C через 4 дня в 18:00 Самары. Запуск C после его окна регистрации завершится ошибкой, даты автоматически не подменяются.
 

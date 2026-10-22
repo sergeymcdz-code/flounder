@@ -11,11 +11,13 @@ export interface Api {
   request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T>;
 }
 export class HttpApi implements Api {
-  private readonly deadline = Date.now() + 600_000;
-  constructor(private readonly baseUrl: string) {}
+  private readonly deadline: number;
+  constructor(private readonly baseUrl: string, private readonly budgetMs = 600_000) {
+    this.deadline = Date.now() + budgetMs;
+  }
   async request<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     const remaining = this.deadline - Date.now();
-    if (remaining <= 0) throw new Error('Превышен бюджет 600 секунд. Повторите запуск: созданные данные будут найдены.');
+    if (remaining <= 0) throw new Error(`Превышен бюджет ${this.budgetMs / 1000} секунд. Повторите запуск: созданные данные будут найдены.`);
     const multipart = body instanceof FormData;
     let response: Response;
     try {
