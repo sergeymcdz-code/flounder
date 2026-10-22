@@ -14,10 +14,32 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.*;
 public class DocumentSummaryService {
     private final ParticipantDocumentRepository documents;
     private final EventLookup events;
-    public DocumentSummaryService(ParticipantDocumentRepository documents, EventLookup events) {
+    private final RegistrationRepository registrationRepository;
+    private final com.acme.sportplatform.identity.ProfileLookup profiles;
+    public DocumentSummaryService(ParticipantDocumentRepository documents, EventLookup events,
+            RegistrationRepository registrationRepository, com.acme.sportplatform.identity.ProfileLookup profiles) {
         this.documents = documents; this.events = events;
+        this.registrationRepository = registrationRepository; this.profiles = profiles;
+    }
+    public List<RegistrationResponse> enrichForManager(List<RegistrationResponse> registrations) {
+        if (registrations.isEmpty()) return registrations;
+        var owners = new HashMap<UUID, UUID>();
+        profiles.findByIdIn(registrations.stream().map(RegistrationResponse::participantProfileId).distinct().toList())
+                .forEach(p -> { if (p.userId() != null) owners.put(p.id(), p.userId()); });
+        var consent = new HashSet<Scope>();
+        registrationRepository.findByEventIdInAndSource(
+                registrations.stream().map(RegistrationResponse::eventId).distinct().toList(), "FORM")
+                .forEach(r -> {
+                    UUID owner = owners.get(r.getParticipantProfileId());
+                    if (owner != null && owner.equals(r.getParticipantUserId()))
+                        consent.add(new Scope(r.getEventId(), r.getParticipantProfileId()));
+                });
+        return enrich(registrations, consent);
     }
     public List<RegistrationResponse> enrich(List<RegistrationResponse> registrations) {
+        return enrich(registrations, null);
+    }
+    private List<RegistrationResponse> enrich(List<RegistrationResponse> registrations, Set<Scope> consent) {
         if (registrations.isEmpty()) return registrations;
         var profileIds = registrations.stream().map(RegistrationResponse::participantProfileId).distinct().toList();
         var byProfile = documents.findForProfiles(profileIds).stream().collect(
@@ -27,6 +49,8 @@ public class DocumentSummaryService {
             var selected = new HashMap<String, ParticipantDocumentEntity>();
             for (var d : byProfile.getOrDefault(r.participantProfileId(), List.of())) {
                 if (d.getEventId() != null && !d.getEventId().equals(r.eventId())) continue;
+                if (d.getEventId() == null && consent != null
+                        && !consent.contains(new Scope(r.eventId(), r.participantProfileId()))) continue;
                 // Event-specific overrides general; within one scope the latest upload wins.
                 var current = selected.get(d.getType());
                 if (current == null || current.getEventId() == null && d.getEventId() != null)
@@ -49,4 +73,5 @@ public class DocumentSummaryService {
             return r.withDocuments(statuses, List.copyOf(warnings));
         }).toList();
     }
+    private record Scope(UUID eventId, UUID profileId) {}
 }

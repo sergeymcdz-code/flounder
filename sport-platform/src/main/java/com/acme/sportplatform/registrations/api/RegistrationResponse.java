@@ -9,6 +9,7 @@ public record RegistrationResponse(
         UUID id,
         UUID eventId,
         UUID eventDisciplineId,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
         UUID participantUserId,
         UUID participantProfileId,
         String status,
