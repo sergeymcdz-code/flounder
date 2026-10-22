@@ -14,7 +14,7 @@
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		{$CSP_HEADER:Content-Security-Policy-Report-Only} "default-src 'self'; script-src 'self' 'sha256-CNlfFpeXlBuwSDws1N5u1tyWJGrhHC8D+lKKuF91hKQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.sentry.io; frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+		{$CSP_HEADER:Content-Security-Policy-Report-Only} "default-src 'self'; script-src 'self' 'sha256-lDmxjkFXhdDFUn+BrXnZxFMObxLYznCZZRT+6TnKAd4='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.sentry.io; frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
 		-Server
 	}
 }
