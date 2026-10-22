@@ -47,7 +47,7 @@ GET	/api/v1/payments/review/registrations/{registrationId}	manage	true	200
 POST	/api/v1/payments/{paymentId}/confirm	manage	true	200		
 GET	/api/v1/registrations/{registrationId}/payments	participant	false	200		
 POST	/api/v1/registrations/{registrationId}/payments	participant	false	409		
-POST	/api/v1/payments/webhooks/yookassa	public	false	400		{}
+POST	/api/v1/payments/webhooks/yookassa	public	false	404		{}
 GET	/api/v1/public/events/{slug}	public	false	200		
 GET	/api/v1/public/events/{slug}/start-list	public	false	200		
 GET	/api/v1/public/events/{slug}/schedule	public	false	200		
@@ -113,8 +113,8 @@ GET	/api/v1/events/{eventId}/documents/start-list.pdf	manage	true	200
 GET	/api/v1/events/{eventId}/documents/results.pdf	manage	true	200
 GET	/api/v1/public/events/{slug}/start-list.pdf	public	false	200
 GET	/api/v1/public/events/{slug}/results.pdf	public	false	200
-POST	/api/v1/events/{eventId}/schedule/shift	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
-POST	/api/v1/events/{eventId}/schedule/shift/preview	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
+POST	/api/v1/events/{eventId}/schedule/shift	manage	true	200	shiftable	{"fromUnitId":"$unit","deltaSec":1200}
+POST	/api/v1/events/{eventId}/schedule/shift/preview	manage	true	200	shiftable	{"fromUnitId":"$unit","deltaSec":1200}
 POST	/api/v1/profiles/{profileId}/documents	documents	true	201	document
 GET	/api/v1/profiles/{profileId}/documents	documents	true	200	document
 DELETE	/api/v1/profiles/{profileId}/documents/{id}	participant	false	204	document

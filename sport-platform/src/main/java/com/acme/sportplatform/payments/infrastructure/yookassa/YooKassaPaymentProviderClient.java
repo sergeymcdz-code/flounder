@@ -1,11 +1,16 @@
 package com.acme.sportplatform.payments.infrastructure.yookassa;
 
 import java.math.RoundingMode;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -33,11 +38,21 @@ public class YooKassaPaymentProviderClient
     private final YooKassaProperties properties;
     private final RestClient restClient;
 
-    public YooKassaPaymentProviderClient(
-            YooKassaProperties properties
-    ) {
+    @Autowired
+    public YooKassaPaymentProviderClient(YooKassaProperties properties) {
+        this(properties, defaultBuilder());
+    }
+
+    private static RestClient.Builder defaultBuilder() {
+        var requestFactory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+        requestFactory.setReadTimeout(Duration.ofSeconds(5));
+        return RestClient.builder().requestFactory(requestFactory);
+    }
+
+    YooKassaPaymentProviderClient(YooKassaProperties properties, RestClient.Builder builder) {
         this.properties = properties;
-        this.restClient = RestClient.builder()
+        this.restClient = builder
                 .baseUrl(properties.getBaseUrl())
                 .defaultHeaders(headers -> {
                     headers.setBasicAuth(
@@ -99,7 +114,7 @@ public class YooKassaPaymentProviderClient
         } catch (RestClientException exception) {
             throw new BusinessException(
                     "payments.provider_unavailable",
-                    "Payment provider is temporarily unavailable"
+                    "Платёжный сервис временно недоступен"
             );
         }
 
@@ -112,6 +127,17 @@ public class YooKassaPaymentProviderClient
                 response.expiresAt(),
                 buildProviderMetadata(response.status())
         );
+    }
+
+    public YooKassaPaymentResponse getPayment(String providerPaymentId) {
+        try {
+            return restClient.get().uri("/payments/{id}", providerPaymentId)
+                    .retrieve().body(YooKassaPaymentResponse.class);
+        } catch (HttpClientErrorException.NotFound exception) {
+            return null;
+        } catch (RestClientException exception) {
+            throw new BusinessException("payments.provider_unavailable", "Платёжный сервис временно недоступен");
+        }
     }
 
     private void validateConfiguration() {
@@ -134,7 +160,7 @@ public class YooKassaPaymentProviderClient
                 || isBlank(response.status())) {
             throw new BusinessException(
                     "payments.provider_invalid_response",
-                    "Payment provider returned an invalid response"
+                    "Платёжный сервис вернул некорректный ответ"
             );
         }
 
@@ -144,7 +170,7 @@ public class YooKassaPaymentProviderClient
                 )) {
             throw new BusinessException(
                     "payments.provider_invalid_response",
-                    "Payment provider did not return a confirmation URL"
+                    "Платёжный сервис не вернул ссылку для подтверждения"
             );
         }
     }
@@ -184,7 +210,7 @@ public class YooKassaPaymentProviderClient
 
             default -> throw new BusinessException(
                     "payments.provider_invalid_response",
-                    "Payment provider returned an unsupported status: "
+                    "Платёжный сервис вернул неподдерживаемый статус: "
                             + providerStatus
             );
         };

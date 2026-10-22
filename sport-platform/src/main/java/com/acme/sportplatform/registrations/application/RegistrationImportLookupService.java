@@ -1,6 +1,6 @@
 package com.acme.sportplatform.registrations.application;
 
-import com.acme.sportplatform.identity.ProfileLookupResult;
+import com.acme.sportplatform.identity.ProfileData;
 import com.acme.sportplatform.registrations.RegistrationImportLookup;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntity;
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
@@ -28,10 +28,10 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public boolean upsert(UUID eventId, UUID disciplineId, ProfileLookupResult profile, Long seedTimeMs, BigDecimal fee) {
+    public boolean upsert(UUID eventId, UUID disciplineId, UUID profileId, ProfileData row, Long seedTimeMs, BigDecimal fee) {
         capacity.lock(eventId);
         RegistrationEntity entity = registrations.findByEventDisciplineIdAndParticipantProfileIdAndStatusNot(
-                disciplineId, profile.id(), "WITHDRAWN").orElse(null);
+                disciplineId, profileId, "WITHDRAWN").orElse(null);
         boolean created = entity == null;
         OffsetDateTime now = OffsetDateTime.now();
         if (created) {
@@ -39,24 +39,22 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
             entity.setId(UUID.randomUUID());
             entity.setEventId(eventId);
             entity.setEventDisciplineId(disciplineId);
-            entity.setParticipantProfileId(profile.id());
-            entity.setParticipantUserId(profile.userId());
+            entity.setParticipantProfileId(profileId);
             entity.setStatus("CONFIRMED");
             entity.setSource("IMPORT");
             entity.setPaymentStatus(fee != null && fee.signum() > 0 ? "PENDING" : "NOT_REQUIRED");
             entity.setRegistrationMeta("{}");
             entity.setSubmittedAt(now);
             entity.setCreatedAt(now);
+        }
+        if ("IMPORT".equals(entity.getSource())) {
             ObjectNode snapshot = mapper.createObjectNode();
-            snapshot.put("firstName", profile.firstName());
-            snapshot.put("lastName", profile.lastName());
-            snapshot.put("middleName", profile.middleName());
-            snapshot.put("birthDate", profile.birthDate().toString());
-            snapshot.put("gender", profile.gender());
-            snapshot.put("city", profile.city());
-            snapshot.put("countryCode", profile.countryCode());
-            snapshot.put("clubName", profile.clubName());
-            snapshot.set("sportMeta", mapper.valueToTree(profile.sportMeta()));
+            snapshot.put("firstName", row.firstName());
+            snapshot.put("lastName", row.lastName());
+            snapshot.put("middleName", row.middleName());
+            snapshot.put("birthDate", row.birthDate().toString());
+            snapshot.put("gender", row.gender());
+            snapshot.put("clubName", row.club());
             entity.setParticipantSnapshot(snapshot.toString());
         }
         if (seedTimeMs != null) entity.setSeedTimeMs(seedTimeMs);

@@ -66,7 +66,9 @@ public class ParticipantDocumentService {
             assertManager(profileId, eventId, principal);
         }
         return documents.findByProfileIdOrderByUploadedAtDesc(profileId).stream()
-                .filter(d -> owner && eventId == null || d.getEventId() == null || d.getEventId().equals(eventId))
+                .filter(d -> owner
+                        ? eventId == null || d.getEventId() == null || d.getEventId().equals(eventId)
+                        : canManagerSeeDocument(d, eventId, principal))
                 .map(this::response).toList();
     }
     public ParticipantDocumentResponse review(UUID profileId, UUID id, UUID eventId,
@@ -75,6 +77,7 @@ public class ParticipantDocumentService {
         assertManager(profileId, eventId, principal);
         var d = documents.lockById(id).orElseThrow(this::notFound);
         if (!d.getProfileId().equals(profileId) || d.getEventId() != null && !d.getEventId().equals(eventId)) throw notFound();
+        if (!canManagerSeeDocument(d, eventId, principal)) throw denied();
         if (!DocumentStatus.PENDING.name().equals(d.getStatus()))
             throw new BusinessException("documents.not_pending", "Документ уже проверен");
         if (request.status() != DocumentStatus.ACCEPTED && request.status() != DocumentStatus.REJECTED)
@@ -127,7 +130,16 @@ public class ParticipantDocumentService {
         if (owns(d.getProfileId(), principal)) return;
         UUID scope = d.getEventId() == null ? eventId : d.getEventId();
         if (scope == null || eventId != null && !scope.equals(eventId)) throw notFound();
-        assertManager(d.getProfileId(), scope, principal);
+        if (!canManagerSeeDocument(d, scope, principal)) throw denied();
+    }
+    private boolean canManagerSeeDocument(ParticipantDocumentEntity doc, UUID eventId,
+            AuthenticatedUserPrincipal principal) {
+        if (eventId == null || doc.getEventId() != null && !doc.getEventId().equals(eventId)) return false;
+        assertManager(doc.getProfileId(), eventId, principal);
+        if (doc.getEventId() != null) return true;
+        UUID ownerId = profiles.getById(doc.getProfileId()).userId();
+        return ownerId != null && registrations.existsByEventIdAndParticipantProfileIdAndSourceAndParticipantUserId(
+                eventId, doc.getProfileId(), "FORM", ownerId);
     }
     private boolean owns(UUID profileId, AuthenticatedUserPrincipal p) {
         return p != null && p.getUserId().equals(profiles.getById(profileId).userId());
