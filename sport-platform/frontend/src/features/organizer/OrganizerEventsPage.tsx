@@ -21,7 +21,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function OrganizerEventsPage() {
-  const { session, isOrganizer, isPlatformAdmin } = useAuth()
+  const { session, isOrganizer, currentOrgId, memberships = [], isPlatformAdmin } = useAuth()
+  const canCreate = isPlatformAdmin || memberships.some(m => m.organizationId === currentOrgId && ['owner', 'admin', 'organizer'].includes(m.memberRole))
   const [search] = useSearchParams()
   const accessToken = session?.accessToken
 
@@ -44,7 +45,7 @@ export function OrganizerEventsPage() {
         setErrorMessage(null)
 
         try {
-          const data = await getMyEvents(authenticatedAccessToken, isOrganizer || isPlatformAdmin)
+          const data = await getMyEvents(authenticatedAccessToken, isOrganizer || isPlatformAdmin, isPlatformAdmin ? undefined : currentOrgId)
 
           if (isMounted) {
             setEvents(data)
@@ -65,7 +66,7 @@ export function OrganizerEventsPage() {
       return () => {
         isMounted = false
       }
-    }, [accessToken, isOrganizer, isPlatformAdmin])
+    }, [accessToken, currentOrgId, isOrganizer, isPlatformAdmin])
 
   const activeEvents = events.filter(event => event.status !== 'ARCHIVED')
   if (!isLoading && !errorMessage && activeEvents.length === 1 && search.get('all') !== '1') return <Navigate replace to={`/organizer/events/${activeEvents[0].id}`} />
@@ -78,7 +79,7 @@ export function OrganizerEventsPage() {
           <h1 className={styles.title}>Мои соревнования</h1>
         </div>
 
-        {(isOrganizer || isPlatformAdmin) && <NavLink className="fl-btn fl-btn-primary" to="/organizer/events/new">
+        {canCreate && <NavLink className="fl-btn fl-btn-primary" to="/organizer/events/new">
           Создать соревнование
         </NavLink>}
       </div>

@@ -112,6 +112,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
                 "eventDisciplineId", "discipline", "unitId", "unit", "registrationId", "registration",
                 "paymentId", "payment", "userId", "target", "slug", "slug");
         for (var p : parameters.entrySet()) path = path.replace("{" + p.getKey() + "}", ids.get(p.getValue()));
+        path = path.replace("{invitationId}", ids.getOrDefault("invitation", "unused")).replace("{token}", "qa04-invitation-token");
         path = path.replace("{profileId}", ids.get("profile"));
         path = path.replace("{roleCode}", "participant");
         MockHttpServletRequestBuilder request;
@@ -161,6 +162,12 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
                     UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-reset-token"));
             case "refresh-token" -> jdbc.update("insert into refresh_tokens(id,user_id,token_hash,expires_at) values (?,?,?,now()+interval '30 days')",
                     UUID.randomUUID(), id("participant"), com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-refresh-token"));
+            case "invitation" -> {
+                var invitation = UUID.randomUUID();
+                ids.put("invitation", invitation.toString());
+                jdbc.update("insert into organization_invitations(id,organization_id,email,member_role,token_hash,invited_by,expires_at) values (?,?,?,'operator',?,?,now()+interval '7 days')",
+                        invitation, id("org"), "invitee@example.com", com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash("qa04-invitation-token"), id("organizer"));
+            }
             case "org-member" -> member("org", "target", "member");
             case "event-draft" -> jdbc.update("update events set status='DRAFT' where id=?", id("event"));
             case "event-published" -> jdbc.update("update events set status='PUBLISHED' where id=?", id("event"));

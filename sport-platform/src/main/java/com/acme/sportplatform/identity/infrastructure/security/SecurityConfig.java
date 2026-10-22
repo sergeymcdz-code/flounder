@@ -45,6 +45,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/v1/users/*/roles").hasRole("PLATFORM_ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/users/*/roles/*").hasRole("PLATFORM_ADMIN")
                     .requestMatchers(HttpMethod.POST,"/api/v1/payments/webhooks/yookassa").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/invitations/*").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/public/**").permitAll()
                     .anyRequest().authenticated()
             )

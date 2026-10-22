@@ -64,6 +64,19 @@ public class NotificationEventListener {
                         .filter(r -> e.disciplineId().equals(r.eventDisciplineId())).toList(),
                 NotificationTemplate.results_published, e.competitionUnitId()));
     }
+    @EventListener
+    public void invitation(com.acme.sportplatform.organizations.OrganizationInvitationCreatedEvent e) {
+        String role = switch (e.memberRole()) {
+            case "admin" -> "Администратор";
+            case "organizer" -> "Организатор";
+            case "operator" -> "Секретарь";
+            case "judge" -> "Судья";
+            default -> "Наблюдатель";
+        };
+        outbox.enqueue(null, e.email(), "organization_invitation", Map.of("inviter", e.inviterName(),
+                "organization", e.organizationName(), "role", role, "link", publicUrl + "/invitations/" + e.token()),
+                "organization_invitation:" + e.invitationId(), clock.instant());
+    }
     private record ScheduledRegistration(UUID disciplineId, Map<String, Object> change) {}
 
     @EventListener

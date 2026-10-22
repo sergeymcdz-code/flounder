@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import com.acme.sportplatform.identity.infrastructure.persistence.entity.UserEntity;
-import com.acme.sportplatform.identity.infrastructure.persistence.projection.UserAuthenticationRow;
 import com.acme.sportplatform.identity.infrastructure.persistence.projection.UserSearchRow;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
@@ -20,14 +19,6 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     Optional<UserEntity> findByEmail(String email);
     @Query("select u from UserEntity u where lower(u.email) = lower(:email)")
     Optional<UserEntity> findByEmailIgnoreCase(String email);
-
-    @Query("""
-            select u as user, r.code as roleCode from UserEntity u
-            left join UserRoleAssignmentEntity a on a.userId = u.id and a.organizationId is null and a.eventId is null
-            left join RoleEntity r on r.id = a.roleId
-            where u.id = :userId
-            """)
-    List<UserAuthenticationRow> findAuthenticationById(UUID userId);
 
     @Query(value = """
             select u.id, u.email, u.status, u.created_at as "createdAt", count(*) over() as total

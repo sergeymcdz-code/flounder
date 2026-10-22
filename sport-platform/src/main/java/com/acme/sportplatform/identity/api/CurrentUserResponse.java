@@ -7,6 +7,8 @@ public record CurrentUserResponse(
         UUID id,
         String email,
         String status,
-        List<String> roles
+        List<String> roles,
+        List<com.acme.sportplatform.identity.UserMembershipLookup.Membership> memberships,
+        List<String> effectiveRoles
 ) {
 }

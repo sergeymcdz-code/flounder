@@ -274,7 +274,9 @@ class EventIntegrationTest
         mockMvc.perform(post("/api/v1/organizations/{id}/members", organizationId).with(authentication(organizer))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"userId\":\"" + member + "\",\"memberRole\":\"operator\"}"))
                 .andExpect(status().isCreated());
-        AuthenticatedUserPrincipal memberPrincipal = () -> member;
+        AuthenticatedUserPrincipal memberPrincipal = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
+                member, member + "@example.com", "", "active", List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "operator")));
         var operator = new UsernamePasswordAuthenticationToken(memberPrincipal, null,
                 List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")));
         mockMvc.perform(get("/api/v1/registrations").param("eventId", eventId).with(authentication(operator)))
@@ -353,7 +355,8 @@ class EventIntegrationTest
                 .content("{\"userId\":\"" + judgeId + "\",\"memberRole\":\"judge\"}"))
                 .andExpect(status().isCreated());
         var principal = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
-                judgeId, "judge@example.com", "", "active", List.of(new SimpleGrantedAuthority("ROLE_JUDGE")));
+                judgeId, "judge@example.com", "", "active", List.of(new SimpleGrantedAuthority("ROLE_JUDGE")),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "judge")));
         var judge = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         mockMvc.perform(get("/api/v1/events/{id}", eventId).with(authentication(judge)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(eventId));

@@ -17,7 +17,7 @@ import com.acme.sportplatform.common.web.RestAuthenticationEntryPoint;
 import com.acme.sportplatform.common.web.UserBlockedException;
 import com.acme.sportplatform.identity.domain.ExpiredTokenException;
 import com.acme.sportplatform.identity.domain.InvalidTokenException;
-import com.acme.sportplatform.identity.infrastructure.persistence.repository.UserRepository;
+import com.acme.sportplatform.identity.UserMembershipLookup;
 
 import io.jsonwebtoken.Claims;
 
@@ -30,11 +30,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserRepository users;
+    private final UserMembershipLookup users;
     private final RestAuthenticationEntryPoint entryPoint;
 
     public JwtAuthenticationFilter(JwtService jwtService,
-            UserRepository users,
+            UserMembershipLookup users,
             RestAuthenticationEntryPoint entryPoint) {
         this.users = users; this.entryPoint = entryPoint;
         this.jwtService = jwtService;
@@ -87,29 +87,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new InvalidTokenException();
             }
 
-            // One fresh database read supplies both status and global roles, without a cache.
-            var snapshot = users.findAuthenticationById(userId);
-            var user = snapshot.isEmpty() ? null : snapshot.getFirst().getUser();
+            // A single fresh SQL supplies status, global assignments and all memberships.
+            var snapshot = users.authenticationOf(userId);
+            var user = snapshot.isEmpty() ? null : snapshot.getFirst();
             if (user == null) throw new InsufficientAuthenticationException("Пользователь не найден");
             if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) throw new UserBlockedException();
-            // Global authority changes take effect immediately; scoped assignments are not global privileges.
-            List<GrantedAuthority> authorities = snapshot.stream().map(row -> row.getRoleCode()).filter(java.util.Objects::nonNull)
-                    .distinct()
-                    .map(role -> role.startsWith("ROLE_")
-                            ? role.substring("ROLE_".length())
-                            : role)
-                    .map(String::toUpperCase)
-                    .map(role -> (GrantedAuthority)
-                            new SimpleGrantedAuthority("ROLE_" + role))
-                    .toList();
-
+            var memberships = snapshot.stream().filter(row -> row.getOrganizationId() != null)
+                    .map(row -> new UserMembershipLookup.Membership(row.getOrganizationId(), row.getOrganizationName(), row.getMemberRole()))
+                    .distinct().toList();
+            var roles = java.util.stream.Stream.concat(
+                    snapshot.stream().map(UserMembershipLookup.AuthenticationRow::getRoleCode),
+                    memberships.stream().map(m -> UserMembershipLookup.effectiveRole(m.memberRole())));
+            List<GrantedAuthority> authorities = roles.filter(java.util.Objects::nonNull)
+                    .map(role -> role.startsWith("ROLE_") ? role.substring(5) : role)
+                    .map(role -> role.toUpperCase(java.util.Locale.ROOT)).distinct()
+                    .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role)).toList();
             PlatformUserPrincipal principal = new PlatformUserPrincipal(
-                    userId,
-                    user.getEmail(),
-                    "",
-                    user.getStatus(),
-                    authorities
-            );
+                    userId, user.getEmail(), "", user.getStatus(), authorities, memberships);
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
