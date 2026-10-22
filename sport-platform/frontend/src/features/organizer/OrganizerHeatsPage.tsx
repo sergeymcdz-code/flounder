@@ -1,3 +1,4 @@
+import { HeatCardPrintOptions, HeatPrintControls } from './PrintFormsControls'
 import { plural } from '../../utils/plural'
 import { ActionBar } from '../../components/ui/ActionBar'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -126,6 +127,7 @@ export function OrganizerHeatsPage() {
                 : 'Загрузка отставания…'}
         </p>}
         <ActionBar>
+          <HeatPrintControls />
           <details><summary className="fl-btn fl-btn-primary">Сформировать заплывы ▾</summary>
             <button className="fl-btn fl-btn-secondary" disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
             {event.disciplines.map(d => <button className="fl-btn fl-btn-secondary" key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
@@ -138,6 +140,7 @@ export function OrganizerHeatsPage() {
           <details><summary className="fl-btn fl-btn-secondary">Печать ▾</summary>
             {heats.length > 0 && heats.every(heat => isHeatPublished(heat.status)) ? <a className="fl-btn fl-btn-secondary" href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
             <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
+            <HeatCardPrintOptions />
           </details>
         </ActionBar>
         {last && (

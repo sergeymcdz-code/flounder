@@ -72,7 +72,7 @@ public class ResultsProtocolLookupService implements ResultsProtocolLookup {
                                     snapshotClub(registration, athlete), e.getSeedTimeMs() == null ? registration.seedTimeMs() : e.getSeedTimeMs(),
                                     "WITHDRAWN".equals(e.getEntryStatus()) || "WITHDRAWN".equals(registration.status()),
                                     result == null ? null : new Outcome(result.getTimeMs(), result.getStatus(),
-                                            result.getRawValue(), result.getFinalPlace(), result.getPlaceInAgeGroup()));
+                                            result.getRawValue(), result.getFinalPlace(), result.getPlaceInAgeGroup()), athlete.id());
                         }).toList())).toList();
     }
 }

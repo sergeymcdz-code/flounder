@@ -16,6 +16,8 @@ import { ResultsPage } from '../features/public/ResultsPage'
 import { PublicRegistrationPage } from '../features/public/RegistrationPage'
 import { HeatPage } from '../features/public/HeatPage'
 
+const OrganizerDiplomaPage = lazy(() => import('../features/organizer/OrganizerDiplomaPage').then(module => ({ default: module.OrganizerDiplomaPage })))
+
 const RegistrationReviewPage = lazy(() =>
   import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })),
 )
@@ -207,6 +209,7 @@ export default function App() {
               <Route path="entries" element={<OrganizerEntriesPage />} />
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="diploma" element={<OrganizerDiplomaPage />} />
               <Route path="standings" element={<OrganizerStandingsPage />} />
               <Route path="notifications" element={<OrganizerNotificationsPage />} />
               <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>

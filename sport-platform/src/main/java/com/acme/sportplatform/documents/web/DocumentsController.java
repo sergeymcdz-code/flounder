@@ -61,7 +61,7 @@ public class DocumentsController {
         return response(published.standings(slug));
     }
 
-    private ResponseEntity<byte[]> response(PdfDocument pdf) {
+    static ResponseEntity<byte[]> response(PdfDocument pdf) {
         // Server caches public generation for 60s; clients must recheck visibility on each download.
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()

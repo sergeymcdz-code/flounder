@@ -153,3 +153,11 @@ GET	/api/v1/events/{eventId}/standings	manage	true	200
 GET	/api/v1/events/{eventId}/documents/standings.pdf	manage	true	200
 GET	/api/v1/public/events/{slug}/standings	public	false	404
 GET	/api/v1/public/events/{slug}/standings.pdf	public	false	404
+POST	/api/v1/events/{eventId}/bib-numbers/assign	manage	true	200		{"mode":"BY_CLUB_THEN_NAME","startFrom":1}
+GET	/api/v1/events/{eventId}/bib-numbers	manage-read	true	200
+PATCH	/api/v1/events/{eventId}/bib-numbers/{profileId}	manage	true	200	bib-assigned	{"bibNumber":77}
+GET	/api/v1/events/{eventId}/documents/heat-cards.pdf	manage	true	200
+GET	/api/v1/events/{eventId}/documents/awards.pdf	manage	true	200
+GET	/api/v1/events/{eventId}/documents/diplomas.pdf	manage	true	200	diploma-enabled
+POST	/api/v1/events/{eventId}/documents/diploma-background	manage	true	400
+GET	/api/v1/public/events/{slug}/awards.pdf	public	false	200

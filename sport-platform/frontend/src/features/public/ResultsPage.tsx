@@ -17,6 +17,10 @@ export function ResultsPage() {
     [event.publicSlug],
   )
   const state = usePublicData(load, RESULTS_POLL_MS)
+  const hasResults = state.data?.disciplines.some(discipline =>
+    discipline.overall.length > 0 ||
+    discipline.byAgeGroup.some(group => group.rows.length > 0),
+  ) ?? false
   const showGroups = grouped ?? Boolean(state.data?.disciplines[0]?.byAgeGroup?.length)
   return (
     <>
@@ -29,7 +33,9 @@ export function ResultsPage() {
           path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/results.pdf`}
           filename="Итоговый-протокол.pdf"
           disabled={!state.data?.disciplines.length}
-        /></div>
+        />
+        {hasResults && <PdfDownloadButton path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/awards.pdf`} filename="Лист-награждения.pdf" label="Лист награждения (PDF)" />}
+        </div>
       </div>
       <div
         className={`${styles.segment} ${styles.noPrint}`}

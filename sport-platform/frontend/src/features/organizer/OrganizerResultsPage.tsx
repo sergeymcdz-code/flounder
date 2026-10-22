@@ -1,3 +1,4 @@
+import { AwardsPrintControls } from './PrintFormsControls'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { Link } from 'react-router'
 import { JudgingHeatList } from '../results/JudgingHeatList'
@@ -49,6 +50,10 @@ export function OrganizerResultsPage() {
         />
         </>}
       </div>
+      {canManage && <div className={styles.stack}>
+        <span className={styles.badge}>Неофициальные результаты</span>
+        <AwardsPrintControls />
+      </div>}
       <JudgingHeatList eventId={event.id} sessions={sessions} disciplines={event.disciplines} units={heats} timeZone={event.venue?.timezone} />
       {canManage && event.disciplines.map((d, index) => {
         const units = heats.filter((h) => h.eventDisciplineId === d.id)

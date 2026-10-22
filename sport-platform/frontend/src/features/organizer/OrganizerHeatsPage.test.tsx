@@ -36,12 +36,14 @@ const context: EventContext = {
   run: async (action) => { await action(); return true },
 }
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
   vi.clearAllMocks()
   vi.mocked(useOrganizerEvent).mockReturnValue(context)
 })
 
 it('QA05-01: circle seeding is removed from heat actions and kept for the program editor', () => {
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
 })
 
@@ -77,12 +79,61 @@ it('does not publish before confirmation, then shows a toast with a public link'
   expect(await screen.findByRole('link', { name: 'Открыть публичную страницу ↗' })).toHaveAttribute('href', '/e/cup/start-list')
 })
 
+
+it('assigns bibs from the dialog and reports the assigned count', async () => {
+  const body = vi.fn()
+  server.use(http.post('*/api/v1/events/event/bib-numbers/assign', async ({ request }) => {
+    body(await request.json())
+    return HttpResponse.json({ assigned: 12, kept: 3, total: 15 })
+  }))
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  await userEvent.click(screen.getByRole('button', { name: 'Стартовые номера…' }))
+  await userEvent.selectOptions(screen.getByLabelText('Порядок'), 'BY_NAME')
+  const start = screen.getByLabelText('Начать с')
+  await userEvent.clear(start)
+  await userEvent.type(start, '10')
+  await userEvent.click(screen.getByLabelText('Перенумеровать всех'))
+  await userEvent.click(screen.getByRole('button', { name: 'Назначить номера' }))
+  await screen.findByText('Назначено 12, сохранено 3, всего 15')
+  expect(body).toHaveBeenCalledWith({ mode: 'BY_NAME', startFrom: 10, reassign: true })
+})
+
+it('offers both card formats and filters print requests without disabling archived printing', async () => {
+  vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' } })
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  expect(screen.getAllByText('Печать ▾', { selector: 'summary' })).toHaveLength(1)
+  expect(screen.getByRole('button', { name: 'Стартовые номера…' })).toBeDisabled()
+  await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
+  expect(screen.getByRole('button', { name: 'Карточки заплывов (A5)' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' })).toBeEnabled()
+  await userEvent.selectOptions(screen.getByLabelText('Вид'), 'discipline')
+  const requested = vi.fn()
+  server.use(http.get('*/api/v1/events/event/documents/heat-cards.pdf', ({ request }) => {
+    requested(new URL(request.url).searchParams.get('disciplineId'), new URL(request.url).searchParams.get('format'))
+    return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
+  }))
+  await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' }))
+  await waitFor(() => expect(requested).toHaveBeenCalledWith('discipline', 'A4x2'))
+})
+
+it('uses a valid query string for card printing without filters', async () => {
+  const requested = vi.fn()
+  server.use(http.get('*/api/v1/events/event/documents/heat-cards.pdf', ({ request }) => {
+    requested(new URL(request.url).search)
+    return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
+  }))
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
+  await userEvent.click(screen.getByText('Печать ▾', { selector: 'summary' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (A5)' }))
+  await waitFor(() => expect(requested).toHaveBeenCalledWith('?format=A5'))
+})
+
 it('disables schedule shifting for archived events with a read-only explanation', () => {
   vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' }, heats: [{
     id: 'heat', eventDisciplineId: 'discipline', label: 'Заплыв 1', sequenceNumber: 1,
     scheduledAt: '2026-10-19T06:00:00Z', status: 'PUBLISHED', entries: [],
   }] })
-  render(<OrganizerHeatsPage />)
+  render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
   const button = screen.getByRole('button', { name: 'Сдвинуть расписание…' })
   expect(button).toBeDisabled()
   expect(button).toHaveAttribute('title', 'Архивное событие доступно только для чтения')
