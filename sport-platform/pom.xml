@@ -21,7 +21,7 @@
         <spring-modulith.version>1.4.1</spring-modulith.version>
         <openhtmltopdf.version>1.0.10</openhtmltopdf.version>
         <pdfbox.version>2.0.37</pdfbox.version>
-        <testcontainers.version>2.0.2</testcontainers.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
 
     <dependencyManagement>
