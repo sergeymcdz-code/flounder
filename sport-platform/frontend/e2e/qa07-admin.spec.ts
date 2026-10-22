@@ -1,3 +1,4 @@
+import { requiredCredential } from './credentials'
 import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { api, login, password, request, submitDialog, token } from './qa07-support'
@@ -6,7 +7,7 @@ test('M01: admin manages a new user, revokes blocked JWT, creates and approves o
   const email = `qa07-${randomUUID()}@test.example`
   const club = `Клуб QA07 ${randomUUID()}`
   const changedPassword = 'Qa07Changed2026!'
-  await login(page, 'admin@flounder.demo', '/admin/users')
+  await login(page, requiredCredential('ADMIN_EMAIL'), '/admin/users')
   await expect(page.getByRole('heading', { name: 'Пользователи', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Создать пользователя', exact: true }).click()
   const dialog = page.getByRole('dialog')
