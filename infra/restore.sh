@@ -4,32 +4,44 @@ set -Eeuo pipefail
 # shellcheck source=infra/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 log_start
-[[ $# -eq 1 && -r "$1" ]] || { echo 'Usage: restore.sh <backup.dump|backup.sql.gz>'; exit 2; }
+[[ ( $# -eq 1 || $# -eq 2 ) && -r "$1" ]] || {
+  echo 'Использование: restore.sh <backup.dump|backup.sql.gz|backup.dump.age> [файл-ключ-age]'; exit 2;
+}
 FILE="$(realpath "$1")"
 TEST_DB=sport_platform_restore_test
-[[ "$DB" != "$TEST_DB" ]] || { echo '[restore] test database matches source'; exit 2; }
+[[ "$DB" != "$TEST_DB" ]] || { echo '[restore] Тестовая БД совпадает с исходной.'; exit 2; }
 [[ "$USER_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || exit 2
 exec 9>"$BACKUP_DIR/.restore.lock"
-flock -n 9 || { echo '[restore] already running'; exit 1; }
+flock -n 9 || { echo '[restore] Проверка уже выполняется.'; exit 1; }
 created=0
+decrypted=''
 cleanup() {
   local status=$?
   trap - EXIT
+  if [[ -n "$decrypted" ]]; then rm -f "$decrypted"; fi
   if (( created )); then
     docker exec "$CONTAINER" dropdb -U "$USER_NAME" --force "$TEST_DB" || status=1
   fi
   if (( status == 0 )); then
-    alert 'Flounder: restore verification OK; test database removed'
+    alert 'Flounder: проверка восстановления успешна; тестовая БД удалена'
   else
-    alert "Flounder: restore verification FAILED ($status), see backup.log"
+    alert "Flounder: ошибка проверки восстановления ($status), см. backup.log"
   fi
   exit "$status"
 }
 trap cleanup EXIT
+if [[ "$FILE" == *.age ]]; then
+  [[ $# -eq 2 && -r "$2" ]] || { echo '[restore] Укажите читаемый файл ключа age вторым аргументом.'; exit 2; }
+  decrypted="$(mktemp "${TMPDIR:-/tmp}/flounder-restore-XXXXXX.dump")"
+  age --decrypt -i "$2" "$FILE" > "$decrypted"
+  FILE="$decrypted"
+elif [[ $# -eq 2 ]]; then
+  echo '[restore] Файл ключа допустим только для .age.'; exit 2
+fi
 case "$FILE" in
   *.dump) docker exec -i "$CONTAINER" pg_restore --list < "$FILE" >/dev/null ;;
   *.sql.gz) gzip -t "$FILE" ;;
-  *) echo '[restore] unsupported format'; exit 2 ;;
+  *) echo '[restore] Неподдерживаемый формат.'; exit 2 ;;
 esac
 # If the name already exists, fail without touching it; only delete our own DB.
 docker exec "$CONTAINER" createdb -U "$USER_NAME" -T template0 -O "$USER_NAME" "$TEST_DB"

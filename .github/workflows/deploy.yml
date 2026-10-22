@@ -1,23 +1,22 @@
-# Manual deploy of the demo stand: runs infra/deploy.sh on the server over SSH.
-# Required repository secrets (Settings -> Secrets and variables -> Actions):
-#   SSH_HOST  - server IP or hostname
-#   SSH_USER  - linux user that owns /opt/flounder and is in the docker group
-#   SSH_KEY   - private key (OpenSSH format) whose public part is in ~/.ssh/authorized_keys on the server
-# If you prefer not to give GitHub SSH access, skip this workflow and run ./infra/deploy.sh
-# on the server by hand (see docs/runbook-demo.md, section "Обновление").
+# Manual deployment. Configure these secrets in the production environment:
+# SSH_HOST, SSH_USER, SSH_KEY, SSH_HOST_KEY (one trusted public host key, type + base64),
+# SSH_HOST_KEY_FINGERPRINT (SHA256:... obtained via the provider console).
 name: Deploy demo stand
 
 on:
   workflow_dispatch:
     inputs:
       app_dir:
-        description: Repository directory on the server
+        description: Каталог репозитория на сервере (абсолютный путь без пробелов)
         required: true
-        default: /opt/flounder
+        default: /home/deploy/flounder
       branch:
-        description: Branch to deploy
+        description: Ветка для развёртывания
         required: true
         default: main
+
+permissions:
+  contents: read
 
 concurrency:
   group: deploy-demo
@@ -26,20 +25,29 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 30
     steps:
-      - name: Prepare SSH key
+      - name: Подготовить и проверить SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_HOST_KEY: ${{ secrets.SSH_HOST_KEY }}
+          SSH_HOST_KEY_FINGERPRINT: ${{ secrets.SSH_HOST_KEY_FINGERPRINT }}
         run: |
           set -euo pipefail
+          umask 077
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || exit 2
+          [[ -n "$SSH_KEY" && -n "$SSH_HOST_KEY_FINGERPRINT" ]] || exit 2
+          [[ "$SSH_HOST_KEY" != *$'\n'* && "$SSH_HOST_KEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)\ [A-Za-z0-9+/=]+$ ]] || exit 2
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/host_key.pub
+          actual="$(ssh-keygen -lf ~/.ssh/host_key.pub -E sha256 | awk '{print $2}')"
+          [[ "$actual" == "$SSH_HOST_KEY_FINGERPRINT" ]] || { echo 'Отпечаток ключа сервера не совпадает.' >&2; exit 1; }
+          printf '%s %s\n' "$SSH_HOST" "$SSH_HOST_KEY" > ~/.ssh/known_hosts
 
-      - name: Run deploy.sh on the server
+      - name: Запустить deploy.sh на сервере
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
@@ -47,6 +55,17 @@ jobs:
           BRANCH: ${{ inputs.branch }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ServerAliveInterval=30 \
-            "$SSH_USER@$SSH_HOST" \
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || exit 2
+          [[ "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || exit 2
+          [[ "$APP_DIR" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Недопустимый каталог.' >&2; exit 2; }
+          [[ "$BRANCH" =~ ^[a-zA-Z0-9][a-zA-Z0-9_./-]*$ ]] || exit 2
+          git check-ref-format --branch "$BRANCH" >/dev/null
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ServerAliveInterval=30 "$SSH_USER@$SSH_HOST" \
             "cd '$APP_DIR' && DEPLOY_BRANCH='$BRANCH' ./infra/deploy.sh"
+
+      - name: Удалить временные ключи
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/host_key.pub ~/.ssh/known_hosts

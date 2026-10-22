@@ -13,10 +13,10 @@
 - `APP_ADMIN_EMAIL`/`APP_ADMIN_PASSWORD` (QA04 r2, bootstrap второго platform_admin) — опционально; пароль `admin@flounder.demo` этим не меняется, ротация руками через UI.
 - Планировщики: `EventLifecycleScheduler` (раз в минуту, авто-закрытие регистрации по `registrationCloseAt`), outbox-воркер M05. Демо-событие с датой 24.10 закроется 24.10 09:30 Самары — не раньше.
 
-## Шаг 0 — бэкап и ключ (под `deploy`, в `~/flounder`)
+## Шаг 0 — бэкап и ключ (под `<ssh-user>`, в `~/flounder`)
 ```bash
-ssh root@82.97.248.229
-su - deploy
+ssh <ssh-user>@SERVER_IP
+su - <ssh-user>
 cd ~/flounder
 ./infra/backup.sh                                   # свежий дамп до миграций
 KEY="$(openssl rand -base64 32)"; echo "$KEY"       # показать ключ — скопировать в менеджер паролей

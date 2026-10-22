@@ -95,7 +95,7 @@
       "female_first_names": 48,
       "surname_bases": 120
     },
-    "defaultOwnerEmail": "sergeymcdzkz@gmail.com",
+    "defaultOwnerEmail": "<user-email>",
     "adminConflictRejectedBeforeEvents": true,
     "adminProfileUnchanged": true,
     "repeatEventsUnchanged": true,

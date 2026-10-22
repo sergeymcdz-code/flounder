@@ -44,7 +44,8 @@ fresh_dir="$(mktemp -d "$BACKUP_DIR/pre-restore-$(TZ=Europe/Moscow date +%Y%m%d-
 # Configuration is already loaded/exported; do not source BACKUP_DIR from .env again.
 ENV_FILE=/dev/null BACKUP_DIR="$fresh_dir" POSTGRES_CONTAINER="$CONTAINER" \
   POSTGRES_DB="$DB" POSTGRES_USER="$USER_NAME" "$INFRA_DIR/backup.sh"
-safety_dumps=("$fresh_dir"/*.dump)
+shopt -s nullglob
+safety_dumps=("$fresh_dir"/*.dump "$fresh_dir"/*.dump.age)
 [[ ${#safety_dumps[@]} -eq 1 && -s "${safety_dumps[0]}" ]] || { echo '[restore-production] missing fresh safety dump'; exit 1; }
 printf '[restore-production] fresh safety copy: %s\n' "$fresh_dir"
 drop_attempted=1

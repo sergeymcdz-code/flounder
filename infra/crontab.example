@@ -3,6 +3,7 @@
 # Ubuntu cron uses host timezone, not a TZ variable in this file.
 # If changing it: sudo timedatectl set-timezone Europe/Moscow
 # Then reload the cron timezone: sudo systemctl restart cron
+# Encrypted backups: weekly job reminds the owner to verify off-host; no private key on this server.
 # Preserve existing jobs; install only ONE schedule variant below.
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin

@@ -6,18 +6,38 @@
 	email {$ACME_EMAIL}
 }
 
-{$DOMAIN} {
-	encode gzip zstd
-
+(security_headers) {
 	header {
-		# Basic security headers for the SPA and API.
+		# Fixed theme hash is checked against source and build output in CI.
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		{$CSP_HEADER:Content-Security-Policy-Report-Only} "default-src 'self'; script-src 'self' 'sha256-CNlfFpeXlBuwSDws1N5u1tyWJGrhHC8D+lKKuF91hKQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.sentry.io; frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
 		-Server
 	}
+}
+
+(api_body_limits) {
+	@webhook_body path /api/v1/payments/webhooks/*
+	request_body @webhook_body {
+		max_size 16KiB
+	}
+	@api_body {
+		path /api/*
+		not path /api/v1/payments/webhooks/*
+	}
+	request_body @api_body {
+		max_size 12MB
+	}
+}
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	import security_headers
+	import api_body_limits
 
 	# Backend: REST API, OpenAPI/Swagger and the public health endpoint.
 	@yookassa path /api/v1/payments/webhooks/yookassa
