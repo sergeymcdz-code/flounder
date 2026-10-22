@@ -12,7 +12,7 @@ jobs:
       run:
         working-directory: sport-platform
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: sport-platform/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -42,7 +42,7 @@ jobs:
   infra:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y age shellcheck python3-yaml
       - run: shellcheck infra/*.sh infra/tests/*.sh
       - run: bash infra/tests/workflow-test.sh
