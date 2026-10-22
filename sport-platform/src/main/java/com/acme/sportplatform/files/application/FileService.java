@@ -21,6 +21,38 @@ public class FileService implements FileLookup {
     public FileService(FileStorage storage, FileCryptography cryptography, FileAccessLogRepository logs) {
         this.storage = storage; this.cryptography = cryptography; this.logs = logs;
     }
+    @Override public StoredFile putPublic(InputStream input, long size, String originalName, String contentType) {
+        if (size > 2 * 1024 * 1024) throw new BusinessException("files.image_too_large", "Размер логотипа превышает 2 МБ");
+        var checked = new PushbackInputStream(new SizeCheckedInputStream(input, size), 8);
+        String detected;
+        try { detected = FileTypeValidator.validate(checked, size, originalName, contentType); }
+        catch (IOException ex) { throw new BusinessException("files.read_failed", "Не удалось прочитать логотип"); }
+        if (!detected.equals("image/png") && !detected.equals("image/jpeg"))
+            throw new BusinessException("files.invalid_image_type", "Разрешены только PNG и JPG");
+        String key = "public-" + UUID.randomUUID();
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) { if (status != STATUS_COMMITTED) storage.delete(key); }
+                });
+        storage.putPublic(key, checked, size);
+        return new StoredFile(key, detected, size);
+    }
+    @Override public InputStream getPublic(String key) {
+        requirePublic(key); return storage.getPublic(key);
+    }
+    @Override public void deletePublic(String key) {
+        requirePublic(key);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void afterCommit() { storage.delete(key); }
+                });
+        else storage.delete(key);
+    }
+    private void requirePublic(String key) {
+        if (key == null || !key.matches("public-[0-9a-f-]{36}")) throw new BusinessException("files.not_found", "Файл не найден");
+    }
     @Override public StoredFile put(InputStream input, long size, String originalName, String contentType, UUID documentId, UUID userId) {
         var checked = new PushbackInputStream(new SizeCheckedInputStream(input, size), 8);
         String detected;
@@ -40,12 +72,14 @@ public class FileService implements FileLookup {
         return new StoredFile(key, detected, size);
     }
     @Override public InputStream get(String key, UUID documentId, UUID userId) {
-        InputStream input = storage.get(key);
-        try { log(key, documentId, userId, "DOWNLOAD"); return input; }
-        catch (RuntimeException ex) {
-            try { input.close(); } catch (IOException close) { ex.addSuppressed(close); }
-            throw ex;
-        }
+        // Authenticate the complete immutable object before HTTP headers are committed.
+        // Discard plaintext without buffering it in an array or writing it to disk.
+        try (InputStream input = storage.get(key)) {
+            try { input.transferTo(OutputStream.nullOutputStream()); }
+            catch (IOException | RuntimeException ex) { throw cryptography.corrupt(); }
+        } catch (IOException ex) { throw cryptography.corrupt(); }
+        log(key, documentId, userId, "DOWNLOAD");
+        return storage.get(key);
     }
     @Override public void delete(String key, UUID documentId, UUID userId) {
         log(key, documentId, userId, "DELETE");
@@ -66,7 +100,8 @@ public class FileService implements FileLookup {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logDenied(String key, UUID documentId, UUID userId) {
-        // No document FK: preserve denied attempts even after deletion, and record unknown IDs.
+        if (userId == null) return;
+        // No document FK: preserve authenticated denied attempts even after deletion.
         log(key, documentId, userId, "DENIED");
     }
     private void log(String key, UUID documentId, UUID userId, String action) {

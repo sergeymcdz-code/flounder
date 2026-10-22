@@ -48,8 +48,9 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void loginAdmin() throws Exception {
-        admin = login("admin@flounder.demo", "Demo2026!");
-        adminId = jdbc.queryForObject("select id::text from users where email = 'admin@flounder.demo'", String.class);
+        var fixture = com.acme.sportplatform.support.TestAdmin.create(jdbc);
+        admin = login(fixture.email(), com.acme.sportplatform.support.TestAdmin.PASSWORD);
+        adminId = fixture.id().toString();
     }
     ResultActions call(MockHttpServletRequestBuilder request, String token, Object body) throws Exception {
         if (token != null) request.header("Authorization", "Bearer " + token);
@@ -61,7 +62,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         return body(call(post("/api/v1/auth/login"), null, Map.of("email", email, "password", password)).andExpect(status().isOk())).get("accessToken").asText();
     }
     String create(String email, String firstName, String lastName) throws Exception {
-        return body(call(post("/api/v1/users"), admin, Map.of("email", email, "password", "Demo2026!", "firstName", firstName,
+        return body(call(post("/api/v1/users"), admin, Map.of("email", email, "password", "Test-only-password1!", "firstName", firstName,
                 "lastName", lastName, "birthDate", "1990-01-01", "roles", java.util.List.of("participant")))
                 .andExpect(status().isCreated())).get("id").asText();
     }
@@ -161,12 +162,12 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void responseStatusesAreUppercaseAndPasswordLengthIsValidated() throws Exception {
         String userEmail = email();
-        String id = body(call(post("/api/v1/users"), admin, Map.of("email", userEmail, "password", "Demo2026!", "firstName", "Статус",
+        String id = body(call(post("/api/v1/users"), admin, Map.of("email", userEmail, "password", "Test-only-password1!", "firstName", "Статус",
                 "lastName", "Проверка", "birthDate", "1990-01-01")).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))).get("id").asText();
         assertThat(jdbc.queryForObject("select status from users where id = ?::uuid", String.class, id)).isEqualTo("active");
         call(get("/api/v1/users/" + id), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACTIVE"));
-        call(get("/api/v1/auth/me"), login(userEmail, "Demo2026!"), null).andExpect(status().isOk())
+        call(get("/api/v1/auth/me"), login(userEmail, "Test-only-password1!"), null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
         for (String password : java.util.List.of("short", "x".repeat(73))) {
             String invalidEmail = email();
@@ -193,7 +194,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
                 UUID.randomUUID().toString(), id, org);
         call(get("/api/v1/users/" + id), admin, null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles[?(@.code == 'judge')].organizationId").value(org));
-        String token = login(userEmail, "Demo2026!");
+        String token = login(userEmail, "Test-only-password1!");
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles").value(contains("participant")));
 
@@ -203,7 +204,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void oldTokenReflectsRoleChangesAndZeroRolesRemainAuthenticated() throws Exception {
         String email = email(); String id = create(email, "Живые", "Роли");
-        String token = login(email, "Demo2026!");
+        String token = login(email, "Test-only-password1!");
         call(get("/api/v1/users"), token, null).andExpect(status().isForbidden());
         call(post("/api/v1/users/" + id + "/roles"), admin, Map.of("roleCode", "platform_admin")).andExpect(status().isCreated());
         call(get("/api/v1/users"), token, null).andExpect(status().isOk());
@@ -211,14 +212,14 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         call(delete("/api/v1/users/" + id + "/roles/participant"), admin, null).andExpect(status().isNoContent());
         call(get("/api/v1/users"), token, null).andExpect(status().isForbidden());
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isOk());
-        token = login(email, "Demo2026!");
+        token = login(email, "Test-only-password1!");
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isOk());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"member", "organizer", "operator", "judge"})
     void ordinaryOrganizationMembersCannotManageMembership(String role) throws Exception {
-        String email = email(); String id = create(email, "Обычный", "Член"); String token = login(email, "Demo2026!");
+        String email = email(); String id = create(email, "Обычный", "Член"); String token = login(email, "Test-only-password1!");
         String org = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Проверка доступа"))
                 .andExpect(status().isCreated())).get("id").asText();
         call(post("/api/v1/organizations/" + org + "/members"), admin, Map.of("userId", id, "memberRole", role)).andExpect(status().isCreated());
@@ -231,17 +232,17 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void blockRejectsLoginAndOldJwtThenUnblockRequiresFreshLogin() throws Exception {
         String email = email(); String id = create(email, "Блокировка", "Проверка");
-        String token = login(email, "Demo2026!");
+        String token = login(email, "Test-only-password1!");
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isOk());
         call(patch("/api/v1/users/" + id), admin, Map.of("status", "BLOCKED")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("BLOCKED"));
         assertThat(jdbc.queryForObject("select status from users where id = ?::uuid", String.class, id)).isEqualTo("blocked");
-        call(post("/api/v1/auth/login"), null, Map.of("email", email, "password", "Demo2026!"))
+        call(post("/api/v1/auth/login"), null, Map.of("email", email, "password", "Test-only-password1!"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("identity.user_blocked"));
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("identity.user_blocked"));
         call(patch("/api/v1/users/" + id), admin, Map.of("status", "ACTIVE")).andExpect(status().isOk());
         call(get("/api/v1/auth/me"), token, null).andExpect(status().isUnauthorized());
-        call(get("/api/v1/auth/me"), login(email, "Demo2026!"), null).andExpect(status().isOk());
+        call(get("/api/v1/auth/me"), login(email, "Test-only-password1!"), null).andExpect(status().isOk());
     }
 
     @Test
@@ -256,7 +257,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         call(patch("/api/v1/users/" + id + "/password"), admin, Map.of("newPassword", "short")).andExpect(status().isBadRequest());
         call(patch("/api/v1/users/" + id + "/password"), admin, Map.of("newPassword", "NewPass2026!")).andExpect(status().isNoContent());
         assertThat(jdbc.queryForObject("select password_hash from users where id = ?::uuid", String.class, id)).startsWith("$2");
-        call(post("/api/v1/auth/login"), null, Map.of("email", email, "password", "Demo2026!")).andExpect(status().isUnauthorized());
+        call(post("/api/v1/auth/login"), null, Map.of("email", email, "password", "Test-only-password1!")).andExpect(status().isUnauthorized());
         login(email, "NewPass2026!");
     }
 
@@ -270,7 +271,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         call(get("/api/v1/users/" + user), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$.memberships[0].organizationId").value(org));
         call(get("/api/v1/organizations/" + org + "/members"), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$[0].lastName").value("Организации"));
         call(patch("/api/v1/organizations/" + org + "/members/" + user), admin, Map.of("memberRole", "admin")).andExpect(status().isOk()).andExpect(jsonPath("$.memberRole").value("admin"));
-        String memberToken = login(email, "Demo2026!");
+        String memberToken = login(email, "Test-only-password1!");
         // A local organization admin does not need a global organizer role.
         call(get("/api/v1/organizations/" + org + "/members"), memberToken, null).andExpect(status().isOk());
         String other = create(email(), "Другой", "Участник");
@@ -286,7 +287,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void nonAdminCannotUseAdminEndpointsOrEscalateDuringSignup() throws Exception {
         String email = email(); String id = create(email, "Доступ", "Проверка");
-        String token = login(email, "Demo2026!");
+        String token = login(email, "Test-only-password1!");
         for (String path : java.util.List.of("/api/v1/users", "/api/v1/users/" + id, "/api/v1/roles", "/api/v1/organization-registration-requests?status=PENDING"))
             call(get(path), token, null).andExpect(status().isForbidden());
         call(patch("/api/v1/users/" + id), token, Map.of("status", "BLOCKED")).andExpect(status().isForbidden());
@@ -294,7 +295,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         call(post("/api/v1/users/" + id + "/roles"), token, Map.of("roleCode", "platform_admin")).andExpect(status().isForbidden());
         call(delete("/api/v1/users/" + id + "/roles/participant"), token, null).andExpect(status().isForbidden());
         String forbiddenEmail = email();
-        call(post("/api/v1/users"), null, Map.of("email", forbiddenEmail, "password", "Demo2026!", "firstName", "Подмена", "lastName", "Роли",
+        call(post("/api/v1/users"), null, Map.of("email", forbiddenEmail, "password", "Test-only-password1!", "firstName", "Подмена", "lastName", "Роли",
                 "birthDate", "1990-01-01", "roles", java.util.List.of("platform_admin")))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("identity.access_denied"));
         assertThat(jdbc.queryForObject("select count(*) from users where email = ?", Long.class, forbiddenEmail)).isZero();
@@ -302,7 +303,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void registrationQueueApproveAndReject() throws Exception {
-        String email = email(); create(email, "Заявитель", "Организации"); String token = login(email, "Demo2026!");
+        String email = email(); create(email, "Заявитель", "Организации"); String token = login(email, "Test-only-password1!");
         String request = body(call(post("/api/v1/organization-registration-requests"), token,
                 Map.of("organizationType", "club", "organizationName", "Клуб по заявке", "contactEmail", email)).andExpect(status().isCreated())).get("id").asText();
         call(get("/api/v1/organization-registration-requests").param("status", "PENDING"), admin, null)

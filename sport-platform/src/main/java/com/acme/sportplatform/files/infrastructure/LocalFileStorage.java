@@ -19,10 +19,29 @@ public class LocalFileStorage implements FileStorage {
         this.directory = Path.of(directory).toAbsolutePath().normalize(); this.cryptography = cryptography;
     }
     private Path path(String key) {
-        if (key == null || !key.matches("[0-9a-f-]{36}")) throw new BusinessException("files.not_found", "Файл не найден");
+        if (key == null || !key.matches("(?:public-)?[0-9a-f-]{36}")) throw new BusinessException("files.not_found", "Файл не найден");
         Path path = directory.resolve(key);
         if (Files.isSymbolicLink(path)) throw new BusinessException("files.not_found", "Файл не найден");
         return path;
+    }
+    @Override public void putPublic(String key, InputStream input, long size) {
+        Path target = path(key); boolean created = false;
+        try {
+            Files.createDirectories(directory);
+            try (var output = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW)) {
+                created = true;
+                if (input.transferTo(output) != size) throw new BusinessException("files.invalid_size", "Размер файла не соответствует переданному");
+            }
+        } catch (IOException | RuntimeException ex) {
+            if (created) try { Files.deleteIfExists(target); } catch (IOException cleanup) { ex.addSuppressed(cleanup); }
+            if (ex instanceof BusinessException business) throw business;
+            throw new BusinessException("files.storage_unavailable", "Хранилище файлов недоступно");
+        }
+    }
+    @Override public InputStream getPublic(String key) {
+        try { return Files.newInputStream(path(key)); }
+        catch (NoSuchFileException ex) { throw new BusinessException("files.not_found", "Файл не найден"); }
+        catch (IOException ex) { throw new BusinessException("files.storage_unavailable", "Хранилище файлов недоступно"); }
     }
     @Override public void put(String key, InputStream input, long size) {
         Path target = path(key); boolean created = false;

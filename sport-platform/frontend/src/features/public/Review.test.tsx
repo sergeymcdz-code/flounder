@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
 import { http, HttpResponse } from 'msw'
 import { afterEach, expect, it, vi } from 'vitest'
+import { AuthProvider } from '../../app/providers/AuthProvider'
 import { PublicLayout } from './PublicLayout'
 import { PublicEventPage } from './EventPage'
 import { LiveBoard, LivePage, AthleteSearch } from './LivePage'
@@ -113,7 +114,7 @@ it('keeps loaded live data with a single polling error message', async () => {
     ).toBeInTheDocument(),
   )
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(5000)
+    await vi.advanceTimersByTimeAsync(15000)
   })
   await vi.waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1))
   expect(screen.getAllByText(/Показаны последние данные/)).toHaveLength(1)
@@ -126,7 +127,7 @@ it('renders a dedicated event-not-found screen without retry or event navigation
   render(
     <MemoryRouter initialEntries={['/e/missing']}>
       <Routes>
-        <Route path="e/:slug" element={<PublicLayout />}>
+        <Route path="e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}>
           <Route index element={<PublicEventPage />} />
         </Route>
       </Routes>
@@ -196,7 +197,7 @@ it('renders an event without a venue in both the layout and event card', async (
   render(
     <MemoryRouter initialEntries={['/e/demo']}>
       <Routes>
-        <Route path="e/:slug" element={<PublicLayout />}>
+        <Route path="e/:slug" element={<AuthProvider><PublicLayout /></AuthProvider>}>
           <Route index element={<PublicEventPage />} />
         </Route>
       </Routes>
@@ -289,4 +290,20 @@ it('shows a dash when an athlete swim has no assigned lane', async () => {
   )
   await user.type(screen.getByRole('searchbox'), 'Иванов')
   expect(await screen.findByText(/дорожка —/)).toBeInTheDocument()
+})
+
+
+it('hides award downloads when disciplines have no published result rows', async () => {
+  server.use(http.get('*/api/v1/public/events/:slug/results', () => HttpResponse.json({
+    disciplines: [{ id: 'empty', number: 1, name: '50 м', overall: [], byAgeGroup: [] }],
+  })))
+  renderPage(<ResultsPage />)
+  await screen.findByRole('heading', { name: 'Вид № 1. 50 м' })
+  expect(screen.queryByRole('button', { name: 'Лист награждения (PDF)' })).not.toBeInTheDocument()
+})
+
+it('shows award downloads when the event has published result rows', async () => {
+  server.use(http.get('*/api/v1/public/events/:slug/results', () => HttpResponse.json(demoResults)))
+  renderPage(<ResultsPage />)
+  expect(await screen.findByRole('button', { name: 'Лист награждения (PDF)' })).toBeEnabled()
 })

@@ -64,6 +64,42 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     void confirmed() { publisher.publishEvent(new RegistrationConfirmedEvent(id("registration"))); }
     void pendingReview() { jdbc.update("update registrations set status='SUBMITTED' where id=?", id("registration")); }
 
+    @Test void scheduleShiftQueuesOneMessageWithTwoHeatsAndDoesNotBatchRepeatedShifts() throws Exception {
+        for(String key:List.of("secondRegistration","secondUnit","secondEntry","importProfile","importRegistration","importEntry"))
+            ids.put(key,UUID.randomUUID().toString());
+        jdbc.update("update event_disciplines set session_id=?,order_in_session=2 where id=?",id("session"),id("newDiscipline"));
+        registration("secondRegistration","event","newDiscipline","profile","participant");
+        unit("secondUnit","newDiscipline"); entry("secondEntry","secondUnit","secondRegistration");
+        jdbc.update("insert into profiles(id,last_name,first_name,birth_date,gender) values (?,'Импорт','Без аккаунта','2014-03-05','M')",id("importProfile"));
+        registration("importRegistration","event","newDiscipline","importProfile","target");
+        jdbc.update("update registrations set participant_user_id=null where id=?",id("importRegistration"));
+        jdbc.update("insert into competition_unit_entries(id,competition_unit_id,registration_id,lane_or_position) values (?,?,?,2)",id("importEntry"),id("secondUnit"),id("importRegistration"));
+        jdbc.update("update event_sessions set starts_at='2026-10-19T06:00:00Z' where id=?",id("session"));
+        jdbc.update("update competition_units set status='PUBLISHED',scheduled_at='2026-10-19T06:00:00Z' where id=?",id("unit"));
+        jdbc.update("update competition_units set status='PUBLISHED',scheduled_at='2026-10-19T06:02:00Z' where id=?",id("secondUnit"));
+        em.clear();
+        for(int shift=0;shift<2;shift++) {
+            mvc.perform(post("/api/v1/events/{id}/schedule/shift",id("event")).with(authentication(auth("organizer")))
+                    .contentType("application/json").content(json.writeValueAsBytes(Map.of("fromUnitId",id("unit"),"deltaSec",600))))
+                    .andExpect(status().isOk());
+            assertThat(count()).isEqualTo(shift+1);
+        }
+        var payloads=jdbc.queryForList("select payload::text from notification_outbox where event_id=? order by created_at,id",String.class,id("event"));
+        for(String payload:payloads) {
+            var data=json.readTree(payload);
+            assertThat(data.path("changes")).hasSize(2);
+            assertThat(data.path("changes")).allSatisfy(line -> assertThat(line.path("participant").asText()).isEqualTo("Иванов Иван"));
+            assertThat(data.path("link").asText()).endsWith("/e/"+ids.get("slug")+"/schedule");
+        }
+        assertThat(payloads).anyMatch(p -> p.contains("10:00") && p.contains("10:10") && p.contains("10:02") && p.contains("10:12"));
+        assertThat(jdbc.queryForList("select distinct recipient_email from notification_outbox where event_id=?",String.class,id("event")))
+                .containsExactly(ids.get("participantEmail"));
+        jdbc.update("insert into organization_notification_settings values (?,'schedule_changed',false)",id("org"));
+        mvc.perform(post("/api/v1/events/{id}/schedule/shift",id("event")).with(authentication(auth("organizer")))
+                .contentType("application/json").content(json.writeValueAsBytes(Map.of("fromUnitId",id("unit"),"deltaSec",600))))
+                .andExpect(status().isOk());
+        assertThat(count()).isEqualTo(2);
+    }
     @Test void domainCreationAndReviewPublishRealEvents() {
         create.execute(id("participant"), new CreateRegistrationRequest(id("newDiscipline"), null, 32150L, null));
         pendingReview();
@@ -251,13 +287,24 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(jdbc.queryForObject("select status from notification_outbox where event_id=?", String.class, id("event"))).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("select last_error from notification_outbox where event_id=?", String.class, id("event"))).doesNotContain("secret", "password", "body");
     }
-    @Test void workerBatchIsLimitedToFiftyAndContinuesAfterFailure() {
+    @Test void workerBatchIsLimitedToTwentyAndContinuesAfterFailure() {
         for (int n = 0; n < 51; n++) mail.send("batch@example.org", "Восстановление пароля SportGate", "Тестовое письмо " + n);
         commitQueue();
         doThrow(new MailSendException("test")).doNothing().when(sender).send(any(MimeMessage.class));
-        worker.sendBatch(); verify(sender, times(50)).send(any(MimeMessage.class));
-        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email='batch@example.org'", Long.class)).isEqualTo(49);
+        worker.sendBatch(); verify(sender, times(20)).send(any(MimeMessage.class));
+        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email='batch@example.org'", Long.class)).isEqualTo(19);
+        worker.sendBatch(); verify(sender, times(40)).send(any(MimeMessage.class));
         worker.sendBatch(); verify(sender, times(51)).send(any(MimeMessage.class));
+    }
+    @Test void workerStopsStartingDeliveriesAtThirtySecondsAndResumesNextPass() {
+        for (int n = 0; n < 10; n++) mail.send("deadline@example.org", "Проверка", "Письмо " + n);
+        commitQueue();
+        doAnswer(call -> { now = now.plusSeconds(10); return null; }).when(sender).send(any(MimeMessage.class));
+        worker.sendBatch();
+        verify(sender, times(3)).send(any(MimeMessage.class));
+        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='PENDING' and recipient_email='deadline@example.org'", Long.class)).isEqualTo(7);
+        worker.sendBatch();
+        verify(sender, times(6)).send(any(MimeMessage.class));
     }
     @Test void concurrentWorkersSkipLockedRows() throws Exception {
         confirmed(); TestTransaction.flagForCommit(); TestTransaction.end();
@@ -285,7 +332,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         jdbc.update("update organization_members set member_role='admin' where organization_id=? and user_id=?", id("org"), id("organizer"));
         em.clear();
         mvc.perform(get("/api/v1/organizations/" + id("org") + "/notification-settings").with(authentication(auth("organizer"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(5));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(6));
     }
     @Test void invalidSettingsAreAtomicAndResetCannotBeDisabled() throws Exception {
         String path = "/api/v1/organizations/" + id("org") + "/notification-settings";

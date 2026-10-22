@@ -6,9 +6,9 @@ import type {
   RegisterResponse,
 } from '../features/auth/auth.types'
 
-// Development only: the published demo account from the specification.
-const demoAccounts = new Map([['parent@flounder.demo', 'Demo2026!']])
-const otherPasswords = new Map(['admin', 'org', 'sec', 'judge'].map(account => [`${account}@flounder.demo`, 'Demo2026!']))
+// Development only: synthetic credentials, never used against the backend.
+const demoAccounts = new Map([['parent@flounder.demo', 'Mock-only-password1!']])
+const otherPasswords = new Map(['admin', 'org', 'sec', 'judge'].map(account => [`${account}@flounder.demo`, 'Mock-only-password1!']))
 export function mockPassword(email: string): string | undefined {
   const normalized = email.trim().toLowerCase()
   return demoAccounts.get(normalized) ?? otherPasswords.get(normalized)
@@ -39,6 +39,12 @@ const failure = (status: number, code: string, message: string) => HttpResponse.
 const weak = (password: string) => [...password].length < 8 || !/\p{L}/u.test(password) || !/\p{Nd}/u.test(password) || new TextEncoder().encode(password).length > 72
 
 export const authHandlers = [
+  http.get('*/api/v1/auth/me', ({ request }) => {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return failure(401, 'auth.unauthorized', 'Войдите в систему')
+    try { const payload = JSON.parse(atob(token.split('.')[1])); return HttpResponse.json({ id: 'demo-user', email: payload.sub ?? 'user@flounder.demo', roles: payload.roles ?? [], status: 'ACTIVE' }) }
+    catch { return failure(401, 'auth.unauthorized', 'Войдите в систему') }
+  }),
   http.post('*/api/v1/auth/refresh', async ({ request }) => {
     const { refreshToken } = await request.json() as { refreshToken: string }
     const session = sessions.get(refreshToken)

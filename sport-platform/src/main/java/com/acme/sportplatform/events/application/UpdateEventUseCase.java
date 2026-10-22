@@ -14,12 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UpdateEventUseCase {
+    private final DiplomaSettingsService diplomas;
     private final RegistrationCapacityPromotionLookup capacity;
     private final EventRepository events;
     private final EventMapper mapper;
     private final Clock clock;
     private final jakarta.persistence.EntityManager entityManager;
-    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity) {
+    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity, DiplomaSettingsService diplomas) {
+        this.diplomas = diplomas;
         this.capacity = capacity;
         this.events = events; this.mapper = mapper; this.clock = clock; this.entityManager = entityManager;
     }
@@ -30,6 +32,7 @@ public class UpdateEventUseCase {
         entityManager.refresh(event);
         if ("ARCHIVED".equals(event.getStatus()))
             throw new com.acme.sportplatform.common.exception.BusinessException("events.archived", "Архивное событие доступно только для чтения");
+        if (fields.contains("diploma")) diplomas.apply(event, request.diploma());
         Integer previousLimit = event.getMaxParticipants();
         if (fields.contains("maxParticipants")) event.setMaxParticipants(request.maxParticipants());
         if (fields.contains("registrationOpenAt")) event.setRegistrationOpenAt(request.registrationOpenAt());

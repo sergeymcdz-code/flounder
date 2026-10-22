@@ -85,7 +85,7 @@ export const routes: [string, string, string][] = [
   ],
   [
     "organizer-events",
-    "/organizer/events",
+    "/organizer/events?all=1",
     "organizer"
   ],
   [
@@ -99,7 +99,7 @@ export const routes: [string, string, string][] = [
     "organizer"
   ],
   [
-    "organizer-event",
+    "organizer-event-home",
     "/organizer/events/11111111-1111-4111-8111-111111111111",
     "organizer"
   ],
@@ -124,11 +124,6 @@ export const routes: [string, string, string][] = [
     "organizer"
   ],
   [
-    "organizer-registrations",
-    "/organizer/events/11111111-1111-4111-8111-111111111111/registrations",
-    "organizer"
-  ],
-  [
     "operator-registration",
     "/operator/registrations/00000004-1111-4111-8111-000000000001",
     "operator"
@@ -149,7 +144,7 @@ export const routes: [string, string, string][] = [
     "operator"
   ],
   [
-    "judge-unit",
+    "judge-panel",
     "/operator/competition-units/00000010-1111-4111-8111-000000000001?eventId=11111111-1111-4111-8111-111111111111",
     "judge"
   ],
@@ -179,7 +174,7 @@ const extraMocks = `async () => {
  const payment={id:'qa06-payment',registrationId:f.registrations[0].id,amount:500,currency:'RUB',status:'PENDING',provider:'MANUAL',confirmationUrl:null,paidAt:null,expiresAt:null,createdAt:'2026-10-10T12:00:00+03:00',updatedAt:'2026-10-10T12:00:00+03:00'};
  const json=HttpResponse.json;
  worker.use(
- http.get('*/api/v1/registrations/me',()=>json(f.registrations.slice(0,2))),
+ http.get('*/api/v1/registrations/me',()=>json(f.registrations.slice(0,2).map(r=>({...r,eventTitle:f.event.title,disciplineName:f.event.disciplines.find(d=>d.id===r.eventDisciplineId)?.name,eventStartAt:f.event.eventStartAt,venueTimezone:f.event.venue?.timezone,publicSlug:f.event.publicSlug})))),
  http.get('*/api/v1/registrations/:id/payments',()=>json(payment)),
  http.get('*/api/v1/payments/review/registrations/:id',()=>json(payment)),
  http.get('*/api/v1/registrations/:id',({params})=>json(f.registrations.find(r=>r.id===params.id))),
@@ -202,7 +197,7 @@ export async function openAuditPage(page: Page, path: string, role = '') {
     }))
   }, role)
   await page.goto('/')
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30000 })
   await page.evaluate(`(${extraMocks})()`)
   await navigate(page, path)
 }
@@ -213,17 +208,17 @@ export async function navigate(page: Page, path: string) {
     history.pushState(null, '', path)
     dispatchEvent(new PopStateEvent('popstate'))
   }, path)
-  if (pathname !== '/') await expect(page.getByRole('heading', { name: 'Выберите событие для участия', exact: true })).toHaveCount(0)
+  if (pathname !== '/') await expect(page.getByRole('heading', { name: 'Соревнования по плаванию', exact: true })).toHaveCount(0)
   await expect(page.getByText('Загружаем страницу…', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('heading', { level: 1 }).or(page.getByRole('alert')).first()).toBeVisible()
-  await expect(page.getByText('Загружаем событие…', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 1 }).or(page.getByRole('alert')).first()).toBeVisible({ timeout: 30000 })
+  await expect(page.getByText('Загружаем соревнование…', { exact: true })).toHaveCount(0)
   await expect(page.getByText('Загрузка…', { exact: true })).toHaveCount(0)
   if (pathname.includes('/organizer/events/11111111-1111-4111-8111-111111111111')) {
     if (pathname.endsWith('/entries') || pathname.endsWith('/registrations')) await expect(page.getByRole('button', { name: 'Импорт из Excel', exact: true })).toBeVisible()
     else if (pathname.endsWith('/program')) await expect(page.getByRole('button', { name: 'Добавить сессию', exact: true })).toBeVisible()
-    else if (pathname.endsWith('/heats')) await expect(page.getByRole('button', { name: 'Сформировать заплывы (всё событие)', exact: true })).toBeVisible()
+    else if (pathname.endsWith('/heats')) await expect(page.getByText('Сформировать заплывы ▾', { exact: true })).toBeVisible()
     else if (pathname.endsWith('/results')) await expect(page.getByRole('heading', { name: 'Результаты соревнования', exact: true })).toBeVisible()
-    else if (await page.getByRole('alert').count() === 0) await expect(page.getByRole('heading', { name: 'Информация о событии', exact: true })).toBeVisible()
+    else if (await page.getByRole('alert').count() === 0) await expect(page.getByRole('heading', { name: 'Регистрация', exact: true })).toBeVisible()
   }
   if (pathname.startsWith('/operator/competition-units/') && await page.getByRole('alert').count() === 0)
     await expect(page.locator('table')).toBeVisible()

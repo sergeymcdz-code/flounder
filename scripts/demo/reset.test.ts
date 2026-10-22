@@ -6,7 +6,7 @@ import { ORGANIZATION_NAME, VENUE_NAME } from './bodies.ts';
 import type { Api } from './api.ts';
 import { demoEvents } from './plan.ts';
 const title = demoEvents[1].title + ' · резерв';
-const targets = [{ id: '11111111-2222-3333-4444-555555555555', title, slug: 'demo-backup' }];
+const targets = [{ id: '11111111-2222-3333-4444-555555555555', title, slug: 'demo-backup', venue: VENUE_NAME }];
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn() }));
 beforeEach(() => vi.clearAllMocks());

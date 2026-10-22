@@ -137,15 +137,8 @@
 .page button:disabled,
 .dialog button:disabled,
 .drawer button:disabled {
-  opacity: 0.5;
+  opacity: 1;
   cursor: default;
-}
-.page .primary,
-.dialog .primary,
-.drawer .primary {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
 }
 .link {
   color: var(--color-primary);
@@ -261,3 +254,5 @@
 }
 .badge { background: var(--color-surface-muted); color: var(--color-text); font-weight: 700; }
 .dialog, .drawer { background: var(--color-surface); }
+.metric { font: 600 28px var(--font-heading); }
+.table { max-height: calc(100vh - 240px); }

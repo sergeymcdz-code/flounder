@@ -129,7 +129,7 @@ test('anonymous registration returns after login; authenticated form validates p
   await page.getByRole('link', { name: 'Войти', exact: true }).click()
   await expect(page).toHaveURL(/next=%2Fe%2Fdemo%2Fregister/)
   await page.getByLabel('Email', { exact: true }).fill('parent@flounder.demo')
-  await page.getByLabel('Пароль', { exact: true }).fill('Demo2026!')
+  await page.getByLabel('Пароль', { exact: true }).fill('Mock-only-password1!')
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await expect(page).toHaveURL(/\/e\/demo\/register$/)
   const roles = await page.evaluate(() => {
@@ -140,6 +140,7 @@ test('anonymous registration returns after login; authenticated form validates p
   await page.getByLabel('Фамилия', { exact: true }).fill('Ошибка')
   await page.getByLabel('Имя', { exact: true }).fill('Иван')
   await page.getByLabel('Дата рождения').fill('2012-06-15')
+  await page.getByLabel('Пол', { exact: true }).selectOption('M')
   await page
     .getByRole('checkbox', { name: /50 м вольный стиль, юноши/ })
     .check()

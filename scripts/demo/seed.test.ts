@@ -21,6 +21,7 @@ class FakeApi implements Api {
   closeRaceStatus: string | undefined;
   closeBeforeRead = false;
   wrongPasswordEmail?: string;
+  missingUserLoginAttempts = 0;
   private serial = 0;
   private id() { return `00000000-0000-4000-8000-${String(++this.serial).padStart(12, '0')}`; }
   private add(path: string, data: Record<string, unknown>) {
@@ -40,6 +41,7 @@ class FakeApi implements Api {
     const data = body as Record<string, unknown>;
     const all = () => [...this.lists.values()].flat();
     if (path === '/auth/login') {
+      if (!this.users.has(String(data.email))) this.missingUserLoginAttempts++;
       if (!this.users.has(String(data.email)) || data.email === this.wrongPasswordEmail) throw new ApiError(400, 'identity.invalid_credentials', method, path);
       return { accessToken: data.email } as T;
     }
@@ -223,6 +225,24 @@ describe('seed and reset API orchestration', () => {
     expect(api.lists.has('/events')).toBe(false);
     expect(api.calls.some(call => call.path.includes('/public/events/'))).toBe(false);
   });
+  it('creates missing service accounts before their first login', async () => {
+    const api = new FakeApi();
+    await seed(api, { ...options, skipImport: true, demoEvents: 'A' }, quiet);
+    for (const account of accounts) {
+      const creation = api.calls.findIndex(c => c.method === 'POST' && c.path === '/users' && (c.body as Row).email === account.email);
+      const firstLogin = api.calls.findIndex(c => c.path === '/auth/login' && (c.body as Row).email === account.email);
+      expect(creation).toBeGreaterThanOrEqual(0);
+      expect(firstLogin).toBeGreaterThan(creation);
+    }
+  });
+  it('refuses an existing service account password mismatch without attempting creation', async () => {
+    const api = new FakeApi();
+    api.users.set('org@flounder.demo', { id: 'org', email: 'org@flounder.demo', roles: ['organizer'] });
+    api.wrongPasswordEmail = 'org@flounder.demo';
+    await expect(seed(api, options, quiet)).rejects.toThrow('ORG_PASSWORD');
+    expect(api.calls.filter(c => c.method === 'POST' && c.path === '/users')).toEqual([]);
+    expect(api.lists.get('/events')).toBeUndefined();
+  });
   it('uses a separate configured owner while the original owner is an administrator', async () => {
     const api = new FakeApi(); api.users.set('sergeymcdz@yandex.ru', { id: 'real-admin', email: 'sergeymcdz@yandex.ru', roles: ['platform_admin'] });
     await seed(api, { ...options, demoEvents: 'C', ownerEmail: 'owner@example.com' }, quiet);
@@ -379,4 +399,10 @@ describe('seed and reset API orchestration', () => {
     expect(api.calls.slice(before).some(c => c.path.endsWith('/open-registration'))).toBe(false);
     expect(api.imports).toBe(1);
   });
+});
+
+it('creates fresh demo accounts before login so a deployment smoke check cannot exhaust the failure limit', async () => {
+  const api = new FakeApi();
+  await seed(api, { ...options, demoEvents: 'B', skipImport: true }, quiet);
+  expect(api.missingUserLoginAttempts).toBe(0);
 });

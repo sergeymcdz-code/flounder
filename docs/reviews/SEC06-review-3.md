@@ -1,0 +1,42 @@
+# SEC06 — ревью 3 (PR #77, 66983e5): проверка ребейза
+
+Проверка интеграции ветки `pr/77` (`fix/SEC06-infra-hardening`) после ревью 2 (вершина `88d30b5`, вердикт «слить»). Поверх `88d30b5` четыре коммита: `c818c1c` — merge SEC01 (`934f1df`, #75), `316a573` — merge SEC03 (`f590aa0`, #73), `769eba8` — удаление дублирующего `@yookassa` в `infra/Caddyfile`, `66983e5` — merge S04 (`77f1e02` = `origin/fix/S04-stage1-followups`, #60; сам S04 уже содержит merge SEC01). Все слияния — обычные merge-коммиты, истории не переписаны, force-push не было. Метод: для каждого конфликтного файла результат merge-коммита сравнён с автослиянием `git merge-tree` (расхождения — только снятые маркеры конфликта); собственный вклад ветки проверен как `git diff <sim-base> pr/77`, где sim-base — дерево `merge-tree(origin/main, 77f1e02, f590aa0)`: он совпадает с `git diff 57cea5d..88d30b5` по набору файлов (42 файла) и по содержимому хунков во всех файлах, кроме трёх намеренно объединённых (`docs/09_HANDOFF…`, `docs/reviews/M09-review-1.md`, `infra/Caddyfile`). CI на `769eba8`: backend / frontend / infra — **success**; на `66983e5`: infra — **success**, frontend — **success**, backend — **in_progress** на момент ревью (коммит `66983e5` меняет только `infra/.env.prod.example`, backend-тесты его не читают; CI на обоих родителях — `769eba8` и `77f1e02` — зелёный). Локально в worktree `/tmp/wt-77` (Docker недоступен): `bash -n` всех `*.sh` — ok; `bash infra/tests/harden-test.sh` — **PASS**; `bash infra/tests/compose-config-test.sh` — **PASS** (включая `postgres:16.14`, `caddy:2.10.2`, `no-new-privileges`, `CSP_HEADER`, экранирование `$` в `STAGING_BASIC_AUTH_HASH`); `python3 -I infra/tests/csp-test.py` — PASS; `caddy-test.sh`, `maintenance-test.sh`, `staging-test.sh` требуют Docker, `workflow-test.sh` — `ssh-keygen`; все они выполнены в CI infra на `66983e5` (зелёный). Ревьюер: Claude, 20.10.2026.
+
+**Вердикт: слить** (после завершения backend-CI на `66983e5` — ожидается зелёный). Ни одной потерянной строки main/D03, SEC01, SEC03 или S04; функциональность SEC06 полностью на месте; тесты не ослаблены; файлов вне области ветки нет; в `infra/Caddyfile` ровно один `request_body` для пути вебхука с лимитом `16KiB`.
+
+## Проверено
+
+| № | Файл / пункт | Где | Результат |
+|---|---|---|---|
+| 1 | `infra/Caddyfile` — один `request_body` для вебхука, 16KiB | `infra/Caddyfile:22-34` сниппет `api_body_limits`: `@webhook_body path /api/v1/payments/webhooks/*` → `max_size 16KiB` (`:23-26`), `@api_body` (всё `/api/*` кроме вебхуков) → `12MB` (`:27-33`); `:40` `import api_body_limits`. Блок `@yookassa` из #73 (`/api/v1/payments/webhooks/yookassa`, 16KiB) удалён в `769eba8` — он покрывается маской сниппета с тем же лимитом. `grep request_body` по файлу: ровно два вхождения — вебхук и остальной API. В `infra/Caddyfile.staging:10-13` (внутренний Caddy стенда staging, файл SEC03) блок `@yookassa` сохранён без изменений — это другой файл/сервер, дублирования нет. `caddy-test.sh:67-68` проверяет границу 16 384 → 200 / 16 385 → 413 по пути `/api/v1/payments/webhooks/test` (попадает в маску) | **OK.** Выбран вариант, рекомендованный в ревью 2 (оставить сниппет #77, убрать `@yookassa` #73) |
+| 2 | `docs/09_HANDOFF_руководителю_2026-10-13.md` | `:15` — версия SEC06 (`SERVER_IP`, `<ssh-user>`, `/home/claude/flounder` на `:13` сохранён); `:35` «Стенд» — версия SEC01 (аккаунты без пароля, «Администратор — отдельный bootstrap-аккаунт владельца»); `:17` `<spreadsheet-id>`, `:79` `<user-email>` — правки SEC06. Строка SEC06 с `<user-email>` и `Demo2026!` в «Стенде» справедливо уступила строке SEC01 (пароль удалён полностью). `git grep` по IP стенда, `@gmail/@yandex/@list.ru`, `Demo2026` в handoff — 0 | **OK**, обе стороны |
+| 3 | `docs/reviews/M09-review-1.md` | `:211-214` — пути `/home/<ssh-user>/…` (SEC06) и текст `ADMIN_PASSWORD (<пароль — в менеджере паролей владельца…>)` (SEC01) в одной строке `:214`; `mkdir/cp/chmod` `:211-213` не потеряны. Interdiff «до/после» ребейза — отличие только в этой строке | **OK**, обе стороны |
+| 4 | `infra/.env.prod.example` | `:76-84` SEC06 (`BACKUP_AGE_RECIPIENT`, `CSP_HEADER`, `STAGING_BASIC_AUTH_USER/HASH`), `:86-89` S04 (`APP_AUTH_LOGIN_MAX_FAILURES[_PER_IP]`), `:91-94` SEC01 (`ADMIN_EMAIL/ADMIN_PASSWORD/DEMO_PASSWORD` плейсхолдеры). Расхождение merge-коммитов с автослиянием — только маркеры и одна пустая строка-разделитель | **OK**, все три блока |
+| 5 | `infra/.env.staging.example` | Правил только SEC01 (`:7-9`, `:14-16` `APP_ADMIN_*`); SEC06/S04 файл не трогали; `git diff origin/main pr/77` по нему = диф SEC01 | **OK** |
+| 6 | `infra/compose.prod.yaml`, `compose.staging.yaml` | prod: пины `postgres:16.14`/`caddy:2.10.2`, `security_opt` ×4, `CSP_HEADER`/`STAGING_BASIC_AUTH_*` (SEC06) + `APP_AUTH_LOGIN_MAX_FAILURES[_PER_IP]` в `api.environment:94-95` (S04). staging: `APP_ADMIN_EMAIL/PASSWORD` (SEC01). Хунки SEC06 идентичны до/после ребейза | **OK** |
+| 7 | Область ветки | `git diff <sim-base> pr/77 --stat` — те же 42 файла (`.github/`, `docs/`, `infra/`), что и `57cea5d..88d30b5`; `sport-platform/`, `scripts/`, миграции, `qa04-endpoints.tsv` изменены только унаследованными коммитами SEC01/SEC03/S04 (`git diff f590aa0 pr/77 -- qa04-endpoints.tsv` — пусто). Незатронутые ребейзом файлы SEC06 (`.github/workflows/*`, `harden.sh`, `harden-test.sh`, `docs/infra-hardening.md`, `docs/qa/infra-hardening.md`) — байт в байт как в `88d30b5` | **OK** |
+| 8 | Тесты | `git diff <sim-base> pr/77 -- '*test*'` — только `infra/tests/*` SEC06 (без изменений с ревью 2). Удаление `Qa04KnownDefectsIT.java` и правки Java-тестов — унаследованы из SEC01/SEC03 (ревьюировались там), в merge-коммитах не менялись | **OK**, не ослаблены |
+| 9 | `qa04-endpoints.tsv` | Строка `POST /api/v1/payments/webhooks/yookassa … 400 → 404` — из SEC03; совпадает с `f590aa0` | **OK** |
+| 10 | Симуляция цепочки | `origin/main` → +#75 → +#60 → +#72 → +#73 → +#74 → +#59 → +#61 → +#63 → +#58 → +#68 — каждый шаг `merge-tree --write-tree` чистый; **pr/77 поверх цепочки — чисто**. В итоговом дереве `infra/Caddyfile` — один `request_body` для вебхука (`:23-26`), `.env.prod.example` — все три блока. Отдельно: `merge-tree origin/main pr/77` и `merge-tree origin/fix/S04-stage1-followups pr/77` — чисто (`b113f12…`) | **OK** |
+| 11 | Секреты / реквизиты | `git grep` по IP стенда, `Demo2026`, `PRIVATE KEY`, `AKIA`, `ghp_`, личным почтам в `infra/ .github/ docs/infra-hardening.md docs/qa/infra-hardening.md` handoff, runbook — 2 вхождения `Demo2026!` в `infra/tests/legacy-admin-login.json:1` и `infra/tests/staging-test.sh:74` — отказный фикстурный ввод из SEC01 (проверка, что легаси-учётка отклоняется), не SEC06 | **OK** |
+| 12 | PR body | Раздел «Ребейз 19.10» добавлен (merge-коммиты, Caddyfile, прогоны, ссылка на CI `769eba8`); head `66983e5`, `mergeable: true`. Merge S04 `66983e5` в разделе не упомянут (сделан после) | **OK**, см. Ж1 |
+
+## Блокирующие
+
+Нет.
+
+## Желательные
+
+1. PR body, раздел «Ребейз 19.10»: дописать строку про `66983e5` (merge `origin/fix/S04-stage1-followups` `77f1e02`, конфликт только в `infra/.env.prod.example`, оставлены все блоки) и обновить «Итоговый head». Косметика описания, на код не влияет.
+2. `infra/Caddyfile:23` и `infra/Caddyfile.staging:10` описывают путь вебхука по-разному (`/api/v1/payments/webhooks/*` vs `/api/v1/payments/webhooks/yookassa`). Поведение эквивалентно (единственный вебхук), но при добавлении второго провайдера лимит на prod применится автоматически, а на staging — нет; можно унифицировать на маску в отдельном мелком PR.
+3. Желательные пункты ревью 2 (Ж1–Ж5: единообразие `root`/`<admin-user>` в `docs/infra-hardening.md:17/57/82`, формула `ssh <ssh-user>@SERVER_IP` + `su - <ssh-user>` в handoff `:15`, формулировка про закрепление версии postgres `:46-49`) не закрывались — ребейз их не требовал; остаются в силе как пост-мерж.
+
+## Текст правок для Codex
+
+(пусто — слить)
+
+## Порядок слияния
+
+- Ветка `pr/77` уже содержит #75 (SEC01), #73 (SEC03) и #60 (S04, включая merge SEC01). После слияния этих трёх в main #77 ложится на любое место в цепочке `main+#75+#60+#72+#73+#74+#59+#61+#63+#58+#68` без конфликтов (симуляция выше). Рекомендуемая позиция — после #73, чтобы в main сразу был один `request_body` для вебхука.
+- Перед нажатием merge дождаться зелёного backend-CI на `66983e5` (на момент ревью in_progress; infra и frontend — success).
+- На стенде: применять по PR body; раздел «SSH и firewall» — отдельно, последним, с двумя сессиями и консолью провайдера; первый выкат CSP — Report-Only; граница вебхука — 16 384 байт.

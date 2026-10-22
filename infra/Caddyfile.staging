@@ -7,6 +7,11 @@
 }
 
 :80 {
+	@yookassa path /api/v1/payments/webhooks/yookassa
+	request_body @yookassa {
+		max_size 16KiB
+	}
+
 	@api path /api/* /actuator/health /actuator/health/*
 	handle @api {
 		reverse_proxy api:8080

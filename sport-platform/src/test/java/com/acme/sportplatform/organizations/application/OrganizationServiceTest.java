@@ -25,7 +25,7 @@ class OrganizationServiceTest {
                 .thenReturn(role.equals("missing") ? Optional.empty() : Optional.of(member));
         var service = new OrganizationService(mock(OrganizationRepository.class), memberships,
                 mock(UserRoleLookup.class), mock(com.acme.sportplatform.identity.UserLookup.class),
-                new com.fasterxml.jackson.databind.ObjectMapper());
+                new com.fasterxml.jackson.databind.ObjectMapper(), mock(PublicOrganizationProfileService.class));
         assertEquals(allowed, service.isOwnerOrAdmin(organizationId, userId));
     }
 
@@ -38,7 +38,7 @@ class OrganizationServiceTest {
         var member = new OrganizationMemberEntity();
         member.setMemberRole(role);
         when(memberships.findByOrganizationIdAndUserId(organizationId, userId)).thenReturn(Optional.of(member));
-        var service = new OrganizationService(mock(OrganizationRepository.class), memberships, mock(UserRoleLookup.class), mock(com.acme.sportplatform.identity.UserLookup.class), new com.fasterxml.jackson.databind.ObjectMapper());
+        var service = new OrganizationService(mock(OrganizationRepository.class), memberships, mock(UserRoleLookup.class), mock(com.acme.sportplatform.identity.UserLookup.class), new com.fasterxml.jackson.databind.ObjectMapper(), mock(PublicOrganizationProfileService.class));
         assertEquals(allowed, service.canManageOrganization(organizationId, userId));
     }
 }

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { AuthProvider } from '../../app/providers/AuthProvider'
 import { setAuthSession } from '../../api/auth-session'
 import { server } from '../../test/setup'
@@ -21,7 +21,7 @@ it.each([
   render(<MemoryRouter><AuthProvider><LoginPage /></AuthProvider></MemoryRouter>)
 
   await userEvent.type(screen.getByLabelText('Email'), 'user@flounder.demo')
-  await userEvent.type(screen.getByLabelText('Пароль'), 'Demo2026!')
+  await userEvent.type(screen.getByLabelText('Пароль'), 'Mock-only-password1!')
   await userEvent.click(screen.getByRole('button', { name: 'Войти' }))
 
   expect(await screen.findByRole('alert')).toHaveTextContent(expected)
@@ -38,4 +38,12 @@ it('shows the login wait time from Retry-After rounded up to minutes', async () 
   await userEvent.type(screen.getByLabelText('Пароль'), 'Wrong123!')
   await userEvent.click(screen.getByRole('button', { name: 'Войти' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Слишком много попыток входа. Попробуйте через 3 мин.')
+})
+
+it.each([['organizer', '/organizer/events'], ['operator', '/organizer/events'], ['judge', '/operator/results'], ['participant', '/my/registrations'], ['platform_admin', '/organizer/events']])('redirects %s after successful login', async (role, target) => {
+  server.use(http.post('*/api/v1/auth/login', () => HttpResponse.json({ accessToken: `demo.${btoa(JSON.stringify({ roles: [role] }))}.demo`, tokenType: 'Bearer', refreshToken: 'test', expiresIn: 3600 })))
+  render(<MemoryRouter initialEntries={['/login']}><AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path={target} element={<p>Кабинет роли</p>} /></Routes></AuthProvider></MemoryRouter>)
+  await userEvent.type(screen.getByLabelText('Email'), 'user@example.test'); await userEvent.type(screen.getByLabelText('Пароль'), 'Test2026!')
+  await userEvent.click(screen.getByRole('button', { name: 'Войти' }))
+  expect(await screen.findByText('Кабинет роли')).toBeInTheDocument()
 })

@@ -143,12 +143,12 @@ async function refreshAccessToken(failedToken: string): Promise<string> {
 }
 
 async function authenticatedFetch(path: string, options: RequestInit, accessToken?: string | null, skipRefresh = false) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options)
+  const response = await networkFetch(`${API_BASE_URL}${path}`, options)
   if (response.status !== 401 || !accessToken || skipRefresh) return response
   const token = await refreshAccessToken(accessToken)
   const headers = new Headers(options.headers)
   headers.set('Authorization', `Bearer ${token}`)
-  const retried = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  const retried = await networkFetch(`${API_BASE_URL}${path}`, { ...options, headers })
   if (retried.status === 401 && getAuthState().session?.accessToken === token) {
     setAuthSession(null, SESSION_EXPIRED)
     throw new ApiError(401, SESSION_EXPIRED)
@@ -168,4 +168,11 @@ export async function apiDownload(path: string, accessToken?: string): Promise<B
     )
   }
   return response.blob()
+}
+
+async function networkFetch(url: string, options: RequestInit) {
+  try { return await fetch(url, options) } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error
+    throw new ApiError(0, 'Нет связи. Проверьте интернет и повторите')
+  }
 }

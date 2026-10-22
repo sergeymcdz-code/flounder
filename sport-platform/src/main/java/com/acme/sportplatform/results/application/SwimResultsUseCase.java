@@ -5,6 +5,7 @@ import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.competition.EventDisciplineLookup;
 import com.acme.sportplatform.events.EventAccessService;
 import com.acme.sportplatform.registrations.RegistrationLookup;
+import com.acme.sportplatform.registrations.RegistrationLookupResult;
 import com.acme.sportplatform.results.api.*;
 import com.acme.sportplatform.results.infrastructure.jpa.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -225,16 +227,15 @@ public class SwimResultsUseCase {
                                                 "Дисциплина не найдена"));
         access.assertCanModify(discipline.eventId(), principal);
         Map<String, List<CompetitionUnitDetailsResponse.EntryView>> groups = new TreeMap<>();
-        for (var unit : units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId))
-            for (var entry : details.execute(unit.getId()).entries()) {
+        var data = loadDiscipline(disciplineId);
+        for (var unit : data.units())
+            for (var row : data.entries().getOrDefault(unit.getId(), List.of())) {
+                var registration = data.registrations().get(row.getRegistrationId());
+                var entry = details.toEntryView(row, data.results().get(row.getId()), registration);
                 String group = unit.getAgeGroupCode();
                 if (group == null || !"BY_AGE_GROUP".equals(discipline.seedingMode())) {
                     try {
-                        var snapshot =
-                                json.readTree(
-                                        registrations
-                                                .getById(entry.registrationId())
-                                                .participantSnapshot());
+                        var snapshot = json.readTree(registration.participantSnapshot());
                         int year =
                                 java.time.LocalDate.parse(snapshot.path("birthDate").asText())
                                         .getYear();
@@ -280,9 +281,10 @@ public class SwimResultsUseCase {
         var discipline = disciplines.findById(disciplineId).orElseThrow();
         List<ResultEntity> all = new ArrayList<>();
         Map<UUID, String> groups = new HashMap<>();
-        for (var unit : units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId)) {
-            for (var entry : entries.findByCompetitionUnitId(unit.getId())) {
-                var result = results.findByCompetitionUnitEntryId(entry.getId()).orElse(null);
+        var data = loadDiscipline(disciplineId);
+        for (var unit : data.units()) {
+            for (var entry : data.entries().getOrDefault(unit.getId(), List.of())) {
+                var result = data.results().get(entry.getId());
                 if (result == null) continue;
                 result.setFinalPlace(null);
                 result.setPlaceInAgeGroup(null);
@@ -290,11 +292,8 @@ public class SwimResultsUseCase {
                 String group = unit.getAgeGroupCode();
                 if (!"BY_AGE_GROUP".equals(discipline.seedingMode()) || group == null) {
                     try {
-                        var snapshot =
-                                json.readTree(
-                                        registrations
-                                                .getById(entry.getRegistrationId())
-                                                .participantSnapshot());
+                        var snapshot = json.readTree(data.registrations()
+                                .get(entry.getRegistrationId()).participantSnapshot());
                         int year =
                                 java.time.LocalDate.parse(snapshot.path("birthDate").asText())
                                         .getYear();
@@ -332,6 +331,29 @@ public class SwimResultsUseCase {
                 byGroup.computeIfAbsent(groups.get(r.getId()), k -> new ArrayList<>()).add(r);
         byGroup.values().forEach(list -> rank(list, true));
         results.saveAll(all);
+    }
+
+    private record DisciplineData(
+            List<CompetitionUnitEntity> units,
+            Map<UUID, List<CompetitionUnitEntryEntity>> entries,
+            Map<UUID, ResultEntity> results,
+            Map<UUID, RegistrationLookupResult> registrations) {}
+
+    private DisciplineData loadDiscipline(UUID disciplineId) {
+        var disciplineUnits = units.findByEventDisciplineIdOrderBySequenceNumberAsc(disciplineId);
+        var unitIds = disciplineUnits.stream().map(CompetitionUnitEntity::getId).toList();
+        var disciplineEntries = unitIds.isEmpty() ? List.<CompetitionUnitEntryEntity>of()
+                : entries.findByCompetitionUnitIdIn(unitIds);
+        var entryIds = disciplineEntries.stream().map(CompetitionUnitEntryEntity::getId).toList();
+        var disciplineResults = entryIds.isEmpty() ? List.<ResultEntity>of()
+                : results.findByCompetitionUnitEntryIdIn(entryIds);
+        var registrationIds = disciplineEntries.stream()
+                .map(CompetitionUnitEntryEntity::getRegistrationId).distinct().toList();
+        return new DisciplineData(disciplineUnits,
+                disciplineEntries.stream().collect(Collectors.groupingBy(CompetitionUnitEntryEntity::getCompetitionUnitId)),
+                disciplineResults.stream().collect(Collectors.toMap(ResultEntity::getCompetitionUnitEntryId, r -> r)),
+                registrations.findByIdIn(registrationIds).stream()
+                        .collect(Collectors.toMap(RegistrationLookupResult::id, r -> r)));
     }
 
     private void rank(List<ResultEntity> sorted, boolean age) {

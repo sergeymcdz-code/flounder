@@ -1,6 +1,8 @@
 package com.acme.sportplatform.competition.web;
 
 import java.util.List;
+import java.time.Duration;
+import org.springframework.http.CacheControl;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,9 +27,9 @@ public class PublicEventController {
 
     @GetMapping
     public ResponseEntity<List<PublicEventListItemResponse>> list() {
-        return ResponseEntity.ok(
-                publicEventCatalogQueryService.list()
-        );
+        return ResponseEntity.ok().cacheControl(CacheControl.maxAge(Duration.ofSeconds(5))
+                .cachePublic().staleWhileRevalidate(Duration.ofSeconds(30)))
+                .body(publicEventCatalogQueryService.list());
     }
 
 }

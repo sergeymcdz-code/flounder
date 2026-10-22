@@ -35,7 +35,7 @@ public class PublicationReadRepository {
                 """, Map.of("slug", slug)).stream().map(t -> new Event(uuid(t,"id"), uuid(t,"sport_id"),
                 str(t,"title"), str(t,"description"), date(t,"registration_open_at"),
                 date(t,"registration_close_at"), date(t,"event_start_at"), date(t,"event_end_at"),
-                str(t,"status"), str(t,"public_slug"), str(t,"venue_name"), str(t,"venue_city"),
+                str(t,"status"), str(t,"public_slug"), uuid(t,"organization_id"), str(t,"venue_name"), str(t,"venue_city"),
                 str(t,"venue_timezone"), str(t,"venue_meta_text"))).findFirst();
     }
     public Capacity capacity(UUID eventId) {

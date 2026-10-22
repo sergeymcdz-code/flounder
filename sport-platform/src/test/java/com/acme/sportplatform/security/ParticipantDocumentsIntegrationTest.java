@@ -40,6 +40,149 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         return documents.upload(id(profile), eventId, DocumentType.MEDICAL_CERT, file(PDF),
                 LocalDate.now(), until, principal("participant")).id();
     }
+    @Test
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void importingIntoAnotherOrganizationKeepsProfilePrivateAndAllowsEventDocuments() throws Exception {
+        UUID common = upload("profile", null, LocalDate.now().plusYears(1));
+        String key = com.acme.sportplatform.identity.ProfileExternalKey.build("Иванов", "Иван", LocalDate.of(2014, 3, 5), "M");
+        jdbc.update("update profiles set external_key=?,club_name=null,city='Самара',sport_meta='{\"rank\":\"private\"}' where id=?", key, id("profile"));
+        byte[] excel;
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            var sheet = workbook.createSheet("Заявки");
+            var header = sheet.createRow(0);
+            var row = sheet.createRow(1);
+            String[] values = {"Иванов", "Иван", "Из файла", "05.03.2014", "M", "Клуб из файла", "M-50-FREE", "32.15"};
+            for (int i = 0; i < values.length; i++) {
+                header.createCell(i).setCellValue(com.acme.sportplatform.imports.domain.ExcelRowParser.HEADERS.get(i));
+                row.createCell(i).setCellValue(values[i]);
+            }
+            var bytes = new java.io.ByteArrayOutputStream();
+            workbook.write(bytes); excel = bytes.toByteArray();
+        }
+        var result = mvc.perform(multipart("/api/v1/events/" + ids.get("foreignEvent") + "/registrations/import")
+                .file(new MockMultipartFile("file", "rows.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excel))
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1)).andReturn().getResponse();
+        assertThat(json.readTree(result.getContentAsString()).properties()).extracting(Map.Entry::getKey)
+                .containsExactlyInAnyOrder("total", "created", "updated", "skipped", "errors", "createdProfiles");
+        assertThat(jdbc.queryForObject("select club_name from profiles where id=?", String.class, id("profile"))).isNull();
+        var imported = jdbc.queryForMap("select participant_snapshot,participant_user_id from registrations where event_id=? and participant_profile_id=?",
+                id("foreignEvent"), id("profile"));
+        assertThat(imported.get("participant_user_id")).isNull();
+        var snapshot = json.readTree(imported.get("participant_snapshot").toString());
+        assertThat(snapshot.properties()).extracting(Map.Entry::getKey)
+                .containsExactlyInAnyOrder("firstName", "lastName", "middleName", "birthDate", "gender", "clubName");
+        assertThat(snapshot.get("clubName").asText()).isEqualTo("Клуб из файла");
+        assertThat(snapshot.get("middleName").asText()).isEqualTo("Из файла");
+        mvc.perform(get(base("profile")).param("eventId", ids.get("foreignEvent"))
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/v1/documents/" + common + "/download").param("eventId", ids.get("foreignEvent"))
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isForbidden());
+        mvc.perform(get(base("profile")).param("eventId", ids.get("event"))
+                .with(authentication(auth("organizer")))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(common.toString()));
+        var summary = list.execute(id("foreignEvent"), null, principal("foreign_organizer")).stream()
+                .filter(r -> r.participantProfileId().equals(id("profile"))).findFirst().orElseThrow();
+        assertThat(summary.documents()).containsEntry("MEDICAL_CERT", "NOT_UPLOADED");
+        assertThat(summary.admissionWarnings()).contains("Медицинская справка не загружена");
+        // Older import rows may retain an account ID; organizer responses must omit it as well.
+        jdbc.update("update registrations set participant_user_id=?,participant_snapshot=participant_snapshot || '{\"city\":\"private\",\"sportMeta\":{\"rank\":\"private\"}}'::jsonb where event_id=? and participant_profile_id=?",
+                id("participant"), id("foreignEvent"), id("profile"));
+        var response = mvc.perform(get("/api/v1/events/" + ids.get("foreignEvent") + "/registrations")
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isOk()).andReturn().getResponse();
+        var importedResponse = java.util.stream.StreamSupport.stream(json.readTree(response.getContentAsString()).spliterator(), false)
+                .filter(r -> "IMPORT".equals(r.path("source").asText())).findFirst().orElseThrow();
+        assertThat(importedResponse.has("participantUserId")).isFalse();
+        assertThat(importedResponse.get("participantSnapshot").has("city")).isFalse();
+        assertThat(importedResponse.get("participantSnapshot").has("sportMeta")).isFalse();
+        UUID eventDocument = documents.upload(id("profile"), id("foreignEvent"), DocumentType.MEDICAL_CERT,
+                file(PDF), LocalDate.now(), LocalDate.now().plusYears(1), principal("foreign_organizer")).id();
+        mvc.perform(get(base("profile")).param("eventId", ids.get("foreignEvent"))
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(eventDocument.toString()));
+        String url = documents.download(eventDocument, id("foreignEvent"), principal("foreign_organizer")).url();
+        mvc.perform(get(url).with(authentication(auth("foreign_organizer")))).andExpect(status().isOk()).andExpect(content().bytes(PDF));
+        ids.put("consentDiscipline", UUID.randomUUID().toString());
+        discipline("consentDiscipline", "foreignEvent", "M-100-FREE", false);
+        var request = new com.acme.sportplatform.registrations.api.PublicRegistrationRequest(
+                new com.acme.sportplatform.identity.ProfileData("Иванов", "Иван", null, LocalDate.of(2014, 3, 5), "M", null),
+                List.of(new com.acme.sportplatform.registrations.api.PublicRegistrationRequest.Item(id("consentDiscipline"), 65000L)));
+        mvc.perform(post("/api/v1/public/events/foreign-" + ids.get("event") + "/registrations")
+                .contentType("application/json").content(json.writeValueAsBytes(request))
+                .with(authentication(auth("participant")))).andExpect(status().isOk());
+        mvc.perform(get(base("profile")).param("eventId", ids.get("foreignEvent"))
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(get("/api/v1/documents/" + common + "/download").param("eventId", ids.get("foreignEvent"))
+                .with(authentication(auth("foreign_organizer")))).andExpect(status().isOk());
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> documentConsentCases() {
+        return java.util.stream.Stream.of("organizer", "operator", "platform_admin").flatMap(actor ->
+                java.util.stream.Stream.of(
+                        org.junit.jupiter.params.provider.Arguments.of(actor, "FORM", "participant", true),
+                        org.junit.jupiter.params.provider.Arguments.of(actor, "FORM", "target", false),
+                        org.junit.jupiter.params.provider.Arguments.of(actor, "FORM", null, false),
+                        org.junit.jupiter.params.provider.Arguments.of(actor, "IMPORT", "participant", false),
+                        org.junit.jupiter.params.provider.Arguments.of(actor, "IMPORT", null, false)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("documentConsentCases")
+    void profileDocumentsRequireOwnerFormForListDownloadContentAndReview(String actor, String source, String submitter, boolean allowed) throws Exception {
+        UUID document = upload("profile", null, LocalDate.now().plusYears(1));
+        em.flush();
+        // A valid signed URL must still satisfy current document authorization.
+        String url = documents.download(document, id("event"), principal(actor)).url();
+        jdbc.update("update registrations set source=?,participant_user_id=? where id=?", source,
+                submitter == null ? null : id(submitter), id("registration"));
+        em.clear();
+        mvc.perform(get(base("profile")).param("eventId", ids.get("event")).with(authentication(auth(actor))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(allowed ? 1 : 0));
+        mvc.perform(get("/api/v1/documents/" + document + "/download").param("eventId", ids.get("event"))
+                .with(authentication(auth(actor)))).andExpect(status().is(allowed ? 200 : 403));
+        mvc.perform(get(url).with(authentication(auth(actor)))).andExpect(status().is(allowed ? 200 : 403));
+        var summary = list.execute(id("event"), null, principal(actor)).getFirst();
+        assertThat(summary.documents()).containsEntry("MEDICAL_CERT", allowed ? "PENDING" : "NOT_UPLOADED");
+        mvc.perform(post(base("profile") + "/" + document + "/review").param("eventId", ids.get("event"))
+                .contentType("application/json").content("{\"status\":\"ACCEPTED\"}").with(authentication(auth(actor))))
+                .andExpect(status().is(allowed ? 200 : 403));
+    }
+
+    @Test void accountlessProfileDoesNotGrantProfileDocumentAccess() throws Exception {
+        UUID document = upload("profile", null, LocalDate.now().plusYears(1));
+        em.flush();
+        String url = documents.download(document, id("event"), principal("organizer")).url();
+        jdbc.update("update profiles set user_id=null where id=?", id("profile"));
+        em.clear();
+        mvc.perform(get(base("profile")).param("eventId", ids.get("event"))
+                .with(authentication(auth("organizer")))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/v1/documents/" + document + "/download").param("eventId", ids.get("event"))
+                .with(authentication(auth("organizer")))).andExpect(status().isForbidden());
+        mvc.perform(get(url).with(authentication(auth("organizer")))).andExpect(status().isForbidden());
+    }
+
+    @Test void anonymousDownloadDoesNotCreateAuditRows() throws Exception {
+        UUID document=upload("profile",null,LocalDate.now().plusYears(1));
+        em.flush();
+        long before=jdbc.queryForObject("select count(*) from file_access_log",Long.class);
+        mvc.perform(get("/api/v1/documents/"+document+"/download")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/public/documents/"+document+"/content")).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("select count(*) from file_access_log",Long.class)).isEqualTo(before);
+    }
+    @Test void corruptCiphertextReturns409BeforeStreamingAndDoesNotLogDownload() throws Exception {
+        UUID document=upload("profile",null,LocalDate.now().plusYears(1));
+        em.flush();
+        String url=documents.download(document,null,principal("participant")).url();
+        String key=jdbc.queryForObject("select file_key from participant_documents where id=?",String.class,document);
+        byte[] bytes=Files.readAllBytes(DOCUMENT_FILES.resolve(key));
+        bytes[bytes.length-1]^=1;
+        Files.write(DOCUMENT_FILES.resolve(key),bytes);
+        mvc.perform(get(url).with(authentication(auth("participant"))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("files.corrupt"))
+                .andExpect(jsonPath("$.message").value("Файл повреждён или не удалось его расшифровать"));
+        assertThat(jdbc.queryForObject("select count(*) from file_access_log where document_id=? and action in ('DOWNLOAD','READ_FAILED')",Long.class,document)).isZero();
+    }
     @Test void parentUploadsEncryptedDocumentDownloadsAndDeletesPendingWithAuditAndEvent() throws Exception {
         var response = mvc.perform(multipart(base("profile")).file(file(PDF)).param("type", "MEDICAL_CERT")
                 .param("issuedAt", LocalDate.now().toString()).param("validUntil", LocalDate.now().plusYears(1).toString())
@@ -60,6 +203,7 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         String url = json.readTree(signed.getContentAsString()).get("url").asText();
         mvc.perform(get(url).with(authentication(auth("participant")))).andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "private, no-store"))
+                .andExpect(header().doesNotExist("ETag"))
                 .andExpect(header().longValue("Content-Length", PDF.length)).andExpect(content().bytes(PDF));
         em.flush();
         assertThat(jdbc.queryForList("select action from file_access_log where file_key=? order by at", String.class, key))
@@ -186,7 +330,7 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         em.clear(); stats.clear();
         var many = list.execute(id("event"), null, principal("organizer"));
         assertThat(many).hasSize(21);
-        assertThat(stats.getPrepareStatementCount()).isEqualTo(oneCount).isEqualTo(3);
+        assertThat(stats.getPrepareStatementCount()).isEqualTo(oneCount).isEqualTo(5);
         assertThat(many.stream().filter(r -> !r.participantProfileId().equals(id("profile"))))
                 .allSatisfy(r -> assertThat(r.admissionWarnings()).contains("Медицинская справка не загружена"));
         mvc.perform(get("/api/v1/events/" + ids.get("event") + "/registrations").with(authentication(auth("organizer"))))

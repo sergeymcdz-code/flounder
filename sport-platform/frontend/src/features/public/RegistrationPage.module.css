@@ -1,0 +1,41 @@
+.card {
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  padding: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.card h1 {
+  position: static;
+  margin: 0 0 24px;
+  font-size: clamp(28px, 4vw, 36px);
+  overflow-wrap: anywhere;
+}
+.form { display: grid; gap: 24px; }
+.form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.form legend { padding-inline: 6px; font-weight: 700; }
+.form fieldset:disabled { background: var(--color-surface-muted); }
+.form fieldset:disabled input { cursor: not-allowed; }
+.form p { margin-top: 0; }
+.form input:not([type=checkbox]), .form select { width: 100%; min-width: 0; }
+.form input[type=date] { display: block; max-width: 100%; }
+.form input[aria-invalid=true], .form select[aria-invalid=true] { border-color: var(--color-danger); }
+.form small { color: var(--color-text-muted); font-weight: 400; }
+.form :global(.fl-field) { margin-bottom: 16px; }
+.form fieldset > :global(.fl-btn-secondary) { margin-bottom: 16px; }
+.row { display: grid; gap: 0 16px; }
+.submit { margin-top: 16px; }
+@media (min-width: 640px) { .row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 639px) {
+  .card { padding: 16px; }
+  .form { gap: 16px; }
+  .submit { width: 100%; }
+}

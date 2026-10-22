@@ -20,14 +20,28 @@ public class ResultsProtocolLookupService implements ResultsProtocolLookup {
     private final ResultRepository results;
     private final RegistrationLookup registrations;
     private final ProfileLookup profiles;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
 
     public ResultsProtocolLookupService(CompetitionUnitRepository units, CompetitionUnitEntryRepository entries,
-            ResultRepository results, RegistrationLookup registrations, ProfileLookup profiles) {
+            ResultRepository results, RegistrationLookup registrations, ProfileLookup profiles, com.fasterxml.jackson.databind.ObjectMapper json) {
         this.units = units;
         this.entries = entries;
         this.results = results;
         this.registrations = registrations;
         this.profiles = profiles;
+        this.json = json;
+    }
+
+    private String snapshotClub(RegistrationLookupResult registration, ProfileLookupResult athlete) {
+        try {
+            var snapshot = json.readTree(registration.participantSnapshot() == null ? "{}" : registration.participantSnapshot());
+            if (snapshot != null && snapshot.has("clubName"))
+                return snapshot.get("clubName").isNull() ? null : snapshot.get("clubName").asText();
+            // Legacy registrations without a snapshot field retain their existing protocol representation.
+            return athlete.clubName();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new com.acme.sportplatform.common.exception.BusinessException("results.invalid_snapshot", "Некорректный снимок участника");
+        }
     }
 
     @Override
@@ -55,10 +69,10 @@ public class ResultsProtocolLookupService implements ResultsProtocolLookup {
                             var result = outcomes.get(e.getId());
                             return new Entry(e.getLaneOrPosition(), athlete.lastName(), athlete.firstName(),
                                     athlete.birthDate() == null ? null : athlete.birthDate().getYear(), athlete.gender(),
-                                    athlete.clubName(), e.getSeedTimeMs() == null ? registration.seedTimeMs() : e.getSeedTimeMs(),
+                                    snapshotClub(registration, athlete), e.getSeedTimeMs() == null ? registration.seedTimeMs() : e.getSeedTimeMs(),
                                     "WITHDRAWN".equals(e.getEntryStatus()) || "WITHDRAWN".equals(registration.status()),
                                     result == null ? null : new Outcome(result.getTimeMs(), result.getStatus(),
-                                            result.getRawValue(), result.getFinalPlace(), result.getPlaceInAgeGroup()));
+                                            result.getRawValue(), result.getFinalPlace(), result.getPlaceInAgeGroup()), athlete.id());
                         }).toList())).toList();
     }
 }

@@ -11,6 +11,7 @@ import styles from './AnalyticsPage.module.css'
 
 const number = (value: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(value)
 const time = (value: string | null, timezone?: string) => value ? new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short', timeZone: timezone }).format(new Date(value)) : '—'
+const duration = (value: number | null) => value === null ? '—' : `${Math.floor(Math.round(value) / 60)}:${String(Math.round(value) % 60).padStart(2, '0')}`
 const organizationAccessMessage = 'Доступно владельцам и администраторам организации'
 function useAnalytics<T>(id: string, load: (id: string, token: string) => Promise<T>, forbiddenMessage = 'Нет доступа к этой аналитике.') {
   const { session, logout } = useAuth(); const navigate = useNavigate()
@@ -63,7 +64,7 @@ export function EventAnalyticsPage() {
   const { eventId = '' } = useParams(); const state = useAnalytics(eventId, getEventAnalytics)
   if (state.loading) return <LoadingState message="Загружаем аналитику…" />
   if (!state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить аналитику.'} onRetry={state.refresh} />
-  return <div className={styles.page}><div className={styles.header}><h2>Аналитика события</h2><Actions scope="events" id={eventId} {...state} /></div>
+  return <div className={styles.page}><div className={styles.header}><h2>Аналитика соревнования</h2><Actions scope="events" id={eventId} {...state} /></div>
     {state.error && <p role="alert" className={styles.error}>{state.error}</p>}
     <p className={styles.muted}>Данные на {time(state.data.generatedAt, state.data.timezone)} · Обновление не чаще раза в минуту · Часовой пояс: {state.data.timezone}</p>
     <EventAnalyticsView data={state.data} />
@@ -82,9 +83,9 @@ export function EventAnalyticsView({ data: a }: { data: EventAnalytics }) {
     <section className={styles.panel}><Counts title="Заявки по статусам" values={a.registrations.byStatus} /></section>
     <section className={styles.panel}><div className={styles.table}><table><caption>По видам</caption><thead><tr><th>Вид</th><th>Заявки</th><th>Заплывы</th><th>Участники</th></tr></thead><tbody>{a.byDiscipline.map(d => <tr key={d.id}><td>{d.name}</td><td>{number(d.registrations)}</td><td>{number(d.heats)}</td><td>{number(d.participants)}</td></tr>)}</tbody></table></div></section>
     <Distribution title="По возрастным группам" values={a.byAgeGroup} /><Distribution title="По клубам — топ-20 и прочие" values={a.byClub} /><Distribution title="По полу" values={a.byGender} />
-    <section className={styles.panel}><div className={styles.table}><table><caption>Загрузка сессий</caption><thead><tr><th>Сессия</th><th>Заплывы</th><th>Минуты</th><th>Расчётное окончание</th><th>Отставание, сек</th></tr></thead><tbody>{a.sessions.map(s => <tr key={s.id}><td>{s.name}</td><td>{number(s.heats)}</td><td>{number(s.estimatedDurationMin)}</td><td>{time(s.estimatedEndsAt, a.timezone)}</td><td>{s.delaySec ?? '—'}</td></tr>)}</tbody></table></div><p className={styles.muted}>Фактическое отставание пока не измеряется.</p></section>
-    <section className={styles.panel}><h2>Время от финиша до публикации</h2><div className={styles.cards}><Metric label="Медиана, сек" value={a.results.medianPublicationSec} /><Metric label="p95, сек" value={a.results.p95PublicationSec} /><Metric label="Измерений" value={a.results.latencySamples} /></div>
-      {a.results.latencySamples === 0 ? <p>Нет отметок фактического финиша и публикации для расчёта задержки.</p> : <p>Цель p95: не более 420 сек (7 минут). {a.results.p95PublicationSec !== null && a.results.p95PublicationSec <= 420 ? 'Цель достигнута.' : 'Цель превышена.'}</p>}
+    <section className={styles.panel}><div className={styles.table}><table><caption>Загрузка сессий</caption><thead><tr><th>Сессия</th><th>Заплывы</th><th>Минуты</th><th>Расчётное окончание</th><th>Отставание, сек</th></tr></thead><tbody>{a.sessions.map(s => <tr key={s.id}><td>{s.name}</td><td>{number(s.heats)}</td><td>{number(s.estimatedDurationMin)}</td><td>{time(s.estimatedEndsAt, a.timezone)}</td><td>{s.delaySec ?? '—'}</td></tr>)}</tbody></table></div><p className={styles.muted}>Максимальное отставание фактического старта от плана; заплывы без факта старта не учитываются.</p></section>
+    <section className={styles.panel}><h2>Время публикации результатов</h2><div className={styles.cards}><Metric label="Медиана, м:сс" value={duration(a.results.medianPublicationSec)} /><Metric label="p95, м:сс" value={duration(a.results.p95PublicationSec)} /><Metric label="Заплывов в выборке" value={a.results.latencySamples} /></div>
+      {a.results.latencySource === 'UNAVAILABLE' ? <p>Нет данных: нет отметок фактического финиша и публикации для расчёта задержки.</p> : <p>Цель p95: не более 420 сек (7 минут). {a.results.p95PublicationSec !== null && a.results.p95PublicationSec <= 420 ? 'Цель достигнута.' : 'Цель превышена.'}</p>}
     </section>
     <section className={styles.panel}><h2>Последний прогон валидатора</h2>{a.validator.runId ? <><p>{time(a.validator.executedAt, a.timezone)}</p><div className={styles.cards}><Metric label="Ошибки" value={a.validator.errors} /><Metric label="Предупреждения" value={a.validator.warnings} /></div></> : <p>Валидатор ещё не запускался</p>}</section>
     <section className={styles.panel}><h2>Последние импорты</h2>{!a.importStats.available ? <p>{a.importStats.reason}</p> : <div className={styles.table}><table><thead><tr><th>Время</th><th>Строк</th><th>Создано</th><th>Обновлено</th><th>Ошибок</th><th>Длительность, мс</th></tr></thead><tbody>{a.importStats.recent.map((i, index) => <tr key={index}><td>{time(i.executedAt, a.timezone)}</td><td>{i.rows}</td><td>{i.created}</td><td>{i.updated}</td><td>{i.errors}</td><td>{i.durationMs}</td></tr>)}</tbody></table></div>}</section>
@@ -96,10 +97,10 @@ export function OrganizationAnalyticsPage() {
   if (!state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить аналитику.'} onRetry={state.refresh} />
   const a: OrganizationAnalytics = state.data
   return <div className={styles.page}><Link to="/organizer/organizations">← Организации</Link><div className={styles.header}><h1>{a.name}: аналитика</h1><Actions scope="organizations" id={orgId} {...state} /></div>{state.error && <p role="alert">{state.error}</p>}
-    <p className={styles.muted}>Данные на {time(a.generatedAt)}. Участия — уникальные спортсмены внутри каждого события; повторные участники выступают минимум в двух событиях. Отклонённые, снятые и черновые заявки исключены.</p>
-    <div className={styles.cards}><Metric label="События" value={a.events} /><Metric label="Участия в событиях" value={a.participants} /><Metric label="Уникальные участники" value={a.uniqueParticipants} /><Metric label="Повторные участники" value={a.repeatParticipants} /><Metric label="Средний размер события" value={a.averageEventSize} /></div>
-    {a.events === 0 && <p>Событий пока нет</p>}
-    <section className={styles.panel}><Counts title="События по статусам" values={a.byStatus} /></section>
+    <p className={styles.muted}>Данные на {time(a.generatedAt)}. Участия — уникальные спортсмены внутри каждого соревнования; повторные участники выступают минимум в двух соревнованиях. Отклонённые, снятые и черновые заявки исключены.</p>
+    <div className={styles.cards}><Metric label="Соревнования" value={a.events} /><Metric label="Участия в соревнованиях" value={a.participants} /><Metric label="Уникальные участники" value={a.uniqueParticipants} /><Metric label="Повторные участники" value={a.repeatParticipants} /><Metric label="Средний размер соревнования" value={a.averageEventSize} /></div>
+    {a.events === 0 && <p>Соревнований пока нет</p>}
+    <section className={styles.panel}><Counts title="Соревнования по статусам" values={a.byStatus} /></section>
     <section className={styles.panel}><h2>Выручка по оплатам</h2>{a.revenue.length === 0 ? <p>Подтверждённых оплат пока нет</p> : <div className={styles.cards}>{a.revenue.map(r => <Metric key={r.currency} label={r.currency} value={number(r.amount)} />)}</div>}</section>
   </div>
 }

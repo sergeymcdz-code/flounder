@@ -16,6 +16,12 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
       maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      validation-timeout: 3000
+      max-lifetime: 1500000
+      keepalive-time: 300000
+      leak-detection-threshold: 20000
 
   flyway:
     url: ${SPRING_DATASOURCE_URL}
@@ -29,15 +35,32 @@ spring:
     properties:
       hibernate:
         format_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  modulith:
+    events:
+      completion-mode: delete
 
   docker:
     compose:
       enabled: false
 
 server:
+  tomcat:
+    threads:
+      max: 64
+      min-spare: 4
+    accept-count: 100
+    max-connections: 2000
+    keep-alive-timeout: 30s
   forward-headers-strategy: native  # behind Caddy: trust X-Forwarded-* for correct https links
 
 management:
+  tracing:
+    enabled: false
   endpoints:
     web:
       exposure:

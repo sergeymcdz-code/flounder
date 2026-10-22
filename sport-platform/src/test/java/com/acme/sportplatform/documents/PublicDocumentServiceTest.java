@@ -59,8 +59,35 @@ class PublicDocumentServiceTest {
         verify(documents, times(2)).generate(id, false, true);
     }
 
+    @Test
+    void standingsUseTheirOwnCacheKeyAndExpirePublicationAfterSixtySeconds() {
+        var events = mock(EventPublicLookup.class);
+        var documents = mock(DocumentService.class);
+        var ticks = new AtomicLong();
+        var cache = Caffeine.newBuilder().ticker(ticks::get).expireAfterWrite(Duration.ofSeconds(60))
+                .<String, PdfDocument>build();
+        var service = new PublicDocumentService(events, documents, cache);
+        var event = event(UUID.randomUUID(), "cup");
+        var pdf = new PdfDocument(new byte[] {3}, "standings.pdf");
+        when(events.getPublicBySlug("cup")).thenReturn(event);
+        when(documents.publicStandings(event)).thenReturn(pdf);
+        assertThat(service.standings("cup")).isSameAs(pdf);
+        assertThat(cache.getIfPresent("cup:" + event.id() + ":standings")).isSameAs(pdf);
+        when(documents.publicStandings(event)).thenThrow(
+                new BusinessException("standings.not_published", "Зачёт не опубликован"));
+        ticks.set(Duration.ofSeconds(59).toNanos());
+        assertThat(service.standings("cup")).isSameAs(pdf);
+        verify(events, times(2)).getPublicBySlug("cup");
+        verify(documents).publicStandings(event);
+        ticks.set(Duration.ofSeconds(60).toNanos());
+        assertThatThrownBy(() -> service.standings("cup")).isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getCode()).isEqualTo("standings.not_published");
+        assertThatThrownBy(() -> service.standings("cup")).isInstanceOf(BusinessException.class);
+        verify(documents, times(3)).publicStandings(event);
+    }
+
     private EventPublicLookupResult event(UUID id, String slug) {
         return new EventPublicLookupResult(id, UUID.randomUUID(), "Кубок", null, null, null, null,
-                null, "PUBLISHED", slug, List.of());
+                null, "PUBLISHED", slug, List.of(), null, null, null);
     }
 }

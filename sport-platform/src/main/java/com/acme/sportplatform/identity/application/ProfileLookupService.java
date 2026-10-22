@@ -66,10 +66,6 @@ public class ProfileLookupService implements ProfileLookup {
             apply(profile, data);
             profile = profileRepository.save(profile);
         }
-        if ((profile.getClubName() == null || profile.getClubName().isBlank())
-                && data != null && data.club() != null && !data.club().isBlank()) {
-            profile.setClubName(data.club());
-        }
         return toResult(profile).withCreated(created);
     }
 

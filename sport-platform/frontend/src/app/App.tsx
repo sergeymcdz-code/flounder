@@ -1,10 +1,13 @@
+import { PosterPage } from '../features/public/PosterPage'
 import { lazy, Suspense } from 'react'
+import { ToastProvider } from '../components/ui/Toast'
 import { Navigate, Route, Routes } from 'react-router'
 
 import { AppLayout } from '../components/AppLayout'
 import { RequireRole } from '../components/RequireRole'
 
 import { LegacyEventRedirect, PublicLayout } from '../features/public/PublicLayout'
+import { StandingsPage } from '../features/public/StandingsPage'
 import { PublicEventPage } from '../features/public/EventPage'
 import { StartListPage } from '../features/public/StartListPage'
 import { SchedulePage } from '../features/public/SchedulePage'
@@ -12,6 +15,8 @@ import { LivePage } from '../features/public/LivePage'
 import { ResultsPage } from '../features/public/ResultsPage'
 import { PublicRegistrationPage } from '../features/public/RegistrationPage'
 import { HeatPage } from '../features/public/HeatPage'
+
+const OrganizerDiplomaPage = lazy(() => import('../features/organizer/OrganizerDiplomaPage').then(module => ({ default: module.OrganizerDiplomaPage })))
 
 const RegistrationReviewPage = lazy(() =>
   import('../features/admin/RegistrationReviewPage').then(module => ({ default: module.RegistrationReviewPage })),
@@ -35,15 +40,12 @@ const RegisterPage = lazy(() =>
   import('../features/auth/RegisterPage').then(module => ({ default: module.RegisterPage })),
 )
 
-const EventsPage = lazy(() =>
-  import('../features/events/EventsPage').then(module => ({ default: module.EventsPage })),
+const CalendarPage = lazy(() =>
+  import('../features/public/CalendarPage').then(module => ({ default: module.CalendarPage })),
 )
 
 const CreateEventPage = lazy(() =>
   import('../features/organizer/CreateEventPage').then(module => ({ default: module.CreateEventPage })),
-)
-const OrganizerDashboardPage = lazy(() =>
-  import('../features/organizer/OrganizerDashboardPage').then(module => ({ default: module.OrganizerDashboardPage })),
 )
 const OrganizerEventsPage = lazy(() =>
   import('../features/organizer/OrganizerEventsPage').then(module => ({ default: module.OrganizerEventsPage })),
@@ -106,25 +108,34 @@ const PublicDisciplineResultsPage = lazy(() =>
   import('../features/results/PublicDisciplineResultsPage').then(module => ({ default: module.PublicDisciplineResultsPage })),
 )
 
+const OrganizerStandingsPage = lazy(() => import('../features/organizer/OrganizerStandingsPage').then(m => ({ default: m.OrganizerStandingsPage })))
+
 const EventAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.EventAnalyticsPage })))
 const OrganizationAnalyticsPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationAnalyticsPage })))
 const OrganizationsAnalyticsListPage = lazy(() => import('../features/analytics/AnalyticsPages').then(m => ({ default: m.OrganizationsAnalyticsListPage })))
 
+const PublicOrganizationPage = lazy(() => import('../features/public/PublicOrganizationPage').then(m => ({ default: m.PublicOrganizationPage })))
+const OrganizationPublicSettingsPage = lazy(() => import('../features/organizer/OrganizationPublicSettingsPage').then(m => ({ default: m.OrganizationPublicSettingsPage })))
+
 export default function App() {
   const routes = (
     <Routes>
+      <Route element={<PublicLayout />}>
+        <Route index element={<CalendarPage />} />
+        <Route path="o/:slug" element={<PublicOrganizationPage />} />
+      </Route>
       <Route path="e/:slug" element={<PublicLayout />}>
         <Route index element={<PublicEventPage />} />
         <Route path="start-list" element={<StartListPage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="live" element={<LivePage />} />
+        <Route path="poster" element={<PosterPage />} />
         <Route path="results" element={<ResultsPage />} />
+        <Route path="standings" element={<StandingsPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />
       </Route>
       <Route element={<AppLayout />}>
-        <Route index element={<EventsPage />} />
-
         <Route
           path="events/:eventCode"
           element={<LegacyEventRedirect />}
@@ -173,7 +184,8 @@ export default function App() {
           }
         >
           <Route path="organizer" element={<OrganizerLayout />}>
-            <Route index element={<OrganizerDashboardPage />} />
+            <Route index element={<Navigate replace to="/organizer/events" />} />
+            <Route path="organization/public" element={<OrganizationPublicSettingsPage />} />
             <Route path="organization" element={<OrganizationPage />} />
             <Route path="notification-settings" element={<NotificationSettingsPage />} />
             <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
@@ -197,6 +209,8 @@ export default function App() {
               <Route path="entries" element={<OrganizerEntriesPage />} />
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
+              <Route path="diploma" element={<OrganizerDiplomaPage />} />
+              <Route path="standings" element={<OrganizerStandingsPage />} />
               <Route path="notifications" element={<OrganizerNotificationsPage />} />
               <Route element={<RequireRole roles={['organizer', 'platform_admin', 'platformadmin']} />}>
                 <Route path="analytics" element={<EventAnalyticsPage />} />
@@ -212,8 +226,7 @@ export default function App() {
 
           <Route
             path="organizer/registrations/review"
-            element={<RegistrationReviewPage />}
-          />
+            element={<Navigate replace to="/admin/registrations/review" />} />
         </Route>
 
         <Route
@@ -282,5 +295,5 @@ export default function App() {
       </Route>
     </Routes>
   )
-  return <Suspense fallback={<p role="status">Загружаем страницу…</p>}>{routes}</Suspense>
+  return <ToastProvider><Suspense fallback={<p role="status">Загружаем страницу…</p>}>{routes}</Suspense></ToastProvider>
 }

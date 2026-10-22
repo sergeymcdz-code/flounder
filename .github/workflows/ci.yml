@@ -37,12 +37,16 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+      - run: python3 ../../infra/tests/csp-test.py dist/index.html
 
   infra:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y age shellcheck python3-yaml
       - run: shellcheck infra/*.sh infra/tests/*.sh
+      - run: bash infra/tests/workflow-test.sh
+      - run: bash infra/tests/caddy-test.sh
       - run: bash infra/tests/staging-test.sh
       - run: bash infra/tests/maintenance-test.sh
       - run: bash infra/tests/compose-config-test.sh

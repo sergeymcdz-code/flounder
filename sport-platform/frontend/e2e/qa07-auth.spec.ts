@@ -1,3 +1,4 @@
+import { requiredCredential } from './credentials'
 import { test, expect, type Page, type Route } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { request as httpRequest } from 'node:http'
@@ -5,7 +6,7 @@ import { api, apiUrl, login, password, request } from './qa07-support'
 
 async function createUser(page: Page) {
   const email = `qa07-auth-${randomUUID()}@test.example`
-  await login(page, 'admin@flounder.demo', '/admin/users')
+  await login(page, requiredCredential('ADMIN_EMAIL'), '/admin/users')
   await api(page, '/users', 'POST', {
     email, password, firstName: 'Регрессия', lastName: 'Аутентификация',
     birthDate: '1990-01-01', roles: ['participant'],

@@ -16,6 +16,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,6 +36,19 @@ class SchedulingIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
+    @Autowired ApplicationContext context;
+
+    @Test
+    void schedulingKeepsApplicationAsyncExecutorSeparate() {
+        var executor = assertInstanceOf(ThreadPoolTaskExecutor.class,
+                context.getBean("applicationTaskExecutor"));
+        var scheduler = assertInstanceOf(ThreadPoolTaskScheduler.class,
+                context.getBean("taskScheduler"));
+        assertNotSame(executor, scheduler);
+        assertEquals(2, scheduler.getScheduledThreadPoolExecutor().getCorePoolSize());
+        assertEquals("app-scheduler-", scheduler.getThreadNamePrefix());
+    }
+
     static final UUID OWNER = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     record Fixture(UUID event, List<UUID> disciplines, List<UUID> registrations) {}

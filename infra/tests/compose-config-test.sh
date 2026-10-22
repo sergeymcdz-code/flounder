@@ -18,6 +18,14 @@ expected_limits = {"APP_AUTH_REGISTRATION_MAX_PER_EMAIL": "4", "APP_AUTH_REGISTR
                    "APP_AUTH_REGISTRATION_WINDOW": "PT2H", "APP_AUTH_PASSWORD_RESET_MAX_PER_EMAIL": "5",
                    "APP_AUTH_PASSWORD_RESET_MAX_PER_IP": "50", "APP_AUTH_PASSWORD_RESET_WINDOW": "PT3H"}
 assert all(config["services"]["api"]["environment"][key] == value for key, value in expected_limits.items())
+
+for name, memory in {"api": 1664, "postgres": 640, "web": 128, "caddy": 128}.items():
+    service = config["services"][name]
+    assert int(service["mem_limit"]) == memory * 1024 * 1024
+    assert "no-new-privileges:true" in service["security_opt"]
+assert config["services"]["postgres"]["image"] == "postgres:16.14"
+assert config["services"]["caddy"]["image"] == "caddy:2.10.2"
+assert config["services"]["caddy"]["environment"]["CSP_HEADER"] == "Content-Security-Policy-Report-Only"
 assert config["services"]["api"]["environment"]["APP_FILES_ENCRYPTION_KEY"] == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 assert config["volumes"]["flounder_files"]["name"] == "flounder_files"
 assert any(v.get("source") == "flounder_files" and v.get("target") == "/data/files" for v in config["services"]["api"]["volumes"])
@@ -39,3 +47,15 @@ if grep -En 'swagger-ui|api-docs' infra/Caddyfile infra/Caddyfile.staging; then
   echo 'Caddy must not proxy API documentation paths' >&2
   exit 1
 fi
+
+# Compose must preserve the literal bcrypt dollars from the protected env file.
+cat > "$error_file" <<'ENV'
+STAGING_BASIC_AUTH_HASH='$2a$14$test-only-hash'
+ENV
+# shellcheck disable=SC2016
+docker compose --env-file "$error_file" -f infra/compose.prod.yaml config --format json | python3 -c '
+import json, sys
+value = json.load(sys.stdin)["services"]["caddy"]["environment"]["STAGING_BASIC_AUTH_HASH"]
+# Compose versions may escape dollars in reusable config output.
+assert value.replace("$$", "$") == "$2a$14$test-only-hash"
+'

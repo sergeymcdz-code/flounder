@@ -1,3 +1,4 @@
+import { demoCalendar, demoOrganization } from '../src/mocks/calendar-data.ts'
 // Same-origin fixture API for exercising the production PWA without MSW's worker.
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -38,6 +39,11 @@ const types: Record<string, string> = {
 }
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', 'http://localhost:5175')
+  if (url.pathname === '/api/v1/public/calendar' || url.pathname === '/api/v1/public/organizations/volna') {
+    response.writeHead(200, { 'Content-Type': 'application/json' })
+    response.end(JSON.stringify(url.pathname.endsWith('/volna') ? demoOrganization : demoCalendar))
+    return
+  }
   if (url.pathname === '/api/v1/public/events') {
     response.writeHead(200, { 'Content-Type': 'application/json' })
     response.end(JSON.stringify([demoEvent]))

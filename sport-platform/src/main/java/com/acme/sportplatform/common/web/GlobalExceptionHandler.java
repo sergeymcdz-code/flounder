@@ -31,7 +31,10 @@ public class GlobalExceptionHandler {
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex) {
+    public ResponseEntity<ApiErrorResponse> handleLargeUpload(Exception ex, jakarta.servlet.http.HttpServletRequest request) {
+        if (request.getRequestURI().matches("/api/v1/organizations/[^/]+/logo"))
+            return ResponseEntity.badRequest().body(new ApiErrorResponse(
+                    "organizations.logo_too_large", "Размер логотипа превышает 2 МБ", OffsetDateTime.now(), List.of()));
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiErrorResponse(
                 "files.too_large", "Размер файла превышает допустимый", OffsetDateTime.now(), List.of()));
     }
@@ -55,13 +58,18 @@ public class GlobalExceptionHandler {
             BusinessException ex
     ) {
         HttpStatus status = switch (ex.getCode()) {
+            case "organizations.not_found" -> HttpStatus.NOT_FOUND;
+            case "organizations.slug_taken" -> HttpStatus.CONFLICT;
             case "documents.generation_failed" -> HttpStatus.INTERNAL_SERVER_ERROR;
             case "documents.busy" -> HttpStatus.SERVICE_UNAVAILABLE;
-            case "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
+            case "standings.not_published", "documents.not_found", "files.not_found" -> HttpStatus.NOT_FOUND;
             case "documents.access_denied" -> HttpStatus.FORBIDDEN;
+            case "documents.too_many_pages", "scheduling.bib_locked", "scheduling.bib_taken", "documents.diploma_disabled" -> HttpStatus.CONFLICT;
+            case "scheduling.bib_not_found" -> HttpStatus.NOT_FOUND;
             case "documents.not_pending" -> HttpStatus.CONFLICT;
             case "files.too_large", "imports.file_too_large" -> HttpStatus.PAYLOAD_TOO_LARGE;
-            case "files.storage_unavailable", "files.corrupt" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "files.storage_unavailable" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "files.corrupt" -> HttpStatus.CONFLICT;
             case "scheduling.published_units_exist", "scheduling.validation_failed", "scheduling.active_units_exist", "results.lane_conflict" -> HttpStatus.CONFLICT;
             case "organizations.venue_not_found" -> HttpStatus.NOT_FOUND;
             case "events.session_in_use", "events.session_order_conflict", "competition.discipline_in_use", "competition.discipline_code_already_exists", "identity.profile_already_attached", "results.unit_in_progress", "results.unit_already_started" -> HttpStatus.CONFLICT;

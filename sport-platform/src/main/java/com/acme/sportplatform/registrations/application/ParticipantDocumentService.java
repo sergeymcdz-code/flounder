@@ -66,8 +66,33 @@ public class ParticipantDocumentService {
             assertManager(profileId, eventId, principal);
         }
         return documents.findByProfileIdOrderByUploadedAtDesc(profileId).stream()
-                .filter(d -> owner && eventId == null || d.getEventId() == null || d.getEventId().equals(eventId))
+                .filter(d -> owner
+                        ? eventId == null || d.getEventId() == null || d.getEventId().equals(eventId)
+                        : canManagerSeeDocument(d, eventId, principal))
                 .map(this::response).toList();
+    }
+    public ParticipantDocumentResponse review(UUID profileId, UUID id, UUID eventId,
+            com.acme.sportplatform.registrations.api.ReviewParticipantDocumentRequest request,
+            AuthenticatedUserPrincipal principal) {
+        assertManager(profileId, eventId, principal);
+        var d = documents.lockById(id).orElseThrow(this::notFound);
+        if (!d.getProfileId().equals(profileId) || d.getEventId() != null && !d.getEventId().equals(eventId)) throw notFound();
+        if (!canManagerSeeDocument(d, eventId, principal)) throw denied();
+        if (!DocumentStatus.PENDING.name().equals(d.getStatus()))
+            throw new BusinessException("documents.not_pending", "Документ уже проверен");
+        if (request.status() != DocumentStatus.ACCEPTED && request.status() != DocumentStatus.REJECTED)
+            throw new BusinessException("documents.invalid_status", "Выберите принятие или отклонение документа");
+        String reason = request.rejectReason() == null ? null : request.rejectReason().trim();
+        if (request.status() == DocumentStatus.REJECTED && (reason == null || reason.isBlank()))
+            throw new BusinessException("documents.reason_required", "Укажите причину отклонения");
+        if (reason != null && reason.length() > 500)
+            throw new BusinessException("documents.invalid_reason", "Причина должна содержать не более 500 символов");
+        d.setStatus(request.status().name());
+        d.setRejectReason(request.status() == DocumentStatus.REJECTED ? reason : null);
+        d.setReviewedBy(principal.getUserId());
+        d.setReviewedAt(OffsetDateTime.now());
+        documents.save(d);
+        return response(d);
     }
     public void delete(UUID profileId, UUID id, AuthenticatedUserPrincipal principal) {
         var d = documents.lockById(id).orElseThrow(this::notFound);
@@ -105,7 +130,16 @@ public class ParticipantDocumentService {
         if (owns(d.getProfileId(), principal)) return;
         UUID scope = d.getEventId() == null ? eventId : d.getEventId();
         if (scope == null || eventId != null && !scope.equals(eventId)) throw notFound();
-        assertManager(d.getProfileId(), scope, principal);
+        if (!canManagerSeeDocument(d, scope, principal)) throw denied();
+    }
+    private boolean canManagerSeeDocument(ParticipantDocumentEntity doc, UUID eventId,
+            AuthenticatedUserPrincipal principal) {
+        if (eventId == null || doc.getEventId() != null && !doc.getEventId().equals(eventId)) return false;
+        assertManager(doc.getProfileId(), eventId, principal);
+        if (doc.getEventId() != null) return true;
+        UUID ownerId = profiles.getById(doc.getProfileId()).userId();
+        return ownerId != null && registrations.existsByEventIdAndParticipantProfileIdAndSourceAndParticipantUserId(
+                eventId, doc.getProfileId(), "FORM", ownerId);
     }
     private boolean owns(UUID profileId, AuthenticatedUserPrincipal p) {
         return p != null && p.getUserId().equals(profiles.getById(profileId).userId());

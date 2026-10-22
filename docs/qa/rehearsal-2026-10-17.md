@@ -10,17 +10,19 @@
 - [ ] HTTPS, `/actuator/health`, анонимные `/e/{slug}`, API доступны через мобильную сеть; часы сервера верны; нет неожиданных 4xx/500.
 - [ ] Указан выделенный демо-стенд; закрыты записи пользователей/фоновые обработчики на время сброса. Адрес API в `scripts/demo/.env` проверен оператором. Пароли/DSN не копировать в протокол.
 
-Команды выполняет **deploy**, из корня серверного checkout (обычно `/home/deploy/flounder`); из root сначала `su - deploy`. Это команды для оператора, QA07 их на сервере не выполнял.
+Вход до hardening: `ssh <admin-user>@SERVER_IP` (например root), затем `su - <ssh-user>`.
+После hardening: `ssh <ssh-user>@SERVER_IP` напрямую по ключу; root SSH отключён.
+Команды выполняет **`<ssh-user>`**, из корня серверного checkout (обычно `/home/<ssh-user>/flounder`); из root сначала `su - <ssh-user>`. Это команды для оператора, QA07 их на сервере не выполнял.
 
 ```bash
-cd /home/deploy/flounder
+cd /home/<ssh-user>/flounder
 git rev-parse HEAD
 docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod ps
 curl -fsS https://sportgate.pro/actuator/health
 ./infra/backup.sh
 ```
 
-- [ ] Скопировать **точный путь из вывода** backup в журнал: `________________`. Зафиксировать размер, время, SHA256 и проверку формата. M09 в main: копия `/home/deploy/backups/flounder-YYYYMMDD-HHMM.dump`, при наличии файлового тома — соседний `.files.tar.gz`; журнал `/home/deploy/backups/backup.log`.
+- [ ] Скопировать **точный путь из вывода** backup в журнал: `________________`. Зафиксировать размер, время, SHA256 и проверку формата. M09 в main: копия `/home/<ssh-user>/backups/flounder-YYYYMMDD-HHMM.dump`, при наличии файлового тома — соседний `.files.tar.gz`; журнал `/home/<ssh-user>/backups/backup.log`.
 
 ```bash
 # Указать настоящий файл из вывода, без секретов в аргументах.
@@ -61,10 +63,10 @@ timedatectl
 
 ### Сервер без Node
 
-Выполняет deploy из корня checkout; предварительно владелец задаёт `DEMO_OWNER_EMAIL` в `scripts/demo/.env` вместе с API_URL=https://sportgate.pro, ADMIN_EMAIL/ADMIN_PASSWORD, DEMO_PASSWORD и DEMO_SEED_ENABLED=true. Адрес должен принадлежать отдельному участнику; по умолчанию `sergeymcdzkz@gmail.com`. Адрес администратора `sergeymcdz@yandex.ru` для участника не использовать. `.env` не выводить на экран.
+Выполняет `<ssh-user>` из корня checkout; предварительно владелец задаёт `DEMO_OWNER_EMAIL` в `scripts/demo/.env` вместе с API_URL=https://sportgate.pro, ADMIN_EMAIL/ADMIN_PASSWORD, DEMO_PASSWORD и DEMO_SEED_ENABLED=true. Адрес должен принадлежать отдельному участнику; по умолчанию `<user-email>`. Адрес администратора `<user-email>` для участника не использовать. `.env` не выводить на экран.
 
 ```bash
-cd /home/deploy/flounder
+cd /home/<ssh-user>/flounder
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e DEMO_DATE=2026-10-19 -e DEMO_EVENTS=A,B,C \
   -v "$PWD":/repo -w /repo/scripts/demo node:22-alpine \
@@ -76,7 +78,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
 После резервной копии БД/файлов проверить UUID, название и slug прежнего события через публичный API. При 404 подтвердить, что оно уже удалено, и пропустить этот шаг. Новый `reset.ts` также может выбирать старое событие по `DEMO_SLUGS`, сохраняя проверку демо-организации/площадки. Прямой сброс тем же SQL через контейнерный psql:
 
 ```bash
-cd /home/deploy/flounder
+cd /home/<ssh-user>/flounder
 ./infra/backup.sh
 curl -fsS https://sportgate.pro/api/v1/public/events/otkrytyy-kubok-samary-po-plavaniyu-demo \
   -o /tmp/s02-legacy-event.json
@@ -111,7 +113,7 @@ curl -fsS https://sportgate.pro/actuator/health
 Фактические slug/UUID записать из вывода сида. API разрешает коллизии slug окончанием. Node ≥22; на сервере без Node использовать контейнер по [scripts/demo/README.md](../../scripts/demo/README.md). `.env` содержит API_URL, ADMIN_EMAIL/пароли, DEMO_SEED_ENABLED=true; его не выводить. Скриптам не задавать NODE_ENV=production/prod.
 
 ```bash
-cd /home/deploy/flounder/scripts/demo
+cd /home/<ssh-user>/flounder/scripts/demo
 npm ci
 # Read-only verification for all three demo event titles:
 DEMO_EVENTS=A,B,C npx tsx reset.ts
@@ -135,7 +137,7 @@ DEMO_DATE=2026-10-19 DEMO_EVENTS=A,B,C npx tsx seed.ts
 - [ ] B: 200 заявок, 120 профилей, 4 вида/2 сессии, опубликованные заплывы/стартовый протокол; ровно первые два заплыва сессии 1 FINISHED с результатами, остальные PUBLISHED; live указывает на третий. UUID/slug: `________________`.
 - [ ] C: лимит события 150, 8 видов по 16; 124 заявки = 114 CONFIRMED + 6 NEEDS_CORRECTION + 4 WAITLISTED с позициями. Два MEDICAL_CERT/PENDING скачиваются через кабинет; PDF содержит пометку DEMO. UUID/slug: `________________`.
 - [ ] Всего 300 уникальных пловцов 2010–2016 г. р., 12 клубов; B/C используют 40 одинаковых profile ID без дублей ФИО/даты. Служебные аккаунты не включены в 300.
-- [ ] Владелец задал DEMO_OWNER_EMAIL для отдельного участника C (default sergeymcdzkz@gmail.com, не адрес platform_admin); SMTP/M05 и письмо проверены владельцем до показа. На локальном backend почта по умолчанию выключена. Другие созданные аккаунты @flounder.demo; импортированные профили без почты.
+- [ ] Владелец задал DEMO_OWNER_EMAIL для отдельного участника C (default `<user-email>`, не адрес platform_admin); SMTP/M05 и письмо проверены владельцем до показа. На локальном backend почта по умолчанию выключена. Другие созданные аккаунты @flounder.demo; импортированные профили без почты.
 - [ ] Если нужен резерв, выполнить полный сид с EVENT_TITLE_SUFFIX=" · резерв" и записать отдельные slug. Тот же суффикс использовать при reset. Сохранены PDF/видео, резерв явно подписан.
 
 ## Семь шагов — непрерывный показ 14 минут

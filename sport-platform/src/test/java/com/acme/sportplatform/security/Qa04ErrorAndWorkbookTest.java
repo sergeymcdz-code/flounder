@@ -62,11 +62,18 @@ class Qa04ErrorAndWorkbookTest {
         verifyNoInteractions(rows, disciplines);
     }
     @Test
-    void servletUploadLimitUsesOneStableCodeAndMessageForEveryEndpoint() {
-        var response = new GlobalExceptionHandler().handleLargeUpload(new MaxUploadSizeExceededException(10 * 1024 * 1024));
+    void servletDocumentUploadLimitKeepsItsStableCodeAndMessage() {
+        var response = new GlobalExceptionHandler().handleLargeUpload(new MaxUploadSizeExceededException(10 * 1024 * 1024), new org.springframework.mock.web.MockHttpServletRequest());
         assertThat(response.getStatusCode().value()).isEqualTo(413);
         assertThat(response.getBody().code()).isEqualTo("files.too_large");
         assertThat(response.getBody().message()).isEqualTo("Размер файла превышает допустимый");
+    }
+    @Test
+    void oversizedLogosUseTheOrganizationValidationContract() {
+        var request = new org.springframework.mock.web.MockHttpServletRequest("POST", "/api/v1/organizations/club/logo");
+        var response = new GlobalExceptionHandler().handleLargeUpload(new MaxUploadSizeExceededException(10 * 1024 * 1024), request);
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody().code()).isEqualTo("organizations.logo_too_large");
     }
     @Test
     void formulaCellsAreRejectedAndFormulaLikeStringsRemainLiteral() throws Exception {
