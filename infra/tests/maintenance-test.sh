@@ -4,9 +4,11 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 export POSTGRES_CONTAINER="m09-test-$RANDOM-$$" FILES_VOLUME="m09-files-$RANDOM-$$"
+fixture_container="$POSTGRES_CONTAINER"
+fixture_volume="$FILES_VOLUME"
 cleanup() {
-  docker rm -f "$POSTGRES_CONTAINER" >/dev/null 2>&1 || true
-  docker volume rm "$FILES_VOLUME" >/dev/null 2>&1 || true
+  docker rm -f "$fixture_container" >/dev/null 2>&1 || true
+  docker volume rm "$fixture_volume" >/dev/null 2>&1 || true
   rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -23,24 +25,25 @@ DATE
 chmod +x "$TMP/bin/date"
 cat > "$TMP/bin/curl" <<'CURL'
 #!/usr/bin/env bash
-cat >/dev/null
+cat >> "${TEST_ALERTS:-/dev/null}"
+printf '%s\n' "$*" >> "${TEST_ALERTS:-/dev/null}"
 case "$*" in *'/actuator/health'*) printf '{"status":"UP"}';; esac
 exit 0
 CURL
 chmod +x "$TMP/bin/curl"
 export PATH="$TMP/bin:$PATH"
 docker run -d --name "$POSTGRES_CONTAINER" -e POSTGRES_USER -e POSTGRES_DB \
-  -e POSTGRES_PASSWORD=test-only-password postgres:16 >/dev/null
+  -e POSTGRES_PASSWORD=test-only-password postgres:16.14 >/dev/null
 ready=0
 for _ in {1..60}; do
-  if docker exec "$POSTGRES_CONTAINER" pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then ready=1; break; fi
+  if docker exec "$POSTGRES_CONTAINER" pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then ready=1; break; fi
   sleep 1
 done
 (( ready ))
 docker exec "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
   -c 'create table events(id integer primary key); insert into events values (1);' >/dev/null
 docker volume create "$FILES_VOLUME" >/dev/null
-docker run --rm --network none -v "$FILES_VOLUME:/files" postgres:16 sh -c 'echo document > /files/example.txt'
+docker run --rm --network none -v "$FILES_VOLUME:/files" postgres:16.14 sh -c 'echo document > /files/example.txt'
 touch "$BACKUP_DIR/old.sql.gz" "$BACKUP_DIR/unrelated.txt"
 touch -d '31 days ago' "$BACKUP_DIR/old.sql.gz" "$BACKUP_DIR/unrelated.txt"
 "$REPO/infra/backup.sh"
@@ -111,6 +114,62 @@ unset FAIL_PROD_LOAD
 if grep -q '^compose .* start api$' "$TEST_CALLS"; then echo 'Load failure restarted API'; exit 1; fi
 # Restore the disposable fixture and prove the safety copy remains usable.
 printf 'restore-production\n' | "$REPO/infra/restore-production.sh" "$TMP/legacy.sql.gz"
+# Owner identities exist only inside this disposable test workspace.
+export ENV_FILE=/dev/null BACKUP_DIR="$TMP/encrypted" TEST_ALERTS="$TMP/alerts"
+mkdir -p "$BACKUP_DIR" "$TMP/plaintext"
+age-keygen -o "$TMP/owner.key" 2>/dev/null
+age-keygen -o "$TMP/wrong.key" 2>/dev/null
+export BACKUP_AGE_RECIPIENT
+BACKUP_AGE_RECIPIENT="$(age-keygen -y "$TMP/owner.key")"
+"$REPO/infra/backup.sh"
+"$REPO/infra/backup.sh"
+encrypted=("$BACKUP_DIR"/*.dump.age)
+[[ ${#encrypted[@]} -eq 1 && -s "${encrypted[0]}" ]]
+[[ -z "$(find "$BACKUP_DIR" -name '*.tmp' -o -name '*.dump' -o -name '*.tar.gz')" ]]
+[[ "$(stat -c %a "${encrypted[0]}")" == 600 ]]
+archives=("$BACKUP_DIR"/*.files.tar.gz.age)
+age -d -i "$TMP/owner.key" "${archives[0]}" | tar -tzf - | grep -q example.txt
+TMPDIR="$TMP/plaintext" "$REPO/infra/restore.sh" "${encrypted[0]}" "$TMP/owner.key"
+[[ -z "$(ls -A "$TMP/plaintext")" ]]
+cp "${encrypted[0]}" "$TMP/renamed.age"
+TMPDIR="$TMP/plaintext" "$REPO/infra/restore.sh" "$TMP/renamed.age" "$TMP/owner.key"
+for key in "$TMP/wrong.key" "$TMP/missing.key"; do
+  if TMPDIR="$TMP/plaintext" "$REPO/infra/restore.sh" "${encrypted[0]}" "$key"; then exit 1; fi
+  [[ -z "$(ls -A "$TMP/plaintext")" ]]
+done
+if "$REPO/infra/restore.sh" "${encrypted[0]}"; then exit 1; fi
+: > "$TEST_ALERTS"
+"$REPO/infra/verify-latest-backup.sh"
+grep -q 'владелец должен проверить' "$TEST_ALERTS"
+# Confirm production rollback accepts an encrypted fresh safety copy.
+mkdir "$TMP/encrypted-production"
+printf 'restore-production\n' | BACKUP_DIR="$TMP/encrypted-production" "$REPO/infra/restore-production.sh" "$TMP/legacy.sql.gz"
+safety_age=("$TMP/encrypted-production"/pre-restore-*/*.dump.age)
+[[ ${#safety_age[@]} -eq 1 && -s "${safety_age[0]}" ]]
+"$REPO/infra/restore.sh" "${safety_age[0]}" "$TMP/owner.key"
+# Public recipient errors never leave a final or partial backup.
+if BACKUP_AGE_RECIPIENT=invalid BACKUP_DIR="$TMP/bad-recipient" "$REPO/infra/backup.sh"; then exit 1; fi
+[[ -z "$(find "$TMP/bad-recipient" -name '*.dump*')" ]]
+# Outbound copies must always be encrypted, using a write-only remote mode.
+cat > "$TMP/bin/rclone" <<'RCLONE'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == copyto && "$2" == --no-check-dest && "$3" == --s3-no-check-bucket && "$4" == --s3-no-head && "$5" == *.age && "$6" == *.age ]]
+printf '%s\n' "$*" >> "$TEST_RCLONE_LOG"
+RCLONE
+chmod +x "$TMP/bin/rclone"
+export TEST_RCLONE_LOG="$TMP/rclone.log"
+BACKUP_S3_REMOTE=test-only:bucket BACKUP_DIR="$TMP/remote" "$REPO/infra/backup.sh"
+[[ "$(wc -l < "$TEST_RCLONE_LOG")" == 2 ]]
+# Missing recipient warns locally; a configured remote refuses plaintext entirely.
+unset BACKUP_AGE_RECIPIENT
+: > "$TEST_ALERTS"
+BACKUP_DIR="$TMP/plain-backup" "$REPO/infra/backup.sh"
+grep -q 'BACKUP_AGE_RECIPIENT' "$TEST_ALERTS"
+if BACKUP_S3_REMOTE=test-only:bucket BACKUP_DIR="$TMP/refused" "$REPO/infra/backup.sh"; then exit 1; fi
+[[ -z "$(find "$TMP/refused" -name '*.dump*')" ]]
+# Production fixture is still intact after encrypted verification failures.
+[[ "$(docker exec "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc 'select count(*) from events')" == 1 ]]
 # An unavailable container must produce no final or partial backup.
 : > "$ENV_FILE"
 export POSTGRES_CONTAINER=nonexistent-m09-test-container BACKUP_DIR="$TMP/failed"

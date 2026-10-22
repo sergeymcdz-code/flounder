@@ -289,10 +289,13 @@ class M06LifecycleLimitsIntegrationTest extends AbstractPostgresIntegrationTest 
         submit(c, participant(), c.discipline(), 2014);
         UUID importedUser = participant();
         assertEquals("WAITLISTED", submit(c, importedUser, c.other(), 2014).path("status").asText());
+        var profile = profiles.getByUserId(importedUser);
+        var row = new com.acme.sportplatform.identity.ProfileData(profile.lastName(), profile.firstName(),
+                profile.middleName(), profile.birthDate(), profile.gender(), profile.clubName());
         new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(transaction ->
-                assertTrue(imports.upsert(c.event(), c.discipline(), profiles.getByUserId(importedUser), 32150L, java.math.BigDecimal.ZERO)));
-        assertEquals("CONFIRMED", jdbc.queryForObject("select status from registrations where event_discipline_id=? and participant_user_id=?",
-                String.class, c.discipline(), importedUser));
+                assertTrue(imports.upsert(c.event(), c.discipline(), profile.id(), row, 32150L, java.math.BigDecimal.ZERO)));
+        assertEquals("CONFIRMED", jdbc.queryForObject("select status from registrations where event_discipline_id=? and participant_profile_id=?",
+                String.class, c.discipline(), profile.id()));
     }
 
 

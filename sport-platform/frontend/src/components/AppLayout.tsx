@@ -4,6 +4,7 @@ import { useAuth } from '../app/providers/AuthProvider'
 import { apiFetch } from '../api/http'
 import styles from './AppLayout.module.css'
 import { roleHomeTarget } from '../utils/authReturn'
+import { OrganizationSwitcher } from './OrganizationSwitcher'
 import { MenuIcon } from './ui/icons'
 
 export function AppLayout() {
@@ -52,6 +53,7 @@ export function AppLayout() {
 
       </nav></details>
       <div className={styles.userMenu}>
+          <OrganizationSwitcher />
         {isAuthenticated ? <details className={styles.adminMenu}>
           <summary className={styles.navLink}>{name || 'Профиль'} <small>{roleLabel}</small></summary>
           <div className={styles.adminLinks}>

@@ -16,6 +16,10 @@ public class PublicationCacheConfig {
         var manager = new CaffeineCacheManager("publicEvent", "publicStartList", "publicSchedule",
                 "publicLive", "publicResults", "publicAthletes");
         manager.setCaffeine(Caffeine.newBuilder().maximumSize(500).expireAfterWrite(Duration.ofSeconds(10)));
+        manager.registerCustomCache("publicCalendar", Caffeine.newBuilder().maximumSize(500)
+                .expireAfterWrite(Duration.ofSeconds(30)).recordStats().build());
+        manager.registerCustomCache("publicOrganization", Caffeine.newBuilder().maximumSize(500)
+                .expireAfterWrite(Duration.ofSeconds(30)).recordStats().build());
         return manager;
     }
     @Bean("publicationClock")

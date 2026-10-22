@@ -1,0 +1,84 @@
+{
+  "task": "S10",
+  "review": 2,
+  "checkedOn": "2026-10-19",
+  "sourceRevision": "290dcb2",
+  "mergedSEC01": "934f1df6140133f491085a13185cda7aa455b765",
+  "regression": {
+    "boundary": "stateful in-memory API",
+    "failedBeforeFix": true,
+    "foreignRegistrationEventDate": "2026-10-31",
+    "foreignRegistrationStatus": "CONFIRMED",
+    "advanceDates": [
+      "2026-10-26",
+      "2026-11-02",
+      "2026-11-09",
+      "2026-11-16",
+      "2026-11-23"
+    ],
+    "errorsAfterFix": 0,
+    "completedFrom": "2026-11-02",
+    "foreignRegistrationPreserved": true,
+    "ownRegistrationIdsPreserved": true,
+    "foreignResultStatus": "VALID",
+    "foreignResultTimePresent": true,
+    "missingOwnCompletedRegistrationStillRejected": true
+  },
+  "summaryFailures": {
+    "prepare": "actual registration count read",
+    "fill": "actual registration count read",
+    "unavailableRegistrationRead": "registrations: null, original error retained"
+  },
+  "series": {
+    "defaultStageNumbers": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "snapshotChanges": "four titles only",
+    "oldWeekNumberedStagesRecognized": true,
+    "oldEventIdsSlugsAndResultsPreserved": true,
+    "eventRenameApiAvailable": false
+  },
+  "catalogCommand": {
+    "array": "passed",
+    "items": "passed",
+    "content": "passed"
+  },
+  "accounts": {
+    "singleBootstrap": "accounts.ts ensureAccounts",
+    "sharedLookup": "accounts.ts findUser",
+    "seedAndCalendarUseSameBootstrap": true,
+    "existingWrongPasswordCreatesUser": false,
+    "missingUserLoginAttempts": 0
+  },
+  "checks": {
+    "demoVitest": 100,
+    "demoTypecheck": true,
+    "node22Vitest": 100,
+    "node22Typecheck": true,
+    "frontendNodeTests": 3,
+    "frontendVitest": 221,
+    "frontendBuild": true,
+    "frontendLint": "exit 0, existing warnings",
+    "backend": {
+      "command": "mvn -q test",
+      "exitCode": 0,
+      "suites": 74,
+      "tests": 1648,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "shutdownWarning": "Surefire killed fork JVM after 30 seconds following System.exit(0)."
+    }
+  },
+  "scope": {
+    "backendDiffFromSEC01": false,
+    "infraDiffFromSEC01": "one existing commented calendar cron line"
+  },
+  "limitations": [
+    "No production changes or new HTTP seed run in review 2; HTTP/SQL measurements from review 1 remain historical.",
+    "Existing stage titles and slugs remain unchanged because the API cannot rename an event."
+  ]
+}

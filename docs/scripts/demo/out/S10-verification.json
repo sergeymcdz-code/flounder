@@ -1,0 +1,877 @@
+{
+  "task": "S10",
+  "checkedOn": "2026-10-17",
+  "baseCommit": "bdb8cd860bcf9477a1bf44f0fb7619091b2a059b",
+  "runtime": {
+    "seed": "node:22-alpine",
+    "backend": "Java 21, main unchanged",
+    "database": "PostgreSQL 16"
+  },
+  "seed": {
+    "mode": "seed",
+    "weeks": 25,
+    "events": [
+      {
+        "week": 1,
+        "date": "2026-08-01",
+        "slug": "kubok-goroda-samary-etap-1",
+        "status": "COMPLETED",
+        "registrations": 100,
+        "states": {
+          "CONFIRMED": 100
+        },
+        "heats": 19,
+        "finishedHeats": 19,
+        "results": 100,
+        "corrected": 1
+      },
+      {
+        "week": 2,
+        "date": "2026-08-08",
+        "slug": "otkrytoe-pervenstvo-samary-sredi-yunoshey-i-devushek-etap-2",
+        "status": "COMPLETED",
+        "registrations": 120,
+        "states": {
+          "CONFIRMED": 120
+        },
+        "heats": 24,
+        "finishedHeats": 24,
+        "results": 120,
+        "corrected": 0
+      },
+      {
+        "week": 3,
+        "date": "2026-08-15",
+        "slug": "klubnye-starty-volna-etap-3",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 31,
+        "finishedHeats": 31,
+        "results": 140,
+        "corrected": 0
+      },
+      {
+        "week": 3,
+        "date": "2026-08-16",
+        "slug": "klubnye-starty-volna-etap-3-voskresene",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 31,
+        "finishedHeats": 31,
+        "results": 140,
+        "corrected": 0
+      },
+      {
+        "week": 4,
+        "date": "2026-08-22",
+        "slug": "pervenstvo-oblasti-kazan-etap-4",
+        "status": "COMPLETED",
+        "registrations": 160,
+        "states": {
+          "CONFIRMED": 160
+        },
+        "heats": 36,
+        "finishedHeats": 36,
+        "results": 160,
+        "corrected": 2
+      },
+      {
+        "week": 5,
+        "date": "2026-08-29",
+        "slug": "memorial-trenerov-povolzhya-etap-5",
+        "status": "COMPLETED",
+        "registrations": 150,
+        "states": {
+          "CONFIRMED": 150
+        },
+        "heats": 20,
+        "finishedHeats": 20,
+        "results": 150,
+        "corrected": 0
+      },
+      {
+        "week": 6,
+        "date": "2026-09-05",
+        "slug": "sprint-festival-saratov-etap-6",
+        "status": "COMPLETED",
+        "registrations": 100,
+        "states": {
+          "CONFIRMED": 100
+        },
+        "heats": 24,
+        "finishedHeats": 24,
+        "results": 100,
+        "corrected": 0
+      },
+      {
+        "week": 7,
+        "date": "2026-09-12",
+        "slug": "osenniy-kubok-sportgate-etap-7",
+        "status": "COMPLETED",
+        "registrations": 120,
+        "states": {
+          "CONFIRMED": 120
+        },
+        "heats": 30,
+        "finishedHeats": 30,
+        "results": 120,
+        "corrected": 1
+      },
+      {
+        "week": 8,
+        "date": "2026-09-19",
+        "slug": "kubok-goroda-penzy-etap-8",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 36,
+        "finishedHeats": 36,
+        "results": 140,
+        "corrected": 0
+      },
+      {
+        "week": 9,
+        "date": "2026-09-26",
+        "slug": "otkrytoe-pervenstvo-orenburga-sredi-yunoshey-i-devushek-etap-9",
+        "status": "COMPLETED",
+        "registrations": 150,
+        "states": {
+          "CONFIRMED": 150
+        },
+        "heats": 27,
+        "finishedHeats": 27,
+        "results": 150,
+        "corrected": 0
+      },
+      {
+        "week": 9,
+        "date": "2026-09-27",
+        "slug": "otkrytoe-pervenstvo-tolyatti-sredi-yunoshey-i-devushek-etap-9-voskresene",
+        "status": "COMPLETED",
+        "registrations": 150,
+        "states": {
+          "CONFIRMED": 150
+        },
+        "heats": 25,
+        "finishedHeats": 25,
+        "results": 150,
+        "corrected": 0
+      },
+      {
+        "week": 10,
+        "date": "2026-10-03",
+        "slug": "klubnye-starty-volna-etap-10",
+        "status": "COMPLETED",
+        "registrations": 170,
+        "states": {
+          "CONFIRMED": 170
+        },
+        "heats": 31,
+        "finishedHeats": 31,
+        "results": 170,
+        "corrected": 2
+      },
+      {
+        "week": 11,
+        "date": "2026-10-10",
+        "slug": "pervenstvo-oblasti-samara-etap-11",
+        "status": "COMPLETED",
+        "registrations": 100,
+        "states": {
+          "CONFIRMED": 100
+        },
+        "heats": 30,
+        "finishedHeats": 30,
+        "results": 100,
+        "corrected": 0
+      },
+      {
+        "week": 12,
+        "date": "2026-10-17",
+        "slug": "memorial-trenerov-povolzhya-etap-12",
+        "status": "COMPLETED",
+        "registrations": 121,
+        "states": {
+          "CONFIRMED": 121
+        },
+        "heats": 36,
+        "finishedHeats": 36,
+        "results": 121,
+        "corrected": 0
+      },
+      {
+        "week": 13,
+        "date": "2026-10-24",
+        "slug": "sprint-festival-kazan-etap-13",
+        "status": "REGISTRATION_CLOSED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 21,
+        "finishedHeats": 2,
+        "results": 11,
+        "corrected": 0
+      },
+      {
+        "week": 14,
+        "date": "2026-10-31",
+        "slug": "osenniy-kubok-sportgate-etap-14",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 135,
+        "states": {
+          "CONFIRMED": 127,
+          "NEEDS_CORRECTION": 4,
+          "WAITLISTED": 4
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 15,
+        "date": "2026-11-07",
+        "slug": "kubok-goroda-saratova-etap-15",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 166,
+        "states": {
+          "CONFIRMED": 161,
+          "NEEDS_CORRECTION": 5
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 15,
+        "date": "2026-11-08",
+        "slug": "kubok-goroda-orenburga-etap-15-voskresene",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 165,
+        "states": {
+          "CONFIRMED": 160,
+          "NEEDS_CORRECTION": 5
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 16,
+        "date": "2026-11-14",
+        "slug": "otkrytoe-pervenstvo-ulyanovska-sredi-yunoshey-i-devushek-etap-16",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 94,
+        "states": {
+          "CONFIRMED": 88,
+          "NEEDS_CORRECTION": 6
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 17,
+        "date": "2026-11-21",
+        "slug": "klubnye-starty-volna-etap-17",
+        "status": "PUBLISHED",
+        "registrations": 10,
+        "states": {
+          "CONFIRMED": 10
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 18,
+        "date": "2026-11-28",
+        "slug": "pervenstvo-oblasti-orenburg-etap-18",
+        "status": "PUBLISHED",
+        "registrations": 20,
+        "states": {
+          "CONFIRMED": 20
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 19,
+        "date": "2026-12-05",
+        "slug": "memorial-trenerov-povolzhya-etap-19",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 20,
+        "date": "2026-12-12",
+        "slug": "sprint-festival-samara-etap-20",
+        "status": "PUBLISHED",
+        "registrations": 10,
+        "states": {
+          "CONFIRMED": 10
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 21,
+        "date": "2026-12-19",
+        "slug": "zimniy-kubok-sportgate-etap-21",
+        "status": "PUBLISHED",
+        "registrations": 20,
+        "states": {
+          "CONFIRMED": 20
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 21,
+        "date": "2026-12-20",
+        "slug": "zimniy-kubok-sportgate-etap-21-voskresene",
+        "status": "PUBLISHED",
+        "registrations": 20,
+        "states": {
+          "CONFIRMED": 20
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 22,
+        "date": "2026-12-26",
+        "slug": "kubok-goroda-kazani-etap-22",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 23,
+        "date": "2027-01-02",
+        "slug": "otkrytoe-pervenstvo-ufy-sredi-yunoshey-i-devushek-etap-23",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 24,
+        "date": "2027-01-09",
+        "slug": "klubnye-starty-volna-etap-24",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 25,
+        "date": "2027-01-16",
+        "slug": "pervenstvo-oblasti-ulyanovsk-etap-25",
+        "status": "DRAFT",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      }
+    ],
+    "seconds": 65.46,
+    "databaseBytes": 19758103,
+    "participantDocuments": 4,
+    "corrected": 6,
+    "dns": 8,
+    "dnf": 4,
+    "dsq": 3
+  },
+  "seedRerun": {
+    "seconds": 14.91,
+    "writesExceptLogin": 0
+  },
+  "advance": {
+    "demoDate": "2026-10-26",
+    "seconds": 13.18,
+    "registrations": 2692,
+    "results": 2013,
+    "events": [
+      {
+        "week": 1,
+        "date": "2026-08-01",
+        "slug": "kubok-goroda-samary-etap-1",
+        "status": "COMPLETED",
+        "registrations": 100,
+        "states": {
+          "CONFIRMED": 100
+        },
+        "heats": 19,
+        "finishedHeats": 19,
+        "results": 100,
+        "corrected": 1
+      },
+      {
+        "week": 2,
+        "date": "2026-08-08",
+        "slug": "otkrytoe-pervenstvo-samary-sredi-yunoshey-i-devushek-etap-2",
+        "status": "COMPLETED",
+        "registrations": 120,
+        "states": {
+          "CONFIRMED": 120
+        },
+        "heats": 24,
+        "finishedHeats": 24,
+        "results": 120,
+        "corrected": 0
+      },
+      {
+        "week": 3,
+        "date": "2026-08-15",
+        "slug": "klubnye-starty-volna-etap-3",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 31,
+        "finishedHeats": 31,
+        "results": 140,
+        "corrected": 0
+      },
+      {
+        "week": 3,
+        "date": "2026-08-16",
+        "slug": "klubnye-starty-volna-etap-3-voskresene",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 31,
+        "finishedHeats": 31,
+        "results": 140,
+        "corrected": 0
+      },
+      {
+        "week": 4,
+        "date": "2026-08-22",
+        "slug": "pervenstvo-oblasti-kazan-etap-4",
+        "status": "COMPLETED",
+        "registrations": 160,
+        "states": {
+          "CONFIRMED": 160
+        },
+        "heats": 36,
+        "finishedHeats": 36,
+        "results": 160,
+        "corrected": 2
+      },
+      {
+        "week": 5,
+        "date": "2026-08-29",
+        "slug": "memorial-trenerov-povolzhya-etap-5",
+        "status": "COMPLETED",
+        "registrations": 150,
+        "states": {
+          "CONFIRMED": 150
+        },
+        "heats": 20,
+        "finishedHeats": 20,
+        "results": 150,
+        "corrected": 0
+      },
+      {
+        "week": 6,
+        "date": "2026-09-05",
+        "slug": "sprint-festival-saratov-etap-6",
+        "status": "COMPLETED",
+        "registrations": 100,
+        "states": {
+          "CONFIRMED": 100
+        },
+        "heats": 24,
+        "finishedHeats": 24,
+        "results": 100,
+        "corrected": 0
+      },
+      {
+        "week": 7,
+        "date": "2026-09-12",
+        "slug": "osenniy-kubok-sportgate-etap-7",
+        "status": "COMPLETED",
+        "registrations": 120,
+        "states": {
+          "CONFIRMED": 120
+        },
+        "heats": 30,
+        "finishedHeats": 30,
+        "results": 120,
+        "corrected": 1
+      },
+      {
+        "week": 8,
+        "date": "2026-09-19",
+        "slug": "kubok-goroda-penzy-etap-8",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 36,
+        "finishedHeats": 36,
+        "results": 140,
+        "corrected": 0
+      },
+      {
+        "week": 9,
+        "date": "2026-09-26",
+        "slug": "otkrytoe-pervenstvo-orenburga-sredi-yunoshey-i-devushek-etap-9",
+        "status": "COMPLETED",
+        "registrations": 150,
+        "states": {
+          "CONFIRMED": 150
+        },
+        "heats": 27,
+        "finishedHeats": 27,
+        "results": 150,
+        "corrected": 0
+      },
+      {
+        "week": 9,
+        "date": "2026-09-27",
+        "slug": "otkrytoe-pervenstvo-tolyatti-sredi-yunoshey-i-devushek-etap-9-voskresene",
+        "status": "COMPLETED",
+        "registrations": 150,
+        "states": {
+          "CONFIRMED": 150
+        },
+        "heats": 25,
+        "finishedHeats": 25,
+        "results": 150,
+        "corrected": 0
+      },
+      {
+        "week": 10,
+        "date": "2026-10-03",
+        "slug": "klubnye-starty-volna-etap-10",
+        "status": "COMPLETED",
+        "registrations": 170,
+        "states": {
+          "CONFIRMED": 170
+        },
+        "heats": 31,
+        "finishedHeats": 31,
+        "results": 170,
+        "corrected": 2
+      },
+      {
+        "week": 11,
+        "date": "2026-10-10",
+        "slug": "pervenstvo-oblasti-samara-etap-11",
+        "status": "COMPLETED",
+        "registrations": 100,
+        "states": {
+          "CONFIRMED": 100
+        },
+        "heats": 30,
+        "finishedHeats": 30,
+        "results": 100,
+        "corrected": 0
+      },
+      {
+        "week": 12,
+        "date": "2026-10-17",
+        "slug": "memorial-trenerov-povolzhya-etap-12",
+        "status": "COMPLETED",
+        "registrations": 121,
+        "states": {
+          "CONFIRMED": 121
+        },
+        "heats": 36,
+        "finishedHeats": 36,
+        "results": 121,
+        "corrected": 0
+      },
+      {
+        "week": 13,
+        "date": "2026-10-24",
+        "slug": "sprint-festival-kazan-etap-13",
+        "status": "COMPLETED",
+        "registrations": 140,
+        "states": {
+          "CONFIRMED": 140
+        },
+        "heats": 21,
+        "finishedHeats": 21,
+        "results": 140,
+        "corrected": 1
+      },
+      {
+        "week": 14,
+        "date": "2026-10-31",
+        "slug": "osenniy-kubok-sportgate-etap-14",
+        "status": "REGISTRATION_CLOSED",
+        "registrations": 135,
+        "states": {
+          "CONFIRMED": 135
+        },
+        "heats": 24,
+        "finishedHeats": 2,
+        "results": 12,
+        "corrected": 0
+      },
+      {
+        "week": 15,
+        "date": "2026-11-07",
+        "slug": "kubok-goroda-saratova-etap-15",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 178,
+        "states": {
+          "CONFIRMED": 169,
+          "NEEDS_CORRECTION": 5,
+          "WAITLISTED": 4
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 15,
+        "date": "2026-11-08",
+        "slug": "kubok-goroda-orenburga-etap-15-voskresene",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 177,
+        "states": {
+          "CONFIRMED": 172,
+          "NEEDS_CORRECTION": 5
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 16,
+        "date": "2026-11-14",
+        "slug": "otkrytoe-pervenstvo-ulyanovska-sredi-yunoshey-i-devushek-etap-16",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 107,
+        "states": {
+          "CONFIRMED": 101,
+          "NEEDS_CORRECTION": 6
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 17,
+        "date": "2026-11-21",
+        "slug": "klubnye-starty-volna-etap-17",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 24,
+        "states": {
+          "CONFIRMED": 21,
+          "NEEDS_CORRECTION": 3
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 18,
+        "date": "2026-11-28",
+        "slug": "pervenstvo-oblasti-orenburg-etap-18",
+        "status": "PUBLISHED",
+        "registrations": 20,
+        "states": {
+          "CONFIRMED": 20
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 19,
+        "date": "2026-12-05",
+        "slug": "memorial-trenerov-povolzhya-etap-19",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 20,
+        "date": "2026-12-12",
+        "slug": "sprint-festival-samara-etap-20",
+        "status": "PUBLISHED",
+        "registrations": 10,
+        "states": {
+          "CONFIRMED": 10
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 21,
+        "date": "2026-12-19",
+        "slug": "zimniy-kubok-sportgate-etap-21",
+        "status": "PUBLISHED",
+        "registrations": 20,
+        "states": {
+          "CONFIRMED": 20
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 21,
+        "date": "2026-12-20",
+        "slug": "zimniy-kubok-sportgate-etap-21-voskresene",
+        "status": "PUBLISHED",
+        "registrations": 20,
+        "states": {
+          "CONFIRMED": 20
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 22,
+        "date": "2026-12-26",
+        "slug": "kubok-goroda-kazani-etap-22",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 23,
+        "date": "2027-01-02",
+        "slug": "otkrytoe-pervenstvo-ufy-sredi-yunoshey-i-devushek-etap-23",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 24,
+        "date": "2027-01-09",
+        "slug": "klubnye-starty-volna-etap-24",
+        "status": "PUBLISHED",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 25,
+        "date": "2027-01-16",
+        "slug": "pervenstvo-oblasti-ulyanovsk-etap-25",
+        "status": "DRAFT",
+        "registrations": 0,
+        "states": {},
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      }
+    ]
+  },
+  "earlierAdvance": {
+    "demoDate": "2026-10-17",
+    "seconds": 13.01,
+    "writesExceptLogin": 0
+  },
+  "seedAfterAdvance": {
+    "seconds": 9.95,
+    "writesExceptLogin": 0
+  },
+  "public": {
+    "catalogEvents": 28,
+    "anonymousCards": 28,
+    "anonymousResultSets": 15,
+    "pdfs": 30,
+    "ownerProfiles": 1,
+    "ownerEvents": 3,
+    "liveSequence": 3,
+    "draftHidden": true
+  },
+  "reset": {
+    "selectedCalendarEvents": 29,
+    "eventsBeforeTamperedAttempt": 32,
+    "eventsAfterTamperedAttempt": 32,
+    "remainingS02Registrations": {
+      "A": 160,
+      "B": 200,
+      "C": 124
+    }
+  },
+  "tests": {
+    "demoVitest": 78,
+    "demoTypecheck": "passed",
+    "backendTests": 1621,
+    "backendFailures": 0,
+    "frontendNodeTests": 3,
+    "frontendVitestTests": 158,
+    "frontendBuild": "passed",
+    "frontendLint": "passed"
+  },
+  "scope": "Local isolated databases only; no sportgate.pro writes. Timing excludes npm ci."
+}

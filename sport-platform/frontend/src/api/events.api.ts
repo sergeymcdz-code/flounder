@@ -105,8 +105,9 @@ export async function getPublicEventDetails(
 export async function getMyEvents(
   accessToken: string,
   includePrivateVenues = true,
+  organizationId?: string,
 ): Promise<OrganizerEvent[]> {
-  const [events, venues] = await Promise.all([apiFetch<OrganizerEvent[]>('/api/v1/organizer/events', { accessToken }), includePrivateVenues ? getVenues(accessToken).catch(() => []) : Promise.resolve([])])
+  const [events, venues] = await Promise.all([apiFetch<OrganizerEvent[]>('/api/v1/organizer/events' + (organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''), { accessToken }), includePrivateVenues ? getVenues(accessToken).catch(() => []) : Promise.resolve([])])
   return Promise.all(events.map(async event => {
     if (event.venue?.timezone) return event
     const venue = venues.find(venue => venue.id === event.venueId)

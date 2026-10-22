@@ -1,3 +1,4 @@
+import { requiredCredential } from './credentials'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -16,8 +17,8 @@ export default function setup() {
   // S02 fixtures are reused by title; the seven-step flow keeps its isolated B event.
   const multiOutput = execFileSync(process.execPath, [resolve(directory, 'node_modules/tsx/dist/cli.mjs'), 'seed.ts'], {
     cwd: directory, timeout: 600_000, encoding: 'utf8',
-    env: { ...process.env, API_URL: apiUrl, ADMIN_EMAIL: 'admin@flounder.demo',
-      ADMIN_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!', DEMO_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',
+    env: { ...process.env, API_URL: apiUrl, ADMIN_EMAIL: requiredCredential('ADMIN_EMAIL'),
+      ADMIN_PASSWORD: requiredCredential('ADMIN_PASSWORD'), DEMO_PASSWORD: requiredCredential('QA05_PASSWORD', 'DEMO_PASSWORD'),
       DEMO_SEED_ENABLED: 'true', REQUIRE_VENUE_META: 'true', DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-19',
       DEMO_EVENTS: 'A,B,C', EVENT_TITLE_SUFFIX: '' },
   })
@@ -37,9 +38,9 @@ export default function setup() {
     env: {
       ...process.env,
       API_URL: apiUrl,
-      ADMIN_EMAIL: 'admin@flounder.demo',
-      ADMIN_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',
-      DEMO_PASSWORD: process.env.QA05_PASSWORD ?? 'Demo2026!',
+      ADMIN_EMAIL: requiredCredential('ADMIN_EMAIL'),
+      ADMIN_PASSWORD: requiredCredential('ADMIN_PASSWORD'),
+      DEMO_PASSWORD: requiredCredential('QA05_PASSWORD', 'DEMO_PASSWORD'),
       DEMO_SEED_ENABLED: 'true',
       REQUIRE_VENUE_META: 'true',
       DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-19',

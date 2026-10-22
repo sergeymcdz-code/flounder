@@ -11,6 +11,7 @@ public enum NotificationTemplate {
     registration_rejected("Заявка отклонена"),
     start_list_published("Стартовый протокол опубликован"),
     results_published("Результаты опубликованы"),
+    organization_invitation("Приглашение в организацию SportGate"),
     schedule_changed("Изменилось расписание"),
     password_reset("Восстановление пароля SportGate");
 
@@ -18,7 +19,7 @@ public enum NotificationTemplate {
     NotificationTemplate(String subject) { this.subject = subject; }
     public String subject() { return subject; }
     public static List<NotificationTemplate> organizerTemplates() {
-        return Arrays.stream(values()).filter(t -> t != password_reset).toList();
+        return Arrays.stream(values()).filter(t -> t != password_reset && t != organization_invitation).toList();
     }
     public static NotificationTemplate organizerTemplate(String code) {
         return organizerTemplates().stream().filter(t -> t.name().equals(code)).findFirst()

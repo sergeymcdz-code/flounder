@@ -31,9 +31,9 @@ th { background-color: #eef3f5; text-align: left; font-size: 9pt; }
 <div class="heat" th:each="heat : ${discipline.heats}">
 <h3>Заплыв <span th:text="${heat.number}">1</span> — <span th:text="${heat.startsAt}">10:00</span>
 <span th:if="${!heat.ageGroup.isEmpty()}" th:text="${' · ' + heat.ageGroup}">Группа</span></h3>
-<table><thead><tr><th class="number">Дор.</th><th class="name">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="time">Заявочное время</th><th class="status">Время старта</th></tr></thead>
+<table><thead><tr><th class="number">Дор.</th><th th:if="${protocol.showBibs}" style="width:6%">№</th><th class="name" th:style="${protocol.showBibs ? 'width:24%' : ''}">Фамилия Имя</th><th class="year">Год</th><th class="club">Клуб</th><th class="time">Заявочное время</th><th class="status">Время старта</th></tr></thead>
 <tbody><tr th:each="row : ${heat.rows}" th:class="${row.withdrawn ? 'withdrawn' : ''}">
-<td th:text="${row.lane}">1</td><td><span th:text="${row.athlete}">Участник</span><br th:if="${row.withdrawn}" /><span th:if="${row.withdrawn}" class="marker">Снят</span></td>
+<td th:text="${row.lane}">1</td><td th:if="${protocol.showBibs}" th:text="${row.bib == null ? '—' : row.bib}"></td><td><span th:text="${row.athlete}">Участник</span><br th:if="${row.withdrawn}" /><span th:if="${row.withdrawn}" class="marker">Снят</span></td>
 <td th:text="${row.year}">2014</td><td th:text="${row.club}">Клуб</td><td th:text="${row.seed}">NT</td><td th:text="${heat.startsAt}">10:00</td>
 </tr></tbody></table>
 </div></section></body></html>

@@ -12,6 +12,7 @@ import { usePublicData } from './usePublicData'
 import { date } from './format'
 import styles from './Public.module.css'
 import { PublicConnectionContext } from './publicContext'
+import { DirectoryLayout } from './DirectoryLayout'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { roleHomeTarget } from '../../utils/authReturn'
 import { ThemeToggle } from '../../components/ThemeToggle'
@@ -44,6 +45,11 @@ export function DataState({
 }
 
 export function PublicLayout() {
+  const { pathname } = useLocation()
+  return pathname.startsWith('/e/') ? <EventPublicLayout /> : <DirectoryLayout />
+}
+
+function EventPublicLayout() {
   const { slug = '' } = useParams()
   const { roles, isAuthenticated } = useAuth()
   const load = useCallback(
@@ -51,6 +57,8 @@ export function PublicLayout() {
     [slug],
   )
   const eventState = usePublicData(load)
+  const loadStandings = useCallback((signal: AbortSignal) => publicApi.standings(slug, signal), [slug])
+  const standingsState = usePublicData(loadStandings)
   const [offline, setOffline] = useState(() => !navigator.onLine)
   const [cached, setCached] = useState(false)
   useEffect(() => {
@@ -84,6 +92,7 @@ export function PublicLayout() {
     ['schedule', 'Расписание'],
     ['live', 'Табло'],
     ['results', 'Результаты'],
+    ...(standingsState.data && !standingsState.errorStatus ? [['standings', 'Командный зачёт']] : []),
   ]
   if (eventState.errorStatus === 404) {
     return (
@@ -120,6 +129,10 @@ export function PublicLayout() {
                 : 'Загружаем сведения…'}
             </p>
           </div>
+        <nav className={styles.directoryNav} aria-label="Основная навигация">
+          <Link to="/">Календарь</Link>
+          {eventState.data?.organization?.publicSlug && <Link to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Link>}
+        </nav>
 
         {(offline || cached) && (
           <div className={`${styles.notice} ${styles.noPrint}`} role="status">

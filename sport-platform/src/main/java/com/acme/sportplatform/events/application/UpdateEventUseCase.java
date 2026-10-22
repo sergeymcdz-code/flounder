@@ -14,13 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UpdateEventUseCase {
+    private final DiplomaSettingsService diplomas;
     private final RegistrationCapacityPromotionLookup capacity;
     private final EventRepository events;
     private final EventMapper mapper;
     private final com.fasterxml.jackson.databind.ObjectMapper json;
     private final Clock clock;
     private final jakarta.persistence.EntityManager entityManager;
-    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity, com.fasterxml.jackson.databind.ObjectMapper json) {
+    public UpdateEventUseCase(EventRepository events, EventMapper mapper, @Qualifier("eventClock") Clock clock, jakarta.persistence.EntityManager entityManager, RegistrationCapacityPromotionLookup capacity, com.fasterxml.jackson.databind.ObjectMapper json, DiplomaSettingsService diplomas) {
+        this.diplomas = diplomas;
         this.json = json;
         this.capacity = capacity;
         this.events = events; this.mapper = mapper; this.clock = clock; this.entityManager = entityManager;
@@ -43,6 +45,7 @@ public class UpdateEventUseCase {
                 event.setSettingsJson(settings.toString());
             } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException(e); }
         }
+        if (fields.contains("diploma")) diplomas.apply(event, request.diploma());
         Integer previousLimit = event.getMaxParticipants();
         if (fields.contains("maxParticipants")) event.setMaxParticipants(request.maxParticipants());
         if (fields.contains("registrationOpenAt")) event.setRegistrationOpenAt(request.registrationOpenAt());

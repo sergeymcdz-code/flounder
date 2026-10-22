@@ -291,3 +291,19 @@ it('shows a dash when an athlete swim has no assigned lane', async () => {
   await user.type(screen.getByRole('searchbox'), 'Иванов')
   expect(await screen.findByText(/дорожка —/)).toBeInTheDocument()
 })
+
+
+it('hides award downloads when disciplines have no published result rows', async () => {
+  server.use(http.get('*/api/v1/public/events/:slug/results', () => HttpResponse.json({
+    disciplines: [{ id: 'empty', number: 1, name: '50 м', overall: [], byAgeGroup: [] }],
+  })))
+  renderPage(<ResultsPage />)
+  await screen.findByRole('heading', { name: 'Вид № 1. 50 м' })
+  expect(screen.queryByRole('button', { name: 'Лист награждения (PDF)' })).not.toBeInTheDocument()
+})
+
+it('shows award downloads when the event has published result rows', async () => {
+  server.use(http.get('*/api/v1/public/events/:slug/results', () => HttpResponse.json(demoResults)))
+  renderPage(<ResultsPage />)
+  expect(await screen.findByRole('button', { name: 'Лист награждения (PDF)' })).toBeEnabled()
+})

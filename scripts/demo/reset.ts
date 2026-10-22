@@ -4,9 +4,10 @@ import { HttpApi, login, unique, type Api, type Row } from './api.ts';
 import { ORGANIZATION_NAME, VENUE_NAME } from './bodies.ts';
 import { config, flags, loadLocalEnv } from './config.ts';
 import { selectedEvents } from './plan.ts';
+import { CALENDAR_MARKER, calendarSettings, venues as calendarVenues } from './calendar-plan.ts';
 
-export type ResetOptions = { apply?: boolean; databaseUrl?: string; eventTitleSuffix?: string; demoEvents?: string; demoSlugs?: string };
-export type ResetTarget = { id: string; title: string; slug: string };
+export type ResetOptions = { apply?: boolean; databaseUrl?: string; eventTitleSuffix?: string; demoEvents?: string; demoSlugs?: string; calendar?: boolean; calendarPrefix?: string };
+export type ResetTarget = { id: string; title: string; slug: string; venue: string; calendar?: boolean; prefix?: string };
 // Keep the database URL out of argv and diagnostics; libpq reads PGDATABASE.
 export function applyReset(targets: ResetTarget[], databaseUrl: string): Promise<string> {
   const args = ['-v', 'ON_ERROR_STOP=1', '-v', `demo_targets=${JSON.stringify(targets)}`,
@@ -37,9 +38,12 @@ export async function resetPlan(api: Api, adminEmail: string, adminPassword: str
   const token = await login(api, adminEmail, adminPassword);
   const events = await api.request<Row[]>('GET', '/events', undefined, token);
   const targets: ResetTarget[] = [];
+  if (options.calendar) calendarSettings({ prefix: options.calendarPrefix });
   const candidates = selected
     ? selected.map(slug => unique(events, row => row.publicSlug === slug, slug))
-    : selectedEvents(options.demoEvents).map(spec => {
+    : options.calendar ? events.filter(row => options.calendarPrefix
+      ? String(row.title).startsWith(options.calendarPrefix + ' ')
+      : String(row.description ?? '').includes(CALENDAR_MARKER)) : selectedEvents(options.demoEvents).map(spec => {
       const title = spec.title + (options.eventTitleSuffix ?? '');
       return unique(events, row => row.title === title, title);
     });
@@ -50,18 +54,24 @@ export async function resetPlan(api: Api, adminEmail: string, adminPassword: str
       api.request<Row>('GET', `/organizations/${event.organizationId}`, undefined, token),
       api.request<Row>('GET', `/venues/${event.venueId}`, undefined, token),
     ]);
-    if (organization.name !== ORGANIZATION_NAME || venue.name !== VENUE_NAME ||
+    if (options.calendar && !selected && organization.name !== ORGANIZATION_NAME) continue;
+    // Accept legacy venue names so calendars from the old description format can be reset.
+    const permittedVenue = options.calendar ? calendarVenues.some(spec => spec.name === venue.name ||
+      spec.name.replace(/^Бассейн «(.+)», (.+)$/, 'SportGate — $2, $1') === venue.name) : venue.name === VENUE_NAME;
+    const marked = String(event.description ?? '').includes(CALENDAR_MARKER) || !!options.calendarPrefix && title.startsWith(options.calendarPrefix + ' ');
+    if (organization.name !== ORGANIZATION_NAME || !permittedVenue || (options.calendar && !marked) ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event.id) ||
         !/^[a-z0-9-]+$/.test(String(event.publicSlug)))
       throw new Error('Событие не соответствует демо-организации/площадке. Сброс остановлен.');
-    targets.push({ id: event.id, title, slug: String(event.publicSlug) });
+    targets.push({ id: event.id, title, slug: String(event.publicSlug), venue: String(venue.name), ...(options.calendar ? { calendar: true, prefix: options.calendarPrefix ?? '' } : {}) });
   }
   if (selected?.some(slug => !targets.some(target => target.slug === slug)))
     throw new Error('DEMO_SLUGS содержит отсутствующее или чужое событие. Сброс остановлен.');
-  if (!targets.length) { log('Демо-события отсутствуют; сброс не требуется.'); return; }
+  if (!targets.length) { if (options.calendar) log('demo_targets: []'); log('Демо-события отсутствуют; сброс не требуется.'); return; }
   const json = JSON.stringify(targets);
   const shellTargets = "'" + json.replaceAll("'", "'\\''") + "'";
   log(`DELETE события отсутствует в API. Цели SQL-сброса: ${json}`);
+  if (options.calendar) log(`demo_targets: ${json}`);
   log(`На остановленном демо-стенде, после резервной копии, из scripts/demo выполните:
 psql "$DEMO_DATABASE_URL" -v ON_ERROR_STOP=1 -v demo_targets=${shellTargets} -f reset.sql`);
   log('SQL удалит выбранные события и зависимые записи; общие профили с заявками в других событиях сохраняются. Файлы документов остаются в хранилище для штатной очистки.');
@@ -74,10 +84,11 @@ psql "$DEMO_DATABASE_URL" -v ON_ERROR_STOP=1 -v demo_targets=${shellTargets} -f 
 async function main() {
   loadLocalEnv();
   const args = flags(process.argv.slice(2), ['--apply', '--help']);
-  if (args.has('--help')) { console.log('npx tsx reset.ts [--apply]\nБез флага: HTTP-проверка и команда SQL. --apply: запуск psql с DEMO_DATABASE_URL. DEMO_EVENTS=A,B,C или DEMO_SLUGS=slug1,slug2 выбирает события; EVENT_TITLE_SUFFIX выбирает резерв.'); return; }
+  if (args.has('--help')) { console.log('npx tsx reset.ts [--apply]\nБез флага: HTTP-проверка и команда SQL. --apply: запуск psql с DEMO_DATABASE_URL. DEMO_EVENTS=A,B,C или DEMO_SLUGS=slug1,slug2 выбирает события; EVENT_TITLE_SUFFIX выбирает резерв.\nDEMO_CALENDAR=true выбирает календарь; CALENDAR_PREFIX ограничивает выбор копией календаря.'); return; }
   const settings = config(process.env, false);
   await resetPlan(new HttpApi(settings.apiUrl), settings.adminEmail, settings.adminPassword, console.log,
-    { apply: args.has('--apply'), databaseUrl: process.env.DEMO_DATABASE_URL, eventTitleSuffix: settings.eventTitleSuffix, demoEvents: settings.demoEvents, demoSlugs: process.env.DEMO_SLUGS });
+    { apply: args.has('--apply'), databaseUrl: process.env.DEMO_DATABASE_URL, eventTitleSuffix: settings.eventTitleSuffix, demoEvents: settings.demoEvents, demoSlugs: process.env.DEMO_SLUGS,
+      calendar: process.env.DEMO_CALENDAR === 'true', calendarPrefix: process.env.CALENDAR_PREFIX });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(error => { console.error(error instanceof Error ? error.message : 'Сброс завершился ошибкой.'); process.exitCode = 1; });

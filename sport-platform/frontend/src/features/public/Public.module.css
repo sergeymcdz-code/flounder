@@ -730,3 +730,7 @@
 .brand { cursor: pointer; }
 .brand:hover { color: var(--color-primary); }
 .brand:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
+
+.directoryNav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 4px max(16px, calc((100% - 960px) / 2)); border-bottom: 1px solid var(--border-subtle); background: var(--surface-1); font-size: 14px; }
+.directoryNav a { display: inline-flex; align-items: center; min-height: 44px; }
+@media print { .directoryNav { display: none; } }

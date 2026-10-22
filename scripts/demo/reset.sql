@@ -4,17 +4,21 @@
 \set ON_ERROR_STOP on
 begin;
 create temporary table s02_targets on commit drop as
-select * from jsonb_to_recordset(:'demo_targets'::jsonb) as target(id uuid, title text, slug text);
+select * from jsonb_to_recordset(:'demo_targets'::jsonb) as target(id uuid, title text, slug text, venue text, calendar boolean, prefix text);
 create temporary table t10_event (id uuid primary key) on commit drop;
 insert into t10_event (id)
 select e.id from events e
 join s02_targets target on target.id = e.id and target.title = e.title and target.slug = e.public_slug
 join organizations o on o.id = e.organization_id
-join venues v on v.id = e.venue_id
+join venues v on v.id = e.venue_id and v.name = target.venue
 where o.name = 'Федерация плавания Самарской области (демо)'
-  and v.name = 'Дворец спорта, 25 м, 8 дорожек'
+  and (
+    (not coalesce(target.calendar, false) and v.name = 'Дворец спорта, 25 м, 8 дорожек')
+    or (target.calendar and (position('Тестовые данные SportGate' in e.description) > 0
+      or (nullif(target.prefix, '') is not null and starts_with(e.title, target.prefix || ' '))))
+  )
 for update of e;
--- Refuse a partial match: all selected UUID/title/slug triples must still match.
+-- Refuse a partial match: all selected UUID/title/slug/venue tuples must still match.
 do $$ begin
   if (select count(*) from t10_event) <> (select count(*) from s02_targets) then
     raise exception 'Demo reset target changed; run reset.ts again';

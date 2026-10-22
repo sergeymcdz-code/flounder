@@ -1,11 +1,13 @@
 # Демо SportGate: три соревнования S02
 
+Календарь S10 на 25 недель (−12…+12), еженедельное обновление и отдельный сброс: [инструкция](../../docs/qa/demo-calendar.md).
+
 Требуется выделенная демо-БД с миграциями main, backend API, Node ≥22. Миграций S02 нет. Секреты задаются окружением или `scripts/demo/.env` (см. `.env.example`, в Git не добавлять).
 
 ```bash
 cd scripts/demo
 npm ci
-# Set ADMIN_EMAIL/ADMIN_PASSWORD and DEMO_PASSWORD (or account-specific passwords).
+# Set ADMIN_EMAIL/ADMIN_PASSWORD for the bootstrap admin and DEMO_PASSWORD (or account-specific passwords).
 DEMO_SEED_ENABLED=true API_URL=http://localhost:8080 DEMO_DATE=2026-10-19 DEMO_EVENTS=A,B,C npx tsx seed.ts
 ```
 
@@ -36,10 +38,10 @@ with open('/tmp/s02-legacy-event.json') as source:
     event = json.load(source)
 assert event['title'] == 'Открытый кубок Самары по плаванию (демо)'
 assert event['publicSlug'] == 'otkrytyy-kubok-samary-po-plavaniyu-demo'
-print(json.dumps([{'id': event['id'], 'title': event['title'], 'slug': event['publicSlug']}], ensure_ascii=False))
+print(json.dumps([{'id': event['id'], 'title': event['title'], 'slug': event['publicSlug'], 'venue': 'Дворец спорта, 25 м, 8 дорожек'}], ensure_ascii=False))
 PYJSON
 cat /tmp/s02-legacy-targets.json
-# Verify the UUID/title/slug JSON before stopping the API.
+# Verify the UUID/title/slug/venue JSON before stopping the API.
 LEGACY_DEMO_TARGETS="$(cat /tmp/s02-legacy-targets.json)"
 docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod stop api
 docker exec -i flounder-postgres psql -X -U sport_user -d sport_platform \
@@ -49,7 +51,7 @@ docker compose -f infra/compose.prod.yaml --env-file infra/.env.prod start api
 curl -fsS https://sportgate.pro/actuator/health
 ```
 
-Формат `demo_targets`: `[{"id":"UUID из API","title":"Открытый кубок Самары по плаванию (демо)","slug":"otkrytyy-kubok-samary-po-plavaniyu-demo"}]`. SQL повторно сверяет эти значения и демо-организацию/площадку; при несовпадении откатывает всю транзакцию. Если psql завершился ошибкой, сохранить вывод и проверить откат до продолжения; API запустить обратно и проверить health. До удаления перенастроить keyword-монитор Uptime Kuma со старого slug на B либо согласовать окно обслуживания.
+Формат `demo_targets`: `[{"id":"UUID из API","title":"Открытый кубок Самары по плаванию (демо)","slug":"otkrytyy-kubok-samary-po-plavaniyu-demo","venue":"Дворец спорта, 25 м, 8 дорожек"}]`. SQL повторно сверяет эти значения и демо-организацию/площадку; при несовпадении откатывает всю транзакцию. Если psql завершился ошибкой, сохранить вывод и проверить откат до продолжения; API запустить обратно и проверить health. До удаления перенастроить keyword-монитор Uptime Kuma со старого slug на B либо согласовать окно обслуживания.
 
 DEMO_DATE — день показа, формат YYYY-MM-DD, любой день недели; по умолчанию 2026-10-19. DEMO_EVENTS — непустой список A/B/C без повторов, по умолчанию все три. Даты не зависят от текущего времени: начало события/сессии 1 — 10:00 Europe/Samara, сессии 2 — 15:00; регистрация открывается за 30 дней до демо, закрывается A за 9 дней, B за 1 день, C через 4 дня в 18:00 Самары. Запуск C после его окна регистрации завершится ошибкой, даты автоматически не подменяются.
 
@@ -102,3 +104,5 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:demo
 При MAIL_ENABLED=true сид создаёт уведомления и для вымышленных адресов @flounder.demo; это может приводить к возвратам SMTP. Для e2e после 18.10 требуется актуальный DEMO_DATE, чтобы окно регистрации отдельного QA05-события B оставалось открытым.
 
 Unit-тесты проверяют даты/границы календаря, состав, повторы, выбор событий, роли, ошибки и сброс без сети. E2e проверяет три жизненных цикла через настоящий API/браузер, общие profile ID и документы; прежний семишаговый тест использует отдельный пустой B с суффиксом QA05. Для удалённого API требуется явный QA05_ALLOW_REMOTE=1; рабочие данные для e2e не использовать. Подробный сценарий: [docs/demo-script.md](../../docs/demo-script.md), чек-лист: [репетиция 17.10](../../docs/qa/rehearsal-2026-10-17.md).
+
+Перед обновлением стенда владелец должен задать в `scripts/demo/.env` рабочий `ADMIN_EMAIL` bootstrap-администратора, а не `admin@flounder.demo`. `ADMIN_PASSWORD`, `DEMO_PASSWORD` и все переопределения `*_PASSWORD` должны содержать собственные пароли длиной не менее 12 символов. Пароль — в менеджере паролей владельца, в репозитории не хранится. Исторический встроенный администратор отключается миграцией V050.

@@ -25,7 +25,9 @@ class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
         imports.upsert(
                 id("event"),
                 id("newDiscipline"),
-                profiles.getById(id("profile")),
+                id("profile"),
+                new com.acme.sportplatform.identity.ProfileData("Импорт", "Строка", null,
+                        java.time.LocalDate.of(2014, 3, 5), "M", "Клуб Excel"),
                 null,
                 new java.math.BigDecimal("100"));
         assertThat(
@@ -37,7 +39,9 @@ class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
         imports.upsert(
                 id("event"),
                 id("newDiscipline"),
-                profiles.getById(id("profile")),
+                id("profile"),
+                new com.acme.sportplatform.identity.ProfileData("Импорт", "Строка", null,
+                        java.time.LocalDate.of(2014, 3, 5), "M", "Клуб Excel"),
                 null,
                 new java.math.BigDecimal("100"));
         assertThat(
@@ -90,6 +94,26 @@ class RegistrationPaymentsIntegrationTest extends Qa04SecurityFixture {
         mvc.perform(get(publicUrl("")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.payment.instructions").value("Банк"));
+    }
+
+    @Test
+    void paymentAndDiplomaSettingsSurviveCombinedAndSeparatePatches() throws Exception {
+        String url = "/api/v1/events/" + id("event");
+        mvc.perform(patch(url).with(authentication(auth("organizer")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"payment\":{\"enabled\":true,\"instructions\":\"Банк\"},\"diploma\":{\"enabled\":true}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payment.instructions").value("Банк"));
+        assertThat(json.readTree(jdbc.queryForObject("select settings_json::text from events where id=?",
+                String.class, id("event"))).path("diploma").path("enabled").asBoolean()).isTrue();
+        mvc.perform(patch(url).with(authentication(auth("organizer")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"diploma\":{\"enabled\":false}}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.payment.instructions").value("Банк"));
+        mvc.perform(patch(url).with(authentication(auth("organizer")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"payment\":{\"enabled\":false}}"))
+                .andExpect(status().isOk());
+        assertThat(json.readTree(jdbc.queryForObject("select settings_json::text from events where id=?",
+                String.class, id("event"))).path("diploma").path("enabled").asBoolean()).isFalse();
     }
 
     void fee() {

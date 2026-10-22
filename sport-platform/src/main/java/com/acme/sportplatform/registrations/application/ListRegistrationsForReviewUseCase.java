@@ -57,7 +57,7 @@ public class ListRegistrationsForReviewUseCase {
             entities = registrationRepository.findAll();
         }
 
-        return summaries.enrich(
+        return summaries.enrichForManager(
                 registrationMapper.toResponses(
                         entities,
                         fees.dueDaysFor(

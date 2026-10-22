@@ -5,7 +5,7 @@ GET	/api/v1/events/{eventId}/disciplines	manage-read	true	200
 POST	/api/v1/events/{eventId}/disciplines/{disciplineId}/publish	manage	true	200	discipline-draft	
 GET	/api/v1/public/events	public	false	200		
 PATCH	/api/v1/event-disciplines/{id}	manage	true	200	event-published	{"name":"Новое имя"}
-DELETE	/api/v1/event-disciplines/{id}	manage	true	204	empty-discipline	
+DELETE	/api/v1/event-disciplines/{id}	organize	true	204	empty-discipline
 GET	/api/v1/age-group-presets	authenticated	false	200		
 POST	/api/v1/events	organize	true	201		{"organizationId":"$org","venueId":"$venue","sportId":"$sport","regulationVersionId":"$version","title":"QA04 кубок","eventStartAt":"2030-06-01T10:00:00Z","eventEndAt":"2030-06-01T18:00:00Z"}
 GET	/api/v1/events/{id}	manage-read	true	200		
@@ -47,7 +47,7 @@ GET	/api/v1/payments/review/registrations/{registrationId}	manage	true	200
 POST	/api/v1/payments/{paymentId}/confirm	manage	true	200		
 GET	/api/v1/registrations/{registrationId}/payments	participant	false	200		
 POST	/api/v1/registrations/{registrationId}/payments	participant	false	409		
-POST	/api/v1/payments/webhooks/yookassa	public	false	400		{}
+POST	/api/v1/payments/webhooks/yookassa	public	false	404		{}
 GET	/api/v1/public/events/{slug}	public	false	200		
 GET	/api/v1/public/events/{slug}/start-list	public	false	200		
 GET	/api/v1/public/events/{slug}/schedule	public	false	200		
@@ -113,8 +113,8 @@ GET	/api/v1/events/{eventId}/documents/start-list.pdf	manage	true	200
 GET	/api/v1/events/{eventId}/documents/results.pdf	manage	true	200
 GET	/api/v1/public/events/{slug}/start-list.pdf	public	false	200
 GET	/api/v1/public/events/{slug}/results.pdf	public	false	200
-POST	/api/v1/events/{eventId}/schedule/shift	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
-POST	/api/v1/events/{eventId}/schedule/shift/preview	manage	true	200	unit-published	{"fromUnitId":"$unit","deltaSec":1200}
+POST	/api/v1/events/{eventId}/schedule/shift	manage	true	200	shiftable	{"fromUnitId":"$unit","deltaSec":1200}
+POST	/api/v1/events/{eventId}/schedule/shift/preview	manage	true	200	shiftable	{"fromUnitId":"$unit","deltaSec":1200}
 POST	/api/v1/profiles/{profileId}/documents	documents	true	201	document
 GET	/api/v1/profiles/{profileId}/documents	documents	true	200	document
 DELETE	/api/v1/profiles/{profileId}/documents/{id}	participant	false	204	document
@@ -128,8 +128,8 @@ GET	/api/v1/events/{eventId}/analytics	organize	true	200
 GET	/api/v1/events/{eventId}/analytics/export.xlsx	organize	true	200
 GET	/api/v1/organizations/{id}/analytics	owner	true	200
 GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
-PATCH	/api/v1/events/{id}	manage	true	200		{"maxParticipants":150}
-POST	/api/v1/events/{id}/archive	manage	true	200	event-completed	{}
+PATCH	/api/v1/events/{id}	organize	true	200		{"maxParticipants":150}
+POST	/api/v1/events/{id}/archive	organize	true	200	event-completed	{}
 POST	/api/v1/registrations/{id}/waive-payment	manage	true	200	registration-confirmed	{"comment":"по решению организатора"}
 POST	/api/v1/registrations/{id}/refund-payment	manage	true	200	registration-paid	{"comment":"возврат"}
 POST	/api/v1/registrations/{id}/reset-payment	manage	true	200	registration-paid	{"comment":"ошибочно"}
@@ -139,4 +139,34 @@ GET	/api/v1/events/{eventId}/payments/summary	manage-finance	true	200
 POST	/api/v1/events/{eventId}/payments/recalculate-fees	manage	true	200		
 GET	/api/v1/events/{eventId}/payment-instructions	authenticated	false	200		
 GET	/api/v1/events/{eventId}/payments/summary.xlsx	manage-finance	true	200
+GET	/api/v1/organizations/{id}/public-profile	owner	true	200
+PUT	/api/v1/organizations/{id}/public-profile	owner	true	200		{"publicSlug":"qa04-club","description":"Клуб","isPublic":true}
+POST	/api/v1/organizations/{id}/logo	owner	true	400
+DELETE	/api/v1/organizations/{id}/logo	owner	true	204
+GET	/api/v1/public/calendar	public	false	200
+GET	/api/v1/public/organizations/{slug}	public	false	200	org-public
+GET	/api/v1/public/organizations/{slug}/events	public	false	200	org-public
+GET	/api/v1/public/organizations/{slug}/logo	public	false	404	org-public
+GET	/api/v1/organizations/{id}/logo	owner	true	404
+POST	/api/v1/organizations/{id}/invitations	owner	true	201		{"email":"invitee@example.com","memberRole":"operator"}
+GET	/api/v1/organizations/{id}/invitations	owner	true	200
+DELETE	/api/v1/organizations/{id}/invitations/{invitationId}	owner	true	204	invitation
+GET	/api/v1/invitations/{token}	public	false	200	invitation
+POST	/api/v1/invitations/{token}/accept	authenticated	false	403	invitation
+GET	/api/v1/organizations/mine	authenticated	false	200
+PATCH	/api/v1/organizations/{id}	owner	true	200		{"type":"club","name":"QA04 клуб","city":"Москва"}
 POST	/api/v1/profiles/{profileId}/documents/{id}/review	documents	true	200	document	{"status":"ACCEPTED"}
+GET	/api/v1/events/{eventId}/standings/config	manage	true	200
+PUT	/api/v1/events/{eventId}/standings/config	manage	true	200		{"enabled":true,"scope":"AGE_GROUP","pointsByPlace":[9,7,6,5,4,3,2,1],"published":false}
+GET	/api/v1/events/{eventId}/standings	manage	true	200
+GET	/api/v1/events/{eventId}/documents/standings.pdf	manage	true	200
+GET	/api/v1/public/events/{slug}/standings	public	false	404
+GET	/api/v1/public/events/{slug}/standings.pdf	public	false	404
+POST	/api/v1/events/{eventId}/bib-numbers/assign	manage	true	200		{"mode":"BY_CLUB_THEN_NAME","startFrom":1}
+GET	/api/v1/events/{eventId}/bib-numbers	manage-read	true	200
+PATCH	/api/v1/events/{eventId}/bib-numbers/{profileId}	manage	true	200	bib-assigned	{"bibNumber":77}
+GET	/api/v1/events/{eventId}/documents/heat-cards.pdf	manage	true	200
+GET	/api/v1/events/{eventId}/documents/awards.pdf	manage	true	200
+GET	/api/v1/events/{eventId}/documents/diplomas.pdf	manage	true	200	diploma-enabled
+POST	/api/v1/events/{eventId}/documents/diploma-background	manage	true	400
+GET	/api/v1/public/events/{slug}/awards.pdf	public	false	200

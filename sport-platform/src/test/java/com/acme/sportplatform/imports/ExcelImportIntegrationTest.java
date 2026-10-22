@@ -216,8 +216,14 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         var profile = profiles.findById(registration.getParticipantProfileId()).orElseThrow();
         profile.setClubName(null);
         profiles.saveAndFlush(profile);
+        registration.setParticipantSnapshot("{\"city\":\"private\",\"sportMeta\":{\"rank\":\"private\"}}");
+        registrations.saveAndFlush(registration);
         upload(event, blankTime);
-        assertThat(profiles.findById(profile.getId()).orElseThrow().getClubName()).isEqualTo("Дельфин");
+        var snapshot = mapper.readTree(registrations.findById(oldId).orElseThrow().getParticipantSnapshot());
+        assertThat(snapshot.has("city")).isFalse();
+        assertThat(snapshot.has("sportMeta")).isFalse();
+        assertThat(snapshot.get("clubName").asText()).isEqualTo("Дельфин");
+        assertThat(profiles.findById(profile.getId()).orElseThrow().getClubName()).isNull();
         registration.setStatus("WITHDRAWN");
         registrations.saveAndFlush(registration);
         assertThat(upload(event, changed).created()).isEqualTo(1);
@@ -355,7 +361,9 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
                 organizationId);
         jdbc.update("insert into organization_members (id,organization_id,user_id,member_role,created_at) values (?,?,?,'OPERATOR',now())",
                 UUID.randomUUID(), organizationId, member);
-        var operator = principal(member, "OPERATOR");
+        var operator = new PlatformUserPrincipal(member, "member-" + member + "@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "operator")));
         for (String endpoint : List.of("/import-template", "/export")) {
             mvc.perform(get(base(event) + endpoint).with(user(operator))).andExpect(status().isOk());
         }
@@ -365,7 +373,7 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void sharedProfileLookupSerializesCreationAndFillsOnlyMissingClub() throws Exception {
+    void sharedProfileLookupSerializesCreationAndLeavesExistingProfileUnchanged() throws Exception {
         var data = new ProfileData("Общий", "Профиль", null, LocalDate.of(2014, 5, 10), "M", null);
         String key = ProfileExternalKey.build(data.lastName(), data.firstName(), data.birthDate(), data.gender());
         var a = CompletableFuture.supplyAsync(() -> profileLookup.findOrCreateByExternalKey(key, data));
@@ -377,10 +385,10 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         var filled = profileLookup.findOrCreateByExternalKey(key,
                 new ProfileData(data.lastName(), data.firstName(), null, data.birthDate(), "M", "Первый клуб"));
         assertThat(filled.created()).isFalse();
-        assertThat(filled.clubName()).isEqualTo("Первый клуб");
+        assertThat(filled.clubName()).isNull();
         var retained = profileLookup.findOrCreateByExternalKey(key,
                 new ProfileData(data.lastName(), data.firstName(), null, data.birthDate(), "M", "Другой клуб"));
-        assertThat(retained.clubName()).isEqualTo("Первый клуб");
+        assertThat(retained.clubName()).isNull();
     }
 
     @Test
@@ -448,13 +456,26 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
         var first = profileLookup.upsertForUser(userId, original);
         var changed = profileLookup.upsertForUser(userId, revised);
         assertThat(changed.id()).isEqualTo(first.id());
+        jdbc.update("update profiles set club_name=null,city='Самара',sport_meta='{\"phone\":\"private\",\"rank\":\"private\"}' where id=?", first.id());
         UUID event = event();
         var report = upload(event, file(List.of(List.of(revised.lastName(), revised.firstName(),
                 "10.05.2014", "M", "M-50-FREE", "32.15"))));
         assertThat(report.errors()).isEmpty();
         assertThat(report.createdProfiles()).isZero();
         assertThat(registrations.findByEventId(event)).singleElement()
-                .satisfies(r -> assertThat(r.getParticipantProfileId()).isEqualTo(first.id()));
+                .satisfies(r -> {
+                    assertThat(r.getParticipantProfileId()).isEqualTo(first.id());
+                    assertThat(r.getParticipantUserId()).isNull();
+                    assertThat(mapper.readTree(r.getParticipantSnapshot()).properties()).extracting(java.util.Map.Entry::getKey)
+                            .containsExactlyInAnyOrder("firstName", "lastName", "middleName", "birthDate", "gender", "clubName");
+                    assertThat(mapper.readTree(r.getParticipantSnapshot()).get("clubName").asText()).isEqualTo("Дельфин");
+                });
+        assertThat(profiles.findById(first.id()).orElseThrow().getClubName()).isNull();
+        assertThat(profiles.findById(first.id()).orElseThrow().getUserId()).isEqualTo(userId);
+        mvc.perform(get(base(event)).with(user(PRINCIPAL))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].participantUserId").doesNotExist())
+                .andExpect(jsonPath("$[0].participantSnapshot.city").doesNotExist())
+                .andExpect(jsonPath("$[0].participantSnapshot.sportMeta").doesNotExist());
     }
 
     @Test

@@ -18,6 +18,14 @@ public class VenueLookupService implements VenueLookup {
 
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public java.util.Map<UUID,String> cities(java.util.Collection<UUID> ids) {
+        if (ids.isEmpty()) return java.util.Map.of();
+        return venueRepository.findAllById(ids).stream().filter(v -> v.getCity()!=null)
+                .collect(java.util.stream.Collectors.toMap(v -> v.getId(), v -> v.getCity()));
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ProtocolVenue protocolVenue(UUID venueId) {
         var venue = venueRepository.findById(venueId).orElseThrow(() ->
                 new com.acme.sportplatform.common.exception.BusinessException(

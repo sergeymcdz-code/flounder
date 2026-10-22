@@ -41,7 +41,7 @@ export type Discipline = {
 }
 export type PublicEvent = {
   payment?: import('../../api/registration-payments.api').PaymentSettings | null
-  organization?: { name: string }
+  organization?: { name: string; publicSlug: string | null; hasLogo: boolean } | null
 
   id: string
   sportId: string

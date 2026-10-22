@@ -1,8 +1,10 @@
 # M09 — проверка инфраструктуры
 
+> Исторический отчёт. Актуальная конфигурация и команды обслуживания — [инструкция владельца](infra-hardening.md).
+
 База ветки: `main` после `git fetch origin main`, `a37fcb5` (13.10.2026).
 На боевом сервере ничего не запускалось. Секреты, аккаунты сервисов и реальные дампы
-оператора не использовались. Пошаговая приёмка под `deploy`: `docs/runbook-demo.md` §§9, 12–15.
+оператора не использовались. Пошаговая приёмка под `<ssh-user>`: `docs/runbook-demo.md` §§9, 12–15.
 
 ## Исправленные дефекты в области M09
 
@@ -75,8 +77,8 @@ Docker build arg. README содержит требуемый CI-бейдж; `.gi
   пути исправлены на `~/flounder`, timezone API staging выровнен с prod (Europe/Samara).
 - Cron: раз в час проверка диска, отдельные варианты Moscow/UTC, restart cron при
   смене timezone; повтор бэкапа в ту же минуту успешен без ложного алерта.
-- Hardening сохраняет root по ключу (`prohibit-password`), проверяет deploy authorized_keys
-  до подтверждения, допускает `su - deploy` без SSH_CONNECTION. Regression с mock sudo
+- Hardening сохраняет root по ключу (`prohibit-password`), проверяет `<ssh-user>` authorized_keys
+  до подтверждения, допускает `su - <ssh-user>` без SSH_CONNECTION. Regression с mock sudo
   проверяет отсутствие ключа, подтверждение, fallback addr и rollback; хост не менялся.
 - `restore-production.sh`: отдельное подтверждение, неизменённый restore.sh для проверки,
   stop API → свежий бэкап в уникальном каталоге → DROP/load/smoke → start API/health.

@@ -49,7 +49,9 @@ abstract class Qa04SecurityFixture extends AbstractPostgresIntegrationTest {
     PlatformUserPrincipal principal(String actor) {
         String role = actor.equals("foreign_organizer") ? "organizer" : actor;
         return new PlatformUserPrincipal(id(actor), actor + "-" + ids.get("event") + "@qa04.example",
-                "", "active", List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase(Locale.ROOT))));
+                "", "active", List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase(Locale.ROOT))),
+                jdbc.query("select m.organization_id,o.name,m.member_role from organization_members m join organizations o on o.id=m.organization_id where m.user_id=?",
+                    (rs, n) -> new com.acme.sportplatform.identity.UserMembershipLookup.Membership(rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3)), id(actor)));
     }
     UsernamePasswordAuthenticationToken auth(String actor) {
         var p = principal(actor);

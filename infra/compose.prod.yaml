@@ -15,7 +15,7 @@ x-logging: &default-logging
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16.14
     command:
       - postgres
       - -c
@@ -45,6 +45,7 @@ services:
     stop_grace_period: 30s
     container_name: flounder-postgres
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sport_platform}
       POSTGRES_USER: ${POSTGRES_USER:-sport_user}
@@ -70,6 +71,7 @@ services:
     stop_grace_period: 40s
     container_name: flounder-api
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,13 +128,15 @@ services:
     mem_limit: 128m
     container_name: flounder-web
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     logging: *default-logging
 
   caddy:
-    image: caddy:2
+    image: caddy:2.10.2
     mem_limit: 128m
     container_name: flounder-caddy
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     ports:
       - "80:80"
       - "443:443"
@@ -140,6 +144,9 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required in infra/.env.prod}
+      CSP_HEADER: ${CSP_HEADER:-Content-Security-Policy-Report-Only}
+      STAGING_BASIC_AUTH_USER: ${STAGING_BASIC_AUTH_USER:-staging}
+      STAGING_BASIC_AUTH_HASH: ${STAGING_BASIC_AUTH_HASH:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy-sites:/etc/caddy/sites:ro

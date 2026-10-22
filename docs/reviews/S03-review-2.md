@@ -29,7 +29,7 @@ PR #62 «feat(performance): S03 pre-demo database and runtime tuning», ветк
 
 Что изменится при `./infra/deploy.sh` по сравнению с текущим стендом (compose на `origin/main`): у `postgres` появились `command` (12 параметров, в т. ч. `shared_preload_libraries=pg_stat_statements`), `shm_size`, `mem_limit`, `stop_grace_period`, интервал healthcheck; у `api` — `mem_limit/memswap_limit`, `stop_grace_period`, новые `JAVA_TOOL_OPTIONS`, readiness-healthcheck; у `web` и `caddy` — `mem_limit`. Любое из этих изменений заставляет Compose **пересоздать все четыре контейнера**; `caddy` при пересоздании заново читает `Caddyfile` (bind-mount `:ro`, `compose.prod.yaml:141`) — новые retry/503-страница применятся без отдельного `caddy reload`. Данные не затрагиваются: Postgres живёт в именованном томе `postgres_data`, файлы — в `flounder_files`, сертификаты — в `caddy_data`; `command: [postgres, -c …]` не меняет entrypoint и не запускает initdb повторно. Обязательных новых переменных в `.env.prod` нет: все новые параметры жёстко прописаны или имеют default (`app.mail.worker-*-ms:15000`), `deploy.sh` по-прежнему проверяет только `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD`, `JWT_SECRET` (`infra/deploy.sh:26-31`). Flyway применит V038 (10 `create index if not exists`, на демо-объёме — миллисекунды) до открытия порта API.
 
-Порядок действий (всё из `/home/deploy/flounder`, не во время репетиции):
+Порядок действий (всё из `/home/<ssh-user>/flounder`, не во время репетиции):
 
 | Шаг | Команда | Ожидание |
 |---|---|---|

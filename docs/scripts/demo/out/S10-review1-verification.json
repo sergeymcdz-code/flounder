@@ -1,0 +1,154 @@
+{
+  "task": "S10",
+  "review": 1,
+  "checkedOn": "2026-10-18",
+  "baseCommit": "57cea5d32796e7a9aa32e3697b2fd1e4908f09b5",
+  "runtime": {
+    "http": "Node 24, Java 21, PostgreSQL 16, isolated local database",
+    "scriptTests": [
+      "Node 24",
+      "node:22-alpine"
+    ]
+  },
+  "seed": {
+    "seconds": 58.86,
+    "events": 29,
+    "registrations": 2641,
+    "results": 1872
+  },
+  "manualRegistration": {
+    "date": "2026-10-31",
+    "status": "CONFIRMED",
+    "ownRegistrations": 135,
+    "foreignRegistrations": 1,
+    "reruns": [
+      {
+        "mode": "seed",
+        "seconds": 9.28,
+        "writes": 0,
+        "ownRegistrations": 135,
+        "foreignRegistrations": 1
+      },
+      {
+        "mode": "advance",
+        "seconds": 8.28,
+        "writes": 0,
+        "ownRegistrations": 135,
+        "foreignRegistrations": 1
+      }
+    ],
+    "foreignRegistrationPreservedAfterNextWeek": true
+  },
+  "advanceWithError": {
+    "exitCode": 1,
+    "seconds": 16.34,
+    "processedEvents": 29,
+    "errorCount": 1,
+    "failedEvent": {
+      "week": 13,
+      "date": "2026-10-24",
+      "slug": "sprint-festival-kazan-oktyabr-2026",
+      "status": "REGISTRATION_CLOSED",
+      "registrations": 140,
+      "states": {
+        "CONFIRMED": 140
+      },
+      "heats": 21,
+      "finishedHeats": 21,
+      "results": 140,
+      "corrected": 1,
+      "error": "Ошибка API: POST /events/5dc4cd24-c8dd-4e9b-a338-a491764b7886/complete (HTTP 409, код results.review_test). Проверьте права, параметры и журнал сервера."
+    },
+    "otherUpdatedEvents": [
+      {
+        "week": 14,
+        "date": "2026-10-31",
+        "slug": "osenniy-kubok-sportgate-etap-14",
+        "status": "REGISTRATION_CLOSED",
+        "registrations": 136,
+        "states": {
+          "CONFIRMED": 136
+        },
+        "heats": 24,
+        "finishedHeats": 2,
+        "results": 13,
+        "corrected": 0
+      },
+      {
+        "week": 16,
+        "date": "2026-11-14",
+        "slug": "otkrytoe-pervenstvo-ulyanovska-sredi-yunoshey-i-devushek-noyabr-2026",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 107,
+        "states": {
+          "CONFIRMED": 101,
+          "NEEDS_CORRECTION": 6
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      },
+      {
+        "week": 17,
+        "date": "2026-11-21",
+        "slug": "klubnye-starty-volna-penza-noyabr-2026",
+        "status": "REGISTRATION_OPEN",
+        "registrations": 24,
+        "states": {
+          "CONFIRMED": 21,
+          "NEEDS_CORRECTION": 3
+        },
+        "heats": 0,
+        "finishedHeats": 0,
+        "results": 0,
+        "corrected": 0
+      }
+    ]
+  },
+  "resumedAdvance": {
+    "seconds": 12.77,
+    "errors": 0,
+    "completedEvents": 15,
+    "registrations": 2693,
+    "results": 2014,
+    "note": "Includes one manually imported foreign registration."
+  },
+  "public": {
+    "events": 28,
+    "humanReadableDescriptions": true
+  },
+  "reset": {
+    "targets": 29,
+    "targetVenueTamperRejected": true,
+    "eventsBefore": 30,
+    "eventsAfterRejectedReset": 30,
+    "eventsAfterCalendarReset": 1,
+    "preservedS02Event": "B, skipImport=true control event",
+    "venuesPreserved": 10,
+    "disciplineTemplatesT10Preserved": 22,
+    "s02ResetWithVenueSucceeded": true,
+    "eventsAfterS02Reset": 0
+  },
+  "checks": {
+    "demoVitest": 87,
+    "demoTypecheck": true,
+    "node22Vitest": 87,
+    "node22Typecheck": true,
+    "frontendNodeTests": 3,
+    "frontendVitest": 221,
+    "frontendBuild": true,
+    "frontendLint": "exit 0, existing warnings",
+    "backend": {
+      "command": "mvn -q test",
+      "exitCode": 0,
+      "suites": 73,
+      "tests": 1644,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "shutdownWarning": "Surefire killed fork JVM after 30 seconds following System.exit(0).",
+      "note": "Final run passed without concurrent packaging; first run overlapped a jar build and failed during context loading."
+    }
+  }
+}

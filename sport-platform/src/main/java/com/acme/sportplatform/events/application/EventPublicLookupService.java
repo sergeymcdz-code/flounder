@@ -29,9 +29,11 @@ public class EventPublicLookupService
 
     private final EventRepository eventRepository;
     private final EventSessionService sessions;
+    private final com.acme.sportplatform.organizations.VenueLookup venues;
     private final com.fasterxml.jackson.databind.ObjectMapper json;
 
-    public EventPublicLookupService(EventRepository eventRepository, EventSessionService sessions, com.fasterxml.jackson.databind.ObjectMapper json) {
+    public EventPublicLookupService(EventRepository eventRepository, EventSessionService sessions, com.fasterxml.jackson.databind.ObjectMapper json, com.acme.sportplatform.organizations.VenueLookup venues) {
+        this.venues = venues;
         this.json = json;
         this.sessions = sessions;
         this.eventRepository = eventRepository;
@@ -39,13 +41,9 @@ public class EventPublicLookupService
 
     @Override
     public List<EventPublicLookupResult> listPublicEvents() {
-        return eventRepository
-                .findByStatusInOrderByEventStartAtAsc(
-                        PUBLIC_EVENT_STATUSES
-                )
-                .stream()
-                .map(this::toResult)
-                .toList();
+        var events = eventRepository.findByStatusInOrderByEventStartAtAsc(PUBLIC_EVENT_STATUSES);
+        var cities = venues.cities(events.stream().map(EventEntity::getVenueId).filter(java.util.Objects::nonNull).distinct().toList());
+        return events.stream().map(event -> toResult(event, cities.get(event.getVenueId()))).toList();
     }
 
     @Override
@@ -61,11 +59,12 @@ public class EventPublicLookupService
                                                 "events.public_not_found",
                                                 "Публичное событие не найдено"));
 
-        return toResult(event);
+        String city = event.getVenueId()==null ? null : venues.cities(List.of(event.getVenueId())).get(event.getVenueId());
+        return toResult(event, city);
     }
 
     private EventPublicLookupResult toResult(
-            EventEntity event
+            EventEntity event, String city
     ) {
         return new EventPublicLookupResult(
                 event.getId(),
@@ -78,7 +77,7 @@ public class EventPublicLookupService
                 event.getEventEndAt(),
                 event.getStatus(),
                 event.getPublicSlug(),
-                sessions.views(event.getId()), publicPayment(event));
+                sessions.views(event.getId()), event.getOrganizationId(), event.getVenueId(), city, publicPayment(event));
     }
     private com.acme.sportplatform.events.EventPaymentSettings publicPayment(EventEntity event) {
         var payment = com.acme.sportplatform.events.EventPaymentSettings.fromJson(event.getSettingsJson(), json);
