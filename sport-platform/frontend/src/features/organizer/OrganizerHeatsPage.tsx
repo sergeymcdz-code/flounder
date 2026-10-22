@@ -132,7 +132,7 @@ export function OrganizerHeatsPage() {
           </details>
           <details><summary className="fl-btn fl-btn-secondary">Расписание ▾</summary>
             <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
-            <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
+            <button className="fl-btn fl-btn-secondary" title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           </details>
           <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
           <details><summary className="fl-btn fl-btn-secondary">Печать ▾</summary>
@@ -341,7 +341,7 @@ export function OrganizerHeatsPage() {
       {publishOpen && <ConfirmDialog title="Опубликовать стартовый протокол?" description={`Публичная страница /e/${event.publicSlug}/start-list и PDF покажут ${heats.length} ${plural(heats.length, ['заплыв', 'заплыва', 'заплывов'])}. Повторный посев потребует подтверждения.`} confirmLabel="Опубликовать" busy={busy} error={error}
         onClose={() => setPublishOpen(false)} onConfirm={() => { void run(() => publishStartList(event.id, accessToken)).then(ok => { if (ok) { setPublishOpen(false); toast({ text: 'Опубликовано', href: `/e/${event.publicSlug}/start-list` }) } }) }} />}
       {showShift && <OrganizerDialog title="Сдвинуть расписание" onClose={() => setShowShift(false)}>
-        <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy}
+        <ScheduleShiftForm eventId={event.id} heats={heats} accessToken={accessToken} timeZone={event.venue?.timezone} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} busy={busy} archived={event.status === 'ARCHIVED'}
           onClose={() => setShowShift(false)} onApply={(fromUnitId, deltaSec) => {
             void run(() => shiftSchedule(event.id, fromUnitId, deltaSec, accessToken)).then(ok => { if (ok) setShowShift(false) })
           }} />

@@ -27,6 +27,16 @@ class MailRenderingTest {
         assertThat(renderer.render(NotificationTemplate.registration_rejected, payload).html()).contains("&lt;script&gt;");
         assertThat(renderer.render(NotificationTemplate.start_list_published, payload).text()).contains("Найти себя");
     }
+    @Test void scheduleChangedRendersTwoRowsInVenueTimeAndEscapesDiscipline() {
+        var values=new HashMap<>(payload);
+        values.put("link","https://example.org/e/cup/schedule");
+        values.put("changes",List.of(Map.of("participant","Иванов Иван <script>","discipline","50 м <script>","number",1,"before","10:00","after","10:10"),
+                Map.of("participant","Петрова Анна","discipline","100 м","number",2,"before","10:02","after","10:12")));
+        var message=renderer.render(NotificationTemplate.schedule_changed,values);
+        assertThat(message.subject()).isEqualTo("Изменилось расписание: Кубок Самары");
+        assertThat(message.text()).contains("Ваш заплыв: Иванов Иван <script> — 50 м <script>, № 1, было 10:00 → стало 10:10", "Петрова Анна — 100 м", "/e/cup/schedule");
+        assertThat(message.html()).contains("&lt;script&gt;", "10:00", "10:10", "10:02", "10:12").doesNotContain("<script>");
+    }
     @Test void disabledMailLogsMetadataButDoesNotTouchSmtpAndBodyIsDebugOnly() throws Exception {
         var sender = mock(JavaMailSender.class);
         var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(LoggingMailSender.class);

@@ -40,6 +40,27 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         return documents.upload(id(profile), eventId, DocumentType.MEDICAL_CERT, file(PDF),
                 LocalDate.now(), until, principal("participant")).id();
     }
+    @Test void anonymousDownloadDoesNotCreateAuditRows() throws Exception {
+        UUID document=upload("profile",null,LocalDate.now().plusYears(1));
+        em.flush();
+        long before=jdbc.queryForObject("select count(*) from file_access_log",Long.class);
+        mvc.perform(get("/api/v1/documents/"+document+"/download")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/public/documents/"+document+"/content")).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("select count(*) from file_access_log",Long.class)).isEqualTo(before);
+    }
+    @Test void corruptCiphertextReturns409BeforeStreamingAndDoesNotLogDownload() throws Exception {
+        UUID document=upload("profile",null,LocalDate.now().plusYears(1));
+        em.flush();
+        String url=documents.download(document,null,principal("participant")).url();
+        String key=jdbc.queryForObject("select file_key from participant_documents where id=?",String.class,document);
+        byte[] bytes=Files.readAllBytes(DOCUMENT_FILES.resolve(key));
+        bytes[bytes.length-1]^=1;
+        Files.write(DOCUMENT_FILES.resolve(key),bytes);
+        mvc.perform(get(url).with(authentication(auth("participant"))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("files.corrupt"))
+                .andExpect(jsonPath("$.message").value("Файл повреждён или не удалось его расшифровать"));
+        assertThat(jdbc.queryForObject("select count(*) from file_access_log where document_id=? and action in ('DOWNLOAD','READ_FAILED')",Long.class,document)).isZero();
+    }
     @Test void parentUploadsEncryptedDocumentDownloadsAndDeletesPendingWithAuditAndEvent() throws Exception {
         var response = mvc.perform(multipart(base("profile")).file(file(PDF)).param("type", "MEDICAL_CERT")
                 .param("issuedAt", LocalDate.now().toString()).param("validUntil", LocalDate.now().plusYears(1).toString())
