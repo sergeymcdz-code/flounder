@@ -67,6 +67,7 @@ const OrganizerOverviewPage = lazy(() =>
 const OrganizerProgramPage = lazy(() =>
   import('../features/organizer/OrganizerProgramPage').then(module => ({ default: module.OrganizerProgramPage })),
 )
+const OrganizerPaymentsPage = lazy(() => import('../features/payments/OrganizerPaymentsPage').then(m => ({ default: m.OrganizerPaymentsPage })))
 const OrganizerEntriesPage = lazy(() =>
   import('../features/organizer/OrganizerEntriesPage').then(module => ({ default: module.OrganizerEntriesPage })),
 )
@@ -207,6 +208,9 @@ export default function App() {
               <Route index element={<OrganizerOverviewPage />} />
               <Route path="program" element={<OrganizerProgramPage />} />
               <Route path="entries" element={<OrganizerEntriesPage />} />
+              <Route element={<RequireRole roles={['organizer', 'operator', 'platform_admin', 'platformadmin']} />}>
+                <Route path="payments" element={<OrganizerPaymentsPage />} />
+              </Route>
               <Route path="heats" element={<OrganizerHeatsPage />} />
               <Route path="results" element={<OrganizerResultsPage />} />
               <Route path="diploma" element={<OrganizerDiplomaPage />} />

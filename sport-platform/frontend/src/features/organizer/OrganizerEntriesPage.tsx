@@ -1,3 +1,6 @@
+import { PaymentMutationDialog } from '../payments/PaymentMutationDialog'
+import { PaymentHistoryDialog } from '../payments/PaymentHistoryDialog'
+import { money, paymentLabels, type PaymentAction } from '../../api/registration-payments.api'
 import { useState, type FormEvent } from 'react'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { documentTypes, documentStatusLabels, type DocumentType } from '../../api/documents.api'
@@ -34,12 +37,15 @@ export function OrganizerEntriesPage() {
     busy, error, clearError,
     run, refresh,
   } = useOrganizerEvent()
+  const [paymentFilter, setPaymentFilter] = useState('')
   const [selected, setSelected] = useState<string[]>([])
-  const [bulkAction, setBulkAction] = useState<'CONFIRMED' | 'REJECTED' | 'PAID' | null>(null)
+  const [paymentDialog, setPaymentDialog] = useState<{ ids: string[]; action?: PaymentAction; amount?: number | null; bulk?: boolean } | null>(null)
+  const [historyId, setHistoryId] = useState<string | null>(null)
+  const [bulkAction, setBulkAction] = useState<'CONFIRMED' | 'REJECTED' | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
   const [progress, setProgress] = useState('')
   const [bulkErrors, setBulkErrors] = useState<string[]>([])
-  function eligible(action: string, r: OrganizerRegistration) { return action === 'PAID' ? ['CONFIRMED', 'ADMITTED'].includes(r.status) && r.paymentStatus !== 'PAID' : ['SUBMITTED', 'UNDER_REVIEW', ...(action === 'CONFIRMED' ? ['WAITLISTED'] : [])].includes(r.status) }
+  function eligible(action: 'CONFIRMED' | 'REJECTED', r: OrganizerRegistration) { return ['SUBMITTED', 'UNDER_REVIEW', ...(action === 'CONFIRMED' ? ['WAITLISTED'] : [])].includes(r.status) }
   async function applyBulk(reason: string) {
     if (!bulkAction) return
     const action = bulkAction
@@ -49,8 +55,7 @@ export function OrganizerEntriesPage() {
     for (const [index, row] of rows.entries()) {
       setProgress(`${index + 1} из ${rows.length}`)
       try {
-        if (action === 'PAID') await registrationAction(row.id, 'mark-paid', accessToken)
-        else await reviewRegistration(row.id, { decision: action, reviewNote: reason }, accessToken)
+        await reviewRegistration(row.id, { decision: action, reviewNote: reason }, accessToken)
         completed.push(row.id)
       } catch (cause) { failures.push(`${row.participantSnapshot.lastName} ${row.participantSnapshot.firstName}: ${cause instanceof Error ? cause.message : 'Не удалось выполнить действие'}`) }
     }
@@ -113,6 +118,7 @@ export function OrganizerEntriesPage() {
         (status === 'EXCLUDED'
           ? admission(r).excluded
           : r.status === status || status === 'SUBMITTED' && r.status === 'UNDER_REVIEW')) &&
+      (!paymentFilter || r.paymentStatus === paymentFilter) &&
       (!discipline || r.eventDisciplineId === discipline) &&
       (!params.get('payment') || r.paymentStatus === params.get('payment')) &&
       (!missingMedical || !r.documents?.MEDICAL_CERT || r.documents.MEDICAL_CERT === 'NOT_UPLOADED') &&
@@ -147,6 +153,8 @@ export function OrganizerEntriesPage() {
           </Link>
         </p>
       )}
+      {paymentDialog && <PaymentMutationDialog {...paymentDialog} onClose={() => { setPaymentDialog(null); setSelected([]) }} />}
+      {historyId && <PaymentHistoryDialog id={historyId} token={accessToken} onClose={() => setHistoryId(null)} />}
       <div className="fl-filter-segments" role="group" aria-label="Быстрые фильтры">
         {[
           { label: 'Все', value: '', active: !status && !missingMedical && !params.get('payment') },
@@ -164,6 +172,7 @@ export function OrganizerEntriesPage() {
       </div>
       {bulkErrors.length > 0 && <div className="fl-notice fl-notice-danger" role="alert"><p>Не все действия выполнены:</p><ul>{bulkErrors.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
       <div className={styles.filters}>
+        <label className="fl-field">Статус оплаты<select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}><option value="">Все</option>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <label className="fl-field">
           Поиск
           <input
@@ -274,12 +283,18 @@ export function OrganizerEntriesPage() {
                 <td>
                   <StatusBadge kind="registration" code={r.status} />{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}
                 </td>
-                <td><StatusBadge kind="payment" code={r.paymentStatus} /></td>
+                <td>{money(r.feeAmount, r.feeCurrency ?? 'RUB')} <span title="Статус оплаты"><StatusBadge kind="payment" code={r.paymentStatus} /></span></td>
                 <td>
                   <div className={styles.actions}>
+                    {['CONFIRMED', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <>
+                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button>
+                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>
+                    </>}
+                    {r.paymentStatus === 'PAID' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
+                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
+                    <button className="fl-btn fl-btn-ghost" onClick={() => setHistoryId(r.id)}>История оплаты</button>
                     {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
-                      : ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) ? r.paymentStatus !== 'PAID' ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => void run(() => registrationAction(r.id, 'mark-paid', accessToken), 'registrations')}>Оплачено</button>
-                      : <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
+                      : ['PAID', 'ADMITTED'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
                     {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <details><summary>Ещё ▾</summary>
                       {r.status === 'WAITLISTED' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
                       {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
@@ -298,8 +313,8 @@ export function OrganizerEntriesPage() {
           Заявок не найдено. Измените фильтры или импортируйте заявки. <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
         </p>
       )}
-      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong>{(['CONFIRMED','REJECTED','PAID'] as const).map(action => <button className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => { clearError(); setBulkAction(action) }}>{action === 'CONFIRMED' ? 'Подтвердить' : action === 'REJECTED' ? 'Отклонить' : 'Оплачено'}</button>)}<button className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
-      {bulkAction && <ConfirmDialog title={`${bulkAction === 'CONFIRMED' ? 'Подтвердить заявки' : bulkAction === 'REJECTED' ? 'Отклонить заявки' : 'Отметить оплату'}?`} description={`Подходящих заявок: ${registrations.filter(r => selected.includes(r.id) && eligible(bulkAction, r)).length} из ${selected.length}. Действия выполняются последовательно; участники увидят новый статус.`} confirmLabel={bulkBusy ? progress : 'Применить'} tone={bulkAction === 'REJECTED' ? 'danger' : 'primary'} reason={bulkAction === 'REJECTED'} busy={bulkBusy} busyLabel={progress} onClose={() => setBulkAction(null)} onConfirm={reason => void applyBulk(reason)} />}
+      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong><button className="fl-btn fl-btn-secondary fl-btn-sm" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: selected, bulk: true })}>Отметить оплату выбранных ({selected.length})</button>{(['CONFIRMED','REJECTED'] as const).map(action => <button className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => { clearError(); setBulkAction(action) }}>{action === 'CONFIRMED' ? 'Подтвердить' : 'Отклонить'}</button>)}<button className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
+      {bulkAction && <ConfirmDialog title={`${bulkAction === 'CONFIRMED' ? 'Подтвердить заявки' : 'Отклонить заявки'}?`} description={`Подходящих заявок: ${registrations.filter(r => selected.includes(r.id) && eligible(bulkAction, r)).length} из ${selected.length}. Действия выполняются последовательно; участники увидят новый статус.`} confirmLabel={bulkBusy ? progress : 'Применить'} tone={bulkAction === 'REJECTED' ? 'danger' : 'primary'} reason={bulkAction === 'REJECTED'} busy={bulkBusy} busyLabel={progress} onClose={() => setBulkAction(null)} onConfirm={reason => void applyBulk(reason)} />}
       {review && <ConfirmDialog title={review.decision === 'CONFIRMED' ? 'Подтвердить заявку?' : review.decision === 'REJECTED' ? 'Отклонить заявку?' : 'Вернуть на исправление?'}
         description={review.decision === 'CONFIRMED' ? 'Участник получит подтверждение и сможет оплатить участие.' : review.decision === 'REJECTED' ? 'Участник получит причину отклонения. Оплата станет недоступна.' : 'Участник получит комментарий и сможет исправить данные.'}
         confirmLabel={review.decision === 'CONFIRMED' ? 'Подтвердить' : review.decision === 'REJECTED' ? 'Отклонить' : 'Вернуть'} tone={review.decision === 'REJECTED' ? 'danger' : 'primary'} reason reasonRequired={review.decision !== 'CONFIRMED'} busy={busy} error={error}

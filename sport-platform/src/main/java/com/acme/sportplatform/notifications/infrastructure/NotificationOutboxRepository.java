@@ -51,13 +51,13 @@ public class NotificationOutboxRepository {
         return rows.stream().findFirst();
     }
     public void sent(UUID id, Instant now) {
-        jdbc.update("update notification_outbox set status='SENT',attempts=attempts+1,sent_at=?,last_error=null,payload='{}'::jsonb where id=?",
+        jdbc.update("update notification_outbox set status='SENT',attempts=attempts+1,sent_at=?,last_error=null,payload=case when template_code='payment_reminder' then jsonb_build_object('registration_id',payload->>'registration_id') else '{}'::jsonb end where id=?",
                 Timestamp.from(now), id);
     }
     public void failed(Pending row, Instant now, String safeError) {
         int attempt = row.attempts() + 1;
         jdbc.update("update notification_outbox set attempts=?,status=?,last_error=?,next_attempt_at=?"
-                        + (attempt >= 5 ? ",payload='{}'::jsonb" : "") + " where id=?",
+                        + (attempt >= 5 ? ",payload=case when template_code='payment_reminder' then jsonb_build_object('registration_id',payload->>'registration_id') else '{}'::jsonb end" : "") + " where id=?",
                 attempt, attempt >= 5 ? "FAILED" : "PENDING", safeError,
                 Timestamp.from(now.plusSeconds(10L * (1L << (attempt - 1)))), row.id());
     }
@@ -75,5 +75,12 @@ public class NotificationOutboxRepository {
                 rs.getObject("created_at", OffsetDateTime.class), rs.getObject("sent_at", OffsetDateTime.class)), args);
         long total = count == null ? 0 : count;
         return new NotificationLogPage(items, page, total, (int) ((total + 49) / 50));
+    }
+    public record ReminderHistory(int count, Instant lastAt) {}
+    public ReminderHistory reminderHistory(UUID registrationId) {
+        return jdbc.queryForObject("""
+                select count(*) count,max(coalesce(sent_at,created_at)) last_at from notification_outbox
+                where template_code='payment_reminder' and payload->>'registration_id'=?
+                """,(r,n)->new ReminderHistory(r.getInt("count"),r.getTimestamp("last_at")==null ? null : r.getTimestamp("last_at").toInstant()),registrationId.toString());
     }
 }

@@ -23,6 +23,8 @@ export type SessionInput = Pick<
   'name' | 'orderNo' | 'startsAt' | 'breakBetweenEventsSec'
 >
 export type DisciplineInput = {
+  entryFeeAmount?: number | null
+  entryFeeCurrency?: string | null
   maxParticipants?: number | null
   limitsByAgeGroup?: Record<string, number> | null
   code?: string

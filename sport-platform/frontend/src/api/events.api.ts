@@ -27,6 +27,7 @@ export type EventDiscipline = {
 }
 
 export type Event = {
+  payment?: import('./registration-payments.api').PaymentSettings
   venue?: { timezone?: string; name?: string }
   id: string
   organizationId?: string | null

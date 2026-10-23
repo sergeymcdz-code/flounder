@@ -33,6 +33,12 @@ public class EventLookupService implements EventLookup {
     }
 
     @Override
+    public java.util.Map<UUID, String> settingsJson(java.util.Collection<UUID> eventIds) {
+        return eventRepository.findAllById(eventIds).stream().collect(java.util.stream.Collectors.toMap(
+                EventEntity::getId, EventEntity::getSettingsJson));
+    }
+
+    @Override
     public java.util.Set<UUID> accessibleEventIds(UUID userId) {
         return eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
                         organizations.manageableOrganizationIdsOf(userId), userId).stream()

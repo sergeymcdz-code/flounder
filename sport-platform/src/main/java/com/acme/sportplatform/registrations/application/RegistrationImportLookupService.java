@@ -6,9 +6,11 @@ import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationEntit
 import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -16,11 +18,21 @@ import java.util.UUID;
 
 @Service
 public class RegistrationImportLookupService implements RegistrationImportLookup {
+    private final RegistrationFeeService fees;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
     private final RegistrationRepository registrations;
     private final ObjectMapper mapper;
     private final RegistrationCapacityService capacity;
 
-    public RegistrationImportLookupService(RegistrationRepository registrations, ObjectMapper mapper, RegistrationCapacityService capacity) {
+    public RegistrationImportLookupService(
+            RegistrationRepository registrations,
+            ObjectMapper mapper,
+            RegistrationCapacityService capacity,
+            RegistrationFeeService fees,
+            org.springframework.context.ApplicationEventPublisher publisher) {
+        this.fees = fees;
+        this.publisher = publisher;
+
         this.registrations = registrations;
         this.mapper = mapper;
         this.capacity = capacity;
@@ -59,7 +71,15 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
         }
         if (seedTimeMs != null) entity.setSeedTimeMs(seedTimeMs);
         entity.setUpdatedAt(now);
+        if (created) {
+            entity.setReviewedAt(now);
+            fees.assign(entity);
+        }
         registrations.saveAndFlush(entity);
+        if (created)
+            publisher.publishEvent(
+                    new com.acme.sportplatform.registrations.RegistrationFeeAssignedEvent(
+                            entity.getId()));
         return created;
     }
 
@@ -67,9 +87,17 @@ public class RegistrationImportLookupService implements RegistrationImportLookup
     @Transactional(readOnly = true)
     public List<ExportRow> findByEventId(UUID eventId) {
         return registrations.findByEventId(eventId).stream()
-                .sorted(java.util.Comparator.comparing(RegistrationEntity::getCreatedAt)
-                        .thenComparing(RegistrationEntity::getId))
-                .map(r -> new ExportRow(r.getEventDisciplineId(), r.getParticipantSnapshot(), r.getSeedTimeMs(),
-                        r.getStatus(), r.getPaymentStatus())).toList();
+                .sorted(
+                        java.util.Comparator.comparing(RegistrationEntity::getCreatedAt)
+                                .thenComparing(RegistrationEntity::getId))
+                .map(
+                        r ->
+                                new ExportRow(
+                                        r.getEventDisciplineId(),
+                                        r.getParticipantSnapshot(),
+                                        r.getSeedTimeMs(),
+                                        r.getStatus(),
+                                        r.getPaymentStatus()))
+                .toList();
     }
 }

@@ -201,6 +201,7 @@ function OrganizerEventContent() {
         { path: '', label: 'Главная' },
         { path: 'program', label: 'Программа', count: `${data.event.disciplines.length} ${plural(data.event.disciplines.length, ['вид', 'вида', 'видов'])}` },
         { path: 'entries', label: 'Заявки', count: data.registrations.length, attention: data.registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW'].includes(r.status)).length },
+        ...(isOrganizer || isPlatformAdmin || isOperator ? [{ path: 'payments', label: 'Оплата' }] : []),
         { path: 'heats', label: 'Заплывы', count: `${data.heats.length} · ${data.heats.length && data.heats.every(h => isHeatPublished(h.status)) ? 'опубликовано' : 'черновик'}` },
         { path: 'results', label: 'Результаты', count: `${data.heats.filter(h => ['FINISHED', 'COMPLETED'].includes(h.status)).length} из ${data.heats.length}` },
         { path: 'diploma', label: 'Грамоты' },

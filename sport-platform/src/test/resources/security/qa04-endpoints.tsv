@@ -128,6 +128,17 @@ GET	/api/v1/events/{eventId}/analytics	organize	true	200
 GET	/api/v1/events/{eventId}/analytics/export.xlsx	organize	true	200
 GET	/api/v1/organizations/{id}/analytics	owner	true	200
 GET	/api/v1/organizations/{id}/analytics/export.xlsx	owner	true	200
+PATCH	/api/v1/events/{id}	organize	true	200		{"maxParticipants":150}
+POST	/api/v1/events/{id}/archive	organize	true	200	event-completed	{}
+POST	/api/v1/registrations/{id}/waive-payment	manage	true	200	registration-confirmed	{"comment":"по решению организатора"}
+POST	/api/v1/registrations/{id}/refund-payment	manage	true	200	registration-paid	{"comment":"возврат"}
+POST	/api/v1/registrations/{id}/reset-payment	manage	true	200	registration-paid	{"comment":"ошибочно"}
+GET	/api/v1/registrations/{id}/payment-log	manage	true	200		
+POST	/api/v1/events/{eventId}/payments/mark-paid-bulk	manage	true	200		{"registrationIds":[],"method":"CLUB_INVOICE"}
+GET	/api/v1/events/{eventId}/payments/summary	manage-finance	true	200
+POST	/api/v1/events/{eventId}/payments/recalculate-fees	manage	true	200		
+GET	/api/v1/events/{eventId}/payment-instructions	authenticated	false	200		
+GET	/api/v1/events/{eventId}/payments/summary.xlsx	manage-finance	true	200
 GET	/api/v1/organizations/{id}/public-profile	owner	true	200
 PUT	/api/v1/organizations/{id}/public-profile	owner	true	200		{"publicSlug":"qa04-club","description":"Клуб","isPublic":true}
 POST	/api/v1/organizations/{id}/logo	owner	true	400
@@ -137,8 +148,6 @@ GET	/api/v1/public/organizations/{slug}	public	false	200	org-public
 GET	/api/v1/public/organizations/{slug}/events	public	false	200	org-public
 GET	/api/v1/public/organizations/{slug}/logo	public	false	404	org-public
 GET	/api/v1/organizations/{id}/logo	owner	true	404
-PATCH	/api/v1/events/{id}	organize	true	200		{"maxParticipants":150}
-POST	/api/v1/events/{id}/archive	organize	true	200	event-completed	{}
 POST	/api/v1/organizations/{id}/invitations	owner	true	201		{"email":"invitee@example.com","memberRole":"operator"}
 GET	/api/v1/organizations/{id}/invitations	owner	true	200
 DELETE	/api/v1/organizations/{id}/invitations/{invitationId}	owner	true	204	invitation

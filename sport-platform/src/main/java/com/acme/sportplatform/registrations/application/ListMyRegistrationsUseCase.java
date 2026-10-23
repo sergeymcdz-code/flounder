@@ -1,13 +1,13 @@
 package com.acme.sportplatform.registrations.application;
 
-import java.util.List;
-import java.util.UUID;
+import com.acme.sportplatform.registrations.api.RegistrationResponse;
+import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.acme.sportplatform.registrations.api.RegistrationResponse;
-import com.acme.sportplatform.registrations.infrastructure.jpa.RegistrationRepository;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -19,6 +19,7 @@ public class ListMyRegistrationsUseCase {
     private final DocumentSummaryService summaries;
     private final RegistrationRepository registrationRepository;
     private final RegistrationMapper registrationMapper;
+    private final RegistrationFeeService fees;
     private final com.acme.sportplatform.identity.ProfileLookup profiles;
 
     public ListMyRegistrationsUseCase(
@@ -27,9 +28,10 @@ public class ListMyRegistrationsUseCase {
             com.acme.sportplatform.identity.ProfileLookup profiles, DocumentSummaryService summaries,
             com.acme.sportplatform.events.EventLookup events,
             com.acme.sportplatform.competition.EventDisciplineLookup disciplines,
-            com.acme.sportplatform.organizations.VenueLookup venues) {
+            com.acme.sportplatform.organizations.VenueLookup venues, RegistrationFeeService fees) {
         this.events = events; this.disciplines = disciplines; this.venues = venues;
         this.summaries = summaries;
+        this.fees = fees;
         this.profiles = profiles;
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
@@ -39,11 +41,17 @@ public class ListMyRegistrationsUseCase {
         var headers = new java.util.HashMap<UUID, com.acme.sportplatform.events.EventProtocolHeader>();
         var names = new java.util.HashMap<UUID, String>();
         var timezones = new java.util.HashMap<UUID, String>();
-        return summaries.enrich(registrationRepository
-                .findByParticipantProfileId(profiles.getByUserId(participantUserId).id())
-                .stream()
-                .map(registrationMapper::toResponse)
-                .toList()).stream().map(registration -> {
+        var entities =
+                registrationRepository.findByParticipantProfileId(
+                        profiles.getByUserId(participantUserId).id());
+        return summaries.enrich(
+                registrationMapper.toResponses(
+                        entities,
+                        fees.dueDaysFor(
+                                entities.stream()
+                                        .filter(r -> r.getReviewedAt() != null)
+                                        .map(r -> r.getEventId())
+                                        .collect(java.util.stream.Collectors.toSet())))).stream().map(registration -> {
                     var header = headers.computeIfAbsent(registration.eventId(), events::protocolHeader);
                     String discipline = names.computeIfAbsent(registration.eventDisciplineId(), id ->
                             disciplines.findById(id).map(d -> d.name()).orElse("Вид программы"));

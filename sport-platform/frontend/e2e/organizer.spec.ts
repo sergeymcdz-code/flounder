@@ -13,6 +13,19 @@ async function login(page: Page) {
   ).toBeVisible()
 }
 
+// Set up the submitted/re-submitted state through the existing MSW fixture API.
+async function submitMockRegistration(page: Page, index: number) {
+  await page.evaluate(async (index) => {
+    const { accessToken } = JSON.parse(sessionStorage.getItem('flounder.auth-session')!)
+    const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+    const rows = await (await fetch('/api/v1/registrations', { headers })).json()
+    const response = await fetch(`/api/v1/registrations/${rows[index].id}/review`, {
+      method: 'POST', headers, body: JSON.stringify({ decision: 'SUBMITTED', reviewNote: null }),
+    })
+    if (!response.ok) throw new Error('Could not prepare submitted registration fixture')
+  }, index)
+}
+
 async function rowAction(row: Locator, label: string) {
   const button = row.getByRole('button', { name: label, exact: true }).first()
   if (!await button.isVisible()) await row.getByText('Ещё ▾', { exact: true }).click()
@@ -380,27 +393,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   page,
 }) => {
   await login(page)
-  // This scenario needs submitted entries; the default demo fixture is already confirmed.
-  await page.evaluate(async () => {
-    const resources = performance.getEntriesByType('resource').map(entry => entry.name)
-    const { worker } = await import(resources.find(url => new URL(url).pathname === '/src/mocks/browser.ts')!)
-    const { handlers } = await import(resources.find(url => new URL(url).pathname === '/src/mocks/handlers.ts')!)
-    const { http, HttpResponse, getResponse } = await import(resources.find(url => new URL(url).pathname.endsWith('/msw.js'))!)
-    const { accessToken } = JSON.parse(sessionStorage.getItem('flounder.auth-session')!)
-    const rows = await (await fetch('/api/v1/registrations', { headers: { Authorization: `Bearer ${accessToken}` } })).json()
-    for (const index of [0, 2, 3]) rows[index].status = 'SUBMITTED'
-    const update = async ({ request }: { request: Request }) => {
-      const response = await getResponse(handlers, request)
-      const updated = await response.clone().json()
-      if (response.ok) Object.assign(rows.find((r: { id: string }) => r.id === updated.id), updated)
-      return response
-    }
-    worker.use(
-      http.get('*/api/v1/registrations', () => HttpResponse.json(rows)),
-      http.post('*/api/v1/registrations/:id/:action', update),
-      http.patch('*/api/v1/registrations/:id', update),
-    )
-  })
+  await submitMockRegistration(page, 1)
   await page
     .getByRole('navigation', { name: 'Разделы соревнования' })
     .getByRole('link', { name: 'Программа', exact: true })
@@ -433,7 +426,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .getByRole('navigation', { name: 'Разделы соревнования' })
     .getByRole('link', { name: 'Заявки', exact: true })
     .click()
-  row = page.getByRole('row').nth(4)
+  row = page.getByRole('row').nth(2)
   await rowAction(row, 'Вернуть')
   await page
     .getByRole('dialog')
@@ -444,42 +437,25 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
     .getByRole('button', { name: 'Вернуть', exact: true })
     .click()
   await expect(row).toContainText('На исправлении')
-  row = page.getByRole('row').nth(1)
-  await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Подтвердить', exact: true })
-    .click()
-  await expect(row).toContainText('Подтверждена')
-  const timeButton = row.getByRole('button', { name: 'Изменить заявочное время' })
-  await timeButton.click()
+  await submitMockRegistration(page, 1)
+  await row.getByRole('button', { name: 'Изменить заявочное время' }).click()
   await row.getByRole('textbox').fill('00:31.25')
   await row.getByRole('button', { name: 'Сохранить', exact: true }).click()
-  await expect(
-    row.getByRole('button', { name: 'Изменить заявочное время' }),
-  ).toContainText('00:31.25')
-  const paymentRow = page.getByRole('row').nth(2)
-  await paymentRow
-    .getByRole('button', { name: 'Оплачено', exact: true })
-    .click()
-  await expect(paymentRow.getByRole('cell', { name: 'Оплачена', exact: true })).toBeVisible()
-  await expect(paymentRow.getByRole('cell', { name: 'Оплачено', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Изменить заявочное время' })).toContainText('00:31.25')
+  await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  await expect(row).toContainText('Подтверждена')
+  await row.getByRole('button', { name: 'Отметить оплату…', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  await expect(row.getByTitle('Статус оплаты')).toHaveText('Оплачено')
   const rejectedRow = page.getByRole('row').nth(3)
   await rowAction(rejectedRow, 'Отклонить')
-  await page
-    .getByRole('dialog')
-    .getByRole('textbox', { name: 'Причина' })
-    .fill('Ошибочная заявка')
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Отклонить', exact: true })
-    .click()
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Причина' }).fill('Ошибочная заявка')
+  await page.getByRole('dialog').getByRole('button', { name: 'Отклонить', exact: true }).click()
   await expect(rejectedRow).toContainText('Отклонена')
+  row = page.getByRole('row').nth(1)
   await rowAction(row, 'Снять')
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Снять', exact: true })
-    .click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Снять', exact: true }).click()
   await expect(row).toContainText('Снята')
   await page
     .getByRole('navigation', { name: 'Разделы соревнования' })
@@ -493,9 +469,7 @@ test('session CRUD, review decisions, payment, seed time and validator focus', a
   })
   await expect(violation).toBeVisible()
   await violation.click()
-  await expect(page.locator('article[id^="heat-"]').first()).toHaveClass(
-    /highlight/,
-  )
+  await expect(page.locator('article[id^="heat-"][class*="highlight"]')).toHaveCount(1)
 })
 
 test('template selection, optional code, explicit payloads and registration refresh scope', async ({
@@ -690,10 +664,10 @@ test('generation admission persists across tabs with nested and flat summaries',
         /[А-Яа-я]/,
       )
     await page
-      .getByRole('combobox', { name: /^Статус/ })
+      .getByRole('combobox', { name: /^Статус(?! оплаты)/ })
       .selectOption('EXCLUDED')
     await expect(page.getByRole('row')).toHaveCount(5)
-    await page.getByRole('combobox', { name: /^Статус/ }).selectOption('')
+    await page.getByRole('combobox', { name: /^Статус(?! оплаты)/ }).selectOption('')
     const admitted = page.getByRole('row').filter({ has: page.locator('[title="Заявка допущена по последнему результату формирования."]') }).first()
     await admitted.locator('.fl-entry-details > summary').click()
     await expect(admitted.getByText(/Допуск: ✓/)).toBeVisible()

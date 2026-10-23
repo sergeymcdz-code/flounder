@@ -30,17 +30,17 @@ export type RegistrationStatus =
   | 'SUBMITTED'
   | 'CONFIRMED'
   | 'PAID'
+  | 'ADMITTED'
   | 'REJECTED'
   | 'NEEDS_CORRECTION'
   | 'CANCELLED'
 
-export type Registration = {
+export type Registration = import('../../api/registration-payments.api').PaymentDetails & {
   eventTitle?: string
   disciplineName?: string
   eventStartAt?: string | null
   venueTimezone?: string
   publicSlug?: string
-  paymentStatus?: string
 
   waitlistPosition?: number | null
   id: string

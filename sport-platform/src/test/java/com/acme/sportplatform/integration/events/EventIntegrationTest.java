@@ -284,7 +284,7 @@ class EventIntegrationTest
         mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(operator)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAID"));
         mockMvc.perform(post("/api/v1/registrations/{id}/mark-paid", registrationId).with(authentication(operator)))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("registrations.payment_not_applicable"));
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("registrations.already_paid"));
         mockMvc.perform(post("/api/v1/competition-units/{id}/entries", unitId).with(authentication(organizer))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"registrationId\":\"" + registrationId + "\",\"laneOrPosition\":1}"))
                 .andExpect(status().isCreated());

@@ -27,6 +27,7 @@ function registrationStatusClassName(status: Registration['status']) {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,
+    ADMITTED: styles.statusConfirmed,
     REJECTED: styles.statusRejected,
     NEEDS_CORRECTION: styles.statusCorrection,
     CANCELLED: styles.statusCancelled,

@@ -14,14 +14,14 @@ public final class PublicResponses {
             OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
             OffsetDateTime eventStartAt, OffsetDateTime eventEndAt, String status,
             String publicSlug, boolean registrationOpen, Venue venue,
-            List<Session> sessions, List<Discipline> disciplines, Integer maxParticipants, long participantsCount, Organization organization) {
+            List<Session> sessions, List<Discipline> disciplines, Integer maxParticipants, long participantsCount, Organization organization, @JsonInclude(JsonInclude.Include.NON_NULL) com.acme.sportplatform.events.EventPaymentSettings payment) {
         public Event(UUID id, UUID sportId, String title, String description,
                 OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
                 OffsetDateTime eventStartAt, OffsetDateTime eventEndAt, String status,
                 String publicSlug, boolean registrationOpen, Venue venue, List<Session> sessions,
                 List<Discipline> disciplines, Integer maxParticipants, long participantsCount) {
             this(id, sportId, title, description, registrationOpenAt, registrationCloseAt, eventStartAt,
-                    eventEndAt, status, publicSlug, registrationOpen, venue, sessions, disciplines, maxParticipants, participantsCount, null);
+                    eventEndAt, status, publicSlug, registrationOpen, venue, sessions, disciplines, maxParticipants, participantsCount, null, null);
         }
         public Event(UUID id, UUID sportId, String title, String description,
                 OffsetDateTime registrationOpenAt, OffsetDateTime registrationCloseAt,
@@ -29,7 +29,7 @@ public final class PublicResponses {
                 String publicSlug, boolean registrationOpen, Venue venue,
                 List<Session> sessions, List<Discipline> disciplines) {
             this(id, sportId, title, description, registrationOpenAt, registrationCloseAt, eventStartAt,
-                    eventEndAt, status, publicSlug, registrationOpen, venue, sessions, disciplines, null, 0, null);
+                    eventEndAt, status, publicSlug, registrationOpen, venue, sessions, disciplines, null, 0, null, null);
         }
     }
     public record Organization(String name, String publicSlug, boolean hasLogo) {}
@@ -40,7 +40,11 @@ public final class PublicResponses {
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Discipline(UUID id, int number, String name, Integer distanceM,
             String stroke, String gender, UUID sessionId, Integer orderInSession,
-            boolean unitsPublished) {}
+            boolean unitsPublished, java.math.BigDecimal entryFeeAmount, String entryFeeCurrency) {
+        public Discipline(UUID id,int number,String name,Integer distanceM,String stroke,String gender,UUID sessionId,Integer orderInSession,boolean unitsPublished) {
+            this(id,number,name,distanceM,stroke,gender,sessionId,orderInSession,unitsPublished,null,null);
+        }
+    }
     public record StartList(List<StartSession> sessions) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record StartSession(String id, String name, OffsetDateTime startsAt,

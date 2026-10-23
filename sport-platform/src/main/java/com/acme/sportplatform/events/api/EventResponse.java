@@ -61,4 +61,10 @@ public record EventResponse(
             String settingsJson
     ) {
     }
+    private static final com.fasterxml.jackson.databind.ObjectMapper PAYMENT_JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    @com.fasterxml.jackson.annotation.JsonProperty("payment")
+    public com.acme.sportplatform.events.EventPaymentSettings payment() {
+        return com.acme.sportplatform.events.EventPaymentSettings.fromJson(settingsJson, PAYMENT_JSON);
+    }
 }

@@ -21,3 +21,14 @@ it('shows competition, discipline and timezone with every added registration sta
   expect(screen.getByText('Документы спортсмена').closest('details')).not.toHaveAttribute('open')
   setAuthSession(null)
 })
+
+it('treats a waived confirmed entry as paid and waits for the start list', async () => {
+  const fixtures = createFixtures()
+  server.use(http.get('*/api/v1/registrations/me', () => HttpResponse.json([{ ...fixtures.registrations[0], status: 'CONFIRMED', paymentStatus: 'WAIVED' }])), http.get('*/api/v1/auth/me', () => HttpResponse.json({ email: 'parent@example.test' })))
+  setAuthSession({ accessToken: 'test', expiresAt: Date.now() + 60000, tokenType: 'Bearer' })
+  render(<MemoryRouter><AuthProvider><MyRegistrationsPage /></AuthProvider></MemoryRouter>)
+  expect(await screen.findByText('Оплачено', { selector: '.fl-status' })).toBeInTheDocument()
+  expect(screen.getByText(/Ждите стартовый протокол/)).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /Оплатить/ })).not.toBeInTheDocument()
+  setAuthSession(null)
+})

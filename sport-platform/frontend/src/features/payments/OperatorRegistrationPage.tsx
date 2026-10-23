@@ -57,6 +57,7 @@ function registrationStatusClassName(status: RegistrationStatus) {
     SUBMITTED: styles.statusSubmitted,
     CONFIRMED: styles.statusConfirmed,
     PAID: styles.statusConfirmed,
+    ADMITTED: styles.statusConfirmed,
     NEEDS_CORRECTION: styles.statusCorrection,
     REJECTED: styles.statusRejected,
     CANCELLED: styles.statusCancelled,

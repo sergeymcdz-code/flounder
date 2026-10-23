@@ -10,6 +10,15 @@ public interface RegistrationRepository
     @Query("select r.eventId from RegistrationEntity r where r.id=:id")
     Optional<UUID> findEventIdById(UUID id);
 
+    List<RegistrationEntity> findByEventIdInAndPaymentStatus(java.util.Collection<UUID> eventIds, String paymentStatus);
+    @Query("""
+            select count(r) > 0 from RegistrationEntity r
+            where r.eventId = :eventId and r.participantProfileId = :profileId and r.id <> :id
+              and r.status in ('CONFIRMED', 'PAID', 'ADMITTED')
+              and (r.feeAmount > 0 or r.paymentStatus = 'PAID')
+            """)
+    boolean existsOtherChargedRegistration(UUID eventId, UUID profileId, UUID id);
+
     boolean existsByEventDisciplineId(UUID id);
     boolean existsByEventIdAndParticipantProfileIdAndSourceAndParticipantUserId(
             UUID eventId, UUID participantProfileId, String source, UUID participantUserId);

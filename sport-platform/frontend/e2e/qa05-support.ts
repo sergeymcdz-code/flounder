@@ -8,13 +8,15 @@ export async function screenshots(page: Page, name: string) {
   const directory = resolve(evidence, 'screenshots')
   await mkdir(directory, { recursive: true })
   const viewport = page.viewportSize()!
+  // Full-page evidence for 200 entries can outlast the UI action timeout.
+  const screenshotTimeout = 30_000
   for (const width of [1366, 375]) {
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 })
     const path = resolve(directory, `QA05-${name}-${width}.png`)
     if (name === '06-validator') {
-      await page.locator('article').filter({ has: page.getByRole('heading', { name: 'Проверка', exact: true }) }).screenshot({ path })
+      await page.locator('article').filter({ has: page.getByRole('heading', { name: 'Проверка', exact: true }) }).screenshot({ path, timeout: screenshotTimeout })
     } else {
-      await page.screenshot({ path, fullPage: await page.getByRole('dialog').count() === 0 })
+      await page.screenshot({ path, timeout: screenshotTimeout, fullPage: await page.getByRole('dialog').count() === 0 })
     }
   }
   await page.setViewportSize(viewport)

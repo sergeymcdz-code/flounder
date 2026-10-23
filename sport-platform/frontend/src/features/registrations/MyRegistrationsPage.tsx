@@ -1,3 +1,5 @@
+import { RegistrationPaymentBlock } from '../payments/RegistrationPaymentBlock'
+import { paymentInstructions, type PaymentSettings } from '../../api/registration-payments.api'
 import { apiFetch } from '../../api/http'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -21,7 +23,7 @@ function getParticipantName(registration: Registration) {
 function getStatusHint(registration: Registration, email: string) {
   if (['SUBMITTED', 'UNDER_REVIEW'].includes(registration.status)) return `Организатор проверит заявку, письмо придёт на ${email || 'ваш email'}`
   if (registration.status === 'WAITLISTED') return 'Место освободится — сообщим письмом'
-  if (['PAID', 'ADMITTED'].includes(registration.status) || registration.status === 'CONFIRMED' && ['PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus ?? '')) return 'Ждите стартовый протокол'
+  if (['PAID', 'ADMITTED'].includes(registration.status) || registration.status === 'CONFIRMED' && ['PAID', 'WAIVED', 'NOT_REQUIRED'].includes(registration.paymentStatus ?? '')) return 'Ждите стартовый протокол'
   if (registration.status === 'CONFIRMED') return 'Оплатите участие'
   if (['REJECTED', 'NEEDS_CORRECTION'].includes(registration.status)) return registration.reviewNote ?? 'Свяжитесь с организатором'
   return 'Участие отменено'
@@ -31,6 +33,7 @@ export function MyRegistrationsPage() {
   const accessToken = session?.accessToken
   const [searchParams] = useSearchParams()
 
+  const [instructions, setInstructions] = useState<Record<string, PaymentSettings>>({})
   const [email, setEmail] = useState('')
   useEffect(() => { if (!accessToken) return; let active = true; apiFetch<{ email: string }>('/api/v1/auth/me', { accessToken }).then(user => { if (active) setEmail(user.email) }).catch(() => {}); return () => { active = false } }, [accessToken])
   const [registrations, setRegistrations] = useState<Registration[]>([])
@@ -49,6 +52,9 @@ export function MyRegistrationsPage() {
     try {
       const response = await getMyRegistrations(accessToken)
       setRegistrations(response)
+      const events = [...new Set(response.map(r => r.eventId))]
+      const settings = await Promise.all(events.map(async id => [id, await paymentInstructions(id, accessToken).catch(() => undefined)] as const))
+      setInstructions(Object.fromEntries(settings.filter((entry): entry is readonly [string, PaymentSettings] => entry[1] !== undefined)))
     } catch (error) {
       const message =
         error instanceof ApiError && error.status === 401
@@ -124,7 +130,7 @@ export function MyRegistrationsPage() {
                     </h3>
                   </div>
 
-                  <StatusBadge kind="registration" code={registration.status} /><StatusBadge kind="payment" code={registration.paymentStatus ?? (registration.status === 'PAID' ? 'PAID' : 'PENDING')} />
+                  <StatusBadge kind="registration" code={registration.status} /><StatusBadge kind="payment" code={registration.paymentStatus === 'WAIVED' ? 'PAID' : registration.paymentStatus ?? (registration.status === 'PAID' ? 'PAID' : 'PENDING')} />
                 </div>
 
                 <dl className={styles.facts}>
@@ -148,6 +154,7 @@ export function MyRegistrationsPage() {
                   ) : null}
                 </dl>
 
+                <RegistrationPaymentBlock registration={registration} settings={instructions[registration.eventId]} />
                 {statusHint ? (
                   <p
                     className={styles.statusHint}
@@ -163,7 +170,7 @@ export function MyRegistrationsPage() {
                   </div>
                 ) : null}
 
-                {registration.status === 'CONFIRMED' && !['PAID', 'NOT_REQUIRED'].includes(registration.paymentStatus ?? '') ? (
+                {['CONFIRMED', 'ADMITTED'].includes(registration.status) && instructions[registration.eventId]?.enabled !== false && (!registration.paymentStatus || registration.paymentStatus === 'PENDING') ? (
                   <div className={styles.actions}>
                     <Link
                       className="fl-btn fl-btn-primary"

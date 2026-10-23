@@ -1,3 +1,5 @@
+import { RegistrationPaymentBlock } from './RegistrationPaymentBlock'
+import { paymentInstructions, type PaymentSettings } from '../../api/registration-payments.api'
 import { statusLabel } from '../../components/ui/status-dictionary'
 import { useEffect, useState } from 'react'
 import {
@@ -132,6 +134,8 @@ export function PaymentPage() {
   const accessToken = session?.accessToken
   const paymentStatusFromReturn = searchParams.get('status')
 
+  const [instructions, setInstructions] = useState<PaymentSettings>()
+  const onlineEnabled = import.meta.env.VITE_ONLINE_PAYMENTS_ENABLED === 'true'
   const [registration, setRegistration] =
     useState<Registration | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
@@ -189,6 +193,9 @@ export function PaymentPage() {
         }
 
         setRegistration(ownRegistration)
+        const settings = await paymentInstructions(ownRegistration.eventId, resolvedAccessToken)
+        if (isMounted) setInstructions(settings)
+        if (!onlineEnabled || !settings.enabled || settings.feeMode === 'PER_EVENT') { setPayment(null); return }
 
         if (ownRegistration.status !== 'CONFIRMED' && ownRegistration.status !== 'PAID') {
           setPayment(null)
@@ -233,7 +240,7 @@ export function PaymentPage() {
     return () => {
       isMounted = false
     }
-  }, [accessToken, navigate, registrationId])
+  }, [accessToken, navigate, registrationId, onlineEnabled])
 
   async function handleCreatePayment() {
     if (!registrationId || !accessToken || !registration) {
@@ -304,7 +311,7 @@ export function PaymentPage() {
     return null
   }
 
-  const isConfirmed = registration.status === 'CONFIRMED' || registration.status === 'PAID'
+  const isConfirmed = ['CONFIRMED', 'PAID', 'ADMITTED'].includes(registration.status)
   const unavailableCopy = getPaymentUnavailableCopy(registration)
 
   const isManualAwaitingConfirmation =
@@ -389,6 +396,8 @@ export function PaymentPage() {
             ) : null}
           </div>
 
+          <RegistrationPaymentBlock registration={registration} settings={instructions} />
+          {!onlineEnabled && instructions?.enabled && (registration.feeAmount ?? 0) > 0 && registration.paymentStatus === 'PENDING' && <p>Оплатите по реквизитам организатора. Организатор подтвердит оплату в кабинете.</p>}
           {!isConfirmed ? (
             <div className={styles.paymentUnavailable}>
               <strong>{unavailableCopy.title}</strong>
@@ -462,7 +471,7 @@ export function PaymentPage() {
             </>
           ) : null}
 
-          {isConfirmed && !payment && registration.status !== 'PAID' ? (
+          {onlineEnabled && instructions?.enabled && instructions.feeMode !== 'PER_EVENT' && registration.status === 'CONFIRMED' && !payment && registration.paymentStatus !== 'WAIVED' && registration.paymentStatus !== 'NOT_REQUIRED' ? (
             <>
               <p className={styles.paymentDescription}>
                 Создайте платёж, чтобы оплатить участие в соревновании.

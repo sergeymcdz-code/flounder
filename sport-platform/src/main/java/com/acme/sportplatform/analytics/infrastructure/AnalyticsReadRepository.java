@@ -22,7 +22,7 @@ public class AnalyticsReadRepository {
                   else 'UNKNOWN' end as gender,
                 coalesce(nullif(trim(p.club_name),''),'Без клуба') as club,
                 r.status in ('CONFIRMED','PAID','ADMITTED') as confirmed,
-                r.payment_status in ('PAID','NOT_REQUIRED') as settled,
+                r.payment_status in ('PAID','WAIVED','NOT_REQUIRED') as settled,
                 exists(select 1 from competition_unit_entries ce
                   join competition_units u on u.id=ce.competition_unit_id
                   join event_disciplines d on d.id=u.event_discipline_id

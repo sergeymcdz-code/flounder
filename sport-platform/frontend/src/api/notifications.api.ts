@@ -9,7 +9,9 @@ export type NotificationPage = { items: NotificationItem[]; page: number; totalE
 export const templateLabels: Record<string, string> = {
   registration_submitted: 'Заявка принята', registration_confirmed: 'Заявка подтверждена',
   registration_rejected: 'Заявка отклонена', start_list_published: 'Стартовый протокол опубликован',
-  results_published: 'Результаты опубликованы', schedule_changed: 'Изменение расписания', password_reset: 'Восстановление пароля',
+  schedule_changed: 'Изменение расписания',
+  payment_reminder: 'Напоминание об оплате участия',
+  results_published: 'Результаты опубликованы', password_reset: 'Восстановление пароля',
 }
 export const statusLabels = { PENDING: 'Ожидает отправки', SENT: 'Отправлено', FAILED: 'Ошибка отправки' }
 export const getNotificationSettings = (token: string, id: string) =>
