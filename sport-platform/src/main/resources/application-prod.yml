@@ -94,3 +94,9 @@ sentry:
   traces-sample-rate: 0.0
   logging:
     minimum-event-level: error
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

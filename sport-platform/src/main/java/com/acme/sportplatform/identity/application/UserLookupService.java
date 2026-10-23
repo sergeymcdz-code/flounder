@@ -24,7 +24,7 @@ public class UserLookupService implements UserLookup {
     public UserLookupService(UserRepository users, ProfileRepository profiles) {
         this.users = users; this.profiles = profiles;
     }
-    public Optional<User> findByEmail(String email) { return users.findByEmailIgnoreCase(email.trim()).map(this::map); }
+    public Optional<User> findByEmail(String email) { return users.findByEmail(com.acme.sportplatform.identity.EmailAddress.normalize(email)).map(this::map); }
     public Optional<User> findById(UUID id) { return users.findById(id).map(this::map); }
     public List<User> findAllByIds(Collection<UUID> ids) {
         if (ids.isEmpty()) return List.of();

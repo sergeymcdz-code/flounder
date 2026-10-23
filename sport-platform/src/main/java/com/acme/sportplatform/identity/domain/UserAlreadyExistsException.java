@@ -4,7 +4,7 @@ import com.acme.sportplatform.common.exception.BusinessException;
 
 public class UserAlreadyExistsException extends BusinessException {
 
-    public UserAlreadyExistsException(String email) {
-        super("identity.user_already_exists", "Пользователь с email '%s' уже существует".formatted(email));
+    public UserAlreadyExistsException() {
+        super("identity.user_already_exists", "Не удалось зарегистрироваться с этим email. Если это ваш адрес — восстановите пароль");
     }
 }

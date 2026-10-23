@@ -37,19 +37,34 @@ public class LoginAttemptLimiter {
 
     public synchronized void assertAllowed(String email, String ip) {
         Instant now = clock.instant();
-        long retryAfter = Math.max(retryAfter("email:" + normalize(email), maxFailures, now), retryAfter("ip:" + ip, maxFailuresPerIp, now));
+        long retryAfter = Math.max(retryAfter(pairKey(email, ip), maxFailures, now), retryAfter("ip:" + ip, maxFailuresPerIp, now));
         if (retryAfter > 0) throw new TooManyRequestsException("identity.too_many_attempts", "Слишком много попыток входа. Повторите через " + minutes((retryAfter + 59) / 60), retryAfter);
     }
 
     public synchronized void failed(String email, String ip) {
         Instant now = clock.instant();
-        add("email:" + normalize(email), maxFailures, now);
+        add(pairKey(email, ip), maxFailures, now);
+        add("email:" + normalize(email), 20, now);
         add("ip:" + ip, maxFailuresPerIp, now);
     }
 
-    public synchronized void succeeded(String email) {
-        failures.invalidate("email:" + normalize(email));
+    public synchronized void succeeded(String email, String ip) {
+        failures.invalidate(pairKey(email, ip));
     }
+
+    public void delayIfNeeded(String email) {
+        boolean delay;
+        synchronized (this) {
+            delay = recent("email:" + normalize(email), clock.instant()).size() >= 20;
+        }
+        // Never hold the limiter monitor while delaying a response.
+        if (delay) {
+            try { Thread.sleep(2000); }
+            catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
+        }
+    }
+
+    private String pairKey(String email, String ip) { return "pair:" + normalize(email) + ":" + ip; }
 
     private long retryAfter(String key, int threshold, Instant now) {
         List<Instant> recent = recent(key, now);

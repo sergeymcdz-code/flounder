@@ -12,7 +12,7 @@
 		max_size 16KiB
 	}
 
-	@api path /api/* /v3/api-docs* /swagger-ui* /actuator/health /actuator/health/*
+	@api path /api/* /actuator/health /actuator/health/*
 	handle @api {
 		reverse_proxy api:8080
 	}

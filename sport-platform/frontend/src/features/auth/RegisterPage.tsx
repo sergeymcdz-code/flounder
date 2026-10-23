@@ -13,6 +13,9 @@ type RegisterLocationState = {
 
 function getRegisterErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
+    if (error.code === 'identity.user_already_exists' || error.code === 'identity.password_weak') {
+      return error.message
+    }
     if (error.status === 409) {
       return error.code === 'identity.profile_already_attached'
         ? 'Спортсмен с такими ФИО, датой рождения и полом уже есть в списке заявок организатора. Для привязки аккаунта обратитесь к организатору.'

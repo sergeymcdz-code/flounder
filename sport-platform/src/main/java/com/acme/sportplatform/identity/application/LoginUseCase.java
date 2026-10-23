@@ -41,7 +41,7 @@ public class LoginUseCase {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
-            limiter.succeeded(request.email());
+            limiter.succeeded(request.email(), ip);
         } catch (DisabledException ex) {
             PlatformUserPrincipal principal = (PlatformUserPrincipal) userDetailsService.loadUserByUsername(request.email());
             if (passwordEncoder.matches(request.password(), principal.getPassword())) {
@@ -56,6 +56,8 @@ public class LoginUseCase {
             // Other account restrictions keep QA04's generic credential error.
             limiter.failed(request.email(), ip);
             throw new InvalidCredentialsException();
+        } finally {
+            limiter.delayIfNeeded(request.email());
         }
 
         PlatformUserPrincipal principal =

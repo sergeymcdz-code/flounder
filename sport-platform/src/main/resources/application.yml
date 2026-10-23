@@ -97,6 +97,14 @@ logging:
 
 app:
   auth:
+    registration:
+      max-per-email: ${APP_AUTH_REGISTRATION_MAX_PER_EMAIL:3}
+      max-per-ip: ${APP_AUTH_REGISTRATION_MAX_PER_IP:20}
+      window: ${APP_AUTH_REGISTRATION_WINDOW:PT1H}
+    password-reset:
+      max-per-email: ${APP_AUTH_PASSWORD_RESET_MAX_PER_EMAIL:3}
+      max-per-ip: ${APP_AUTH_PASSWORD_RESET_MAX_PER_IP:20}
+      window: ${APP_AUTH_PASSWORD_RESET_WINDOW:PT1H}
     login:
       max-failures: ${APP_AUTH_LOGIN_MAX_FAILURES:5}
       max-failures-per-ip: ${APP_AUTH_LOGIN_MAX_FAILURES_PER_IP:30}

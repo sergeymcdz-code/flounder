@@ -32,6 +32,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    private final com.acme.sportplatform.identity.application.AccountRequestLimiter accountLimits;
     private final LoginUseCase loginUseCase;
     private final PasswordService passwords;
     private final AuthSessionService sessions;
@@ -43,8 +44,10 @@ public class AuthController {
             GetCurrentUserUseCase getCurrentUserUseCase,
             CreateUserUseCase createUserUseCase,
             PasswordService passwords,
-            AuthSessionService sessions
+            AuthSessionService sessions,
+            com.acme.sportplatform.identity.application.AccountRequestLimiter accountLimits
     ) {
+        this.accountLimits = accountLimits;
         this.loginUseCase = loginUseCase;
         this.passwords = passwords;
         this.sessions = sessions;
@@ -61,8 +64,10 @@ public class AuthController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(
-            @Valid @RequestBody CreateUserRequest request
+            @Valid @RequestBody CreateUserRequest request, HttpServletRequest servletRequest
     ) {
+        com.acme.sportplatform.identity.domain.PasswordPolicy.validate(request.password());
+        accountLimits.assertRegistrationAllowed(request.email(), servletRequest.getRemoteAddr());
         return createUserUseCase.execute(request);
     }
 
@@ -75,8 +80,9 @@ public class AuthController {
 
     @PostMapping("/password-reset/request")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void requestReset(@Valid @RequestBody PasswordResetRequest request) {
-        passwords.requestReset(request.email());
+    public void requestReset(@Valid @RequestBody PasswordResetRequest request, HttpServletRequest servletRequest) {
+        if (accountLimits.allowReset(request.email(), servletRequest.getRemoteAddr()))
+            passwords.requestReset(request.email());
     }
 
     @PostMapping("/password-reset/confirm")

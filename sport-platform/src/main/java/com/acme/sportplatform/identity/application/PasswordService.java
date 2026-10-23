@@ -41,25 +41,25 @@ public class PasswordService {
             throw new BusinessException("identity.password_mismatch", "Текущий пароль указан неверно");
         PasswordPolicy.validate(newPassword);
         user.setPasswordHash(encoder.encode(newPassword));
+        user.revokeAccessTokens(clock.instant());
         refreshTokens.invalidateAll(userId, clock.instant());
         resets.invalidateAll(userId, clock.instant());
     }
 
     @Transactional
     public void changeByAdministrator(UUID userId, String newPassword) {
-        // Preserve M01's password contract while invalidating M02's new credentials.
-        if (newPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
-            throw new BusinessException("identity.invalid_password", "Пароль не должен превышать 72 байта в UTF-8");
+        PasswordPolicy.validate(newPassword);
         var user = users.findByIdForUpdate(userId).orElseThrow(() ->
                 new BusinessException("identity.user_not_found", "Пользователь не найден"));
         user.setPasswordHash(encoder.encode(newPassword));
+        user.revokeAccessTokens(clock.instant());
         refreshTokens.invalidateAll(userId, clock.instant());
         resets.invalidateAll(userId, clock.instant());
     }
 
     @Transactional
     public void requestReset(String email) {
-        var found = users.findByEmailIgnoreCase(email.trim());
+        var found = users.findByEmail(com.acme.sportplatform.identity.EmailAddress.normalize(email));
         if (found.isEmpty()) return;
         var user = users.findByIdForUpdate(found.get().getId()).orElseThrow(this::invalidReset);
         if (!"active".equalsIgnoreCase(user.getStatus())) return;
@@ -85,6 +85,7 @@ public class PasswordService {
         PasswordPolicy.validate(newPassword);
         token.setUsedAt(clock.instant());
         user.setPasswordHash(encoder.encode(newPassword));
+        user.revokeAccessTokens(clock.instant());
         resets.invalidateAll(user.getId(), clock.instant());
         refreshTokens.invalidateAll(user.getId(), clock.instant());
     }

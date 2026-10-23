@@ -44,7 +44,7 @@ MVP-платформа для управления спортивными мер
 Copy-Item .env.example .env
 ```
 
-`JWT_SECRET` — Base64 от не менее 32 случайных байт: `JwtService` декодирует
+`JWT_SECRET` проверяется при старте приложения — Base64 от не менее 32 случайных байт: `JwtService` декодирует
 его через `Decoders.BASE64`. Обычная строка с дефисами вызывает HTTP 500 при входе.
 Сгенерируйте подходящий секрет с OpenSSL (Bash):
 
@@ -191,6 +191,7 @@ GET /api/v1/public/events/{eventId}/disciplines/{eventDisciplineId}/results
 ```bash
 cd sport-platform
 cp .env.example .env
+export JWT_SECRET="$(openssl rand -base64 48)" # либо сохраните сгенерированное значение в локальном .env
 docker compose up -d postgres
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 # В другом терминале:

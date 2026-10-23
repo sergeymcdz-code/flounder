@@ -134,8 +134,8 @@ class Qa04Round2M02IntegrationTest extends Qa04M02Fixture {
                 .with(q->{q.setRemoteAddr(remoteIp);return q;}).header("X-Forwarded-For","198.51.100.8"))
                 .andExpect(status().isTooManyRequests()).andExpect(header().exists("Retry-After"));
         remoteIp="203.0.113.200";
-        call("/login",Map.of("email",ids.get("participantEmail").toUpperCase(Locale.ROOT),"password","wrong"),null)
-                .andExpect(status().isTooManyRequests());
+        call("/login",Map.of("email",ids.get("participantEmail").toUpperCase(Locale.ROOT),"password",PASSWORD),null)
+                .andExpect(status().isOk());
     }
     @Test void resetTimingIsMeasuredWithoutFlakySecurityThreshold() throws Exception {
         List<Long> known=new ArrayList<>(),missing=new ArrayList<>();

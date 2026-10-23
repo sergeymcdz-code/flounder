@@ -24,15 +24,24 @@ import io.jsonwebtoken.security.Keys;
 public class JwtService {
 
     private final JwtProperties jwtProperties;
+    private final java.time.Clock clock;
+    private SecretKey key;
 
-    public JwtService(JwtProperties jwtProperties) {
+    public JwtService(JwtProperties jwtProperties,
+            @org.springframework.beans.factory.annotation.Qualifier("identityClock") java.time.Clock clock) {
+        this.clock = clock;
         this.jwtProperties = jwtProperties;
     }
 
     public long accessTokenTtlSeconds() { return jwtProperties.accessTokenTtl().toSeconds(); }
 
     public String generateAccessToken(PlatformUserPrincipal principal, List<String> roles) {
-        Instant now = Instant.now();
+        return generateAccessToken(principal, roles, null);
+    }
+
+    public String generateAccessToken(PlatformUserPrincipal principal, List<String> roles, Instant tokensValidAfter) {
+        Instant now = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        if (tokensValidAfter != null && tokensValidAfter.isAfter(now)) now = tokensValidAfter;
         Instant expiresAt = now.plus(jwtProperties.accessTokenTtl());
 
         return Jwts.builder()
@@ -49,6 +58,7 @@ public class JwtService {
     public Claims parse(String token) {
         try {
             Claims claims = Jwts.parser()
+                .clock(() -> Date.from(clock.instant()))
                 .verifyWith(signingKey())
                 .requireIssuer(jwtProperties.issuer())
                 .build()
@@ -92,15 +102,17 @@ public class JwtService {
         return roles;
     }
 
-    private SecretKey signingKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.secret());
-
-        if (keyBytes.length < 32) {
+    @jakarta.annotation.PostConstruct
+    void initializeSigningKey() {
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.secret());
+            if (keyBytes.length < 32) throw new IllegalArgumentException("После Base64-декодирования ключ короче 32 байт");
+            key = Keys.hmacShaKeyFor(keyBytes);
+        } catch (RuntimeException ex) {
             throw new IllegalStateException(
-                    "JWT secret must decode to at least 32 bytes for HS256."
-            );
+                    "JWT_SECRET должен быть Base64 от не менее 32 случайных байт. Сгенерируйте: openssl rand -base64 48", ex);
         }
-
-        return Keys.hmacShaKeyFor(keyBytes);
     }
+
+    private SecretKey signingKey() { return key; }
 }

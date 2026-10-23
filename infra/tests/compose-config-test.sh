@@ -9,10 +9,16 @@ for file in infra/compose.prod.yaml infra/compose.staging.yaml infra/compose.mon
   docker compose --env-file /dev/null -f "$file" config --quiet
 done
 # Verify the actual production environment and the volume name consumed by M09 backups.
-env -u MAIL_SECURITY docker compose --env-file /dev/null -f infra/compose.prod.yaml config --format json | python3 -c '
+env -u MAIL_SECURITY APP_AUTH_REGISTRATION_MAX_PER_EMAIL=4 APP_AUTH_REGISTRATION_MAX_PER_IP=40 APP_AUTH_REGISTRATION_WINDOW=PT2H \
+  APP_AUTH_PASSWORD_RESET_MAX_PER_EMAIL=5 APP_AUTH_PASSWORD_RESET_MAX_PER_IP=50 APP_AUTH_PASSWORD_RESET_WINDOW=PT3H docker compose --env-file /dev/null -f infra/compose.prod.yaml config --format json | python3 -c '
 import json, sys
 config = json.load(sys.stdin)
 assert config["services"]["api"]["environment"]["MAIL_SECURITY"] == "auto"
+expected_limits = {"APP_AUTH_REGISTRATION_MAX_PER_EMAIL": "4", "APP_AUTH_REGISTRATION_MAX_PER_IP": "40",
+                   "APP_AUTH_REGISTRATION_WINDOW": "PT2H", "APP_AUTH_PASSWORD_RESET_MAX_PER_EMAIL": "5",
+                   "APP_AUTH_PASSWORD_RESET_MAX_PER_IP": "50", "APP_AUTH_PASSWORD_RESET_WINDOW": "PT3H"}
+assert all(config["services"]["api"]["environment"][key] == value for key, value in expected_limits.items())
+
 for name, memory in {"api": 1664, "postgres": 640, "web": 128, "caddy": 128}.items():
     service = config["services"][name]
     assert int(service["mem_limit"]) == memory * 1024 * 1024
@@ -35,6 +41,12 @@ if env -u APP_FILES_ENCRYPTION_KEY docker compose --env-file /dev/null -f infra/
   exit 1
 fi
 grep -q 'APP_FILES_ENCRYPTION_KEY is required' "$error_file"
+
+# API documentation must not be proxied to the backend on either deployment.
+if grep -En 'swagger-ui|api-docs' infra/Caddyfile infra/Caddyfile.staging; then
+  echo 'Caddy must not proxy API documentation paths' >&2
+  exit 1
+fi
 
 # Compose must preserve the literal bcrypt dollars from the protected env file.
 cat > "$error_file" <<'ENV'

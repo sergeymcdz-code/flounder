@@ -11,7 +11,7 @@ public interface OrganizationMemberRepository
         extends JpaRepository<OrganizationMemberEntity, UUID> {
 
     @org.springframework.data.jpa.repository.Query(value = """
-            select u.email, u.status, r.code as "roleCode", m.organization_id as "organizationId",
+            select u.email, u.status, u.tokens_valid_after as "tokensValidAfter", r.code as "roleCode", m.organization_id as "organizationId",
                    o.name as "organizationName", lower(m.member_role) as "memberRole"
             from users u
             left join user_role_assignments a on a.user_id=u.id and a.organization_id is null and a.event_id is null

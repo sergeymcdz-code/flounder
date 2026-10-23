@@ -52,7 +52,7 @@ class JwtAuthenticationFilterTest {
         var id = UUID.randomUUID();
         request.addHeader("Authorization", "Bearer active-user-token");
         when(jwtService.parse("active-user-token")).thenReturn(io.jsonwebtoken.Jwts.claims()
-                .subject("active@test.example").add("uid", id.toString()).add("roles", java.util.List.of("participant")).build());
+                .issuedAt(new java.util.Date()).subject("active@test.example").add("uid", id.toString()).add("roles", java.util.List.of("participant")).build());
         var user = new com.acme.sportplatform.identity.infrastructure.persistence.entity.UserEntity();
         user.setEmail("active@test.example");
         user.setStatus("active");

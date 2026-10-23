@@ -45,6 +45,7 @@ public class AuthSessionService {
         UserEntity user = users.findByIdForUpdate(snapshot).orElseThrow(this::invalidToken);
         var token = tokens.findForUpdate(hash).orElseThrow(this::invalidToken);
         if (token.getRevokedAt() != null) {
+            user.revokeAccessTokens(clock.instant());
             tokens.invalidateAll(user.getId(), clock.instant());
             throw invalidToken();
         }
@@ -66,7 +67,8 @@ public class AuthSessionService {
 
     @Transactional
     public void logoutAll(UUID userId) {
-        users.findByIdForUpdate(userId).orElseThrow(this::invalidToken);
+        var user = users.findByIdForUpdate(userId).orElseThrow(this::invalidToken);
+        user.revokeAccessTokens(clock.instant());
         tokens.invalidateAll(userId, clock.instant());
     }
 
@@ -78,7 +80,7 @@ public class AuthSessionService {
         token.setUserAgent(userAgent == null ? null : userAgent.substring(0, Math.min(512, userAgent.length())));
         tokens.save(token);
         var principal = (PlatformUserPrincipal) details.loadUserByUsername(user.getEmail());
-        return new AuthTokenResponse(jwt.generateAccessToken(principal, roles.findGlobalRoleCodesByUserId(user.getId())),
+        return new AuthTokenResponse(jwt.generateAccessToken(principal, roles.findGlobalRoleCodesByUserId(user.getId()), user.getTokensValidAfter()),
                 "Bearer", jwt.accessTokenTtlSeconds(), raw);
     }
 

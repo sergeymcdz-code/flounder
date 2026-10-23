@@ -21,7 +21,7 @@ public class AdminBootstrap implements ApplicationRunner {
     public AdminBootstrap(UserRepository users, RoleRepository roles, UserRoleAssignmentRepository assignments,
             PasswordEncoder encoder, @Value("${APP_ADMIN_EMAIL:}") String email, @Value("${APP_ADMIN_PASSWORD:}") String password) {
         this.users=users; this.roles=roles; this.assignments=assignments;
-        this.encoder=encoder; this.email=email; this.password=password;
+        this.encoder=encoder; this.email=com.acme.sportplatform.identity.EmailAddress.normalize(email); this.password=password;
     }
     @Override @Transactional
     public void run(ApplicationArguments args) {

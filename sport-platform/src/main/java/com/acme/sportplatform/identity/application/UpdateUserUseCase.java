@@ -18,11 +18,17 @@ import com.acme.sportplatform.identity.infrastructure.persistence.repository.Use
 @Service
 public class UpdateUserUseCase {
 
+    private final com.acme.sportplatform.identity.infrastructure.persistence.repository.RefreshTokenRepository refreshTokens;
+    private final java.time.Clock clock;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final GetUserByIdUseCase getUser;
 
-    public UpdateUserUseCase(UserRepository userRepository, ProfileRepository profileRepository, GetUserByIdUseCase getUser) {
+    public UpdateUserUseCase(UserRepository userRepository, ProfileRepository profileRepository, GetUserByIdUseCase getUser,
+            com.acme.sportplatform.identity.infrastructure.persistence.repository.RefreshTokenRepository refreshTokens,
+            @org.springframework.beans.factory.annotation.Qualifier("identityClock") java.time.Clock clock) {
+        this.refreshTokens = refreshTokens;
+        this.clock = clock;
         this.getUser = getUser;
         this.userRepository = userRepository;
         this.profileRepository = profileRepository;
@@ -30,7 +36,7 @@ public class UpdateUserUseCase {
 
     @Transactional
     public UserDetailsResponse execute(UUID userId, UpdateUserRequest request) {
-        UserEntity user = userRepository.findById(userId)
+        UserEntity user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException("identity.user_not_found", "Пользователь не найден"));
         
         ProfileEntity profile = profileRepository.findByUserId(userId)
@@ -41,7 +47,11 @@ public class UpdateUserUseCase {
             String status = request.getStatus().toUpperCase(Locale.ROOT);
             if (!Set.of("ACTIVE", "BLOCKED").contains(status))
                 throw new BusinessException("identity.invalid_status", "Допустимые статусы: ACTIVE и BLOCKED");
-            if ("BLOCKED".equals(status)) AdminSelfProtection.assertNotSelf(userId);
+            if ("BLOCKED".equals(status)) {
+                AdminSelfProtection.assertNotSelf(userId);
+                user.revokeAccessTokens(clock.instant());
+                refreshTokens.invalidateAll(userId, clock.instant());
+            }
             user.setStatus(status.toLowerCase(Locale.ROOT));
         }
 

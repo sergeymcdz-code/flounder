@@ -26,4 +26,4 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 cd frontend && npm install && npm run dev   # http://localhost:5173, VITE_API_BASE_URL=http://localhost:8080
 ```
 
-`JWT_SECRET` — Base64 от не менее 32 случайных байт: `JwtService` декодирует его через `Decoders.BASE64`. Команда `openssl rand -base64 48` генерирует подходящий секрет; обычная строка с дефисами вызывает ошибку при входе. Хранить значение только в окружении или локальном `.env`, не в Git.
+`JWT_SECRET` — Base64 от не менее 32 случайных байт: `JwtService` декодирует его через `Decoders.BASE64`. Команда `openssl rand -base64 48` генерирует подходящий секрет; некорректный или короткий ключ останавливает приложение при старте. Хранить значение только в окружении или локальном `.env`, не в Git.
