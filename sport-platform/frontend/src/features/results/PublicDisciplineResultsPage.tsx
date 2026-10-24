@@ -1,3 +1,5 @@
+import { ResultStatus } from './ResultStatus'
+import { StatusLegend } from './StatusLegend'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getPublicEventDetails } from '../../api/events.api'
@@ -324,7 +326,7 @@ export function PublicDisciplineResultsPage() {
                                     entry.status,
                                   )}
                                 >
-                                  {resultStatusLabel(entry.status)}
+                                  <ResultStatus status={entry.status}>{resultStatusLabel(entry.status)}</ResultStatus>
                                 </span>
                               </td>
                             </tr>
@@ -333,6 +335,7 @@ export function PublicDisciplineResultsPage() {
                       </table>
                     </div>
                   )}
+                  <StatusLegend statuses={entries.map(entry => entry.status)} />
                 </article>
               )
             })}

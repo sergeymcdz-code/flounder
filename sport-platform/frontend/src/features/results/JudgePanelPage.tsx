@@ -16,6 +16,8 @@ import {
 } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { maskTime, normalizeTime } from './time-input'
+import { ResultStatus } from './ResultStatus'
+import { StatusLegend } from './StatusLegend'
 import { resultErrorMessage } from './results-ui'
 import styles from './JudgePanelPage.module.css'
 
@@ -182,7 +184,7 @@ export function JudgePanelPage() {
       <p>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</p><h1 className={`${styles.title} fl-judge-title`}>{context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}</h1><p>{context.time} · {context.session || 'Сессия'}</p></div>
       {unit && <StatusBadge kind="heat" code={unit.status} />}
     </div>{controls}</div>
-    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p></details>
+    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — <ResultStatus status="DNS" />, Alt+N — <ResultStatus status="DNF" />, Alt+Q — <ResultStatus status="DSQ" /> из поля времени. Пустые дорожки можно сохранить позже.</p></details>
     {loading && <p role="status">Загрузка…</p>}
     {error && <p className={styles.errorMessage} role="alert">{error}</p>}
     {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
@@ -226,13 +228,17 @@ export function JudgePanelPage() {
               }} />
               {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
             </td>
-            <td>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={`fl-btn fl-btn-sm ${status === 'DSQ' ? 'fl-btn-danger' : 'fl-btn-ghost'}`} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
-              ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
-              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
+            <td>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <ResultStatus key={status} status={status} buttonProps={{
+              className: `fl-btn fl-btn-sm ${status === 'DSQ' ? 'fl-btn-danger' : 'fl-btn-ghost'}`, type: 'button',
+              'data-entry-id': entry.entryId, 'aria-pressed': draft.status === status, disabled: busy || !canEdit,
+              ref: node => { statusButtons.current[`${entry.entryId}-${status}`] = node },
+              onClick: () => update(entry.entryId, { status: draft.status === status ? 'VALID' : status }),
+            }} />)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}><ResultStatus status="CORRECTED">исправлено</ResultStatus></span>}</td>
             <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>
           </tr>
         })}</tbody>
       </table></div>
+      <StatusLegend statuses={[...(canJudge && entries.length ? specialStatuses : []), ...entries.flatMap(entry => [drafts[entry.entryId]?.status, entry.resultStatus])]} />
       {!entries.length && <p>В заплыве пока нет участников.</p>}
     </>}
   </section>
