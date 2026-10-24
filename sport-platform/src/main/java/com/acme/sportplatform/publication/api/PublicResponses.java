@@ -71,9 +71,9 @@ public final class PublicResponses {
             int disciplineNumber, String disciplineName, OffsetDateTime actualStartedAt, OffsetDateTime estimatedStartAt) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Live(LiveUnit currentUnit, List<LiveUnit> next, OffsetDateTime updatedAt, long delaySec) {}
-    public record Results(List<DisciplineResults> disciplines) {}
+    public record Results(List<DisciplineResults> disciplines, boolean official) {}
     public record DisciplineResults(UUID id, int number, String name,
-            List<ResultRow> overall, List<AgeGroupResults> byAgeGroup) {}
+            List<ResultRow> overall, List<AgeGroupResults> byAgeGroup, boolean official) {}
     public record AgeGroupResults(String code, String name, List<ResultRow> rows) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record ResultRow(Integer place, String lastName, String firstName,

@@ -170,3 +170,10 @@ GET	/api/v1/events/{eventId}/documents/awards.pdf	manage	true	200
 GET	/api/v1/events/{eventId}/documents/diplomas.pdf	manage	true	200	diploma-enabled
 POST	/api/v1/events/{eventId}/documents/diploma-background	manage	true	400
 GET	/api/v1/public/events/{slug}/awards.pdf	public	false	200
+GET	/api/v1/organizer/events/{id}/exports/results.xlsx	manage	true	200
+GET	/api/v1/organizer/events/{id}/exports/results.csv	manage	true	200
+GET	/api/v1/organizer/events/{id}/exports/standings.xlsx	manage	true	200
+GET	/api/v1/organizer/events/{id}/exports/standings.csv	manage	true	200
+GET	/api/v1/organizer/events/{id}/exports/start-list.xlsx	manage	true	200
+GET	/api/v1/organizer/events/{id}/exports/start-list.csv	manage	true	200
+GET	/api/v1/public/events/{slug}/exports/results.csv	public	false	200

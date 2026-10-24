@@ -107,6 +107,12 @@ public class StandingsService implements StandingsLookup {
     }
 
     @Override
+    public StandingsView forExport(UUID eventId, List<ResultsProtocolLookup.Heat> heats,
+            List<com.acme.sportplatform.competition.EventDisciplineSummary> program) {
+        return view(config(eventId), heats, program, true);
+    }
+
+    @Override
     public StandingsView publicBySlug(String slug) {
         EventPublicLookupResult event;
         try {
@@ -137,7 +143,12 @@ public class StandingsService implements StandingsLookup {
                 .map(d -> d.id())
                 .filter(id -> config.disciplineIds() == null || config.disciplineIds().contains(id))
                 .toList();
-        var calculated = calculator.calculate(config, results.heats(ids), program);
+        return view(config, results.heats(ids), program, details);
+    }
+
+    private StandingsView view(StandingsConfig config, List<ResultsProtocolLookup.Heat> heats,
+            List<com.acme.sportplatform.competition.EventDisciplineSummary> program, boolean details) {
+        var calculated = calculator.calculate(config, heats, program);
         var team = details ? calculated.team() : calculated.team().stream()
                 .map(c -> new ClubPoints(c.club(), c.points(), c.gold(), c.silver(), c.bronze(), c.scoredResults(), null))
                 .toList();

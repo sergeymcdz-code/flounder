@@ -204,6 +204,11 @@ public class SwimResultsUseCase {
         }
         rankDiscipline(unit.getEventDisciplineId());
         var table = details.execute(unitId);
+        if (changed) {
+            // A changed swim can change the places of athletes in other heats of the discipline.
+            units.findByEventDisciplineIdOrderBySequenceNumberAsc(unit.getEventDisciplineId())
+                    .forEach(h -> h.setOfficial(false));
+        }
         if (correcting && changed) {
             UUID runId = logs.begin(discipline.eventId(), discipline.id(), "RANKING", previous, userId);
             logs.finish(runId, json.valueToTree(table), List.of(),

@@ -345,8 +345,10 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
         finishHeat(heats.getFirst());
         finishHeat(heats.get(1));
         JsonNode results = read("/results");
-        assertThat(results.size()).isEqualTo(1);
+        assertThat(results.size()).isEqualTo(2);
+        assertThat(results.path("official").asBoolean()).isFalse();
         assertThat(results.path("disciplines")).hasSize(1);
+        assertThat(results.at("/disciplines/0/official").asBoolean()).isFalse();
         JsonNode rows = results.at("/disciplines/0/overall"); assertThat(rows).hasSize(2);
         assertThat(rows.get(0)).isEqualTo(mapper.readTree("""
                 {"place":7,"lastName":"Иванов","firstName":"Иван","birthYear":2014,"club":"Волна",

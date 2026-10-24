@@ -132,6 +132,7 @@ public class RecordResultUseCase {
             result.setStatus(requestedStatus.name());
         }
 
+        unit.setOfficial(false);
         ResultEntity saved = resultRepository.save(result);
 
         return toResponse(saved);
