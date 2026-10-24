@@ -12,7 +12,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.acme.sportplatform.identity.api.ChangePasswordRequest;
 import com.acme.sportplatform.identity.api.PasswordResetRequest;
 import com.acme.sportplatform.identity.api.PasswordResetConfirmRequest;
-import com.acme.sportplatform.identity.api.RefreshTokenRequest;
+import org.springframework.web.bind.annotation.CookieValue;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import java.time.Duration;
 import com.acme.sportplatform.identity.api.AuthTokenResponse;
 import com.acme.sportplatform.identity.api.CreateUserRequest;
 import com.acme.sportplatform.identity.api.CurrentUserResponse;
@@ -31,6 +35,9 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
+
+    public static final String REFRESH_COOKIE = "sportgate_refresh";
+    private static final String COOKIE_PATH = "/api/v1/auth";
 
     private final com.acme.sportplatform.identity.application.AccountRequestLimiter accountLimits;
     private final LoginUseCase loginUseCase;
@@ -57,8 +64,10 @@ public class AuthController {
 
     @PostMapping("/login")
     public AuthTokenResponse login(@Valid @RequestBody LoginRequest request,
-            HttpServletRequest servletRequest) {
-        return loginUseCase.execute(request, servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent"));
+            HttpServletRequest servletRequest, HttpServletResponse response) {
+        var pair = loginUseCase.execute(request, servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent"));
+        refreshCookie(response, pair.refreshToken(), Duration.ofDays(30));
+        return pair;
     }
 
     @PostMapping("/register")
@@ -92,21 +101,32 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public AuthTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request,
-            HttpServletRequest servletRequest) {
-        return sessions.refresh(request.refreshToken(), servletRequest.getHeader("User-Agent"));
+    public AuthTokenResponse refresh(@CookieValue(name = REFRESH_COOKIE, required = false) String token,
+            HttpServletRequest servletRequest, HttpServletResponse response) {
+        if (token == null || token.isBlank()) throw new com.acme.sportplatform.identity.domain.InvalidRefreshTokenException();
+        var pair = sessions.refresh(token, servletRequest.getHeader("User-Agent"));
+        refreshCookie(response, pair.refreshToken(), Duration.ofDays(30));
+        return pair;
     }
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
-        sessions.logout(request.refreshToken());
+    public void logout(@CookieValue(name = REFRESH_COOKIE, required = false) String token, HttpServletResponse response) {
+        if (token != null && !token.isBlank()) sessions.logout(token);
+        refreshCookie(response, "", Duration.ZERO);
     }
 
     @PostMapping("/logout-all")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logoutAll(@AuthenticationPrincipal PlatformUserPrincipal principal) {
+    public void logoutAll(@AuthenticationPrincipal PlatformUserPrincipal principal, HttpServletResponse response) {
         sessions.logoutAll(principal.getUserId());
+        refreshCookie(response, "", Duration.ZERO);
+    }
+
+    private void refreshCookie(HttpServletResponse response, String token, Duration maxAge) {
+        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(REFRESH_COOKIE, token)
+                .httpOnly(true).secure(true).sameSite("Lax").path(COOKIE_PATH).maxAge(maxAge).build().toString());
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
     }
 
     @GetMapping("/me")

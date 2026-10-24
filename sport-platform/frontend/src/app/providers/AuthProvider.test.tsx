@@ -16,24 +16,31 @@ function Controls() {
     <button onClick={() => void auth.login({ email: 'user@example.org', password: 'Password123' })}>Вход</button>
     <button onClick={() => void auth.logout()}>Выход</button></>
 }
-it('persists refresh tokens after login and calls logout with the current refresh token', async () => {
+it('keeps refresh secrets out of storage and sends credentialed bodyless logout', async () => {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch')
   let revoked: unknown
   server.use(
     http.post('*/api/v1/auth/login', () => HttpResponse.json({ accessToken: 'access', refreshToken: 'refresh', tokenType: 'Bearer', expiresIn: 7200 })),
-    http.post('*/api/v1/auth/logout', async ({ request }) => { revoked = await request.json(); return new HttpResponse(null, { status: 204 }) }),
+    http.post('*/api/v1/auth/logout', async ({ request }) => { revoked = await request.text(); return new HttpResponse(null, { status: 204 }) }),
   )
   render(<AuthProvider><Controls /></AuthProvider>)
   await userEvent.click(screen.getByRole('button', { name: 'Вход' }))
   expect(await screen.findByText('Выполнен вход')).toBeInTheDocument()
-  expect(getAuthState().session?.refreshToken).toBe('refresh')
+  expect(getAuthState().session?.refreshToken).toBeUndefined()
+  expect(sessionStorage.getItem('flounder.auth-session')).not.toContain('refresh')
   await userEvent.click(screen.getByRole('button', { name: 'Выход' }))
-  await vi.waitFor(() => expect(revoked).toEqual({ refreshToken: 'refresh' }))
+  await vi.waitFor(() => expect(revoked).toBe(''))
   expect(screen.getByText('Нет сессии')).toBeInTheDocument()
+  const logoutRequest = fetchSpy.mock.calls.find(([url]) => String(url).endsWith('/auth/logout'))
+  expect(logoutRequest?.[1]?.credentials).toBe('include')
+  fetchSpy.mockRestore()
 })
-it('restores sessions with expired access tokens when a refresh token exists', () => {
+it('removes legacy stored refresh secrets and restores expired access using the cookie', async () => {
+  server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'renewed', tokenType: 'Bearer', expiresIn: 7200 })))
   sessionStorage.setItem('flounder.auth-session', JSON.stringify({ accessToken: 'expired', refreshToken: 'refresh', tokenType: 'Bearer', expiresAt: 1 }))
   render(<AuthProvider><Controls /></AuthProvider>)
-  expect(screen.getByText('Выполнен вход')).toBeInTheDocument()
+  expect(await screen.findByText('Выполнен вход')).toBeInTheDocument()
+  expect(sessionStorage.getItem('flounder.auth-session')).not.toContain('refresh')
 })
 it('shows the expiration message after automatic sign-out', () => {
   setAuthSession(null, SESSION_EXPIRED)

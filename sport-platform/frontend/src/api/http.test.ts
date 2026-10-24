@@ -5,10 +5,11 @@ import { apiFetch, apiDownload } from './http'
 import { getAuthState, setAuthSession, SESSION_EXPIRED } from './auth-session'
 
 vi.hoisted(() => { vi.stubEnv('VITE_API_BASE_URL', 'http://localhost') })
-const pair = { accessToken: 'new-access', refreshToken: 'new-refresh', tokenType: 'Bearer', expiresIn: 3600 }
+const pair = { accessToken: 'new-access', tokenType: 'Bearer', expiresIn: 3600 }
 beforeEach(() => setAuthSession({ accessToken: 'old-access', refreshToken: 'old-refresh', tokenType: 'Bearer', expiresAt: Date.now() - 1000 }))
 
 it('refreshes once and repeats the original POST with the new bearer and body', async () => {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch')
   const auth: (string | null)[] = []
   const payloads: unknown[] = []
   let refreshes = 0
@@ -20,7 +21,7 @@ it('refreshes once and repeats the original POST with the new bearer and body', 
     http.post('*/api/v1/auth/refresh', async ({ request }) => {
       refreshes++
       expect(request.headers.has('Authorization')).toBe(false)
-      expect(await request.json()).toEqual({ refreshToken: 'old-refresh' })
+      expect(await request.text()).toBe('')
       return HttpResponse.json(pair)
     }),
   )
@@ -28,8 +29,22 @@ it('refreshes once and repeats the original POST with the new bearer and body', 
   expect(refreshes).toBe(1)
   expect(auth).toEqual(['Bearer old-access', 'Bearer new-access'])
   expect(payloads).toEqual([{ value: 42 }, { value: 42 }])
-  expect(getAuthState().session?.refreshToken).toBe('new-refresh')
-  expect(JSON.parse(sessionStorage.getItem('flounder.auth-session')!).refreshToken).toBe('new-refresh')
+  const refreshRequest = fetchSpy.mock.calls.find(([url]) => String(url).endsWith('/api/v1/auth/refresh'))
+  expect(refreshRequest?.[1]).toMatchObject({ method: 'POST', credentials: 'include' })
+  expect(refreshRequest?.[1]?.body).toBeUndefined()
+  expect(getAuthState().session?.refreshToken).toBeUndefined()
+  expect(JSON.parse(sessionStorage.getItem('flounder.auth-session')!)).not.toHaveProperty('refreshToken')
+})
+
+it('never persists an unexpected refresh secret returned by a legacy server', async () => {
+  server.use(
+    http.get('*/private', ({ request }) => request.headers.get('Authorization') === 'Bearer new-access'
+      ? HttpResponse.json({ ok: true }) : new HttpResponse(null, { status: 401 })),
+    http.post('*/api/v1/auth/refresh', () => HttpResponse.json({ ...pair, refreshToken: 'must-not-persist' })),
+  )
+  await expect(apiFetch('/private', { accessToken: 'old-access' })).resolves.toEqual({ ok: true })
+  expect(getAuthState().session).not.toHaveProperty('refreshToken')
+  expect(JSON.parse(sessionStorage.getItem('flounder.auth-session')!)).not.toHaveProperty('refreshToken')
 })
 
 it('shares one refresh for simultaneous 401 responses and reuses the rotated access token for late responses', async () => {
@@ -103,6 +118,7 @@ it('does not refresh an anonymous download and uses the generic file error messa
 })
 
 it('does not restore a logged-out session when an in-flight refresh completes and revokes the rotated token', async () => {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch')
   let finish!: () => void, started!: () => void
   const running = new Promise<void>(resolve => { started = resolve })
   const gate = new Promise<void>(resolve => { finish = resolve })
@@ -110,12 +126,15 @@ it('does not restore a logged-out session when an in-flight refresh completes an
   server.use(
     http.get('*/private', () => new HttpResponse(null, { status: 401 })),
     http.post('*/api/v1/auth/refresh', async () => { started(); await gate; return HttpResponse.json(pair) }),
-    http.post('*/api/v1/auth/logout', async ({ request }) => { revoked = await request.json(); return new HttpResponse(null, { status: 204 }) }),
+    http.post('*/api/v1/auth/logout', async ({ request }) => { revoked = await request.text(); return new HttpResponse(null, { status: 204 }) }),
   )
   const pending = apiFetch('/private', { accessToken: 'old-access' })
   const outcome = expect(pending).rejects.toMatchObject({ status: 401 })
   await running; setAuthSession(null); finish(); await outcome
-  await vi.waitFor(() => expect(revoked).toEqual({ refreshToken: 'new-refresh' }))
+  await vi.waitFor(() => expect(revoked).toBe(''))
+  const logoutRequest = fetchSpy.mock.calls.find(([url]) => String(url).endsWith('/api/v1/auth/logout'))
+  expect(logoutRequest?.[1]).toMatchObject({ method: 'POST', credentials: 'include' })
+  expect(logoutRequest?.[1]?.body).toBeUndefined()
   expect(getAuthState().session).toBeNull()
 })
 

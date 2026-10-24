@@ -72,6 +72,7 @@ class Qa04RoleMatrixIntegrationTest extends Qa04SecurityFixture {
     void recordsEveryRoleAndEndpoint(Endpoint e, String actor) throws Exception {
         prepare(e, actor);
         var request = request(e);
+        if (e.state().equals("refresh-token")) request.cookie(new jakarta.servlet.http.Cookie("sportgate_refresh", "qa04-refresh-token"));
         if (!actor.equals("anonymous")) request.with(authentication(auth(actor)));
         var response = mvc.perform(request).andReturn().getResponse();
         int expected = expected(e, actor);
