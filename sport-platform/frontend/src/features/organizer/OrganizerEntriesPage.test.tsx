@@ -186,7 +186,7 @@ it('distinguishes an empty list, loading and a retryable error', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
   expect(context.run).toHaveBeenCalledWith(expect.any(Function), 'none')
 })
-it('filters by discipline and club using chips', async () => {
+it('filters by the discipline select and club chips', async () => {
   Object.assign(context.registrations[0].participantSnapshot, { clubName: 'Волна' })
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   const user = userEvent.setup()
@@ -194,7 +194,9 @@ it('filters by discipline and club using chips', async () => {
   const clubs = within(screen.getByRole('group', { name: 'Фильтр по клубу' }))
   await user.click(clubs.getByRole('button', { name: 'Волна' }))
   expect(clubs.getByRole('button', { name: 'Волна' })).toHaveAttribute('aria-pressed', 'true')
-  await user.click(within(screen.getByRole('group', { name: 'Фильтр по виду программы' })).getByRole('button', { name: '50 м' }))
+  expect(screen.queryByRole('group', { name: 'Фильтр по виду программы' })).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Вид программы' }), 'discipline')
+  expect(screen.getByRole('combobox', { name: 'Вид программы' })).toHaveValue('discipline')
   expect(screen.getByRole('rowheader', { name: 'Тестов Иван' })).toBeInTheDocument()
 })
 it('retains loaded entries alongside an error notice', () => {
@@ -203,12 +205,18 @@ it('retains loaded entries alongside an error notice', () => {
   expect(screen.getByRole('alert')).toHaveTextContent(context.error)
   expect(screen.getByRole('rowheader', { name: 'Тестов Иван' })).toBeInTheDocument()
 })
-it('opens import from the header overflow', async () => {
+it('opens import directly from the visible header button', async () => {
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Импорт из Excel' }))
-  const menu = screen.getByRole('region', { name: 'Импорт и экспорт заявок' })
-  expect(within(menu).getByRole('button', { name: 'Экспорт списка (CSV)' })).toBeInTheDocument()
-  await user.click(within(menu).getByRole('button', { name: 'Импорт из Excel' }))
   expect(screen.getByRole('dialog', { name: 'Импорт заявок из Excel' })).toBeInTheDocument()
+})
+
+it('keeps export in the honestly named header overflow', async () => {
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.queryByRole('button', { name: 'Экспорт списка (CSV)' })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Ещё действия' }))
+  const menu = screen.getByRole('region', { name: 'Ещё действия' })
+  expect(within(menu).getByRole('button', { name: 'Экспорт списка (CSV)' })).toBeVisible()
+  expect(within(menu).queryByRole('button', { name: 'Импорт из Excel' })).not.toBeInTheDocument()
 })

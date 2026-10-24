@@ -156,10 +156,12 @@ export function OrganizerEntriesPage() {
     <article className={`${styles.card} fl-entries`}>
       <header className={styles.toolbar}>
         <h2>Заявки · <span className={styles.numeric}>{registrations.length}</span></h2>
-        <EntryRowMenu label="Импорт и экспорт заявок" triggerName="Импорт из Excel">
-          <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
-          <button className="fl-btn fl-btn-ghost" onClick={exportEntries}>Экспорт списка (CSV)</button>
-        </EntryRowMenu>
+        <div className={styles.actions}>
+          <button className={`${styles.importButton} fl-btn fl-btn-secondary`} disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
+          <EntryRowMenu label="Ещё действия" triggerName="Ещё действия">
+            <button className="fl-btn fl-btn-ghost" onClick={exportEntries}>Экспорт списка (CSV)</button>
+          </EntryRowMenu>
+        </div>
       </header>
       {disabledReason && <small className={styles.muted}>{disabledReason}</small>}
       {error && <Notice tone="danger"><p>{error}</p><button className="fl-btn fl-btn-secondary" disabled={busy} title={busy ? disabledReason : undefined} onClick={() => { void run(refresh, 'none') }}>Повторить</button></Notice>}
@@ -245,10 +247,6 @@ export function OrganizerEntriesPage() {
           <span><input type="checkbox" checked={missingMedical} onChange={(e) => setMissingMedical(e.target.checked)} /> Нет справки</span>
         </label>
         </div>
-      <div className={`${styles.chips} fl-scroll-x`} role="group" aria-label="Фильтр по виду программы">
-        <button className="fl-btn fl-btn-ghost" aria-pressed={!discipline} onClick={() => setDiscipline('')}>Все виды</button>
-        {event.disciplines.map(d => <button key={d.id} className="fl-btn fl-btn-ghost" aria-pressed={discipline === d.id} onClick={() => setDiscipline(d.id)}>{d.name}</button>)}
-      </div>
       {clubs.length > 0 && <div className={`${styles.chips} fl-scroll-x`} role="group" aria-label="Фильтр по клубу">
         <button className="fl-btn fl-btn-ghost" aria-pressed={!club} onClick={() => setClub('')}>Все клубы</button>
         {clubs.map(name => <button key={name} className="fl-btn fl-btn-ghost" aria-pressed={club === name} onClick={() => setClub(name)}>{name}</button>)}
@@ -260,14 +258,26 @@ export function OrganizerEntriesPage() {
       </OrganizerDialog>}
       <div className={styles.meta}>
         <p className={styles.numeric}>Найдено: {visible.length}</p>
-
+        {visible.length > 0 && <label className={styles.selection}><input type="checkbox" aria-label="Выбрать все видимые заявки" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} title={disabledReason || (bulkBusy ? 'Дождитесь завершения обработки заявок' : undefined)} checked={visible.length > 0 && visible.every(r => selected.includes(r.id))} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...visible.map(r => r.id)])] : selected.filter(id => !visible.some(r => r.id === id)))} /><span className={styles.selectAllLabel}>Выбрать все</span></label>}
       </div>
       {visible.length > 0 && <div className={styles.tableFrame}>
         <div className={`${styles.table} fl-table-scroll fl-data-table-scroll fl-rowcards`} role="region" aria-label="Заявки участников" tabIndex={0}>
           <table className="fl-table">
             <caption className="fl-sr-only">Заявки участников</caption>
             <thead><tr>
-              {['№', 'ФИО', 'Год', 'Клуб', 'Вид', 'Допуск', 'Документы', 'Заявочное время', 'Статус', 'Оплата', 'Действия'].map((heading, index) => <th key={heading} scope="col" data-priority={[2, 3].includes(index) ? 'low' : [5, 6].includes(index) ? 'extra' : undefined} title={heading === 'Документы' ? '✓ принят · ◷ на проверке · ✕ отклонён · — нет' : undefined}>{heading === '№' ? <label className={styles.selection}><input type="checkbox" aria-label="Выбрать все видимые заявки" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} title={disabledReason || (bulkBusy ? 'Дождитесь завершения обработки заявок' : undefined)} checked={visible.length > 0 && visible.every(r => selected.includes(r.id))} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...visible.map(r => r.id)])] : selected.filter(id => !visible.some(r => r.id === id)))} /><span className={styles.selectAllLabel}>Выбрать все</span></label> : heading}</th>)}
+              {[
+                { label: '№', className: styles.number },
+                { label: 'ФИО', className: styles.name },
+                { label: 'Год', className: styles.year },
+                { label: 'Клуб', className: styles.club },
+                { label: 'Вид', className: styles.discipline },
+                { label: 'Допуск', className: styles.admission },
+                { label: 'Документы', className: styles.documents, title: '✓ принят · ◷ на проверке · ✕ отклонён · — нет' },
+                { label: 'Заявочное время', className: styles.seed },
+                { label: 'Статус', className: styles.status },
+                { label: 'Оплата', className: styles.payment },
+                { label: 'Действия', className: styles.rowActions },
+              ].map(column => <th key={column.label} scope="col" className={column.className} title={column.title}>{column.label}</th>)}
             </tr></thead>
             <tbody>{visible.map((r, index) => {
               const name = `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''}`.trim()
@@ -280,19 +290,19 @@ export function OrganizerEntriesPage() {
                   {r.admissionWarnings?.map(warning => <small key={warning} className={styles.error}>{warning}</small>)}
                 </th>
                 <td className={styles.mobileMeta}>{event.disciplines.find(d => d.id === r.eventDisciplineId)?.name ?? '—'} · {r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'} · {r.participantSnapshot.clubName || '—'}</td>
-                <td data-priority="low" data-numeric>{r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'}</td>
-                <td data-priority="low">{r.participantSnapshot.clubName || '—'}</td>
+                <td className={styles.year} data-numeric>{r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'}</td>
+                <td className={styles.club}>{r.participantSnapshot.clubName || '—'}</td>
                 <td className={styles.discipline}>{event.disciplines.find(d => d.id === r.eventDisciplineId)?.name ?? '—'}</td>
-                <td data-priority="extra"><span title={admission(r).title}>{admission(r).excluded ? 'Не допущена' : admission(r).label}</span></td>
-                <td data-priority="extra"><span title={(Object.keys(documentTypes) as DocumentType[]).map(type => `${documentTypes[type]}: ${documentStatusLabels[r.documents?.[type] ?? 'NOT_UPLOADED']}`).join(' · ')}>{(Object.keys(documentTypes) as DocumentType[]).map(type => {
+                <td className={styles.admission}><span title={admission(r).title}>{admission(r).excluded ? 'Не допущена' : admission(r).label}</span></td>
+                <td className={styles.documents}><span title={(Object.keys(documentTypes) as DocumentType[]).map(type => `${documentTypes[type]}: ${documentStatusLabels[r.documents?.[type] ?? 'NOT_UPLOADED']}`).join(' · ')}>{(Object.keys(documentTypes) as DocumentType[]).map(type => {
                   const state = r.documents?.[type] ?? 'NOT_UPLOADED'
                   return <span key={type} title={`${documentTypes[type]}: ${documentStatusLabels[state]}`}>{state === 'ACCEPTED' ? '✓' : state === 'PENDING' ? '◷' : state === 'REJECTED' ? '✕' : '—'} </span>
                 })}</span></td>
                 <td data-numeric className={styles.seed}><span className={styles.mobileLabel}>Заявочное время</span><SeedTimeEditor registration={r} /></td>
                 <td className={styles.status}><StatusBadge kind="registration" code={r.status} />{r.waitlistPosition != null ? ` · № ${r.waitlistPosition}` : ''}</td>
-                <td className={styles.payment}><span className={styles.numeric}>{money(r.feeAmount, r.feeCurrency ?? 'RUB')}</span><StatusBadge kind="payment" code={r.paymentStatus} /></td>
+                <td className={styles.payment}><span className={styles.mobileLabel}>Оплата</span><span className={styles.paymentContent}>{r.feeAmount != null && <span className={styles.numeric}>{money(r.feeAmount, r.feeCurrency ?? 'RUB')}</span>}<StatusBadge kind="payment" code={r.paymentStatus} /></span></td>
                 <td className={styles.rowActions}><div className={styles.actions}>
-                  {canReview ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'CONFIRMED')}>Принять</button>
+                  {canReview ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
                     : canPay ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button> : null}
                   <EntryRowMenu>
                     {r.status === 'WAITLISTED' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
