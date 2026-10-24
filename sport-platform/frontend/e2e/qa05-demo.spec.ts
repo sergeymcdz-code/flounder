@@ -335,7 +335,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await org.getByRole('combobox', { name: /^Вид программы/ }).selectOption(discipline.id)
       const row = org.getByRole('row').filter({ hasText: registration.participantSnapshot.firstName })
       const withdraw = row.getByRole('button', { name: 'Снять', exact: true }).first()
-      if (!await withdraw.isVisible()) await row.getByText('Ещё ▾', { exact: true }).click()
+      if (!await withdraw.isVisible()) await row.getByRole('button', { name: 'Ещё ▾', exact: true }).click()
       await withdraw.click()
       await org.getByRole('dialog').getByRole('button', { name: 'Снять', exact: true }).click()
       await expect(org.getByRole('dialog')).toHaveCount(0)

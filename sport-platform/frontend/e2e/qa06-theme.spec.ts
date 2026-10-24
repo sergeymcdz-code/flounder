@@ -11,14 +11,20 @@ test('D02: theme is set before the application loads', async ({ page }) => {
   await expect(page.locator('#root')).toBeEmpty()
 })
 
-test('D02: explicit theme survives navigation and reload, including a light live board', async ({ page }) => {
+test('D04: explicit theme survives navigation and reload while the live board stays dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   await openAuditPage(page, '/e/demo/live')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.getByRole('button', { name: 'Светлая тема' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 240, 238)')
-  await expect(page.locator('section[aria-live]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  const board = page.getByRole('region', { name: 'Текущий заплыв', exact: true })
+  await expect(board).toHaveCSS('background-color', 'rgb(24, 33, 38)')
+  await expect(board).toHaveCSS('color-scheme', 'dark')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(board).toHaveCSS('background-color', 'rgb(24, 33, 38)')
+  await expect(board).toHaveCSS('color-scheme', 'dark')
   await page.getByRole('link', { name: 'Результаты', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await page.reload()
@@ -67,14 +73,42 @@ for (const route of ['start-list', 'results']) {
   })
 }
 
-test('D02: a mobile protocol keeps table semantics and supports keyboard scrolling', async ({ page }) => {
+test('D04: live lanes keep table semantics and keyboard focus without horizontal overflow', async ({ page }) => {
   await openAuditPage(page, '/e/demo/live')
   const table = page.locator('.fl-lanes').first()
-  await expect(table).toHaveAttribute('role', 'table')
-  await table.focus()
-  await expect(table).toBeFocused()
-  await table.press('ArrowRight')
-  await expect.poll(() => table.evaluate(el => el.scrollLeft)).toBeGreaterThan(0)
+  for (const width of [375, 768, 1366]) {
+    await page.setViewportSize({ width, height: width === 1366 ? 768 : 1024 })
+    await expect(table).toHaveAttribute('role', 'table')
+    await expect(table).toHaveAccessibleName(/Дорожки заплыва/)
+    await expect(table.locator('tbody tr')).toHaveCount(8)
+    await expect(table.getByRole('columnheader')).toHaveCount(width < 768 ? 3 : 5)
+    await table.focus()
+    await expect(table).toBeFocused()
+    for (const key of ['ArrowRight', 'ArrowLeft']) {
+      await table.press(key)
+      await expect(table).toBeFocused()
+      const dimensions = await table.evaluate(el => ({
+        tableWidth: el.clientWidth,
+        tableScrollWidth: el.scrollWidth,
+        tableScrollLeft: el.scrollLeft,
+        pageWidth: document.documentElement.clientWidth,
+        pageScrollWidth: document.documentElement.scrollWidth,
+        pageScrollLeft: window.scrollX,
+      }))
+      expect(dimensions.tableScrollWidth).toBeLessThanOrEqual(dimensions.tableWidth)
+      expect(dimensions.tableScrollLeft).toBe(0)
+      expect(dimensions.pageScrollWidth).toBeLessThanOrEqual(dimensions.pageWidth)
+      expect(dimensions.pageScrollLeft).toBe(0)
+    }
+    const tableBox = (await table.boundingBox())!
+    const cells = await table.locator('tbody th, tbody td').evaluateAll(nodes => nodes
+      .filter(node => node.getClientRects().length)
+      .map(node => ({ left: node.getBoundingClientRect().left, right: node.getBoundingClientRect().right })))
+    for (const cell of cells) {
+      expect(cell.left).toBeGreaterThanOrEqual(tableBox.x)
+      expect(cell.right).toBeLessThanOrEqual(tableBox.x + tableBox.width)
+    }
+  }
 })
 
 test('UX-20: 375px judge keeps lane, participant and time inside a card', async ({ page }) => {
