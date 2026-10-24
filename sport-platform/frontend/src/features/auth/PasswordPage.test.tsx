@@ -10,7 +10,7 @@ import { PasswordPage } from './PasswordPage'
 
 vi.hoisted(() => { vi.stubEnv('VITE_API_BASE_URL', 'http://localhost') })
 beforeEach(() => setAuthSession(null))
-function page(mode: 'forgot' | 'reset' | 'change', url = '/reset-password?token=reset-token') {
+function page(mode: 'forgot' | 'reset' | 'change', url = '/reset-password#token=reset-token') {
   render(<MemoryRouter initialEntries={[url]}><AuthProvider><Routes>
     <Route path="/login" element={<p>Страница входа</p>} />
     <Route path="*" element={<PasswordPage mode={mode} />} />

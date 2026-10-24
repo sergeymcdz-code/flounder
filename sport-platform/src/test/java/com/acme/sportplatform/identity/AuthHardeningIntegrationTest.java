@@ -35,6 +35,7 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
     @Autowired JwtService jwt;
+    @Autowired com.acme.sportplatform.identity.application.PasswordService passwords;
     @MockitoBean(name = "identityClock") Clock clock;
     @MockitoBean MailSender mail;
     static final AtomicInteger SEQUENCE = new AtomicInteger();
@@ -53,12 +54,12 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         ip = "192.0.2." + SEQUENCE.get();
         resetToken = null;
         doAnswer(call -> {
-            assertThat(call.getArgument(1, String.class)).isEqualTo("Восстановление пароля SportGate");
-            String body = call.getArgument(2, String.class);
-            assertThat(body).contains("https://auth.example/reset-password?token=");
-            resetToken = body.split("token=")[1].split("\\n")[0];
+            var message = passwords.prepare(call.getArgument(1, UUID.class), call.getArgument(0, String.class)).orElseThrow();
+            assertThat(message.subject()).isEqualTo("Восстановление пароля SportGate");
+            assertThat(message.body()).contains("https://auth.example/reset-password#token=").doesNotContain("?token=");
+            resetToken = message.body().split("token=")[1].split("\\n")[0];
             return null;
-        }).when(mail).send(anyString(), anyString(), anyString());
+        }).when(mail).sendPasswordReset(anyString(), any(UUID.class));
         var registered = send("/register", Map.of("email", email, "password", PASSWORD,
                 "firstName", "Иван", "lastName", "Петров", "birthDate", "2000-01-01", "gender", "M"), null, ip)
                 .andExpect(status().isCreated()).andReturn();

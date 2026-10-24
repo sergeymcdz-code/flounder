@@ -15,6 +15,13 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     @Query("select t from PasswordResetTokenEntity t where t.tokenHash = :hash")
     Optional<PasswordResetTokenEntity> findForUpdate(String hash);
 
+    @Query("select t.userId from PasswordResetTokenEntity t where t.id = :id")
+    Optional<UUID> findUserIdById(UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from PasswordResetTokenEntity t where t.id = :id")
+    Optional<PasswordResetTokenEntity> findByIdForUpdate(UUID id);
+
     @Modifying
     @Query("update PasswordResetTokenEntity t set t.usedAt = :now where t.userId = :userId and t.usedAt is null")
     void invalidateAll(UUID userId, Instant now);
