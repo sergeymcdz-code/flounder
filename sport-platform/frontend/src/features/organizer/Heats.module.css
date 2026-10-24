@@ -1,0 +1,56 @@
+.page, .stack { display: grid; gap: var(--space-4); min-width: 0; }
+.page { color: var(--color-text); }
+.page :is(button, summary, select, input) { min-height: var(--tap-target); min-width: var(--tap-target); }
+.page small, .muted { color: var(--color-text-muted); font-size: var(--text-sm); }
+.page p, .heat p { margin: 0; }
+.actions { align-items: start; }
+.action { display: grid; gap: var(--space-1); }
+.menu { position: relative; min-width: 0; }
+.popover { position: absolute; inset-block-start: calc(100% + var(--space-2)); inset-inline-end: 0; z-index: var(--z-drawer); display: grid; gap: var(--space-3); width: min(calc(var(--space-16) * 5), calc(100vw - var(--space-8))); max-height: 70dvh; overflow-y: auto; padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-pop); }
+.popover :is(label, small) { display: grid; gap: var(--space-1); }
+.popover :is(select, input) { width: 100%; min-width: 0; }
+.popover :global(.fl-btn) { white-space: normal; }
+.notice { display: grid; gap: var(--space-2); }
+.notice summary, .lanes > summary { cursor: pointer; padding-block: var(--space-2); }
+.session { min-width: 0; }
+.session > summary { position: sticky; top: var(--header-h); background: var(--surface-1); box-shadow: var(--shadow-sticky); z-index: var(--z-sticky); border-radius: var(--radius-lg); }
+.discipline { min-width: 0; border-top: 1px solid var(--border-subtle); padding-top: var(--space-4); }
+.disciplineHeader, .heatHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--control-h-lg); margin-bottom: var(--space-3); }
+.disciplineHeader h2 { font-size: var(--text-lg); margin: 0 0 var(--space-2); overflow-wrap: anywhere; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--space-11) * 10)), 1fr)); gap: var(--space-4); }
+.heat { min-width: 0; border: 1px solid var(--border-subtle); border-top: var(--border-width-rule) solid var(--border-rule); border-radius: var(--radius-lg); padding: var(--space-4); background: var(--surface-1); }
+.heatNumber { font-family: var(--font-heading); font-size: var(--text-xl); font-variant-numeric: var(--numeric-variant); margin: 0; }
+.numeric { font-variant-numeric: var(--numeric-variant); white-space: nowrap; text-align: right; font-weight: var(--font-weight-medium); }
+.heatHeader .numeric { text-align: left; }
+.highlight { outline: var(--border-width-rule) solid var(--color-focus); outline-offset: var(--space-1); }
+.lanes { margin-top: var(--space-3); }
+.editAction { display: none; }
+.tableScroll { overflow-x: auto; scrollbar-width: thin; overscroll-behavior-inline: contain; scroll-padding-inline: var(--space-4); background: linear-gradient(to right, var(--surface-1) 30%, transparent), linear-gradient(to left, var(--surface-1) 30%, transparent), linear-gradient(to right, var(--border-subtle), transparent), linear-gradient(to left, var(--border-subtle), transparent); background-position: left, right, left, right; background-size: var(--space-8) 100%, var(--space-8) 100%, var(--space-4) 100%, var(--space-4) 100%; background-repeat: no-repeat; background-attachment: local, local, scroll, scroll; }
+.laneTable { width: 100%; font-variant-numeric: var(--numeric-variant); }
+.laneTable :is(th, td) { padding-inline: var(--space-2); }
+.laneTable th[scope='row'] { font-weight: var(--font-weight-medium); white-space: normal; overflow-wrap: anywhere; }
+.laneTable select { width: auto; min-width: var(--control-h); }
+.readLane, .mobileMeta, .hidden { display: none; }
+.form { display: grid; gap: var(--space-4); min-width: 0; }
+.form :is(select, input) { width: 100%; min-width: 0; }
+.preview { display: grid; gap: var(--space-2); font-variant-numeric: var(--numeric-variant); }
+@media (min-width: 768px) {
+  .page, .stack { gap: var(--space-6); }
+  .lanes > summary { display: none; }
+}
+@media (max-width: 767px) {
+  .actions > *, .actions > * > button { width: 100%; }
+  .popover { position: fixed; inset: auto 0 0; width: auto; max-height: 75dvh; border-end-start-radius: 0; border-end-end-radius: 0; }
+  .heat { padding: var(--space-3); }
+  .heatHeader { align-items: start; flex-wrap: wrap; }
+  .editAction { display: grid; gap: var(--space-1); margin-block: var(--space-2); }
+  .extra, .desktopLane { display: none; }
+  .readLane { display: inline; }
+  .mobileMeta { display: block; font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 400; }
+  .laneTable { table-layout: fixed; }
+  .laneTable th:first-child { width: var(--space-12); }
+  .laneTable th:last-child { width: calc(var(--space-12) * 2); }
+  .laneTable :is(th, td) { padding-inline: var(--space-1); }
+}
+
+.noticeTitle { margin: 0; font-size: var(--text-md); }
