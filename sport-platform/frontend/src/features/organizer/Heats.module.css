@@ -17,7 +17,7 @@
 .discipline { min-width: 0; border-top: 1px solid var(--border-subtle); padding-top: var(--space-4); }
 .disciplineHeader, .heatHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--control-h-lg); margin-bottom: var(--space-3); }
 .disciplineHeader h2 { font-size: var(--text-lg); margin: 0 0 var(--space-2); overflow-wrap: anywhere; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--space-11) * 10)), 1fr)); gap: var(--space-4); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--space-11) * 10)), 1fr)); gap: var(--space-4); }
 .heat { min-width: 0; border: 1px solid var(--border-subtle); border-top: var(--border-width-rule) solid var(--border-rule); border-radius: var(--radius-lg); padding: var(--space-4); background: var(--surface-1); }
 .heatNumber { font-family: var(--font-heading); font-size: var(--text-xl); font-variant-numeric: var(--numeric-variant); margin: 0; }
 .numeric { font-variant-numeric: var(--numeric-variant); white-space: nowrap; text-align: right; font-weight: var(--font-weight-medium); }
