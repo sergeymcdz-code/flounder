@@ -78,7 +78,7 @@ export function OrganizerOverviewPage() {
   const base = `/organizer/events/${event.id}`
   const participants = new Set(registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW', 'CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status)).map(r => r.participantProfileId)).size
   const pending = registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW'].includes(r.status)).length
-  const unpaid = registrations.filter(r => ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus)).length
+  const unpaid = registrations.filter(r => ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED', 'NOT_REQUIRED'].includes(r.paymentStatus)).length
   const unpublished = heats.filter(h => !isHeatPublished(h.status)).length
   const transitions = [
     { states: ['COMPLETED'], label: 'В архив', action: archiveEvent, step: 6 },

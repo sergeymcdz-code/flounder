@@ -160,3 +160,13 @@ it('reports clipboard success through a toast and failure with a useful next ste
   fireEvent.click(screen.getByRole('button', { name: 'Копировать' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Выделите ссылку и скопируйте вручную.')
 })
+
+it('does not flag waived, refunded or free registrations as unpaid contributions', () => {
+  context.registrations = ['PAID', 'WAIVED', 'REFUNDED', 'NOT_REQUIRED'].map(paymentStatus => ({
+    participantProfileId: paymentStatus, status: 'CONFIRMED', paymentStatus,
+  })) as OrganizerRegistration[]
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const attention = screen.getByRole('region', { name: 'Требует внимания' })
+  expect(within(attention).queryByRole('link', { name: /Неоплаченные взносы/ })).not.toBeInTheDocument()
+  expect(within(attention).getByText(/Срочных задач нет/)).toBeVisible()
+})
