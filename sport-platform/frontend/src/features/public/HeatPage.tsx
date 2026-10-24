@@ -1,12 +1,17 @@
 import { useCallback } from 'react'
 import { Link, useParams } from 'react-router'
 import { publicApi } from '../../api/public.api'
-import { findHeat } from './format'
-import { HeatProtocol } from './Protocol'
-import { DataState } from './PublicLayout'
+import { ActionBar } from '../../components/ui/ActionBar'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { findHeat, time } from './format'
+import { HeatProtocol, ProtocolState } from './Protocol'
 import { usePublicEvent } from './publicContext'
 import { usePublicData } from './usePublicData'
-import styles from './HeatPage.module.css'
+import legacyStyles from './HeatPage.module.css'
+import printStyles from './Public.module.css'
+import styles from './StartList.module.css'
 
 export function HeatPage() {
   const event = usePublicEvent()
@@ -17,27 +22,36 @@ export function HeatPage() {
   )
   const state = usePublicData(load)
   const found = state.data && findHeat(state.data, unitId)
+  const base = `/e/${encodeURIComponent(event.publicSlug)}`
   return (
-    <>
-      <Link className={styles.backLink} to={`/e/${encodeURIComponent(event.publicSlug)}/start-list`}>
-        ← Стартовый протокол
-      </Link>
-      <h1>Заплыв {found?.heat.number ?? ''}</h1>
-      <DataState {...state} />
-      {found && (
-        <>
-          <h2>
-            Вид № {found.discipline.number}. {found.discipline.name}
-          </h2>
+    <div className={styles.page}>
+      <div className={`${styles.pageHeader} ${printStyles.noPrint}`}>
+        <Button as={Link} to={`${base}/start-list`} variant="ghost" size="sm" className={styles.back}>
+          ← Стартовый протокол
+        </Button>
+        <PageHeader title={`Заплыв ${found?.heat.number ?? ''}`.trim()} meta={found &&
+          `Вид № ${found.discipline.number} · ${found.discipline.name} · ${found.session.name} · ${time(found.heat.scheduledAt, event.venue?.timezone)}`
+        } />
+      </div>
+      <div className={styles.printOnly} aria-hidden="true">
+        <Link className={legacyStyles.backLink} to={`${base}/start-list`}>← Стартовый протокол</Link>
+        <h1>Заплыв {found?.heat.number ?? ''}</h1>
+        {found && <>
+          <h2>Вид № {found.discipline.number}. {found.discipline.name}</h2>
           <p>{found.session.name}</p>
-          <HeatProtocol
-            heat={found.heat}
-            lanes={event.venue?.lanes ?? 8}
-            timeZone={event.venue?.timezone}
-          />
-        </>
-      )}
-      {state.data && !found && <p>Заплыв не найден или ещё не опубликован.</p>}
-    </>
+        </>}
+      </div>
+      <ProtocolState {...state} />
+      {found && <>
+        <HeatProtocol heat={found.heat} lanes={event.venue?.lanes ?? 8} timeZone={event.venue?.timezone} />
+        <ActionBar className={`${styles.heatLinks} ${printStyles.noPrint}`}>
+          <Button as={Link} to={`${base}/live`} variant="ghost">Табло</Button>
+          <Button as={Link} to={`/events/${encodeURIComponent(event.publicSlug)}/disciplines/${encodeURIComponent(found.discipline.id)}/results`} variant="ghost">Результаты вида</Button>
+        </ActionBar>
+      </>}
+      {state.data && !found && <EmptyState title="Заплыв не найден или ещё не опубликован" action={
+        <Button as={Link} to={`${base}/start-list`} variant="secondary">К протоколу</Button>
+      }><p>Проверьте номер заплыва в стартовом протоколе.</p></EmptyState>}
+    </div>
   )
 }
