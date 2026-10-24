@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
-import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
+import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { http, HttpResponse } from 'msw'
 import { afterEach, expect, it, vi } from 'vitest'
 import { server } from '../../test/setup'
@@ -13,7 +13,7 @@ import { demoEvent } from '../../mocks/demo-data'
 import { CalendarCards } from './CalendarCards'
 import { CalendarPage } from './CalendarPage'
 import { PublicOrganizationPage } from './PublicOrganizationPage'
-import type { CalendarCard } from './calendar.types'
+import type { Calendar, CalendarCard } from './calendar.types'
 const card: CalendarCard = { slug: 'cup', title: 'Кубок Самары', startDate: '2026-10-20', endDate: '2026-10-20', city: 'Самара', venueName: 'Волна', organization: { name: 'Клуб Волна', publicSlug: 'volna', hasLogo: false }, status: 'PUBLISHED', registrationOpen: false, registrationCloseAt: null, disciplinesCount: 2, participantsCount: 30, hasResults: true }
 afterEach(() => { act(() => setAuthSession(null)) })
 function calendar() { render(<MemoryRouter><CalendarPage /></MemoryRouter>) }
@@ -249,4 +249,64 @@ it('offers past events when there are no search or city filters and preserves or
   fireEvent.click(screen.getByRole('button', { name: 'Показать прошедшие' }))
   await waitFor(() => expect(requests).toHaveLength(2))
   expect(Object.fromEntries(requests[1].searchParams)).toEqual({ organization: 'volna', status: 'past', page: '0', size: '20' })
+})
+
+function CalendarNavigationProbe() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  return <>
+    <button onClick={() => navigate('/next')}>Покинуть календарь</button>
+    <output aria-label="Текущий адрес">{location.pathname}{location.search}</output>
+    <Routes>
+      <Route path="/" element={<CalendarPage />} />
+      <Route path="/next" element={<h1>Следующая страница</h1>} />
+    </Routes>
+  </>
+}
+
+it('clears pending search and online subscriptions when leaving the calendar', async () => {
+  const load = vi.spyOn(calendarApi, 'calendar').mockResolvedValue({ items: [card], page: 0, size: 20, total: 1, cities: [] })
+  const view = render(<MemoryRouter><CalendarNavigationProbe /></MemoryRouter>)
+  await screen.findByText(card.title)
+  vi.useFakeTimers()
+  try {
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Новый поиск' } })
+    expect(vi.getTimerCount()).toBe(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Покинуть календарь' }))
+    expect(screen.getByLabelText('Текущий адрес')).toHaveTextContent('/next')
+    expect(vi.getTimerCount()).toBe(0)
+    await act(async () => {
+      vi.advanceTimersByTime(300)
+      window.dispatchEvent(new Event('online'))
+    })
+    expect(screen.getByLabelText('Текущий адрес').textContent).toBe('/next')
+    expect(load).toHaveBeenCalledTimes(1)
+  } finally { view.unmount(); vi.useRealTimers(); load.mockRestore() }
+})
+
+it.each(['initial', 'pagination'] as const)('aborts the %s request on navigation and ignores its late response', async mode => {
+  const first: Calendar = { items: [card], page: 0, size: 20, total: 2, cities: [] }
+  const signals: AbortSignal[] = []
+  let finish!: (data: Calendar) => void
+  const pending = new Promise<Calendar>(resolve => { finish = resolve })
+  const load = vi.spyOn(calendarApi, 'calendar').mockImplementation((query, signal) => {
+    if (!signal) throw new Error('Expected a cancellable calendar request')
+    signals.push(signal)
+    return mode === 'initial' || query.get('page') === '1' ? pending : Promise.resolve(first)
+  })
+  const view = render(<MemoryRouter><CalendarNavigationProbe /></MemoryRouter>)
+  try {
+    if (mode === 'pagination') {
+      await screen.findByText(card.title)
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+    }
+    const requestSignal = signals.at(-1)!
+    expect(requestSignal.aborted).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Покинуть календарь' }))
+    expect(requestSignal.aborted).toBe(true)
+    await act(async () => { finish({ ...first, items: [{ ...card, slug: 'late', title: 'Поздний ответ' }] }) })
+    expect(screen.getByRole('heading', { name: 'Следующая страница' })).toBeInTheDocument()
+    expect(screen.queryByText('Поздний ответ')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Текущий адрес').textContent).toBe('/next')
+  } finally { view.unmount(); load.mockRestore() }
 })
