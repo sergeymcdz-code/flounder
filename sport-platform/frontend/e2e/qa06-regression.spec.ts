@@ -244,8 +244,8 @@ test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page 
     sequenceInSession: 1, scheduledAt: '2026-10-17T10:00:00+04:00', status: 'PUBLISHED',
   }])
   await navigate(page, '/e/demo/schedule')
-  await expect(page.locator('li')).toContainText('Заплыв 1')
-  await expect(page.locator('li')).toContainText('10:00')
+  await expect(page.locator('li').filter({ hasText: 'Заплыв 1' }).last()).toContainText('Заплыв 1')
+  await expect(page.locator('li').filter({ hasText: 'Заплыв 1' }).last()).toContainText('10:00')
 })
 
 test('QA06-22 judge can discover the results panel from primary navigation', async ({ page }) => {

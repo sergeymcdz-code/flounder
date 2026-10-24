@@ -57,7 +57,7 @@ it('renders organization contacts, results, metadata and archive links', async (
   expect(screen.getByRole('link', { name: 'club@example.org' })).toHaveAttribute('href', 'mailto:club@example.org')
   expect(screen.getByRole('link', { name: '+7 (900) 123-45-67' })).toHaveAttribute('href', 'tel:+79001234567')
   expect(screen.getByRole('link', { name: 'Все прошедшие старты →' })).toHaveAttribute('href', '/?organization=volna&status=past')
-  expect(document.title).toBe('Клуб Волна · SportGate')
+  await waitFor(() => expect(document.title).toBe('Клуб Волна · SportGate'))
   expect(document.querySelector('meta[property="og:description"]')).toHaveAttribute('content', 'Плаваем вместе')
   view.unmount()
   expect(document.querySelector('meta[property="og:description"]')).toBeNull()
@@ -129,7 +129,7 @@ function directory(roles?: string[]) {
 it('public event has exactly one organizer row linking to its public page', () => {
   const event = { ...demoEvent, organization: { name: 'Клуб Волна', publicSlug: 'volna', hasLogo: false } }
   render(<MemoryRouter><Routes><Route element={<Outlet context={{ event }} />}><Route index element={<PublicEventPage />} /></Route></Routes></MemoryRouter>)
-  expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
+  expect(screen.getAllByText('Организатор', { exact: true })).toHaveLength(1)
   expect(screen.getByRole('link', { name: 'Клуб Волна' })).toHaveAttribute('href', '/o/volna')
 })
 
@@ -141,6 +141,6 @@ it('public event layout preserves role home and links to the calendar and organi
   const nav = within(screen.getByRole('navigation', { name: 'Основная навигация' }))
   expect(nav.getByRole('link', { name: 'Календарь' })).toHaveAttribute('href', '/')
   expect(await nav.findByRole('link', { name: 'Страница организации' })).toHaveAttribute('href', '/o/volna')
-  expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
+  expect(screen.getAllByText('Организатор', { exact: true })).toHaveLength(1)
   expect(screen.getByRole('navigation', { name: 'Разделы соревнования' })).toBeInTheDocument()
 })
