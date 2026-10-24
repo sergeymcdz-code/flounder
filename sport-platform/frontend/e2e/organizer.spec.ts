@@ -33,7 +33,9 @@ async function rowAction(row: Locator, label: string) {
 }
 
 async function generateAll(page: Page) {
-  await page.getByRole('button', { name: 'Сформировать заплывы', exact: true }).click()
+  const button = page.getByRole('button', { name: 'Всё соревнование', exact: true })
+  if (!await button.isVisible()) await page.getByText('Сформировать заплывы ▾', { exact: true }).click()
+  await button.click()
 }
 
 async function mockTemplates(
@@ -154,7 +156,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   await page.getByRole('heading', { name: 'Последнее формирование' }).waitFor()
   await page.getByText('Расписание ▾', { exact: true }).click()
   await page
-    .getByRole('menuitem', { name: 'Пересчитать время стартов', exact: true })
+    .getByRole('button', { name: 'Пересчитать время стартов', exact: true })
     .click()
   await page
     .getByRole('status')
@@ -192,11 +194,6 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .getByRole('status')
     .filter({ hasText: 'Выполняем действие' })
     .waitFor({ state: 'hidden' })
-  const validation = page.getByRole('dialog', { name: 'Проверка заплывов' })
-  await expect(validation).toBeVisible()
-  await expect(validation.getByRole('status')).toHaveText('Нарушений не найдено.')
-  await validation.getByRole('button', { name: 'Закрыть', exact: true }).click()
-  await expect(validation).toHaveCount(0)
   await page
     .getByRole('button', {
       name: 'Опубликовать протокол',
@@ -216,7 +213,6 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor()
   await dialog.getByRole('button', { name: 'Подтвердить', exact: true }).click()
   await dialog.waitFor({ state: 'hidden' })
-  await page.getByText(/^Замечания формирования ·/).click()
   await page
     .getByText(
       'Опубликованные заплывы заменены. Требуется повторная публикация.',

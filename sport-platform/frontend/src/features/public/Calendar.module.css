@@ -2,7 +2,7 @@
 .main { max-width: 1120px; margin: auto; padding: 32px 24px; }
 .main h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.15; margin: 12px 0 28px; overflow-wrap: anywhere; }
 .main h2 { margin-top: 32px; }
-.eyebrow {  text-transform: uppercase; letter-spacing: .09em; font-size: 13px; }
+.eyebrow { color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .09em; font-size: 13px; }
 .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
 .tabs button[aria-pressed="true"] { background: var(--color-primary); color: var(--color-on-primary, #fff); }
 .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; padding: 20px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }

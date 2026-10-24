@@ -47,3 +47,6 @@
 @media (max-width: 767px) {
   .laneCard:is([data-lane='4'], [data-lane='5']) { border-inline-start: 4px solid var(--color-text); }
 }
+
+/* Keep the disabled-ghost correction inside judging while D04-2n owns the other screens. */
+.page :global(.fl-btn-ghost:disabled) { background: transparent; }

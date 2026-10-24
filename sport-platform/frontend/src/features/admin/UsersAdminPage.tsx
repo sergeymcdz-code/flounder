@@ -11,7 +11,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import { adminError, roleLabel } from './admin-utils'
 import { assignRole, changePassword, createUser, getRoles, getUsers, getUserDetails, revokeRole, setUserStatus,
   type AdminUser, type Role, type UserPage } from '../../api/admin.api'
-import { AdminDialog } from './AdminDialog'
+import { OrganizerDialog } from '../organizer/OrganizerDialog'
 import styles from './Admin.module.css'
 
 type Action = { type: 'roles' | 'password' | 'status'; user: AdminUser } | { type: 'create' }
@@ -155,7 +155,7 @@ export function UsersAdminPage() {
       <ActionBar className={styles.pagination}><Button title={page === 0 ? 'Вы на первой странице' : loading ? 'Дождитесь загрузки пользователей' : undefined} disabled={page === 0 || loading} onClick={() => setPage(value => value - 1)}>Назад</Button>
         <span className="fl-numeric">Страница {page + 1} из {Math.max(1, Math.ceil(data.total / data.size))} · Всего {data.total}</span><Button title={(page + 1) * data.size >= data.total ? 'Вы на последней странице' : loading ? 'Дождитесь загрузки пользователей' : undefined} disabled={(page + 1) * data.size >= data.total || loading} onClick={() => setPage(value => value + 1)}>Далее</Button></ActionBar>
     </>}
-    {action && <AdminDialog title={action.type === 'create' ? 'Создать пользователя' : action.type === 'roles' ? 'Роли пользователя' : action.type === 'password' ? 'Сменить пароль' : 'Изменить статус'} busy={busy} onClose={() => setAction(null)}>
+    {action && <OrganizerDialog title={action.type === 'create' ? 'Создать пользователя' : action.type === 'roles' ? 'Роли пользователя' : action.type === 'password' ? 'Сменить пароль' : 'Изменить статус'} busy={busy} onClose={() => setAction(null)}>
       <form className={styles.form} onSubmit={submit}><fieldset disabled={busy} className={`fl-fieldset ${styles.form}`}><legend>Данные пользователя</legend>
         {action.type !== 'create' && <p>{action.user.email}</p>}
         {action.type === 'create' && <>
@@ -180,6 +180,6 @@ export function UsersAdminPage() {
           <Button type="submit" variant="primary" loading={busy} title={busy ? 'Дождитесь завершения текущего действия' : action.type === 'roles' && !roleReady ? 'Дождитесь загрузки ролей пользователя' : undefined} disabled={busy || (action.type === 'roles' && !roleReady)}>{action.type === 'status' ? 'Подтвердить' : 'Сохранить'}</Button>
         </ActionBar>
       </form>
-    </AdminDialog>}
+    </OrganizerDialog>}
   </section>
 }
