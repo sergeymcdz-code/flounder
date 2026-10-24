@@ -135,6 +135,8 @@ test('QA06-13 valid WITHDRAWN registration shows its status to the participant',
 
 test('QA06-10 withdraw confirmation returns keyboard focus to its trigger', async ({ page }) => {
   await openAuditPage(page, `${base}/entries`, 'organizer')
+  // Payment status is separate from admission; withdrawal is available in the row menu.
+  await page.getByText('Ещё ▾', { exact: true }).first().click()
   const trigger = page.getByRole('button', { name: 'Снять', exact: true }).first()
   await trigger.click()
   await expect(page.getByRole('dialog', { name: 'Снять заявку?' })).toBeVisible()

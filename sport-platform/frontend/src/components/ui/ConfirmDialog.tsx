@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import styles from '../../features/organizer/OrganizerEventPage.module.css'
 export function ConfirmDialog({ title, description, confirmLabel, tone = 'primary', reason = false, reasonRequired = reason, busy = false, busyLabel = 'Сохраняем…', error, onConfirm, onClose }: {
   title: string; description: string; confirmLabel: string; tone?: 'primary' | 'danger'; reason?: boolean; reasonRequired?: boolean; busy?: boolean; busyLabel?: string; error?: string; onConfirm: (reason: string) => void; onClose: () => void
 }) {
@@ -15,7 +14,7 @@ export function ConfirmDialog({ title, description, confirmLabel, tone = 'primar
     ;(tone === 'danger' ? cancel : confirm).current?.focus()
     return () => { dialog?.close(); previous?.focus() }
   }, [tone])
-  return <dialog ref={ref} className={`${styles.dialog} fl-confirm`} aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} onCancel={e => { e.preventDefault(); if (!busy) onClose() }}>
+  return <dialog ref={ref} className="fl-confirm" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} onCancel={e => { e.preventDefault(); if (!busy) onClose() }}>
     <h2 id={`${id}-title`}>{title}</h2><p id={`${id}-description`}>{description}</p>
     <form onSubmit={e => { e.preventDefault(); if (!busy && (!reasonRequired || value.trim())) onConfirm(value.trim()) }}>
       {reason && <label className="fl-field">Причина{!reasonRequired && ' (необязательно)'}<textarea required={reasonRequired} maxLength={500} value={value} onChange={e => setValue(e.target.value)} /></label>}
