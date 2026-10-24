@@ -254,3 +254,5 @@
   background: var(--border-subtle);
   color: var(--color-text-muted);
 }
+
+.filter { width: 100%; max-width: 320px; }
