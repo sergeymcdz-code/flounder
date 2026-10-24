@@ -28,7 +28,7 @@ async function submitMockRegistration(page: Page, index: number) {
 
 async function rowAction(row: Locator, label: string) {
   const button = row.getByRole('button', { name: label, exact: true }).first()
-  if (!await button.isVisible()) await row.getByText('Ещё ▾', { exact: true }).click()
+  if (!await button.isVisible()) await row.getByRole('button', { name: 'Ещё ▾', exact: true }).click()
   await button.click()
 }
 
