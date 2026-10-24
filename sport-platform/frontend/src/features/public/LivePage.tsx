@@ -1,3 +1,4 @@
+import { ResultStatus } from '../results/ResultStatus'
 import { plural } from '../../utils/plural'
 import { sameSwimmer, swimmerStarts, useMySwimmers } from './my-swimmers'
 import { StarIcon } from '../../components/ui/icons'
@@ -251,7 +252,7 @@ export function AthleteSearch({
                         Результат:{' '}
                         {isValidResult(swim.result.status)
                           ? swim.result.display
-                          : swim.result.status}
+                          : <ResultStatus status={swim.result.status} />}
                         {swim.result.place !== null &&
                           ` · место ${swim.result.place}`}
                         {swim.result.placeInAgeGroup !== null &&

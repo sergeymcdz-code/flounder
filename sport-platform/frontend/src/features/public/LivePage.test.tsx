@@ -50,6 +50,25 @@ describe('Public live', () => {
     expect(screen.getByText(/Вид № 1 · 50 м/)).toBeInTheDocument()
     expect(screen.getAllByRole('row')).toHaveLength(9)
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    const nt = screen.getByLabelText('NT — Нет времени (результат не зафиксирован)')
+    expect(nt.tagName).toBe('ABBR')
+    expect(nt).toHaveAttribute('title', 'Нет времени (результат не зафиксирован)')
+    expect(screen.getByLabelText('Обозначения статусов результатов')).toHaveTextContent('NT — нет времени')
+  })
+
+  it('explains a DNS result returned by athlete search', async () => {
+    server.use(http.get('*/api/v1/public/events/demo/athletes', () => HttpResponse.json([{
+      athleteKey: 'dns', lastName: 'Иванов', firstName: 'Иван', birthYear: 2012, club: null,
+      swims: [{ disciplineName: '50 м', heatNumber: 1, lane: 1, scheduledAt: null,
+        result: { status: 'DNS', display: null, place: null, placeInAgeGroup: null } }],
+    }])))
+    const user = (await import('@testing-library/user-event')).default.setup()
+    render(<MemoryRouter><AthleteSearch slug="demo" /></MemoryRouter>)
+    await user.type(screen.getByRole('searchbox'), 'Иванов')
+    const code = await screen.findByLabelText('DNS — Не стартовал')
+    expect(code).toHaveAttribute('title', 'Не стартовал')
+    await user.click(code)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Не стартовал')
   })
 
   it('shows delay and estimates following starts in venue time', () => {
