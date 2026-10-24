@@ -64,15 +64,19 @@ export function AwardsPrintControls() {
   const groups = event.disciplines.filter(d => !discipline || d.id === discipline).flatMap(d => d.ageGroups ?? []).filter((g, i, all) => all.findIndex(x => x.code === g.code) === i)
   const diplomaQuery = new URLSearchParams(query)
   if (group && scope === 'AGE_GROUP') diplomaQuery.set('ageGroupCode', group)
-  return <div className={resultsStyles.awards}>
-    <label className="fl-field">Область награждения<select value={scope} onChange={e => setScope(e.target.value)}><option value="AGE_GROUP">По возрастным группам</option><option value="ABSOLUTE">Абсолют</option></select></label>
-    <label className="fl-field">Число мест<input type="number" min="1" max="500" value={places} onChange={e => setPlaces(e.target.value)} /></label>
-    <label className="fl-field">Вид награждения<select value={discipline} onChange={e => { setDiscipline(e.target.value); setGroup('') }}><option value="">Все виды</option>{event.disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-    <label className="fl-field">Группа для грамот<select title={scope === 'ABSOLUTE' ? 'В абсолютном зачёте возрастные группы не используются' : undefined} disabled={scope === 'ABSOLUTE'} value={group} onChange={e => setGroup(e.target.value)}><option value="">Все группы</option>{groups.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}</select>{scope === 'ABSOLUTE' && <small>В абсолютном зачёте возрастные группы не используются</small>}</label>
-    <ResultPdfButton path={`/api/v1/events/${event.id}/documents/awards.pdf?${query}`} filename="Лист-награждения.pdf" disabledReason={!validPlaces ? 'Введите число мест от 1 до 500' : undefined} accessToken={accessToken} label="Лист награждения (PDF)" />
-    <ResultPdfButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?${diplomaQuery}`} filename="Грамоты.pdf" disabledReason={!validPlaces ? 'Введите число мест от 1 до 500' : undefined} accessToken={accessToken} label="Грамоты (PDF)" />
-    <ResultPdfButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?sample=true`} filename="Пробная-грамота.pdf" accessToken={accessToken} label="Пробная грамота" />
-  </div>
+  return <>
+    <div className={resultsStyles.awards}>
+      <label className="fl-field">Область награждения<select value={scope} onChange={e => setScope(e.target.value)}><option value="AGE_GROUP">По возрастным группам</option><option value="ABSOLUTE">Абсолют</option></select></label>
+      <label className="fl-field">Число мест<input type="number" min="1" max="500" value={places} onChange={e => setPlaces(e.target.value)} /></label>
+      <label className="fl-field">Вид награждения<select value={discipline} onChange={e => { setDiscipline(e.target.value); setGroup('') }}><option value="">Все виды</option>{event.disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+      <label className="fl-field">Группа для грамот<select title={scope === 'ABSOLUTE' ? 'В абсолютном зачёте возрастные группы не используются' : undefined} disabled={scope === 'ABSOLUTE'} value={group} onChange={e => setGroup(e.target.value)}><option value="">Все группы</option>{groups.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}</select>{scope === 'ABSOLUTE' && <small>В абсолютном зачёте возрастные группы не используются</small>}</label>
+    </div>
+    <ActionBar className={resultsStyles.printActions}>
+      <ResultPdfButton path={`/api/v1/events/${event.id}/documents/awards.pdf?${query}`} filename="Лист-награждения.pdf" disabledReason={!validPlaces ? 'Введите число мест от 1 до 500' : undefined} accessToken={accessToken} label="Лист награждения (PDF)" />
+      <ResultPdfButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?${diplomaQuery}`} filename="Грамоты.pdf" disabledReason={!validPlaces ? 'Введите число мест от 1 до 500' : undefined} accessToken={accessToken} label="Грамоты (PDF)" />
+      <ResultPdfButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?sample=true`} filename="Пробная-грамота.pdf" accessToken={accessToken} label="Пробная грамота" />
+    </ActionBar>
+  </>
 }
 
 // Local overflow sheet until the shared D04-2a OverflowMenu reaches main.

@@ -108,10 +108,12 @@ it('keeps publication disabled when another heat in the same discipline is incom
 })
 
 it('opens the current heat through the existing judging route', () => {
+  state.context.event.id = 'cup / Москва'
   const heat = state.context.heats[0]
   state.live.data = { currentUnit: { id: heat.id, number: 1, disciplineName: '50 м' } }
   renderPage()
-  expect(screen.getByRole('link', { name: 'Открыть текущий заплыв' })).toHaveAttribute('href', `/operator/competition-units/${heat.id}?eventId=${state.context.event.id}`)
+  expect(screen.getByRole('link', { name: 'Открыть текущий заплыв' })).toHaveAttribute('href', `/operator/competition-units/${heat.id}?eventId=${encodeURIComponent(state.context.event.id)}`)
+  expect(screen.getByRole('link', { name: 'Открыть →' })).toHaveAttribute('href', `/operator/competition-units/${heat.id}?eventId=${encodeURIComponent(state.context.event.id)}`)
 })
 
 
@@ -120,4 +122,40 @@ it('explains why completed results cannot be unpublished', () => {
   renderPage()
   expect(screen.getByRole('button', { name: 'Снять публикацию' })).toBeDisabled()
   expect(screen.getByText('Результаты завершённого соревнования нельзя снять с публикации')).toBeVisible()
+})
+
+it('preserves the organizer session-list selector and opens only the first session', async () => {
+  state.context = { ...state.context, ...createFixtures() }
+  renderPage()
+  const list = screen.getByRole('region', { name: 'Заплывы по сессиям' })
+  expect(list).toHaveClass('fl-judging-list')
+  const first = within(list).getByText('Утренняя сессия').closest('details')
+  const second = within(list).getByText('Дневная сессия').closest('details')
+  expect(first).toHaveAttribute('open')
+  expect(second).not.toHaveAttribute('open')
+  await userEvent.click(within(list).getByText('Дневная сессия'))
+  expect(second).toHaveAttribute('open')
+})
+
+it('uses the same discipline number fallback in the heat list and publication list', () => {
+  state.context.event.disciplines[0].number = undefined
+  state.context.event.disciplines[0].orderInSession = 7
+  renderPage()
+  expect(screen.getAllByRole('heading', { name: /^Вид № 7 ·/ })).toHaveLength(2)
+})
+
+it('identifies the heat when unpublication fails', async () => {
+  state.context.heats = state.context.heats.map(h => ({ ...h, status: 'FINISHED', sequenceNumber: 3 }))
+  const failed = vi.fn()
+  state.context.run = vi.fn(async (action: () => Promise<unknown>) => {
+    try { await action(); return true }
+    catch (cause) { failed(cause); return false }
+  })
+  vi.mocked(changeCompetitionUnitPublication).mockRejectedValueOnce(new Error('Нет связи.'))
+  renderPage()
+  await userEvent.click(screen.getByRole('button', { name: 'Снять публикацию' }))
+  await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Снять публикацию' }))
+  await waitFor(() => expect(failed).toHaveBeenCalledWith(new Error('Заплыв 3: Нет связи.')))
+  expect(screen.getByRole('dialog')).toBeVisible()
+  expect(state.toast).not.toHaveBeenCalled()
 })
