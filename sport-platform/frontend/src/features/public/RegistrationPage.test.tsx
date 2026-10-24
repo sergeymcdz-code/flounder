@@ -1,16 +1,18 @@
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PublicRegistrationPage } from './RegistrationPage'
 import { publicApi, PublicApiError } from '../../api/public.api'
 import type { RegistrationForm } from './public.types'
+import { emptyRegistrationDraft, readRegistrationDraft } from './registrationFields'
 
 // Multi-step interactions also run on shared CI workers.
 vi.setConfig({ testTimeout: 30_000 })
 configure({ asyncUtilTimeout: 10_000 })
 afterAll(() => configure({ asyncUtilTimeout: 1_000 }))
 
-const { form, auth, dataState } = vi.hoisted(() => ({
+const { form, auth, dataState, eventData } = vi.hoisted(() => ({
+  eventData: { publicSlug: 'qa03', registrationOpen: true, registrationCloseAt: null as string | null },
   auth: { userId: 'test-user', isAuthenticated: true, isParticipant: true, session: { accessToken: 'test-token' } },
   dataState: { loading: false, error: undefined as string | undefined, errorStatus: undefined as number | undefined },
   form: {
@@ -26,7 +28,7 @@ vi.mock('../../app/providers/AuthProvider', () => ({
 }))
 vi.mock('./publicContext', async (importOriginal) => ({
   ...await importOriginal<typeof import('./publicContext')>(),
-  usePublicEvent: () => ({ publicSlug: 'qa03', registrationOpen: true }),
+  usePublicEvent: () => eventData,
 }))
 vi.mock('./usePublicData', () => ({ usePublicData: () => ({ data: dataState.loading || dataState.error ? undefined : form, ...dataState, retry: vi.fn() }) }))
 
@@ -48,6 +50,7 @@ function setup(count = 1, fillTimes = true) {
 describe('QA03 public registration submission', () => {
   beforeEach(() => {
     localStorage.clear()
+    eventData.registrationCloseAt = null
     auth.isAuthenticated = true
     auth.isParticipant = true
     dataState.loading = false
@@ -135,6 +138,7 @@ describe('QA03 public registration submission', () => {
 describe('D04-2g registration wizard', () => {
   beforeEach(() => {
     localStorage.clear()
+    eventData.registrationCloseAt = null
     auth.isAuthenticated = true
     auth.isParticipant = true
     dataState.loading = false
@@ -154,6 +158,42 @@ describe('D04-2g registration wizard', () => {
     expect(screen.getByLabelText('Фамилия')).toHaveFocus()
     expect(screen.getByLabelText('Фамилия')).toHaveAttribute('aria-invalid', 'true')
     expect(publicApi.register).not.toHaveBeenCalled()
+  })
+
+  it('validates only the current step when the form is submitted with Enter', () => {
+    const { container } = render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    fireEvent.change(screen.getByLabelText('Фамилия'), { target: { value: 'Иванов' } })
+    fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Иван' } })
+    fireEvent.change(screen.getByLabelText('Дата рождения'), { target: { value: '2014-04-18' } })
+    fireEvent.change(screen.getByLabelText('Пол'), { target: { value: 'M' } })
+    fireEvent.submit(container.querySelector('form')!)
+    expect(screen.getByRole('heading', { name: '2. Виды и время' })).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    fireEvent.submit(container.querySelector('form')!)
+    expect(screen.getByRole('alert')).toHaveTextContent('Выберите хотя бы один вид программы.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Необходимо согласие')
+    expect(publicApi.register).not.toHaveBeenCalled()
+  })
+
+  it('does not render empty metadata or a leading separator before the deadline', () => {
+    dataState.loading = true
+    const { container, rerender } = render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    expect(container.querySelector('.fl-meta')).not.toBeInTheDocument()
+    eventData.registrationCloseAt = '2026-10-31T12:00:00Z'
+    rerender(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    expect(container.querySelector('.fl-meta')).toHaveTextContent(/^регистрация до /)
+    expect(container.querySelector('.fl-meta')).not.toHaveTextContent('·')
+    dataState.loading = false
+    rerender(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    expect(container.querySelector('.fl-meta')).toHaveTextContent(/^Взнос указан у каждого вида программы · регистрация до /)
+  })
+
+  it('labels a zero fee as free in both the selected item and total', () => {
+    form.disciplines.forEach(item => { item.entryFee = 0 })
+    setup()
+    const review = within(screen.getByRole('group', { name: 'Проверка заявки' }))
+    expect(review.queryByText('0 ₽')).not.toBeInTheDocument()
+    expect(review.getAllByText('Бесплатно')).toHaveLength(2)
   })
 
   it('keeps the selected card and time when going back and restores the step after remount', () => {
@@ -210,6 +250,18 @@ describe('D04-2g registration wizard', () => {
     expect(screen.queryByRole('heading', { name: 'Заявка отправлена' })).not.toBeInTheDocument()
   })
 
+  it('requires an explicit send after returning to review with consent already checked', async () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Назад' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Далее: Проверка' }))
+    expect(screen.getByRole('heading', { name: '3. Проверка' })).toBeVisible()
+    expect(screen.getByLabelText('Я даю согласие на обработку персональных данных')).toBeChecked()
+    expect(publicApi.register).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }))
+    await waitFor(() => expect(publicApi.register).toHaveBeenCalledTimes(1))
+    await screen.findByText('Заявка отправлена')
+  })
+
   it('prevents a second request while submission is pending', async () => {
     let resolve!: (value: unknown) => void
     vi.mocked(publicApi.register).mockImplementation(() => new Promise(done => { resolve = done }))
@@ -246,5 +298,29 @@ describe('D04-2g registration wizard', () => {
     render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
     expect(screen.getByRole('link', { name: 'Войти' })).toHaveAttribute('href', '/login?next=%2Fe%2Fqa03%2Fregister')
     expect(screen.queryByLabelText('Фамилия')).not.toBeInTheDocument()
+  })
+})
+
+
+describe('D04-2g draft lifetime', () => {
+  const key = 'sportgate.registration.qa03.test-user'
+  const now = Date.UTC(2026, 9, 24, 12)
+  const week = 7 * 24 * 60 * 60 * 1000
+
+  beforeEach(() => {
+    localStorage.clear()
+    vi.spyOn(Date, 'now').mockReturnValue(now)
+  })
+
+  it.each([undefined, now - week - 1])('discards a draft with missing or expired savedAt (%s)', (savedAt) => {
+    localStorage.setItem(key, JSON.stringify({ ...emptyRegistrationDraft(), version: 1, savedAt,
+      profile: { ...emptyRegistrationDraft().profile, lastName: 'Иванова' }, step: 2 }))
+    expect(readRegistrationDraft(key)).toEqual(emptyRegistrationDraft())
+  })
+
+  it('restores a draft up to and including the seven-day boundary', () => {
+    const draft = { ...emptyRegistrationDraft(), profile: { ...emptyRegistrationDraft().profile, lastName: 'Иванова' }, step: 2 }
+    localStorage.setItem(key, JSON.stringify({ ...draft, version: 1, savedAt: now - week }))
+    expect(readRegistrationDraft(key)).toEqual(draft)
   })
 })

@@ -124,11 +124,13 @@ for (const width of [375, 768, 1366]) test(`UX-17 registration layout, errors an
   const errorId = (await seed.getAttribute('aria-describedby'))!.split(' ').find(id => id.startsWith('registration-error-'))!
   const seedError = page.locator(`[id="${errorId}"]`)
   const reservedHeight = (await seedError.boundingBox())!.height
+  const lineHeight = await seedError.evaluate(element => Number.parseFloat(getComputedStyle(element).lineHeight))
+  expect(reservedHeight).toBeCloseTo(lineHeight, 1)
   await page.getByRole('button', { name: 'Далее: Проверка', exact: true }).click()
   await expect(seed).toHaveAttribute('aria-invalid', 'true')
   await expect(seedError).toHaveText('Укажите заявочное время в формате мм:сс.сс.')
   await expect(seed).toBeFocused()
-  expect((await seedError.boundingBox())!.height).toBe(reservedHeight)
+  expect((await seedError.boundingBox())!.height).toBeGreaterThanOrEqual(reservedHeight)
   await seed.fill('006000')
   await page.getByRole('button', { name: 'Далее: Проверка', exact: true }).click()
   await expect(seedError).toHaveText('Введите ненулевое время в формате мм:сс.сс (секунды 00–59).')

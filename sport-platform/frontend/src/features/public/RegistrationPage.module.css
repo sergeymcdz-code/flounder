@@ -12,19 +12,19 @@
 .form :is(input, select, button) { scroll-margin-block-start: calc(var(--header-h) + var(--space-4)); scroll-margin-block-end: calc(var(--control-h-lg) + var(--control-h) + var(--space-12)); }
 .form input[type=date] { display: block; max-width: 100%; }
 .form :global(.fl-field) { gap: var(--space-2); align-content: start; }
-.form .fieldError { min-height: calc(var(--text-xs) * var(--line-height-body) * 2); color: var(--color-danger); font-size: var(--text-xs); line-height: var(--line-height-body); font-weight: 400; }
+.form .fieldError { min-height: calc(var(--text-xs) * var(--line-height-body)); color: var(--color-danger); font-size: var(--text-xs); line-height: var(--line-height-body); font-weight: 400; }
 .pair { display: grid; gap: var(--space-4); min-width: 0; }
 .optional, .draft, .discipline small, .sticky small { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 400; }
 .form .wizard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
 .wizard li { min-width: 0; }
-.wizard :global(.fl-btn) { width: 100%; min-height: var(--control-h); padding: var(--space-2) var(--space-1); white-space: normal; text-align: left; font-size: var(--text-xs); }
+.wizard :global(.fl-btn) { width: 100%; min-height: var(--control-h); padding: var(--space-2) var(--space-1); white-space: normal; text-align: left; font-size: var(--text-sm); }
 .wizard :global(.fl-btn-label) { display: flex; align-items: center; gap: var(--space-1); }
 .wizard [aria-current] :global(.fl-btn) { background: var(--surface-3); color: var(--color-primary); }
 .stepNumber { font-variant-numeric: var(--numeric-variant); }
 .discipline { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); min-width: 0; }
 .discipline[data-selected=true] { border-color: var(--color-primary); background: var(--surface-3); }
 .discipline .disciplineChoice { width: 100%; min-width: 0; min-height: var(--control-h-lg); padding: var(--space-2); text-align: left; white-space: normal; color: var(--color-text); }
-.disciplineChoice :global(.fl-btn-label) { display: grid; gap: var(--space-2); width: 100%; }
+.disciplineChoice :global(.fl-btn-label) { text-align: left; justify-items: start; display: grid; gap: var(--space-2); width: 100%; }
 .disciplineMeta { display: block; font-size: var(--text-sm); font-weight: 400; font-variant-numeric: var(--numeric-variant); }
 .seed { border-top: 1px solid var(--border-subtle); padding-block-start: var(--space-4); }
 .numeric { font-variant-numeric: var(--numeric-variant); text-align: right; }

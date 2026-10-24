@@ -61,6 +61,8 @@ export function readRegistrationDraft(key: string): RegistrationDraft {
   try {
     const saved = JSON.parse(localStorage.getItem(key) ?? 'null')
     if (!saved || saved.version !== 1 || !saved.profile || !saved.selected) return empty
+    if (typeof saved.savedAt !== 'number' || !Number.isFinite(saved.savedAt)
+      || Date.now() - saved.savedAt > 7 * 24 * 60 * 60 * 1000) return empty
     for (const field of ['lastName', 'firstName', 'middleName', 'birthDate', 'gender', 'club'] as const) {
       if (typeof saved.profile[field] !== 'string') return empty
     }

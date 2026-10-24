@@ -26,6 +26,7 @@ const fieldNames: Record<string, string> = {
   gender: 'Пол', club: 'Клуб', disciplines: 'Виды программы', consent: 'Согласие',
 }
 const money = (value: number) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`
+const fee = (value: number) => value === 0 ? 'Бесплатно' : money(value)
 
 function isDisciplineFull(item: RegistrationDiscipline, profile: RegistrationProfile) {
   if (item.maxParticipants != null && (item.participantsCount ?? 0) >= item.maxParticipants) return true
@@ -85,6 +86,10 @@ function RegistrationEditor() {
   const currentErrors = state.data ? validateRegistration(profile, selected, consent, state.data, today) : {}
   const firstInvalid = Object.keys(currentErrors)[0]
   const total = disciplines.reduce((sum, item) => sum + item.entryFee, 0)
+  const metaParts = [
+    state.data ? (state.data.disciplines.some(item => item.entryFee > 0) ? 'Взнос указан у каждого вида программы' : 'Участие бесплатно') : '',
+    event.registrationCloseAt ? `регистрация до ${date(event.registrationCloseAt, event.venue?.timezone)} ${time(event.registrationCloseAt, event.venue?.timezone)}` : '',
+  ].filter(Boolean)
   const eventFull = state.data?.maxParticipants != null && (state.data.participantsCount ?? 0) >= state.data.maxParticipants
   const waitlisted = eventFull || disciplines.some(item => isDisciplineFull(item, profile))
   const back = <Button as={Link} variant="ghost" to={`/e/${encodeURIComponent(event.publicSlug)}`}>К соревнованию</Button>
@@ -92,7 +97,7 @@ function RegistrationEditor() {
   useEffect(() => {
     if (!draftKey || success) return
     // oxlint-disable-next-line react/set-state-in-effect -- Reflect external storage availability in the UI.
-    try { localStorage.setItem(draftKey, JSON.stringify({ ...draft, version: 1 })); setStorageError(false) }
+    try { localStorage.setItem(draftKey, JSON.stringify({ ...draft, version: 1, savedAt: Date.now() })); setStorageError(false) }
     catch { setStorageError(true) }
   }, [draft, draftKey, success])
 
@@ -159,8 +164,8 @@ function RegistrationEditor() {
   async function submit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
     if (submitting || !state.data || !auth.session) return
-    if (Object.keys(currentErrors).length) { showValidation(currentErrors); return }
     if (step < 2) { next(); return }
+    if (Object.keys(currentErrors).length) { showValidation(currentErrors); return }
     setSubmitting(true)
     setCapacityError(false)
     setErrors({})
@@ -220,10 +225,7 @@ function RegistrationEditor() {
       <p>Оплата — после подтверждения заявки.</p>
     </aside>
     <section className={styles.card}>
-      <PageHeader title="Заявка на участие" meta={<>
-        {state.data && (state.data.disciplines.some(item => item.entryFee > 0) ? 'Взнос указан у каждого вида программы' : 'Участие бесплатно')}
-        {event.registrationCloseAt && <> · регистрация до {date(event.registrationCloseAt, event.venue?.timezone)} {time(event.registrationCloseAt, event.venue?.timezone)}</>}
-      </>} />
+      <PageHeader title="Заявка на участие" meta={metaParts.length ? metaParts.join(' · ') : undefined} />
       {state.loading && !state.data && <div role="status" className={styles.loading}>
         <p>Загружаем форму заявки…</p>{Array.from({ length: 6 }, (_, index) => <div key={index} className={styles.skeleton} aria-hidden="true" />)}
       </div>}
@@ -247,7 +249,7 @@ function RegistrationEditor() {
         {errorSummary}
         {eventFull && <Notice tone="warning"><span role="status">Мест нет, запись в лист ожидания. Организатор сообщит, когда освободится место.</span></Notice>}
         <fieldset hidden={step !== 0} disabled={submitting || profileLoading} className="fl-fieldset">
-          <legend>Участник</legend>
+          <legend className="fl-sr-only">Участник</legend>
           <h2 id="registration-step-0" tabIndex={-1}>1. Спортсмен</h2>
           <Button loading={profileLoading} title={profileLoading ? 'Загружаем данные спортсмена' : undefined} onClick={() => void fillOwnProfile()}>Это я</Button>
           <div className={styles.pair}>
@@ -276,7 +278,7 @@ function RegistrationEditor() {
           </div>
         </fieldset>
         <fieldset hidden={step !== 1} disabled={submitting || !profileReady} className="fl-fieldset" aria-describedby="registration-disciplines-hint">
-          <legend>Виды (до трёх)</legend>
+          <legend className="fl-sr-only">Виды (до трёх)</legend>
           <h2 id="registration-step-1" tabIndex={-1}>2. Виды и время</h2>
           <div id="registration-disciplines-hint">{profileReady ? <p>Выберите до трёх видов программы. Заявочное время — мм:сс.сс.</p> : <Notice tone="info">Укажите пол и дату рождения, чтобы увидеть доступные виды</Notice>}</div>
           <Button variant="ghost" aria-pressed={showAll} onClick={() => setShowAll(value => !value)}>Показать все виды</Button>
@@ -293,7 +295,7 @@ function RegistrationEditor() {
                 title={!allowed && !checked ? 'Не подходит по полу или году рождения' : undefined}
                 onClick={() => setDraft(previous => { const next = { ...previous.selected }; if (checked) delete next[item.id]; else next[item.id] = ''; return { ...previous, selected: next } })}>
                 <span><strong>{item.name}</strong> · {groupNames || 'Все возрастные группы'}</span>
-                <span className={styles.disciplineMeta}>{item.entryFee === 0 ? 'Бесплатно' : money(item.entryFee)} · {checked ? 'Выбрано' : 'Выбрать'}</span>
+                <span className={styles.disciplineMeta}>{fee(item.entryFee)} · {checked ? 'Выбрано' : 'Выбрать'}</span>
               </Button>
               {profileReady && isDisciplineFull(item, profile) && <StatusBadge kind="registration" code="WAITLISTED" />}
               {!allowed && <small>{profileReady ? 'Не подходит по полу или году рождения' : 'Сначала укажите пол и дату рождения'}</small>}
@@ -313,7 +315,7 @@ function RegistrationEditor() {
           {profileReady && !state.data.disciplines.some(item => eligible(item, profile)) && <EmptyState title="Подходящих видов программы нет" action={<Button onClick={() => goTo(0)}>Проверить данные спортсмена</Button>}><p>Проверьте пол и дату рождения или уточните программу у организатора.</p></EmptyState>}
         </fieldset>
         <fieldset hidden={step !== 2} disabled={submitting} className="fl-fieldset">
-          <legend>Проверка заявки</legend>
+          <legend className="fl-sr-only">Проверка заявки</legend>
           <h2 id="registration-step-2" tabIndex={-1}>3. Проверка</h2>
           <dl className={styles.review}>
             <dt>Участник</dt><dd>{[profile.lastName, profile.firstName, profile.middleName].filter(Boolean).join(' ') || 'Не указан'}</dd>
@@ -321,8 +323,8 @@ function RegistrationEditor() {
             <dt>Клуб / город</dt><dd>{profile.club || 'Не указан'}</dd>
           </dl>
           <h3>Виды и заявочное время</h3>
-          {disciplines.length ? <ul className={styles.reviewList}>{disciplines.map(item => <li key={item.id}><span>{item.name}</span><strong className={styles.numeric}>{selected[item.id] || 'Без времени (NT)'}</strong><span className={styles.numeric}>{money(item.entryFee)}</span></li>)}</ul> : <Notice tone="warning">Выберите хотя бы один вид программы на втором шаге.</Notice>}
-          <div className={`${styles.total} fl-summary-cell`}><span>Итого · {disciplines.length} {disciplines.length === 1 ? 'дистанция' : 'дистанции'}</span><strong className={styles.numeric}>{total ? money(total) : 'Бесплатно'}</strong></div>
+          {disciplines.length ? <ul className={styles.reviewList}>{disciplines.map(item => <li key={item.id}><span>{item.name}</span><strong className={styles.numeric}>{selected[item.id] || 'Без времени (NT)'}</strong><span className={styles.numeric}>{fee(item.entryFee)}</span></li>)}</ul> : <Notice tone="warning">Выберите хотя бы один вид программы на втором шаге.</Notice>}
+          <div className={`${styles.total} fl-summary-cell`}><span>Итого · {disciplines.length} {disciplines.length === 1 ? 'дистанция' : 'дистанции'}</span><strong className={styles.numeric}>{fee(total)}</strong></div>
           {total > 0 && <p>Оплата после подтверждения заявки организатором. Сейчас оплачивать не нужно.</p>}
           {waitlisted && <Notice tone="warning">Мест нет, заявка попадёт в лист ожидания. Оплата будет доступна после подтверждения организатором.</Notice>}
           <h3>Контакты</h3><p>Ответ организатора придёт на <strong>{email || 'email вашего аккаунта'}</strong>.</p>
@@ -332,8 +334,8 @@ function RegistrationEditor() {
         <div className={styles.sticky}>
           <div className={styles.actions}>
             {step > 0 && <Button disabled={submitting} title={submitting ? 'Заявка отправляется' : undefined} onClick={() => goTo(step - 1)}>Назад</Button>}
-            {step < 2 ? <Button variant="primary" size="lg" onClick={next}>Далее: {stepNames[step + 1]}</Button>
-              : <Button variant="primary" size="lg" type="submit" loading={submitting} disabled={!!firstInvalid}
+            {step < 2 ? <Button key="next" variant="primary" size="lg" onClick={next}>Далее: {stepNames[step + 1]}</Button>
+              : <Button key="submit" variant="primary" size="lg" type="submit" loading={submitting} disabled={!!firstInvalid}
                 title={firstInvalid ? currentErrors[firstInvalid] : submitting ? 'Заявка отправляется' : undefined} aria-describedby={firstInvalid ? 'registration-disabled-reason' : undefined}>Отправить заявку</Button>}
           </div>
           {step === 2 && firstInvalid && <small id="registration-disabled-reason">{currentErrors[firstInvalid]}</small>}
