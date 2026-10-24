@@ -10,7 +10,7 @@ import { PasswordPage } from './PasswordPage'
 
 vi.hoisted(() => { vi.stubEnv('VITE_API_BASE_URL', 'http://localhost') })
 beforeEach(() => setAuthSession(null))
-function page(mode: 'forgot' | 'reset' | 'change', url = '/reset-password?token=reset-token') {
+function page(mode: 'forgot' | 'reset' | 'change', url = '/reset-password#token=reset-token') {
   render(<MemoryRouter initialEntries={[url]}><AuthProvider><Routes>
     <Route path="/login" element={<p>Страница входа</p>} />
     <Route path="*" element={<PasswordPage mode={mode} />} />
@@ -102,7 +102,7 @@ it('signs out after changing the password and keeps the success message visible'
   server.use(
     http.post('*/api/v1/auth/change-password', () => new HttpResponse(null, { status: 204 })),
     http.post('*/api/v1/auth/logout', async ({ request }) => {
-      revoked = await request.json(); return new HttpResponse(null, { status: 204 })
+      revoked = await request.text(); return new HttpResponse(null, { status: 204 })
     }),
   )
   page('change', '/account/password')
@@ -110,7 +110,7 @@ it('signs out after changing the password and keeps the success message visible'
   await passwords('Changed123!')
   await userEvent.click(screen.getByRole('button', { name: 'Сохранить пароль' }))
   expect(await screen.findByRole('status')).toHaveTextContent('Пароль изменён. Войдите заново с новым паролем')
-  await vi.waitFor(() => expect(revoked).toEqual({ refreshToken: 'revoked-refresh' }))
+  await vi.waitFor(() => expect(revoked).toBe(''))
   expect(getAuthState().session).toBeNull()
   expect(sessionStorage.getItem('flounder.auth-session')).toBeNull()
   expect(screen.queryByText('Страница входа')).not.toBeInTheDocument()

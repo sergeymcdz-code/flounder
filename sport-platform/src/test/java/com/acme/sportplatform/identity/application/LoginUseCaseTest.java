@@ -45,7 +45,10 @@ class LoginUseCaseTest {
         when(sessions.issue(principal, null)).thenReturn(new com.acme.sportplatform.identity.api.AuthTokenResponse("access", "Bearer", 7200, "refresh"));
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"user@qa04.example\",\"password\":\"test-password\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").value("refresh"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(cookie().value("sportgate_refresh", "refresh"))
+                .andExpect(cookie().httpOnly("sportgate_refresh", true))
+                .andExpect(cookie().secure("sportgate_refresh", true));
         var order = inOrder(manager, limiter, sessions);
         order.verify(manager).authenticate(any());
         order.verify(limiter).succeeded("user@qa04.example", "127.0.0.1");

@@ -47,6 +47,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     @Autowired PlatformTransactionManager transactionManager;
     @MockitoBean(name = "notificationJavaMailSender") JavaMailSender sender;
     @MockitoBean(name = "notificationClock") Clock clock;
+    @Autowired com.acme.sportplatform.identity.PasswordResetMailLookup resetMail;
     Instant now;
     @BeforeEach void mailFixture() {
         now = Instant.now();
@@ -135,7 +136,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
     @Test void loggingDeliveryKeepsOutboxWithoutSmtp() {
         confirmed(); commitQueue();
         var loggingTransport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false, "auto"), sender, new LoggingMailSender());
-        new NotificationWorker(outbox, new MailTemplateRenderer(), loggingTransport, clock, transactionManager).sendBatch();
+        new NotificationWorker(outbox, new MailTemplateRenderer(), loggingTransport, clock, transactionManager, resetMail).sendBatch();
         verifyNoInteractions(sender);
         assertThat(jdbc.queryForObject("select status from notification_outbox where event_id=?", String.class, id("event"))).isEqualTo("SENT");
     }
@@ -200,20 +201,58 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
                     .isEqualTo("19 октября 2026");
         } finally { TimeZone.setDefault(previous); }
     }
+    void queueReset(String recipient) {
+        jdbc.update("insert into users(id,email,password_hash,status,created_at,updated_at) values (?,?,?,'active',now(),now())",
+                UUID.randomUUID(), recipient, HASH);
+        passwords.requestReset(recipient);
+        assertThat(jdbc.queryForObject("select payload::text from notification_outbox where recipient_email=?", String.class, recipient))
+                .contains("requestId").doesNotContain("token=", "body");
+    }
+    @Test void resetSecretExistsOnlyInDeliveredMailAndHash() throws Exception {
+        queueReset("secret@example.org"); commitQueue(); worker.sendBatch();
+        var message = org.mockito.ArgumentCaptor.forClass(MimeMessage.class);
+        verify(sender).send(message.capture());
+        var parts = (jakarta.mail.Multipart) message.getValue().getContent();
+        String text = mailText(parts);
+        assertThat(text).contains("/reset-password#token=").doesNotContain("?token=");
+        String raw = text.split("#token=")[1].split("\\s")[0];
+        assertThat(raw).hasSize(43);
+        assertThat(jdbc.queryForObject("select token_hash from password_reset_tokens where user_id=(select id from users where email='secret@example.org')", String.class))
+                .isEqualTo(com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens.hash(raw));
+        passwords.confirmReset(raw, "Reset123!");
+        assertThatThrownBy(() -> passwords.confirmReset(raw, "Again123!"))
+                .isInstanceOf(com.acme.sportplatform.common.exception.BusinessException.class);
+        assertThat(jdbc.queryForObject("select payload::text from notification_outbox where recipient_email='secret@example.org'", String.class)).isEqualTo("{}");
+    }
+    String mailText(jakarta.mail.Multipart parts) throws Exception {
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < parts.getCount(); i++) {
+            var part = parts.getBodyPart(i);
+            if (part.getContent() instanceof jakarta.mail.Multipart nested) text.append(mailText(nested));
+            else if (part.isMimeType("text/plain")) text.append(part.getContent());
+        }
+        return text.toString();
+    }
+    @Test void supersededResetIsNotSent() {
+        queueReset("superseded@example.org");
+        passwords.requestReset("superseded@example.org");
+        commitQueue(); worker.sendBatch();
+        verify(sender, times(1)).send(any(MimeMessage.class));
+    }
     @Test void sentResetPayloadIsErased() {
-        mail.send("payload@example.org", "Восстановление пароля", "Ссылка: /reset-password?token=test-reset-token");
+        queueReset("payload@example.org");
         commitQueue(); worker.sendBatch();
         assertThat(jdbc.queryForObject("select payload::text from notification_outbox where recipient_email='payload@example.org'", String.class))
                 .isEqualTo("{}").doesNotContain("token=");
     }
     @Test void failedResetPayloadSurvivesRetriesAndIsErasedOnFinalFailure() {
-        mail.send("failed@example.org", "Восстановление пароля", "Ссылка: /reset-password?token=test-reset-token");
+        queueReset("failed@example.org");
         commitQueue();
         doThrow(new MailSendException("secret")).when(sender).send(any(MimeMessage.class));
         for (int attempt = 1; attempt <= 5; attempt++) {
             worker.sendBatch();
             String payload = jdbc.queryForObject("select payload::text from notification_outbox where recipient_email='failed@example.org'", String.class);
-            if (attempt < 5) assertThat(payload).contains("token=test-reset-token");
+            if (attempt < 5) assertThat(payload).contains("requestId").doesNotContain("token=", "body", "subject");
             else assertThat(payload).isEqualTo("{}").doesNotContain("token=");
             now = now.plusSeconds(10L * (1L << (attempt - 1)));
         }
@@ -224,7 +263,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         passwords.requestReset(ids.get("participantEmail"));
         var pending = jdbc.queryForMap("select template_code,payload::text,event_id,status from notification_outbox where recipient_email=?", ids.get("participantEmail"));
         assertThat(pending).containsEntry("template_code", "password_reset").containsEntry("event_id", null).containsEntry("status", "PENDING");
-        assertThat(pending.get("payload").toString()).contains("/reset-password?token=");
+        assertThat(pending.get("payload").toString()).contains("requestId").doesNotContain("token=", "body", "subject");
         commitQueue();
         var logging = new LoggingMailSender();
         var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(LoggingMailSender.class);
@@ -232,7 +271,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         appender.start(); logger.addAppender(appender);
         try {
             var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", false, "auto"), sender, logging);
-            new NotificationWorker(outbox, new MailTemplateRenderer(), transport, clock, transactionManager).sendBatch();
+            new NotificationWorker(outbox, new MailTemplateRenderer(), transport, clock, transactionManager, resetMail).sendBatch();
             verifyNoInteractions(sender);
             assertThat(appender.list).hasSize(1);
             assertThat(appender.list.getFirst().getFormattedMessage()).contains("Восстановление пароля SportGate").doesNotContain("token=");
@@ -241,8 +280,8 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(sent).containsEntry("status", "SENT").containsEntry("payload", "{}");
     }
     @Test void failureMarkingLaterRowDoesNotRollBackEarlierDelivery() {
-        mail.send("first@example.org", "Восстановление пароля", "token=first");
-        mail.send("second@example.org", "Восстановление пароля", "token=second");
+        queueReset("first@example.org");
+        queueReset("second@example.org");
         commitQueue();
         var ids = outbox.dueBatch(now);
         var crashing = new NotificationOutboxRepository(jdbc, json) {
@@ -252,7 +291,7 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
             }
         };
         var transport = new MailTransport(new MailProperties("", 587, "", "", "noreply@localhost", true, "auto"), sender, new LoggingMailSender());
-        var crashingWorker = new NotificationWorker(crashing, new MailTemplateRenderer(), transport, clock, transactionManager);
+        var crashingWorker = new NotificationWorker(crashing, new MailTemplateRenderer(), transport, clock, transactionManager, resetMail);
         assertThatThrownBy(crashingWorker::sendBatch).isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
         assertThat(jdbc.queryForMap("select status,payload::text from notification_outbox where id=?", ids.get(0)))
                 .containsEntry("status", "SENT").containsEntry("payload", "{}");
@@ -288,21 +327,21 @@ class NotificationIntegrationTest extends Qa04SecurityFixture {
         assertThat(jdbc.queryForObject("select last_error from notification_outbox where event_id=?", String.class, id("event"))).doesNotContain("secret", "password", "body");
     }
     @Test void workerBatchIsLimitedToTwentyAndContinuesAfterFailure() {
-        for (int n = 0; n < 51; n++) mail.send("batch@example.org", "Восстановление пароля SportGate", "Тестовое письмо " + n);
+        for (int n = 0; n < 51; n++) queueReset("batch" + n + "@example.org");
         commitQueue();
         doThrow(new MailSendException("test")).doNothing().when(sender).send(any(MimeMessage.class));
         worker.sendBatch(); verify(sender, times(20)).send(any(MimeMessage.class));
-        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email='batch@example.org'", Long.class)).isEqualTo(19);
+        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='SENT' and recipient_email like 'batch%@example.org'", Long.class)).isEqualTo(19);
         worker.sendBatch(); verify(sender, times(40)).send(any(MimeMessage.class));
         worker.sendBatch(); verify(sender, times(51)).send(any(MimeMessage.class));
     }
     @Test void workerStopsStartingDeliveriesAtThirtySecondsAndResumesNextPass() {
-        for (int n = 0; n < 10; n++) mail.send("deadline@example.org", "Проверка", "Письмо " + n);
+        for (int n = 0; n < 10; n++) queueReset("deadline" + n + "@example.org");
         commitQueue();
         doAnswer(call -> { now = now.plusSeconds(10); return null; }).when(sender).send(any(MimeMessage.class));
         worker.sendBatch();
         verify(sender, times(3)).send(any(MimeMessage.class));
-        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='PENDING' and recipient_email='deadline@example.org'", Long.class)).isEqualTo(7);
+        assertThat(jdbc.queryForObject("select count(*) from notification_outbox where status='PENDING' and recipient_email like 'deadline%@example.org'", Long.class)).isEqualTo(7);
         worker.sendBatch();
         verify(sender, times(6)).send(any(MimeMessage.class));
     }

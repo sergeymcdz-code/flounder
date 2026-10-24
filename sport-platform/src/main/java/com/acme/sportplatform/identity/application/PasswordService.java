@@ -16,7 +16,7 @@ import com.acme.sportplatform.identity.infrastructure.persistence.repository.*;
 import com.acme.sportplatform.identity.infrastructure.security.OpaqueTokens;
 
 @Service
-public class PasswordService {
+public class PasswordService implements com.acme.sportplatform.identity.PasswordResetMailLookup {
     private final UserRepository users;
     private final PasswordResetTokenRepository resets;
     private final RefreshTokenRepository refreshTokens;
@@ -69,9 +69,25 @@ public class PasswordService {
         token.setUserId(user.getId()); token.setTokenHash(OpaqueTokens.hash(raw));
         token.setCreatedAt(clock.instant()); token.setExpiresAt(clock.instant().plus(Duration.ofHours(1)));
         resets.save(token);
-        mail.send(user.getEmail(), "Восстановление пароля SportGate",
-                "Для восстановления пароля перейдите по ссылке: " + publicUrl + "/reset-password?token=" + raw
-                        + "\nСсылка действует 1 час. Если вы не запрашивали восстановление, проигнорируйте письмо.");
+        mail.sendPasswordReset(user.getEmail(), token.getId());
+    }
+
+    @Override
+    @Transactional
+    public java.util.Optional<Message> prepare(UUID requestId, String recipient) {
+        var userId = resets.findUserIdById(requestId);
+        if (userId.isEmpty()) return java.util.Optional.empty();
+        var user = users.findByIdForUpdate(userId.get());
+        var token = resets.findByIdForUpdate(requestId);
+        if (user.isEmpty() || token.isEmpty() || token.get().getUsedAt() != null
+                || !token.get().getExpiresAt().isAfter(clock.instant())
+                || !"active".equalsIgnoreCase(user.get().getStatus())
+                || !recipient.equals(user.get().getEmail())) return java.util.Optional.empty();
+        String raw = OpaqueTokens.generate();
+        token.get().setTokenHash(OpaqueTokens.hash(raw));
+        return java.util.Optional.of(new Message("Восстановление пароля SportGate",
+                "Для восстановления пароля перейдите по ссылке: " + publicUrl + "/reset-password#token=" + raw
+                        + "\nСсылка действует 1 час с момента запроса. Если вы не запрашивали восстановление, проигнорируйте письмо."));
     }
 
     @Transactional

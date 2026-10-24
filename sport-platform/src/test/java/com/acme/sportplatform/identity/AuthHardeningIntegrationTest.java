@@ -29,12 +29,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Real commits and locks: no surrounding test transaction. */
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {"app.jwt.access-ttl=PT1H", "app.public-url=https://auth.example"})
+@TestPropertySource(properties = {"app.jwt.access-ttl=PT1H", "app.public-url=https://auth.example", "app.cors.allowed-origins=https://auth.example"})
 class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
     @Autowired JwtService jwt;
+    @Autowired com.acme.sportplatform.identity.application.PasswordService passwords;
     @MockitoBean(name = "identityClock") Clock clock;
     @MockitoBean MailSender mail;
     static final AtomicInteger SEQUENCE = new AtomicInteger();
@@ -53,12 +54,12 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
         ip = "192.0.2." + SEQUENCE.get();
         resetToken = null;
         doAnswer(call -> {
-            assertThat(call.getArgument(1, String.class)).isEqualTo("Восстановление пароля SportGate");
-            String body = call.getArgument(2, String.class);
-            assertThat(body).contains("https://auth.example/reset-password?token=");
-            resetToken = body.split("token=")[1].split("\\n")[0];
+            var message = passwords.prepare(call.getArgument(1, UUID.class), call.getArgument(0, String.class)).orElseThrow();
+            assertThat(message.subject()).isEqualTo("Восстановление пароля SportGate");
+            assertThat(message.body()).contains("https://auth.example/reset-password#token=").doesNotContain("?token=");
+            resetToken = message.body().split("token=")[1].split("\\n")[0];
             return null;
-        }).when(mail).send(anyString(), anyString(), anyString());
+        }).when(mail).sendPasswordReset(anyString(), any(UUID.class));
         var registered = send("/register", Map.of("email", email, "password", PASSWORD,
                 "firstName", "Иван", "lastName", "Петров", "birthDate", "2000-01-01", "gender", "M"), null, ip)
                 .andExpect(status().isCreated()).andReturn();
@@ -68,11 +69,20 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     ResultActions send(String path, Object payload, String accessToken, String remoteIp) throws Exception {
         var request = post("/api/v1/auth" + path).contentType(MediaType.APPLICATION_JSON)
                 .with(r -> { r.setRemoteAddr(remoteIp); return r; }).header("User-Agent", "M02 tests");
-        if (payload != null) request.content(json.writeValueAsBytes(payload));
+        if ((path.equals("/refresh") || path.equals("/logout")) && payload instanceof Map<?, ?> map) {
+            request.cookie(new jakarta.servlet.http.Cookie("sportgate_refresh", (String) map.get("refreshToken")));
+        } else if (payload != null) request.content(json.writeValueAsBytes(payload));
         if (accessToken != null) request.header("Authorization", "Bearer " + accessToken);
         return mvc.perform(request);
     }
-    JsonNode body(MvcResult result) throws Exception { return json.readTree(result.getResponse().getContentAsByteArray()); }
+    JsonNode body(MvcResult result) throws Exception {
+        var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(result.getResponse().getContentAsByteArray());
+        assertThat(body.has("refreshToken")).isFalse();
+        var cookie = result.getResponse().getCookie("sportgate_refresh");
+        // Keep test pairs convenient while asserting the actual wire response contains no secret.
+        if (cookie != null) body.put("refreshToken", cookie.getValue());
+        return body;
+    }
     JsonNode login() throws Exception {
         return body(send("/login", Map.of("email", email, "password", PASSWORD), null, ip)
                 .andExpect(status().isOk()).andReturn());
@@ -89,6 +99,40 @@ class AuthHardeningIntegrationTest extends AbstractPostgresIntegrationTest {
     void invalidAccess(JsonNode pair) throws Exception {
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + pair.get("accessToken").asText()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshUsesOnlySecureCookieAndLogoutExpiresIt() throws Exception {
+        var response = send("/login", Map.of("email", email, "password", PASSWORD), null, ip).andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist()).andReturn().getResponse();
+        var cookie = response.getCookie("sportgate_refresh");
+        assertThat(cookie.isHttpOnly()).isTrue();
+        assertThat(cookie.getSecure()).isTrue();
+        assertThat(cookie.getAttribute("SameSite")).isEqualTo("Lax");
+        assertThat(cookie.getPath()).isEqualTo("/api/v1/auth");
+        assertThat(cookie.getMaxAge()).isEqualTo(2592000);
+        mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(Map.of("refreshToken", cookie.getValue()))))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/refresh").cookie(cookie)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist()).andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(post("/api/v1/auth/logout")).andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge("sportgate_refresh", 0)).andExpect(cookie().httpOnly("sportgate_refresh", true))
+                .andExpect(cookie().secure("sportgate_refresh", true)).andExpect(cookie().path("sportgate_refresh", "/api/v1/auth"));
+    }
+
+    @Test
+    void corsAllowsCredentialsOnlyForConfiguredOrigin() throws Exception {
+        mvc.perform(options("/api/v1/auth/refresh").header("Origin", "https://auth.example")
+                .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin", "https://auth.example"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        var pair = login();
+        mvc.perform(post("/api/v1/auth/refresh").header("Origin", "https://evil.example")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .cookie(new jakarta.servlet.http.Cookie("sportgate_refresh", pair.get("refreshToken").asText())))
+                .andExpect(status().isForbidden()).andExpect(header().doesNotExist("Set-Cookie"));
+        send("/refresh", Map.of("refreshToken", pair.get("refreshToken").asText()), null, ip).andExpect(status().isOk());
     }
 
     @Test

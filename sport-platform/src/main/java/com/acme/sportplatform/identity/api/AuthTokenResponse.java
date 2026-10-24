@@ -4,6 +4,6 @@ public record AuthTokenResponse(
         String accessToken,
         String tokenType,
         long expiresIn,
-        String refreshToken
+        @com.fasterxml.jackson.annotation.JsonIgnore String refreshToken
 ) {
 }

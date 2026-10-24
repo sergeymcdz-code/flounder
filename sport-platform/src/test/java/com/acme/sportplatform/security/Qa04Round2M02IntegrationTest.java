@@ -45,7 +45,7 @@ class Qa04Round2M02IntegrationTest extends Qa04M02Fixture {
     @Test void refreshRotatesAndReuseRevokesTheReplacement() throws Exception {
         String old=login("participant").path("refreshToken").asText();
         var response=call("/refresh",Map.of("refreshToken",old),null).andExpect(status().isOk()).andReturn().getResponse();
-        String replacement=json.readTree(response.getContentAsByteArray()).path("refreshToken").asText();
+        String replacement=response.getCookie("sportgate_refresh").getValue();
         assertThat(replacement).isNotEqualTo(old).hasSize(43);
         em.flush();
         assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where token_hash in (?,?)",Integer.class,hash(old),hash(replacement))).isEqualTo(2);

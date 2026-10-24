@@ -87,14 +87,14 @@ class AccountRequestLimitsIntegrationTest extends AbstractPostgresIntegrationTes
         for (int i = 0; i < 3; i++)
             send("/auth/password-reset/request", " " + email.toUpperCase(Locale.ROOT) + " ", ip + i)
                     .andExpect(status().isAccepted()).andExpect(content().string(""));
-        verify(mail, times(3)).send(eq(email), anyString(), anyString());
+        verify(mail, times(3)).sendPasswordReset(eq(email), any(java.util.UUID.class));
         clearInvocations(mail);
         send("/auth/password-reset/request", email, "fresh-ip").andExpect(status().isAccepted())
                 .andExpect(header().doesNotExist("Retry-After")).andExpect(content().string(""));
         verifyNoInteractions(mail);
         now = now.plusSeconds(3600);
         send("/auth/password-reset/request", email, ip).andExpect(status().isAccepted());
-        verify(mail).send(eq(email), anyString(), anyString());
+        verify(mail).sendPasswordReset(eq(email), any(java.util.UUID.class));
     }
     @Test void resetIpLimitAlsoCountsUnknownEmails() throws Exception {
         send("/auth/register", email, ip).andExpect(status().isCreated());
@@ -103,6 +103,6 @@ class AccountRequestLimitsIntegrationTest extends AbstractPostgresIntegrationTes
         send("/auth/password-reset/request", email, ip).andExpect(status().isAccepted());
         verifyNoInteractions(mail);
         send("/auth/password-reset/request", email, "fresh-ip").andExpect(status().isAccepted());
-        verify(mail).send(eq(email), anyString(), anyString());
+        verify(mail).sendPasswordReset(eq(email), any(java.util.UUID.class));
     }
 }
