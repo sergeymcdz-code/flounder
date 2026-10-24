@@ -91,6 +91,7 @@ function RegistrationEditor() {
 
   useEffect(() => {
     if (!draftKey || success) return
+    // oxlint-disable-next-line react/set-state-in-effect -- Reflect external storage availability in the UI.
     try { localStorage.setItem(draftKey, JSON.stringify({ ...draft, version: 1 })); setStorageError(false) }
     catch { setStorageError(true) }
   }, [draft, draftKey, success])
