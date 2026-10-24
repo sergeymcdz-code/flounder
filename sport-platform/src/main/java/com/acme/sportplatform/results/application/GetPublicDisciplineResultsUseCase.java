@@ -70,7 +70,7 @@ public class GetPublicDisciplineResultsUseCase {
             return new PublicDisciplineResultsResponse(
                     eventId,
                     eventDisciplineId,
-                    List.of()
+                    List.of(), false
             );
         }
 
@@ -128,7 +128,9 @@ public class GetPublicDisciplineResultsUseCase {
         return new PublicDisciplineResultsResponse(
                 eventId,
                 eventDisciplineId,
-                unitViews
+                unitViews,
+                competitionUnitRepository.findByEventDisciplineIdOrderBySequenceNumberAsc(eventDisciplineId)
+                        .stream().allMatch(u -> u.isOfficial() && java.util.Set.of("FINISHED", "COMPLETED").contains(u.getStatus()))
         );
     }
 
@@ -178,7 +180,8 @@ public class GetPublicDisciplineResultsUseCase {
                 unit.getId(),
                 unit.getLabel(),
                 unit.getSequenceNumber(),
-                entryViews
+                entryViews,
+                unit.isOfficial()
         );
     }
 
