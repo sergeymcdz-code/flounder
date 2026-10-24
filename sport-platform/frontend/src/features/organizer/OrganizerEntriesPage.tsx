@@ -1,7 +1,8 @@
 import { PaymentMutationDialog } from '../payments/PaymentMutationDialog'
 import { PaymentHistoryDialog } from '../payments/PaymentHistoryDialog'
 import { money, paymentLabels, type PaymentAction } from '../../api/registration-payments.api'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { documentTypes, documentStatusLabels, type DocumentType } from '../../api/documents.api'
 import { Link, useSearchParams } from 'react-router'
@@ -295,12 +296,12 @@ export function OrganizerEntriesPage() {
                     <button className="fl-btn fl-btn-ghost" onClick={() => setHistoryId(r.id)}>История оплаты</button>
                     {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
                       : ['PAID', 'ADMITTED'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
-                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <details><summary>Ещё ▾</summary>
+                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <EntryActions>
                       {r.status === 'WAITLISTED' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
                       {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
                       {!['PAID', 'ADMITTED'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
                       <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>
-                    </details>}
+                    </EntryActions>}
                   </div>
                 </td>
               </tr>
@@ -536,4 +537,46 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
       </div>
     </OrganizerDialog>
   )
+}
+
+function EntryActions({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+  const id = useId()
+  useLayoutEffect(() => {
+    if (!open || !trigger.current || !panel.current) return
+    const rect = trigger.current.getBoundingClientRect()
+    const menu = panel.current
+    menu.style.left = `${Math.max(8, Math.min(rect.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + window.scrollX}px`
+    const top = rect.bottom + menu.offsetHeight + 8 <= window.innerHeight ? rect.bottom + 8 : Math.max(8, rect.top - menu.offsetHeight - 8)
+    menu.style.top = `${top + window.scrollY}px`
+    menu.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true })
+  }, [open])
+  useEffect(() => {
+    if (!open) return
+    const outside = (event: PointerEvent) => {
+      if (!panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setOpen(false); trigger.current?.focus({ preventScroll: true }) }
+    }
+    const reposition = (event: Event) => {
+      if (!panel.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape)
+    window.addEventListener('resize', reposition)
+    window.addEventListener('scroll', reposition, true)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', escape)
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
+    }
+  }, [open])
+  return <>
+    <button className="fl-btn fl-btn-ghost" type="button" ref={trigger} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>Ещё ▾</button>
+    {open && createPortal(<div ref={panel} id={id} className={styles.entryActions} role="region" aria-label="Действия заявки" onClick={() => { setOpen(false); trigger.current?.focus({ preventScroll: true }) }}>{children}</div>, document.body)}
+  </>
 }
