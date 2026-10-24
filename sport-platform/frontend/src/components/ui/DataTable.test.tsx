@@ -29,3 +29,13 @@ it('preserves row identity when results are reordered', () => {
   rerender(<DataTable caption="Результаты" columns={columns} rows={[...rows].reverse()} rowKey={row => row.id} compact />)
   expect(screen.getAllByRole('row')[2]).toBe(anna)
 })
+it('provides card labels and primary fields without an extra tab stop', () => {
+  render(<DataTable cards caption="Карточки результатов" columns={columns} rows={rows} rowKey={row => row.id} minWidth={760} />)
+  const region = screen.getByRole('region', { name: 'Карточки результатов' })
+  expect(region).toHaveClass('fl-rowcards')
+  expect(region).not.toHaveAttribute('tabindex')
+  expect(screen.getByRole('rowheader', { name: 'Анна' })).toHaveAttribute('data-primary', 'true')
+  expect(screen.getByRole('rowheader', { name: 'Анна' })).toHaveAttribute('data-label', 'Участник')
+  expect(screen.getByRole('cell', { name: '00:31.02' })).toHaveAttribute('data-label', 'Время')
+  expect(screen.getByRole('cell', { name: '00:31.02' })).toHaveAttribute('data-numeric', 'true')
+})

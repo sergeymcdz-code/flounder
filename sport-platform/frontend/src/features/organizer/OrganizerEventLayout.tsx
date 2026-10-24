@@ -1,10 +1,13 @@
-import { plural } from '../../utils/plural'
+import { useMemo } from 'react'
+import { useHeaderContext } from '../../components/AppLayout'
+import { Button } from '../../components/ui/Button'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { Notice } from '../../components/ui/Notice'
 import { isHeatPublished } from './organizer-event-context'
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { useParams } from 'react-router'
 import { useAuth } from '../../app/providers/AuthProvider'
@@ -46,7 +49,8 @@ function OrganizerEventContent() {
   const judgeOnly = hasRole('judge') && !isOrganizer && !isPlatformAdmin && !isOperator
   const navigate = useNavigate()
   const location = useLocation()
-  const tabsRef = useRef<HTMLDivElement>(null)
+  const [wide, setWide] = useState(() => window.matchMedia?.('(min-width: 1366px)').matches ?? false)
+  useEffect(() => { const media = window.matchMedia?.('(min-width: 1366px)'); const update = () => setWide(media?.matches ?? false); media?.addEventListener('change', update); return () => media?.removeEventListener('change', update) }, [])
   const [data, setData] = useState<{
     event: OrganizerEventDetails
     registrations: OrganizerRegistration[]
@@ -182,21 +186,8 @@ function OrganizerEventContent() {
     }
   }
   useEffect(() => { if (data?.event) document.title = `${data.event.title} · Соревнование · SportGate` }, [data?.event.title])
-  useEffect(() => {
-    const wrapper = tabsRef.current
-    const tabs = wrapper?.querySelector<HTMLElement>('.fl-tabs')
-    if (!wrapper || !tabs) return
-    const update = () => {
-      wrapper.dataset.overflowStart = String(tabs.scrollLeft > 1)
-      wrapper.dataset.overflowEnd = String(tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 1)
-    }
-    tabs.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
-    update()
-    tabs.addEventListener('scroll', update, { passive: true })
-    const observer = new ResizeObserver(update)
-    observer.observe(tabs)
-    return () => { tabs.removeEventListener('scroll', update); observer.disconnect() }
-  }, [location.pathname, loading, data?.event.id])
+  const headerContext = useMemo(() => data ? <>{data.event.title} · {formatDate(data.event.eventStartAt, data.event.venue?.timezone)}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}</> : null, [data])
+  useHeaderContext(headerContext)
   if (loading) return <LoadingState message="Загружаем соревнование…" />
   if (!data)
     return (
@@ -209,24 +200,30 @@ function OrganizerEventContent() {
     )
   return (
     <div className={styles.page}>
-      <Link to={judgeOnly ? '/operator/results' : '/organizer/events?all=1'} className={styles.muted}>
+      <Button as={Link} variant="ghost" size="sm" to={judgeOnly ? '/operator/results' : '/organizer/events?all=1'} className="fl-back-link">
         {judgeOnly ? '← Судейство' : '← Все соревнования'}
-      </Link>
-      <PageHeader title={data.event.title} badge={<StatusBadge kind="event" code={data.event.status} />} meta={<>{formatDate(data.event.eventStartAt, data.event.venue?.timezone)} — {formatDate(data.event.eventEndAt, data.event.venue?.timezone)} · {data.event.venue?.name ?? 'Площадка соревнования'}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}{data.event.venue?.lanes ? ` · ${data.event.venue.lanes} дорожек` : ''}{data.event.venue?.courseLength ? ` · ${data.event.venue.courseLength} м` : ''}</>} actions={<><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}`}>Публичная страница ↗</Link><details className="fl-overflow-menu"><summary className="fl-btn fl-btn-ghost" aria-label="Действия соревнования">⋯</summary><div><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}/poster`}>QR-плакат A4</Link>{data.event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) && <Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${eventId}?archive=1`}>В архив</Link>}</div></details></>} />
+      </Button>
+      <PageHeader title={data.event.title} badge={<StatusBadge kind="event" code={data.event.status} />} meta={<>{formatDate(data.event.eventStartAt, data.event.venue?.timezone)} — {formatDate(data.event.eventEndAt, data.event.venue?.timezone)} · {data.event.venue?.name ?? 'Площадка соревнования'}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}{data.event.venue?.lanes ? ` · ${data.event.venue.lanes} дорожек` : ''}{data.event.venue?.courseLength ? ` · ${data.event.venue.courseLength} м` : ''}</>} actions={<><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}`}>Публичная страница ↗</Link><OverflowMenu label="Действия соревнования" items={[{ label: 'QR-плакат A4', to: `/e/${data.event.publicSlug}/poster` }, ...(data.event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) ? [{ label: 'В архив', to: `/organizer/events/${eventId}?archive=1` }] : [])]} /></>} />
       {data.event.status === 'ARCHIVED' && <Notice>Соревнование в архиве. Доступен только просмотр.</Notice>}
-      <div className={styles.tabsViewport} ref={tabsRef}>
+      <div className={styles.tabsViewport}>
       <Tabs items={([
         { path: '', label: 'Главная' },
-        { path: 'program', label: 'Программа', count: `${data.event.disciplines.length} ${plural(data.event.disciplines.length, ['вид', 'вида', 'видов'])}` },
+        { path: 'program', label: 'Программа', count: data.event.disciplines.length },
         { path: 'entries', label: 'Заявки', count: data.registrations.length, attention: data.registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW'].includes(r.status)).length },
         ...(isOrganizer || isPlatformAdmin || isOperator ? [{ path: 'payments', label: 'Оплата' }] : []),
-        { path: 'heats', label: 'Заплывы', count: `${data.heats.length} · ${data.heats.length && data.heats.every(h => isHeatPublished(h.status)) ? 'опубликовано' : 'черновик'}` },
-        { path: 'results', label: 'Результаты', count: `${data.heats.filter(h => ['FINISHED', 'COMPLETED'].includes(h.status)).length} из ${data.heats.length}` },
+        { path: 'heats', label: 'Заплывы', count: data.heats.length, status: data.heats.length && data.heats.every(h => isHeatPublished(h.status)) ? 'опубликовано' : 'черновик' },
+        { path: 'results', label: 'Результаты', count: data.heats.filter(h => ['FINISHED', 'COMPLETED'].includes(h.status)).length },
         { path: 'diploma', label: 'Грамоты' },
         { path: 'standings', label: 'Командный зачёт' },
         { path: 'notifications', label: 'Уведомления' },
         ...(isOrganizer || isPlatformAdmin ? [{ path: 'analytics', label: 'Аналитика' }] : []),
-      ]).filter(item => !judgeOnly || item.path === 'results').map(({ path, ...item }) => ({ ...item, to: `/organizer/events/${eventId}${path ? `/${path}` : ''}` }) satisfies TabItem)} />
+      ]).filter(item => (!judgeOnly || item.path === 'results') && (wide || !['diploma', 'standings', 'notifications', 'analytics'].includes(item.path))).map(({ path, ...item }) => ({ ...item, to: `/organizer/events/${eventId}${path ? `/${path}` : ''}` }) satisfies TabItem)} />
+      {!wide && !judgeOnly && <OverflowMenu label="Другие разделы соревнования" items={[
+        { label: 'Грамоты', to: `/organizer/events/${eventId}/diploma` },
+        { label: 'Командный зачёт', to: `/organizer/events/${eventId}/standings` },
+        { label: 'Уведомления', to: `/organizer/events/${eventId}/notifications` },
+        ...(isOrganizer || isPlatformAdmin ? [{ label: 'Аналитика', to: `/organizer/events/${eventId}/analytics` }] : []),
+      ].map(item => ({ ...item, active: location.pathname === item.to }))} />}
       </div>
       {error && dialogCount === 0 && (
         <ErrorState title="Ошибка" message={error} />

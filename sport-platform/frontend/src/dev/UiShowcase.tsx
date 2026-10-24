@@ -6,6 +6,9 @@ import { Button } from '../components/ui/Button'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { DataTable } from '../components/ui/DataTable'
 import { EmptyState } from '../components/ui/EmptyState'
+import { OverflowMenu } from '../components/ui/OverflowMenu'
+import { LoadingState } from '../components/LoadingState'
+import { ErrorState } from '../components/ErrorState'
 import { Notice } from '../components/ui/Notice'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -63,8 +66,16 @@ export default function UiShowcase() {
         { key: 'status', header: 'Статус', render: row => <StatusBadge kind="result" code={row.status} /> },
       ]} /></div>
     </Section>
+    <Section number="05а" title="Таблица → карточки и меню действий">
+      <DataTable cards caption="Заявки · карточки на телефоне" minWidth={760} rows={swimmers.slice(0, 3)} rowKey={row => row.id} columns={[
+        { key: 'name', header: 'Участница', rowHeader: true, render: row => row.name },
+        { key: 'club', header: 'Команда', render: row => row.club },
+        { key: 'time', header: 'Время', numeric: true, render: row => row.time },
+        { key: 'actions', header: 'Действия', render: row => <OverflowMenu label={`Действия: ${row.name}`} items={[{ label: 'Открыть заявку', onSelect: () => toast({ text: `Открыта заявка: ${row.name}` }) }, { label: 'Скачать протокол', onSelect: () => toast({ text: 'Протокол готов' }) }]} /> },
+      ]} />
+    </Section>
     <Section number="06" title="Обратная связь">
-      <div className="ui-feedback-grid"><div className="ui-stack"><Notice>Черновик доступен только организатору.</Notice><Notice tone="info">Стартовый протокол готов к проверке.</Notice><Notice tone="warning">Три заявки требуют исправления.</Notice><Notice tone="danger">Не удалось сохранить. Проверьте соединение и повторите попытку.</Notice></div><EmptyState title="Заплывов пока нет" action={<Button variant="primary" onClick={() => toast({ text: 'Пример действия: добавить заплыв' })}>Добавить заплыв</Button>}><p>Добавьте первый заплыв, чтобы подготовить стартовый протокол.</p></EmptyState></div>
+      <LoadingState /><ErrorState message="Нет связи. Проверьте подключение и повторите попытку." onRetry={() => toast({ text: 'Повторяем загрузку' })} /><div className="ui-feedback-grid"><div className="ui-stack"><Notice>Черновик доступен только организатору.</Notice><Notice tone="info">Стартовый протокол готов к проверке.</Notice><Notice tone="warning">Три заявки требуют исправления.</Notice><Notice tone="danger">Не удалось сохранить. Проверьте соединение и повторите попытку.</Notice></div><EmptyState title="Заплывов пока нет" action={<Button variant="primary" onClick={() => toast({ text: 'Пример действия: добавить заплыв' })}>Добавить заплыв</Button>}><p>Добавьте первый заплыв, чтобы подготовить стартовый протокол.</p></EmptyState></div>
       <ActionBar className="ui-demo-actions"><Button onClick={() => toast({ text: 'Изменения сохранены' })}>Toast: успех</Button><Button onClick={() => toast({ text: 'Не удалось сохранить. Повторите попытку.', tone: 'danger' })}>Toast: ошибка</Button><Button onClick={() => setDialog('primary')}>Подтверждение</Button><Button variant="danger" onClick={() => setDialog('danger')}>Диалог с причиной</Button></ActionBar>
     </Section>
     <footer className="ui-footer"><strong>SPORTGATE</strong><span>4 px сетка · 44 px тап-цели · Светлая / тёмная тема</span></footer>

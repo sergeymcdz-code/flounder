@@ -170,7 +170,7 @@ test('QA06-15 print removes the page background', async ({ page }) => {
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark' })
   await page.emulateMedia({ media: 'print' })
   expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
-  await expect(page.getByRole('navigation')).toBeHidden()
+  for (const nav of await page.getByRole('navigation').all()) await expect(nav).toBeHidden()
   expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('light')
   expect(await page.locator('article').first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
   const printTokens = await page.locator('html').evaluate(node => {
@@ -326,10 +326,12 @@ test('D01 review 1: all eight live lanes fit above navigation at 1366x768', asyn
   for (const row of await rows.all()) {
     const box = await row.boundingBox()
     expect(box!.y).toBeGreaterThanOrEqual(0)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(nav!.y)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(768)
+    expect(box!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height)
   }
   const board = await page.locator('section').filter({ has: page.locator('.fl-lanes') }).first().boundingBox()
-  expect(board!.y + board!.height).toBeLessThanOrEqual(nav!.y)
+  expect(board!.y + board!.height).toBeLessThanOrEqual(768)
+  expect(board!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height)
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
 })
 
@@ -387,3 +389,58 @@ test('D01 owner: print is a ghost action and central lanes have no color fill', 
     expect(lanes[index].weight).toBe('700')
   }
 })
+
+for (const width of [375, 768, 1366]) {
+  test(`D04-2a shared shell, menus and tabs at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 768 ? 1024 : 812 })
+    await openAuditPage(page, base, 'organizer')
+    await expect(page.getByRole('banner')).toHaveCSS('height', '56px')
+    if (width === 375) {
+      const burger = page.getByRole('button', { name: 'Открыть меню' })
+      await expect(burger).toHaveCSS('width', '44px')
+      await expect(burger).toHaveCSS('height', '44px')
+      await burger.click()
+      const drawer = page.getByRole('dialog', { name: 'Меню кабинета' })
+      await expect(drawer.getByRole('navigation', { name: 'Разделы', exact: true })).toBeVisible()
+      await expect(drawer.getByRole('navigation', { name: 'Навигация кабинета' })).toBeVisible()
+      await expect(drawer.getByRole('link', { name: 'Сменить пароль' })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+      const targets = await drawer.locator('a, button, summary').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent, width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })))
+      expect(targets.filter(target => target.height < 44 || target.width < 44)).toEqual([])
+      await page.keyboard.press('Escape')
+      await expect(drawer).not.toBeVisible()
+      await expect(burger).toBeFocused()
+    } else {
+      const profile = page.getByRole('banner').locator('summary')
+      await profile.click()
+      const panel = page.getByRole('banner').locator('details > div')
+      expect((await panel.boundingBox())!.width).toBeGreaterThanOrEqual(240)
+      await expect(panel.getByRole('button', { name: 'Выйти' })).toBeVisible()
+      await expect(panel.getByRole('button', { name: 'Тёмная тема' })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(profile).toBeFocused()
+    }
+    if (width < 1366) {
+      const more = page.getByRole('button', { name: 'Другие разделы соревнования' })
+      await more.click()
+      await expect(page.getByRole('menuitem', { name: 'Аналитика' })).toBeVisible()
+      if (width === 375) {
+        const box = (await page.getByRole('menu', { name: 'Другие разделы соревнования' }).boundingBox())!
+        expect(box.x).toBe(0)
+        expect(box.width).toBe(width)
+      }
+      await page.keyboard.press('Escape')
+      await expect(more).toBeFocused()
+    } else await expect(page.getByRole('navigation', { name: 'Разделы соревнования' }).getByRole('link', { name: 'Аналитика', exact: true })).toBeAttached()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    await navigate(page, '/e/demo/start-list')
+    const nav = page.getByRole('navigation', { name: 'Разделы соревнования' })
+    if (width >= 1024) {
+      expect((await nav.boundingBox())!.y).toBe(56)
+      await expect(nav.locator('..').locator('..')).toHaveCSS('position', 'static')
+    } else expect((await nav.boundingBox())!.y).toBeGreaterThan(700)
+    await navigate(page, '/e/demo/register')
+    await expect(page.getByRole('navigation', { name: 'Разделы соревнования' })).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+  })
+}

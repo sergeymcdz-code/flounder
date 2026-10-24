@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect, useState } from 'react'
 import {
   Link,
-  NavLink,
   Navigate,
   Outlet,
   useLocation,
@@ -13,9 +12,12 @@ import { date } from './format'
 import styles from './Public.module.css'
 import { PublicConnectionContext } from './publicContext'
 import { DirectoryLayout } from './DirectoryLayout'
-import { useAuth } from '../../app/providers/AuthProvider'
-import { roleHomeTarget } from '../../utils/authReturn'
-import { ThemeToggle } from '../../components/ThemeToggle'
+import { ProductHeader } from '../../components/ProductHeader'
+import { Tabs } from '../../components/ui/Tabs'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { ErrorState } from '../../components/ErrorState'
+import { LoadingState } from '../../components/LoadingState'
 
 export function DataState({
   loading,
@@ -30,18 +32,9 @@ export function DataState({
 }) {
   const disconnected = useContext(PublicConnectionContext)
   if (data !== undefined && disconnected) return null
-  if (loading) return <p role="status">Загружаем данные…</p>
+  if (loading && data === undefined) return <LoadingState />
   if (!error) return null
-  return (
-    <div className={styles.notice} role="alert">
-      <p>
-        {error}
-        {data !== undefined &&
-          ' Показаны последние данные. Обновление продолжится при подключении.'}
-      </p>
-      {retry && <button className="fl-btn fl-btn-ghost" onClick={retry}>Повторить</button>}
-    </div>
-  )
+  return <ErrorState message={`${error}${data !== undefined ? ' Показаны последние данные. Обновление продолжится при подключении.' : ''}`} onRetry={retry} />
 }
 
 export function PublicLayout() {
@@ -51,7 +44,7 @@ export function PublicLayout() {
 
 function EventPublicLayout() {
   const { slug = '' } = useParams()
-  const { roles, isAuthenticated } = useAuth()
+  const { pathname } = useLocation()
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),
     [slug],
@@ -94,45 +87,17 @@ function EventPublicLayout() {
     ['results', 'Результаты'],
     ...(standingsState.data && !standingsState.errorStatus ? [['standings', 'Командный зачёт']] : []),
   ]
-  if (eventState.errorStatus === 404) {
-    return (
-      <main className={styles.main}>
-        <h1>Соревнование не найдено</h1>
-        <Link className="fl-btn fl-btn-secondary" to="/">
-          К соревнованиям
-        </Link>
-      </main>
-    )
-  }
   return (
     <PublicConnectionContext value={offline || cached}>
       <div className={styles.root}>
         <a className={styles.skip} href="#public-content">
           К содержимому
         </a>
-        <header className={styles.header}>
-          <Link className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную">
-            <span className={styles.logo} aria-hidden="true">
-              S
-            </span>{' '}
-            SportGate
-          </Link>
-          <ThemeToggle />
-        </header>
-        <div className={styles.eventMeta}>
-            <Link to={base}>
-              <strong>{eventState.data?.title ?? 'Соревнование'}</strong>
-            </Link>
-            <p>
-              {eventState.data
-                ? `${date(eventState.data.eventStartAt, eventState.data.venue?.timezone)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}`
-                : 'Загружаем сведения…'}
-            </p>
-          </div>
-        <nav className={styles.directoryNav} aria-label="Основная навигация">
-          <Link to="/">Календарь</Link>
-          {eventState.data?.organization?.publicSlug && <Link to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Link>}
-        </nav>
+        <ProductHeader publicPage eventContext={<><Link to={base}><strong>{eventState.data?.title ?? 'Соревнование'}</strong></Link>{' · '}<span>{eventState.data ? `${date(eventState.data.eventStartAt, eventState.data.venue?.timezone)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}` : 'Загружаем сведения…'}</span></>} />
+        {eventState.errorStatus !== 404 && <div className={styles.eventNavigation}>
+          <nav className={styles.directoryNav} aria-label="Навигация события"><Button as={Link} to="/" variant="ghost" size="sm">← Календарь</Button>{eventState.data?.organization?.publicSlug && <Button as={Link} variant="ghost" size="sm" to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Button>}</nav>
+          {!pathname.replace(/\/$/, '').endsWith('/register') && <div className={styles.nav}><Tabs items={links.map(([path, label]) => ({ to: `${base}/${path}`, label }))} /></div>}
+        </div>}
 
         {(offline || cached) && (
           <div className={`${styles.notice} ${styles.noPrint}`} role="status">
@@ -152,7 +117,7 @@ function EventPublicLayout() {
             <tr>
               <td>
                 <main id="public-content" className={styles.main}>
-                  <DataState {...eventState} />
+                  {eventState.errorStatus === 404 ? <EmptyState headingLevel={1} title="Соревнование не найдено" action={<Button as={Link} to="/">К соревнованиям</Button>}>Проверьте ссылку или выберите соревнование в календаре.</EmptyState> : <DataState {...eventState} />}
                   {eventState.data && (
                     <Outlet key={slug} context={{ event: eventState.data }} />
                   )}
@@ -162,19 +127,7 @@ function EventPublicLayout() {
           </tbody>
         </table>
         <footer className={styles.footer}>SportGate · sportgate.pro</footer>
-        <nav className={styles.nav} aria-label="Разделы соревнования">
-          {links.map(([path, label]) =>
-            path.includes('#') ? (
-              <Link key={path} to={`${base}/${path}`}>
-                {label}
-              </Link>
-            ) : (
-              <NavLink key={path} to={`${base}/${path}`}>
-                {label}
-              </NavLink>
-            ),
-          )}
-        </nav>
+
       </div>
     </PublicConnectionContext>
   )

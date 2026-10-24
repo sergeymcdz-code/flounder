@@ -139,7 +139,8 @@ it('renders a dedicated event-not-found screen without retry or event navigation
   expect(
     screen.queryByRole('button', { name: 'Повторить' }),
   ).not.toBeInTheDocument()
-  expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  expect(screen.queryByRole('navigation', { name: 'Разделы соревнования' })).not.toBeInTheDocument()
+  expect(screen.getByRole('banner')).toBeInTheDocument()
 })
 
 it('renders disciplines without a session and nullable program fields', () => {
