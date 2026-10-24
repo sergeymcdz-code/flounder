@@ -104,7 +104,7 @@ export function OrganizerResultsPage() {
         {event.disciplines.map((d, index) => {
           const units = heats.filter(h => h.eventDisciplineId === d.id)
           const allPublished = units.length > 0 && units.every(published)
-          const reason = archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : !units.length ? 'Сначала сформируйте заплывы' : !units.every(complete) ? 'Не все заплывы завершены' : undefined
+          const reason = archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : allPublished && units.some(h => h.status === 'COMPLETED') ? 'Результаты завершённого соревнования нельзя снять с публикации' : !units.length ? 'Сначала сформируйте заплывы' : !units.every(complete) ? 'Не все заплывы завершены' : undefined
           return <article className={styles.publicationRow} key={d.id}>
             <h3>Вид № {d.number ?? index + 1} · {d.name}</h3>
             <p className={styles.muted}><span className={styles.numeric}>{units.filter(complete).length} из {units.length}</span> заплывов завершено</p>

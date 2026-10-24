@@ -113,3 +113,11 @@ it('opens the current heat through the existing judging route', () => {
   renderPage()
   expect(screen.getByRole('link', { name: 'Открыть текущий заплыв' })).toHaveAttribute('href', `/operator/competition-units/${heat.id}?eventId=${state.context.event.id}`)
 })
+
+
+it('explains why completed results cannot be unpublished', () => {
+  state.context.heats = state.context.heats.map(h => ({ ...h, status: 'COMPLETED' }))
+  renderPage()
+  expect(screen.getByRole('button', { name: 'Снять публикацию' })).toBeDisabled()
+  expect(screen.getByText('Результаты завершённого соревнования нельзя снять с публикации')).toBeVisible()
+})
