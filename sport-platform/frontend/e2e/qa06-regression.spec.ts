@@ -278,13 +278,18 @@ for (const route of ['start-list', 'live']) {
     const times = page.locator('.fl-lanes tbody td:last-child')
     await expect(times.first()).toBeVisible()
     await page.evaluate(() => document.fonts.ready)
-    const lines = await page.locator('.fl-lanes tbody td:nth-child(3), .fl-lanes tbody td:last-child').evaluateAll(cells =>
+    const lines = await page.locator('.fl-lanes tbody td:nth-child(3), .fl-lanes tbody td:last-child').evaluateAll((cells, currentRoute) =>
       cells.map(cell => {
         const range = document.createRange()
         range.selectNodeContents(cell)
-        const tops = Array.from(range.getClientRects()).filter(rect => rect.height > 0).map(rect => Math.round(rect.top))
-        return { text: cell.textContent, lines: new Set(tops).size }
-      }),
+        const rects = Array.from(range.getClientRects()).filter(rect => rect.height > 0)
+        const tops = rects.map(rect => Math.round(rect.top))
+        // Mixed font sizes on one baseline have different tops but overlap vertically.
+        const liveLine = currentRoute === 'live' && rects.length > 0
+          ? (Math.max(...rects.map(rect => rect.top)) < Math.min(...rects.map(rect => rect.bottom)) ? 1 : 2)
+          : new Set(tops).size
+        return { text: cell.textContent, lines: liveLine }
+      }), route,
     )
     expect(lines.length).toBeGreaterThanOrEqual(16)
     expect(lines.filter(cell => cell.lines !== 1)).toEqual([])

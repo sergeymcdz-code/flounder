@@ -46,7 +46,7 @@ describe('Public live', () => {
       </MemoryRouter>,
     )
     expect(
-      screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+      screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
     ).toBeInTheDocument()
     expect(screen.getByText(/Вид № 1 · 50 м/)).toBeInTheDocument()
     expect(screen.getAllByRole('row')).toHaveLength(9)
@@ -186,8 +186,8 @@ describe('Public live', () => {
     )
     expect(screen.getByText(/Вид № 1 · 50 м/)).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
-    ).toBeInTheDocument()
+      screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
+    ).toHaveTextContent('Заплыв 1 из 2')
   })
 
   it('handles an empty current heat without displaying made-up results', () => {
@@ -225,7 +225,7 @@ describe('Public live', () => {
     const { unmount } = render(<PollingBoard />)
     await vi.waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+        screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
       ).toBeInTheDocument(),
     )
     await act(async () => {
@@ -233,7 +233,7 @@ describe('Public live', () => {
     })
     await vi.waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: 'Сейчас заплыв №2' }),
+        screen.getByRole('heading', { name: 'Сейчас заплыв №2 из 2' }),
       ).toBeInTheDocument(),
     )
     expect(calls).toBe(2)
@@ -277,7 +277,7 @@ describe('Public live', () => {
     render(<PollingBoard />)
     await vi.waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+        screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
       ).toBeInTheDocument(),
     )
     await act(async () => {
@@ -287,7 +287,7 @@ describe('Public live', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Нет связи'),
     )
     expect(
-      screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+      screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
     ).toBeInTheDocument()
   })
 

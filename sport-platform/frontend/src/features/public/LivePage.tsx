@@ -125,7 +125,7 @@ export function LiveBoard({
               </p>
               <h2
                 className={styles.heatTitle}
-                aria-label={`${finished ? 'Завершён' : 'Сейчас'} заплыв №${live.currentUnit.number}`}
+                aria-label={`${finished ? 'Завершён' : 'Сейчас'} заплыв №${live.currentUnit.number}${current?.total ? ` из ${current.total}` : ''}`}
               >
                 <span className={styles.heatNumber}>
                   Заплыв {live.currentUnit.number}
@@ -479,7 +479,7 @@ export function LivePage() {
       </div>
       {live.loading && (
         <section
-          className={`${styles.card} ${styles.skeleton}`}
+          className={`${styles.card} fl-skeleton`}
           role="status"
           aria-label="Загружаем табло"
         >

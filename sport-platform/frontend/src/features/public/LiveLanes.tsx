@@ -36,7 +36,8 @@ export function LiveLanes({ heat, lanes }: { heat: Heat; lanes: number }) {
                 Клуб
               </th>
               <th scope="col" data-numeric>
-                Время
+                <span className={styles.desktop}>Заявочное время</span>
+                <span className={styles.mobile}>Заяв. время</span>
               </th>
             </tr>
           </thead>
