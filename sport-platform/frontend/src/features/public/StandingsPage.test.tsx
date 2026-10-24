@@ -51,7 +51,7 @@ describe('Public standings', () => {
     )
     page()
     fireEvent.click(await screen.findByRole('button', { name: 'Скачать PDF' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(await screen.findByRole('alert')).toHaveTextContent(`Сервер вернул ошибку (${status})`)
     expect(screen.getByRole('button', { name: 'Скачать PDF' })).toBeEnabled()
   })
 

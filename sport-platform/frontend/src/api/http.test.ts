@@ -131,3 +131,26 @@ it('ignores missing or invalid Retry-After values', async () => {
     await expect(apiFetch('/limited')).rejects.toMatchObject({ status: 429, retryAfter: undefined })
   }
 })
+
+it.each([apiFetch, apiDownload])('reports loss of connection only when fetch has no response', async (request) => {
+  server.use(http.get('*/offline', () => HttpResponse.error()))
+  await expect(request('/offline')).rejects.toMatchObject({ status: 0, message: 'Нет связи. Проверьте интернет и повторите' })
+})
+it.each([404, 500, 503])('reports HTTP %s as a server response for JSON and file requests', async (status) => {
+  for (const response of [() => HttpResponse.json({ message: 'Нет связи' }, { status }), () => new HttpResponse('<html>Error</html>', { status })]) {
+    server.use(http.get('*/unavailable', response))
+    for (const request of [apiFetch, apiDownload]) {
+      await expect(request('/unavailable')).rejects.toMatchObject({ status, message: `Сервер вернул ошибку (${status})` })
+    }
+  }
+})
+it('preserves business validation messages and violations', async () => {
+  const violations = [{ field: 'title', message: 'Укажите название' }]
+  server.use(http.post('*/invalid', () => HttpResponse.json({ code: 'event.invalid', message: 'Проверьте данные', violations }, { status: 400 })))
+  await expect(apiFetch('/invalid', { method: 'POST' })).rejects.toMatchObject({ status: 400, code: 'event.invalid', message: 'Проверьте данные', violations })
+})
+it('preserves cancellation without turning it into a connection error', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  await expect(apiFetch('/cancelled', { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
+})
