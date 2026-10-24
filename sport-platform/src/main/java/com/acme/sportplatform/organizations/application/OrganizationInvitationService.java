@@ -83,7 +83,7 @@ public class OrganizationInvitationService {
             throw new BusinessException("organizations.invitation_email_mismatch", "Войдите под email, на который отправлено приглашение");
         if (organizations.isMember(invitation.organizationId(), user.id()))
             throw new BusinessException("organizations.already_member", "Пользователь уже состоит в организации");
-        var member = organizations.putMember(invitation.organizationId(), user.id(), invitation.memberRole());
+        var member = organizations.putMember(invitation.organizationId(), user.id(), invitation.memberRole(), user.id());
         invitations.accept(invitation.id(), user.id(), OffsetDateTime.now(ZoneOffset.UTC));
         return new OrganizationMemberResponse(member.getId(), member.getOrganizationId(), member.getUserId(),
                 member.getMemberRole(), member.getCreatedAt(), user.email(), user.firstName(), user.lastName());

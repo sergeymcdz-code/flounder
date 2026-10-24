@@ -27,9 +27,25 @@ class EventAccessServiceTest {
     }
 
     @Test
-    void permitsCreatorWithoutMembership() {
+    void deniesCreatorWithoutMembershipForEveryAccessLevel() {
         existingEvent();
-        access.assertCanManage(eventId, () -> creator);
+        for (var check : List.<Runnable>of(
+                () -> access.assertCanView(eventId, () -> creator),
+                () -> access.assertCanManage(eventId, () -> creator),
+                () -> access.assertCanAdminister(eventId, () -> creator))) {
+            assertEquals("events.access_denied", assertThrows(BusinessException.class, check::run).getCode());
+        }
+        assertFalse(access.canManage(eventId, () -> creator));
+    }
+
+    @Test
+    void creatorWithObserverMembershipCanOnlyView() {
+        existingEvent();
+        var principal = new PlatformUserPrincipal(creator, "creator@example.com", "", "active", List.of(),
+                List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organizationId, "Клуб", "member")));
+        access.assertCanView(eventId, principal);
+        assertThrows(BusinessException.class, () -> access.assertCanManage(eventId, principal));
+        assertThrows(BusinessException.class, () -> access.assertCanAdminister(eventId, principal));
     }
 
     @Test

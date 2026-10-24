@@ -487,7 +487,7 @@ class YooKassaWebhookIntegrationTest
                                         new SimpleGrantedAuthority(
                                                 "ROLE_ORGANIZER"
                                         )
-                                )
+                                ), memberships(TEST_EVENT_CREATOR_ID)
                         );
 
                 String reviewRequestJson = """
@@ -552,6 +552,7 @@ class YooKassaWebhookIntegrationTest
                 event.setId(UUID.randomUUID());
                 event.setCreatedByUserId(TEST_EVENT_CREATOR_ID);
                 event.setOrganizationId(UUID.randomUUID());
+                ownerMembership(event.getOrganizationId(), TEST_EVENT_CREATOR_ID);
                 event.setVenueId(UUID.randomUUID());
                 event.setSportId(SWIMMING_SPORT_ID);
                 event.setRegulationVersionId(UUID.randomUUID());

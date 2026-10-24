@@ -34,18 +34,21 @@ abstract class Qa02ResultsFixture extends AbstractPostgresIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired jakarta.persistence.EntityManager em;
     @Autowired @Qualifier("publicationCacheManager") CacheManager caches;
-    UUID event, session, secondSession, discipline, template, owner, first, second;
+    UUID event, organization, session, secondSession, discipline, template, owner, first, second;
     String slug;
     OffsetDateTime start;
 
-    record Principal(UUID userId, List<GrantedAuthority> authorities) implements AuthenticatedUserPrincipal {
+    record Principal(UUID userId, List<GrantedAuthority> authorities,
+                     List<com.acme.sportplatform.identity.UserMembershipLookup.Membership> memberships) implements AuthenticatedUserPrincipal {
         @Override public UUID getUserId() { return userId; }
         @Override public List<GrantedAuthority> getAuthorities() { return authorities; }
+        @Override public List<com.acme.sportplatform.identity.UserMembershipLookup.Membership> getMemberships() { return memberships; }
     }
 
     @BeforeEach
     void fixture() {
         clearCaches();
+        organization = UUID.randomUUID();
         event = UUID.randomUUID(); session = UUID.randomUUID(); secondSession = UUID.randomUUID();
         discipline = UUID.randomUUID(); template = UUID.randomUUID(); owner = UUID.randomUUID();
         slug = "qa02-" + event;
@@ -56,13 +59,14 @@ abstract class Qa02ResultsFixture extends AbstractPostgresIntegrationTest {
                 insert into events(id,organization_id,venue_id,sport_id,regulation_version_id,title,
                     event_start_at,event_end_at,status,public_slug,created_by_user_id,created_at,updated_at)
                 values (?,?,?,'10000000-0000-0000-0000-000000000001',?,'QA02 Кубок',?,?,'REGISTRATION_OPEN',?,?,now(),now())
-                """, event, UUID.randomUUID(), venue, UUID.randomUUID(), start, start.plusHours(6), slug, owner);
+                """, event, organization, venue, UUID.randomUUID(), start, start.plusHours(6), slug, owner);
         jdbc.update("""
                 insert into discipline_templates(id,sport_id,code,name,competition_format,unit_type,result_type,ranking_strategy)
                 values (?,'10000000-0000-0000-0000-000000000001',?,'Плавание','INDIVIDUAL','HEAT','TIME','ASC')
                 """, template, template.toString());
         jdbc.update("insert into event_sessions(id,event_id,name,order_no,starts_at) values (?,?,'Утро',1,?),(?,?,'День',2,?)",
                 session, event, start, secondSession, event, start.plusHours(3));
+        ownerMembership(organization, owner);
         addDiscipline(discipline, session, 1);
         first = heat(discipline, 1, start);
         second = heat(discipline, 2, start.plusSeconds(90));
@@ -106,7 +110,7 @@ abstract class Qa02ResultsFixture extends AbstractPostgresIntegrationTest {
 
     UsernamePasswordAuthenticationToken auth(String role) {
         var authorities = List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + role));
-        return new UsernamePasswordAuthenticationToken(new Principal(owner, authorities), null, authorities);
+        return new UsernamePasswordAuthenticationToken(new Principal(owner, authorities, List.of(new com.acme.sportplatform.identity.UserMembershipLookup.Membership(organization, "Test club", "owner"))), null, authorities);
     }
 
     Map<String, Object> timed(UUID id, String time) { return Map.of("competitionUnitEntryId", id, "time", time, "status", "VALID"); }
