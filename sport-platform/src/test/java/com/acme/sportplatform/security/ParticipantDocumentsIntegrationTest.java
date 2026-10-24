@@ -330,7 +330,8 @@ class ParticipantDocumentsIntegrationTest extends Qa04SecurityFixture {
         em.clear(); stats.clear();
         var many = list.execute(id("event"), null, principal("organizer"));
         assertThat(many).hasSize(21);
-        assertThat(stats.getPrepareStatementCount()).isEqualTo(oneCount).isEqualTo(5);
+        // Includes the cached venue existence and timezone lookups, independent of registration count.
+        assertThat(stats.getPrepareStatementCount()).isEqualTo(oneCount).isEqualTo(7);
         assertThat(many.stream().filter(r -> !r.participantProfileId().equals(id("profile"))))
                 .allSatisfy(r -> assertThat(r.admissionWarnings()).contains("Медицинская справка не загружена"));
         mvc.perform(get("/api/v1/events/" + ids.get("event") + "/registrations").with(authentication(auth("organizer"))))
