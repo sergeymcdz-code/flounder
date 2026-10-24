@@ -66,11 +66,13 @@ export function CalendarPage() {
         {[...new Set([...cities, ...(city ? [city] : [])])].map(name => <Button key={name} variant="ghost" size="sm" aria-pressed={city === name} onClick={() => change('city', name)}>{name}</Button>)}
       </div>
     </div>
-    <CalendarContent key={query} query={query} onCities={setCities} reset={reset} />
+    <CalendarContent key={query} query={query} onCities={setCities} reset={reset} showPast={() => change('status', 'past')} />
   </div>
 }
 
-function CalendarContent({ query, onCities, reset }: { query: string; onCities: (cities: string[]) => void; reset: () => void }) {
+function CalendarContent({ query, onCities, reset, showPast }: { query: string; onCities: (cities: string[]) => void; reset: () => void; showPast: () => void }) {
+  const filters = new URLSearchParams(query)
+  const hasFilters = Boolean(filters.get('q') || filters.get('city'))
   const [extra, setExtra] = useState<{ page: number; items: CalendarCard[]; total?: number }>({ page: 0, items: [] })
   const [loadingMore, setLoadingMore] = useState(false)
   const [moreError, setMoreError] = useState('')
@@ -112,7 +114,9 @@ function CalendarContent({ query, onCities, reset }: { query: string; onCities: 
     </Notice>}
     {state.data && <>
       <p className={styles.count} role="status">Найдено: {total}</p>
-      {items.length ? <CalendarCards items={items} grouped /> : <EmptyState title="Соревнований не найдено" action={<Button onClick={reset}>Сбросить фильтры</Button>}><p>Попробуйте другое название или город.</p></EmptyState>}
+      {items.length ? <CalendarCards items={items} grouped /> : hasFilters
+        ? <EmptyState title="Соревнований не найдено" action={<Button onClick={reset}>Сбросить фильтры</Button>}><p>Попробуйте другое название или город.</p></EmptyState>
+        : <EmptyState title="Пока нет соревнований" action={<Button onClick={showPast}>Показать прошедшие</Button>} />}
       {moreError && <Notice tone="danger">{moreError}</Notice>}
       {items.length < total && <Button className={styles.more} disabled={loadingMore} aria-busy={loadingMore} title={loadingMore ? 'Загружаем следующую страницу соревнований' : undefined} onClick={() => void loadMore()}>
         {loadingMore ? 'Загружаем…' : moreError ? 'Повторить загрузку' : 'Показать ещё'}

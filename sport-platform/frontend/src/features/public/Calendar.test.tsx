@@ -44,7 +44,7 @@ it('shows the empty state and sends past and title filters', async () => {
     return HttpResponse.json({ items: [], page: 0, size: 20, total: 0, cities: [] })
   }))
   calendar()
-  expect(await screen.findByText('Соревнований не найдено')).toBeInTheDocument()
+  expect(await screen.findByText('Пока нет соревнований')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Соревнования', level: 1 })).toBeInTheDocument()
   expect(screen.getByText('Календарь стартов')).toBeInTheDocument()
   expect(document.title).toBe('Соревнования · SportGate')
@@ -55,6 +55,8 @@ it('shows the empty state and sends past and title filters', async () => {
   fireEvent.change(screen.getByLabelText('Поиск по названию'), { target: { value: 'Кубок' } })
   expect(screen.queryByRole('button', { name: 'Найти' })).not.toBeInTheDocument()
   await waitFor(() => expect(requests.at(-1)?.searchParams.get('q')).toBe('Кубок'))
+  expect(await screen.findByText('Соревнований не найдено')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toBeInTheDocument()
 })
 it('renders organization contacts, results, metadata and archive links', async () => {
   server.use(http.get('*/api/v1/public/organizations/volna', () => HttpResponse.json({ name: 'Клуб Волна', publicSlug: 'volna', city: 'Самара', description: 'Плаваем вместе', website: 'https://example.org', publicEmail: 'club@example.org', publicPhone: '+7 (900) 123-45-67', hasLogo: false, stats: { eventsTotal: 12, eventsUpcoming: 1, participantsTotal: 400 }, upcoming: [card], past: [{ ...card, slug: 'past', title: 'Прошедший кубок' }] })))
@@ -104,9 +106,15 @@ it('participant logout returns the directory to guest navigation', async () => {
   expect(await screen.findByRole('link', { name: 'Войти' })).toHaveAttribute('href', '/login')
   expect(screen.queryByRole('link', { name: 'Мои заявки' })).not.toBeInTheDocument()
 })
-it('registration deadline uses the venue timezone across midnight', () => {
-  render(<MemoryRouter><CalendarCards items={[{ ...card, registrationOpen: true, registrationCloseAt: '2026-10-19T20:30:00Z', venueTimezone: 'Europe/Samara' }]} /></MemoryRouter>)
-  expect(screen.getByText(/Регистрация до 20.10/)).toBeInTheDocument()
+it('registration deadline uses the venue timezone only while registration is open', () => {
+  const datedCard = { ...card, registrationCloseAt: '2026-10-19T20:30:00Z', venueTimezone: 'Europe/Samara' }
+  const view = render(<MemoryRouter><CalendarCards items={[{ ...datedCard, registrationOpen: true }]} /></MemoryRouter>)
+  expect(screen.getByText('Регистрация до 20.10')).toBeInTheDocument()
+  view.rerender(<MemoryRouter><CalendarCards items={[{ ...datedCard, status: 'COMPLETED', registrationOpen: false }]} /></MemoryRouter>)
+  expect(screen.getByText('Регистрация закрыта')).toBeInTheDocument()
+  expect(screen.queryByText(/Регистрация до/)).not.toBeInTheDocument()
+  view.rerender(<MemoryRouter><CalendarCards items={[{ ...card, registrationOpen: true, registrationCloseAt: null }]} /></MemoryRouter>)
+  expect(screen.getByText('Регистрация открыта')).toBeInTheDocument()
 })
 it('a failed next page preserves cards and can retry only that page', async () => {
   const pages: string[] = []
@@ -227,4 +235,18 @@ it('uses event status, a single title destination, conditional actions and missi
   expect(within(live).queryByRole('link', { name: /Подробнее/ })).not.toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Дата уточняется' })).toBeInTheDocument()
   expect(within(screen.getByRole('heading', { name: 'Будущий старт' }).closest('article')!).queryByRole('link', { name: 'Табло' })).not.toBeInTheDocument()
+})
+
+it('offers past events when there are no search or city filters and preserves organization scope', async () => {
+  const requests: URL[] = []
+  server.use(http.get('*/api/v1/public/calendar', ({ request }) => {
+    requests.push(new URL(request.url))
+    return HttpResponse.json({ items: [], page: 0, size: 20, total: 0, cities: [] })
+  }))
+  render(<MemoryRouter initialEntries={['/?organization=volna&page=3']}><CalendarPage /></MemoryRouter>)
+  expect(await screen.findByText('Пока нет соревнований')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Сбросить фильтры' })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Показать прошедшие' }))
+  await waitFor(() => expect(requests).toHaveLength(2))
+  expect(Object.fromEntries(requests[1].searchParams)).toEqual({ organization: 'volna', status: 'past', page: '0', size: '20' })
 })

@@ -213,7 +213,7 @@ test('production PWA caches shell and live API and reloads offline', async ({
   await expect(
     page.getByRole('heading', { name: 'Осенний кубок SportGate' }),
   ).toBeVisible()
-  await page.getByRole('link', { name: 'Подробнее' }).click()
+  await page.getByRole('link', { name: 'Осенний кубок SportGate' }).click()
   await expect(page).toHaveURL('http://localhost:5175/e/demo')
   await page.goto('http://localhost:5175/e/demo/live')
   await expect(page.getByText('Сейчас заплыв №1')).toBeVisible()
