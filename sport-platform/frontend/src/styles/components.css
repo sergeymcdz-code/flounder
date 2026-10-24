@@ -344,3 +344,10 @@ body .fl-btn.fl-back-link { justify-self: start; min-height: var(--tap-target); 
 @media screen and (max-width: 1023px) { .fl-tab-label:has(+ .fl-tab-label-short) { display: none; } .fl-tab-label-short { display: inline; } }
 
 body .fl-btn-ghost:disabled { background: transparent; }
+
+/* Dialog forms preserve Cancel / Save order over the mobile action-bar priority. */
+.fl-actionbar.fl-dialog-actions { justify-content: flex-end; }
+@media (max-width: 767px) {
+  .fl-actionbar.fl-dialog-actions { flex-direction: row; flex-wrap: wrap; }
+  .fl-actionbar.fl-dialog-actions > .fl-btn { flex: 1; order: initial; }
+}

@@ -19,15 +19,10 @@
 .settings[open] > summary::after { content: '⌃'; }
 .settings :is(input, select, textarea) { max-width: 100%; min-width: 0; }
 .check { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap-target); cursor: pointer; }
-.dialogActions { justify-content: flex-end; }
 .history { display: grid; gap: var(--space-3); padding: 0; list-style: none; }
 .history li { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow-wrap: anywhere; }
 @media (min-width: 768px) { .summary { grid-template-columns: repeat(5, minmax(0, 1fr)); } .card { padding: var(--space-6); } }
 @media (min-width: 1600px) { .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 360px /* Settings column */); } }
-@media (max-width: 767px) {
-  .dialogActions { flex-direction: row; flex-wrap: wrap; }
-  .dialogActions > button { flex: 1; order: initial /* Same specificity as the shared action bar; preserve form order */; }
-}
 
 @media (max-width: 767px) {
   .entryCards :global(.fl-rowcards) tbody [data-label='Оплата'] { grid-column: 2; grid-row: 1; justify-self: end; }

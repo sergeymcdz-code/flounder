@@ -12,7 +12,6 @@ import {
   type PaymentAction,
   type BulkResult,
 } from '../../api/registration-payments.api'
-import styles from './OrganizerPayments.module.css'
 export function PaymentMutationDialog({
   ids,
   action = 'mark-paid',
@@ -160,7 +159,7 @@ export function PaymentMutationDialog({
           {failed && <Notice tone="danger">Не удалось сохранить операцию. Проверьте данные и повторите.</Notice>}
           {event.status === 'ARCHIVED' && <Notice>Соревнование в архиве: доступен только просмотр.</Notice>}
           {busy && <p role="status">Сохраняем операцию оплаты…</p>}
-          <ActionBar className={styles.dialogActions}>
+          <ActionBar className="fl-dialog-actions">
             <Button disabled={busy} title={busy ? 'Дождитесь завершения текущего действия' : undefined} onClick={onClose}>Отмена</Button>
             <Button type="submit" variant="primary" loading={busy} disabled={busy || event.status === 'ARCHIVED'} title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}>Подтвердить</Button>
           </ActionBar>

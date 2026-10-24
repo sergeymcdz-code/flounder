@@ -175,7 +175,7 @@ export function UsersAdminPage() {
         {formError && <Notice tone="danger">{formError}</Notice>}
         {action.type === 'roles' && !roleReady && <p className="fl-meta">Дождитесь загрузки ролей пользователя. Если загрузка завершилась ошибкой, закройте диалог и откройте его снова.</p>}
         {busy && <p role="status">Сохраняем изменения…</p>}
-        <ActionBar className={styles.dialogActions}>
+        <ActionBar className="fl-dialog-actions">
           <Button disabled={busy} title={busy ? 'Дождитесь завершения текущего действия' : undefined} onClick={() => setAction(null)}>Отмена</Button>
           <Button type="submit" variant="primary" loading={busy} title={busy ? 'Дождитесь завершения текущего действия' : action.type === 'roles' && !roleReady ? 'Дождитесь загрузки ролей пользователя' : undefined} disabled={busy || (action.type === 'roles' && !roleReady)}>{action.type === 'status' ? 'Подтвердить' : 'Сохранить'}</Button>
         </ActionBar>
