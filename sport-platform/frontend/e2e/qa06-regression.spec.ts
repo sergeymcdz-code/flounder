@@ -215,12 +215,41 @@ for (const target of ['organizer', 'participant']) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
     if (target === 'organizer') {
       await navigate(page, `${base}/entries`)
-      const table = page.locator('[class*=table]').filter({ has: page.locator('table') }).first()
-      await expect(page.locator('table tbody tr').first()).toBeVisible()
-      expect(await page.locator('table td').first().evaluate(node => getComputedStyle(node).overflowWrap)).toBe('normal')
+      const table = page.getByRole('region', { name: 'Заявки участников', exact: true })
+      const row = table.locator('tbody tr').first()
+      await expect(row).toBeVisible()
+      expect(await row.locator('td').first().evaluate(node => getComputedStyle(node).overflowWrap)).toBe('normal')
+      // D04 keeps mobile entries as cards; check bounds and reachable actions at that breakpoint.
+      expect(await row.evaluate(node => getComputedStyle(node).display)).toBe('grid')
+      const seedTime = row.getByRole('button', { name: 'Изменить заявочное время', exact: true })
+      expect(await seedTime.evaluate(node => getComputedStyle(node).fontSize)).toBe('16px')
+      expect(await seedTime.evaluate(node => getComputedStyle(node).fontVariantNumeric)).toContain('tabular-nums')
+      expect(await table.evaluate(node => node.scrollWidth)).toBe(await table.evaluate(node => node.clientWidth))
+      const card = (await row.boundingBox())!
+      expect(card.x).toBeGreaterThanOrEqual(0)
+      expect(card.x + card.width).toBeLessThanOrEqual(375)
+      const actions = row.getByRole('button', { name: 'Ещё ▾', exact: true })
+      await actions.scrollIntoViewIfNeeded()
+      await expect(actions).toBeInViewport()
+      const actionTarget = await actions.evaluate(node => {
+        const rect = node.getBoundingClientRect()
+        return { width: rect.width, height: rect.height, reachable: node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) }
+      })
+      expect(actionTarget.width).toBeGreaterThanOrEqual(44)
+      expect(actionTarget.height).toBeGreaterThanOrEqual(44)
+      expect(actionTarget.reachable).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+      // Preserve the internal horizontal-scroll regression check at the tablet table breakpoint.
+      await page.setViewportSize({ width: 768, height: 1024 })
+      expect(await row.evaluate(node => getComputedStyle(node).display)).toBe('table-row')
+      await table.scrollIntoViewIfNeeded()
       await table.evaluate(node => { node.scrollLeft = node.scrollWidth })
       expect(await table.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+      expect(await row.locator('td').last().evaluate(node => getComputedStyle(node).position)).toBe('sticky')
+      await expect(actions).toBeInViewport()
+      const tableBounds = (await table.boundingBox())!
+      expect(tableBounds.x).toBeGreaterThanOrEqual(0)
+      expect(tableBounds.x + tableBounds.width).toBeLessThanOrEqual(768)
     }
   })
 }
@@ -278,13 +307,18 @@ for (const route of ['start-list', 'live']) {
     const times = page.locator('.fl-lanes tbody td:last-child')
     await expect(times.first()).toBeVisible()
     await page.evaluate(() => document.fonts.ready)
-    const lines = await page.locator('.fl-lanes tbody td:nth-child(3), .fl-lanes tbody td:last-child').evaluateAll(cells =>
+    const lines = await page.locator('.fl-lanes tbody td:nth-child(3), .fl-lanes tbody td:last-child').evaluateAll((cells, currentRoute) =>
       cells.map(cell => {
         const range = document.createRange()
         range.selectNodeContents(cell)
-        const tops = Array.from(range.getClientRects()).filter(rect => rect.height > 0).map(rect => Math.round(rect.top))
-        return { text: cell.textContent, lines: new Set(tops).size }
-      }),
+        const rects = Array.from(range.getClientRects()).filter(rect => rect.height > 0)
+        const tops = rects.map(rect => Math.round(rect.top))
+        // Mixed font sizes on one baseline have different tops but overlap vertically.
+        const liveLine = currentRoute === 'live' && rects.length > 0
+          ? (Math.max(...rects.map(rect => rect.top)) < Math.min(...rects.map(rect => rect.bottom)) ? 1 : 2)
+          : new Set(tops).size
+        return { text: cell.textContent, lines: liveLine }
+      }), route,
     )
     expect(lines.length).toBeGreaterThanOrEqual(16)
     expect(lines.filter(cell => cell.lines !== 1)).toEqual([])
