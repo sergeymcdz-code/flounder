@@ -1,3 +1,5 @@
+import { ResultStatus } from '../results/ResultStatus'
+import { StatusLegend } from '../results/StatusLegend'
 import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { Heat, PublicEvent, ResultRow } from './public.types'
@@ -64,7 +66,12 @@ export function PrintButton({ ready }: { ready: boolean }) {
 }
 
 export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
+  const visibleLanes = Array.from({ length: lanes }, (_, index) => {
+    const lane = heat.lanes.find(item => item.lane === index + 1)
+    return lane && !lane.empty ? lane : undefined
+  })
   return (
+    <>
     <table className={`${styles.table} fl-protocol fl-lanes`} role="table" tabIndex={0}>
       <caption className={styles.srOnly}>
         Дорожки заплыва №{heat.number}
@@ -84,9 +91,7 @@ export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
         </tr>
       </thead>
       <tbody>
-        {Array.from({ length: lanes }, (_, index) => {
-          const lane = heat.lanes.find((item) => item.lane === index + 1)
-          const entry = lane && !lane.empty ? lane : undefined
+        {visibleLanes.map((entry, index) => {
           const withdrawn = entry?.withdrawn === true
           return (
             <tr
@@ -108,12 +113,14 @@ export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
               </td>
               <td>{entry?.athlete.birthYear ?? '—'}</td>
               <td>{entry?.athlete.club ?? '—'}</td>
-              <td>{entry && !withdrawn ? seedTime(entry.seedTimeMs) : '—'}</td>
+              <td>{entry && !withdrawn ? <ResultStatus status={seedTime(entry.seedTimeMs)} /> : '—'}</td>
             </tr>
           )
         })}
       </tbody>
     </table>
+    <StatusLegend statuses={visibleLanes.map(entry => entry && !entry.withdrawn && entry.seedTimeMs === null ? 'NT' : null)} />
+    </>
   )
 }
 
@@ -162,6 +169,7 @@ export function ResultsTable({
       a.lastName.localeCompare(b.lastName, 'ru'),
   )
   return (
+    <>
     <table className={`${styles.table} fl-protocol fl-results`} role="table" tabIndex={0}>
       <caption className={styles.srOnly}>
         Итоговый протокол{grouped ? ' по возрастной группе' : ''}
@@ -189,11 +197,13 @@ export function ResultsTable({
             <td>{row.birthYear}</td>
             <td>{row.club ?? '—'}</td>
             <td className={`fl-stopwatch ${row.status === 'DSQ' ? 'fl-result-dsq' : row.status === 'DNS' || row.status === 'DNF' ? 'fl-result-muted' : ''}`}>
-              {isValidResult(row.status) ? (row.display ?? '—') : row.status}
+              {isValidResult(row.status) ? (row.display ?? '—') : row.status === 'CORRECTED' ? <>{row.display ?? '—'} <ResultStatus status={row.status} /></> : <ResultStatus status={row.status} />}
             </td>
           </tr>
         ))}
       </tbody>
     </table>
+    <StatusLegend statuses={rows.map(row => row.status)} />
+    </>
   )
 }

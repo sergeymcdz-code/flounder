@@ -522,6 +522,10 @@
   .live .table, .live .button, .live > :global(.fl-btn) { grid-column: 1 / -1; min-width: 0; }
   .live .table th, .live .table td { padding: 5px 8px; line-height: 1.2; }
   .live .button, .live > :global(.fl-btn) { justify-self: start; margin-top: 0; }
+  .live:has(> :global(.fl-status-legend)) { row-gap: 4px; }
+  .live > :global(.fl-status-legend) { margin-block: 0; }
+  .live:has(> :global(.fl-status-legend)) .table th,
+  .live:has(> :global(.fl-status-legend)) .table td { padding-block: 3px; }
 }
 
 @media screen and (min-width: 1600px) {
