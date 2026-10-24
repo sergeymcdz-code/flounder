@@ -53,6 +53,7 @@ class OrganizationMemberRolesTest {
     @CsvSource({"admin,false", "organizer,false", "manager,false", "missing,true", "admin,true"})
     void nonOwnersCannotAssignOrRemoveOwnersThroughAnyMutation(String role, boolean platformAdmin) {
         if (!role.equals("missing")) membership(actor, role);
+        when(members.countByOrganizationIdAndMemberRoleIgnoreCase(org, "owner")).thenReturn(1L);
         membership(target, "member");
         denied(() -> service.addMember(org, new AddOrganizationMemberRequest(target, "OWNER"), actor, platformAdmin));
         denied(() -> service.updateMember(org, target, "owner", actor, platformAdmin));
@@ -62,6 +63,19 @@ class OrganizationMemberRolesTest {
         denied(() -> service.deleteMember(org, target, actor, platformAdmin));
         verify(members, never()).save(any());
         verify(members, never()).delete(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,true", "1,false", "2,false"})
+    void platformAdminCanAssignOnlyTheFirstOwner(long ownerCount, boolean allowed) {
+        membership(target, "member");
+        when(members.countByOrganizationIdAndMemberRoleIgnoreCase(org, "owner")).thenReturn(ownerCount);
+        if (allowed) {
+            assertThat(service.updateMember(org, target, "owner", actor, true).memberRole()).isEqualTo("owner");
+        } else {
+            denied(() -> service.updateMember(org, target, "owner", actor, true));
+            verify(members, never()).save(any());
+        }
     }
 
     @ParameterizedTest

@@ -135,6 +135,17 @@ class SecB1OrganizationRolesIntegrationTest extends Qa04SecurityFixture {
     }
 
     @Test
+    void approvalCanAssignFirstOwnerInExistingOrganizationWithoutOwners() throws Exception {
+        mvc.perform(post("/api/v1/organization-registration-requests/{id}/approve", id("orgRequest"))
+                .header("Authorization", bearer("platform_admin")).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(Map.of("organizationId", ids.get("org")))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
+        em.flush();
+        assertThat(jdbc.queryForObject("select member_role from organization_members where organization_id=? and user_id=?",
+                String.class, id("org"), id("target"))).isEqualTo("owner");
+    }
+
+    @Test
     void platformAdminCanBootstrapFirstOwnerForNewOrganization() throws Exception {
         mvc.perform(post("/api/v1/organization-registration-requests/{id}/approve", id("orgRequest"))
                 .header("Authorization", bearer("platform_admin")).contentType(MediaType.APPLICATION_JSON).content("{}"))

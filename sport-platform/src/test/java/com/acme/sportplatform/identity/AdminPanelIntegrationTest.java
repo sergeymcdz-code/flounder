@@ -131,15 +131,19 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void organizationListsAndMembershipsUseBatchQueries() throws Exception {
-        String firstUser = create(email(), "Первый", "Владелец");
+        String firstEmail = email();
+        String firstUser = create(firstEmail, "Первый", "Владелец");
+        String firstOwnerToken = login(firstEmail, "Test-only-password1!");
         String secondUser = create(email(), "Второй", "Владелец");
         var organizationIds = new java.util.ArrayList<String>();
         for (int i = 0; i < 3; i++) {
             String id = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Пакетный клуб " + i, "city", "Самара"))
                     .andExpect(status().isCreated())).get("id").asText();
             organizationIds.add(id);
-            ownerMembership(UUID.fromString(id), UUID.fromString(firstUser));
-            ownerMembership(UUID.fromString(id), UUID.fromString(secondUser));
+            call(post("/api/v1/organizations/" + id + "/members"), admin, Map.of("userId", firstUser, "memberRole", "owner"))
+                    .andExpect(status().isCreated());
+            call(post("/api/v1/organizations/" + id + "/members"), firstOwnerToken, Map.of("userId", secondUser, "memberRole", "owner"))
+                    .andExpect(status().isCreated());
         }
         assertSqlCount(4, () -> {
             mvc.perform(get("/api/v1/organizations")
@@ -257,6 +261,40 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(jdbc.queryForObject("select password_hash from users where id = ?::uuid", String.class, id)).startsWith("$2");
         call(post("/api/v1/auth/login"), null, Map.of("email", email, "password", "Test-only-password1!")).andExpect(status().isUnauthorized());
         login(email, "NewPass2026!");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"userId", "email", "patch"})
+    @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
+    void platformAdminAssignsFirstOwnerThroughApiButCannotAssignAnother(String method,
+            org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+        String ownerEmail = email();
+        String owner = create(ownerEmail, "Первый", "Владелец");
+        String other = create(email(), "Второй", "Участник");
+        String org = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Bootstrap owner"))
+                .andExpect(status().isCreated())).get("id").asText();
+        String membersPath = "/api/v1/organizations/" + org + "/members";
+        if (method.equals("patch")) {
+            call(post(membersPath), admin, Map.of("userId", owner, "memberRole", "member"))
+                    .andExpect(status().isCreated());
+            call(patch(membersPath + "/" + owner), admin, Map.of("memberRole", "owner"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.memberRole").value("owner"));
+        } else {
+            call(post(membersPath), admin, Map.of(method, method.equals("email") ? ownerEmail : owner, "memberRole", "owner"))
+                    .andExpect(status().isCreated()).andExpect(jsonPath("$.memberRole").value("owner"));
+        }
+        assertThat(output.getOut()).contains("organization_role_changed organizationId=" + org
+                + " actorId=" + adminId + " targetUserId=" + owner
+                + " previousRole=" + (method.equals("patch") ? "member" : "null") + " nextRole=owner");
+        call(post(membersPath), admin, Map.of("userId", other, "memberRole", "owner"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("organizations.protected_member"));
+        call(post(membersPath), admin, Map.of("userId", other, "memberRole", "member"))
+                .andExpect(status().isCreated());
+        call(patch(membersPath + "/" + other), admin, Map.of("memberRole", "owner"))
+                .andExpect(status().isForbidden());
+        call(patch(membersPath + "/" + owner), admin, Map.of("memberRole", "member"))
+                .andExpect(status().isForbidden());
+        call(delete(membersPath + "/" + owner), admin, null).andExpect(status().isForbidden());
     }
 
     @Test

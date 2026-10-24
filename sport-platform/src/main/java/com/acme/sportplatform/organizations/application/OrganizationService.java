@@ -328,7 +328,9 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
         if ("owner".equalsIgnoreCase(nextRole) || (member != null && "owner".equalsIgnoreCase(member.getMemberRole()))) {
             boolean owner = actor != null && organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, actor)
                     .map(m -> "owner".equalsIgnoreCase(m.getMemberRole())).orElse(false);
-            if (!owner) throw new BusinessException("organizations.protected_member",
+            boolean firstOwner = admin && "owner".equalsIgnoreCase(nextRole)
+                    && organizationMemberRepository.countByOrganizationIdAndMemberRoleIgnoreCase(organizationId, "owner") == 0;
+            if (!owner && !firstOwner) throw new BusinessException("organizations.protected_member",
                     "Только владелец организации может назначать или снимать роль владельца");
         } else if (!admin && member != null && member.getUserId().equals(actor)) {
             throw new BusinessException("organizations.protected_member", "Нельзя изменять собственное членство");
