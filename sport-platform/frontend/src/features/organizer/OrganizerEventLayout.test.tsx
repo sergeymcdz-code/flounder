@@ -6,6 +6,8 @@ import { OrganizerEventLayout } from './OrganizerEventLayout'
 import { createFixtures } from '../../mocks/fixtures'
 import type { EventContext } from './organizer-event-context'
 
+vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+
 vi.mock('../../app/providers/AuthProvider', () => ({
   useAuth: () => ({ session: { accessToken: 'test' }, isAuthenticated: true, authLoading: false,
     hasAnyRole: () => true, hasRole: () => false, isOrganizer: true, isPlatformAdmin: false,

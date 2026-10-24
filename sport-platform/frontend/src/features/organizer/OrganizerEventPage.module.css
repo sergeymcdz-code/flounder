@@ -256,3 +256,20 @@
 .dialog, .drawer { background: var(--color-surface); }
 .metric { font: 600 28px var(--font-heading); }
 .table { max-height: calc(100vh - 240px); }
+
+.tabsViewport { position: relative; min-width: 0; }
+.tabsViewport :global(.fl-tabs-wrap)::after { display: none; }
+.tabsViewport::before,
+.tabsViewport::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 24px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+}
+.tabsViewport::before { left: 0; background: linear-gradient(to right, var(--color-surface), transparent); }
+.tabsViewport::after { right: 0; background: linear-gradient(to left, var(--color-surface), transparent); }
+.tabsViewport[data-overflow-start='true']::before,
+.tabsViewport[data-overflow-end='true']::after { opacity: 1; }
