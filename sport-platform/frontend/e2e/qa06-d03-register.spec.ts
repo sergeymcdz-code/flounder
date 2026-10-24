@@ -25,12 +25,16 @@ async function checkLayout(page: Page, form: Locator, width: number) {
     })).toBe(true)
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+  // Переключение темы запускает CSS-transition фона; axe снимал цвет посреди анимации (flaky в CI, контраст 4.02).
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme)
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
     expect(audit.violations.filter(v => ['serious', 'critical'].includes(v.impact ?? ''))).toEqual([])
   }
   await page.evaluate(() => document.documentElement.dataset.theme = 'light')
+  await page.emulateMedia({ reducedMotion: null })
 }
 
 for (const width of [375, 768, 1366]) test(`UX-17 registration layout, errors and accessibility ${width}`, async ({ page }) => {

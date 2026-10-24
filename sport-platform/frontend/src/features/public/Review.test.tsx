@@ -110,7 +110,7 @@ it('keeps loaded live data with a single polling error message', async () => {
   renderPage(<LivePage />)
   await vi.waitFor(() =>
     expect(
-      screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+      screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
     ).toBeInTheDocument(),
   )
   await act(async () => {
@@ -119,7 +119,7 @@ it('keeps loaded live data with a single polling error message', async () => {
   await vi.waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1))
   expect(screen.getAllByText(/Показаны последние данные/)).toHaveLength(1)
   expect(
-    screen.getByRole('heading', { name: 'Сейчас заплыв №1' }),
+    screen.getByRole('heading', { name: 'Сейчас заплыв №1 из 2' }),
   ).toBeInTheDocument()
 })
 

@@ -208,7 +208,7 @@ export async function navigate(page: Page, path: string) {
     history.pushState(null, '', path)
     dispatchEvent(new PopStateEvent('popstate'))
   }, path)
-  if (pathname !== '/') await expect(page.getByRole('heading', { name: 'Соревнования по плаванию', exact: true })).toHaveCount(0)
+  if (pathname !== '/') await expect(page.getByRole('heading', { name: 'Соревнования', exact: true })).toHaveCount(0)
   await expect(page.getByText('Загружаем страницу…', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 1 }).or(page.getByRole('alert')).first()).toBeVisible({ timeout: 30000 })
   await expect(page.getByText('Загружаем соревнование…', { exact: true })).toHaveCount(0)
