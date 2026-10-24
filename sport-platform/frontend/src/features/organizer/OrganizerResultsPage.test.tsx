@@ -17,6 +17,9 @@ vi.mock('../../api/scheduling.api', () => ({ publishDisciplineResults: vi.fn() }
 beforeEach(() => {
   vi.clearAllMocks()
   const fixtures = createFixtures()
+  fixtures.event.disciplines = fixtures.event.disciplines.slice(0, 1)
+  fixtures.heats = fixtures.heats.filter(h => h.eventDisciplineId === fixtures.event.disciplines[0].id).slice(0, 1)
+  fixtures.sessions = fixtures.sessions.slice(0, 1)
   state.context = { ...fixtures, accessToken: 'test-token', busy: false, error: '', clearError: vi.fn(), run: vi.fn(async (action: () => Promise<unknown>) => { await action(); return true }) }
   state.live = { data: null, loading: false, error: '', errorStatus: undefined, retry: vi.fn() }
   state.manage = true
@@ -90,4 +93,23 @@ it('leaves a failed confirmation open and does not claim success', async () => {
   await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Снять публикацию' }))
   expect(screen.getByRole('dialog')).toBeVisible()
   expect(state.toast).not.toHaveBeenCalled()
+})
+
+
+it('keeps publication disabled when another heat in the same discipline is incomplete', () => {
+  const heat = state.context.heats[0]
+  state.context.heats = [
+    { ...heat, status: 'PUBLISHED', entries: heat.entries.map(e => ({ ...e, rawValue: '00:32.15', resultStatus: 'VALID' })) },
+    { ...heat, id: 'incomplete', status: 'PUBLISHED' },
+  ]
+  renderPage()
+  expect(screen.getByRole('button', { name: 'Опубликовать результаты вида' })).toBeDisabled()
+  expect(screen.getByText('Не все заплывы завершены')).toBeVisible()
+})
+
+it('opens the current heat through the existing judging route', () => {
+  const heat = state.context.heats[0]
+  state.live.data = { currentUnit: { id: heat.id, number: 1, disciplineName: '50 м' } }
+  renderPage()
+  expect(screen.getByRole('link', { name: 'Открыть текущий заплыв' })).toHaveAttribute('href', `/operator/competition-units/${heat.id}?eventId=${state.context.event.id}`)
 })
