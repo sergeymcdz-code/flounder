@@ -43,7 +43,10 @@ test('all public pages fit 375px, with screenshots and printable protocols', asy
         await page
           .locator('[class*=heatNumber]')
           .evaluate((element) => getComputedStyle(element).fontSize),
-      ).toBe('64px')
+      ).toBe('40px')
+      await page.setViewportSize({ width: 1366, height: 768 })
+      expect(await page.locator('[class*=heatNumber]').evaluate(element => getComputedStyle(element).fontSize)).toBe('64px')
+      await page.setViewportSize({ width: 375, height: 812 })
     }
     if (route === '/start-list')
       await expect(page.getByRole('table')).toHaveCount(6)
@@ -242,7 +245,11 @@ test('production PWA caches shell and live API and reloads offline', async ({
   await expect(
     page.getByText(/Нет связи, показаны последние данные/),
   ).toBeVisible()
+  // Cached fallback may still be completing when connectivity returns. Wait for
+  // actual fresh live data before asserting that its stale-data notice disappears.
+  const freshLive = page.waitForResponse(response => response.url().endsWith('/api/v1/public/events/demo/live') && response.ok() && response.headers()['x-flounder-cached'] !== 'true')
   await context.setOffline(false)
+  await freshLive
   await expect(
     page.getByText(/Нет связи, показаны последние данные/),
   ).toHaveCount(0, { timeout: 8_000 })
