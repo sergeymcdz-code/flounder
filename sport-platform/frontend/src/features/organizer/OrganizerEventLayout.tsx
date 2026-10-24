@@ -30,6 +30,7 @@ import {
   type RefreshTarget,
 } from './organizer-event-context'
 import { LoadingState } from '../../components/LoadingState'
+import { RouteErrorBoundary } from '../../components/RouteErrorBoundary'
 import { ErrorState } from '../../components/ErrorState'
 import styles from './OrganizerEventPage.module.css'
 
@@ -213,6 +214,7 @@ function OrganizerEventContent() {
         <ErrorState title="Ошибка" message={error} />
       )}
       {busy && <LoadingState message="Выполняем действие…" />}
+      <RouteErrorBoundary key={location.pathname}>
       <Outlet
         context={
           {
@@ -230,6 +232,7 @@ function OrganizerEventContent() {
           } satisfies EventContext
         }
       />
+      </RouteErrorBoundary>
     </div>
   )
 }
