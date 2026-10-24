@@ -38,6 +38,39 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: python3 ../../infra/tests/csp-test.py dist/index.html
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('sport-platform/frontend/package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Run QA06 with API mocks
+        run: npm run test:qa06 -- --workers=2
+      - name: Upload QA06 report and failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            sport-platform/frontend/playwright-report/
+            sport-platform/frontend/work/qa06-playwright/
+          retention-days: 7
+
+  demo:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/demo
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: scripts/demo/package-lock.json
+      - run: npm ci
+      - run: npm test
 
   infra:
     runs-on: ubuntu-latest
