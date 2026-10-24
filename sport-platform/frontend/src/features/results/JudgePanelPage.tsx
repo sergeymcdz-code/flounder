@@ -219,7 +219,7 @@ export function JudgePanelPage() {
     <Link className={styles.backLink} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
     <PageHeader title={context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}
       badge={unit && <StatusBadge kind="heat" code={unit.status} />}
-      meta={<>Судейская панель · Вид № {context.number || '—'} · {context.name || 'Вид программы'}<br />{context.time} · {context.session || 'Сессия'}</>}
+      meta={<>Судейская панель · <span>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</span><br />{context.time} · {context.session || 'Сессия'}</>}
       actions={controls} />
     <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p></details>
     {loading && <p role="status">Загрузка…</p>}
