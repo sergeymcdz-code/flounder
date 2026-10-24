@@ -280,11 +280,42 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethod(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        var response = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (ex.getSupportedHttpMethods() != null) response.allow(ex.getSupportedHttpMethods().toArray(org.springframework.http.HttpMethod[]::new));
+        return response.body(error("method_not_allowed", "Метод запроса не поддерживается"));
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMediaType(org.springframework.web.HttpMediaTypeNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(error("unsupported_media_type", "Тип содержимого запроса не поддерживается"));
+    }
+
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.bind.ServletRequestBindingException.class})
+    public ResponseEntity<ApiErrorResponse> handleMissingParameter(Exception ex) {
+        return ResponseEntity.badRequest().body(error("validation_error", "Не передан обязательный параметр запроса"));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
+        // Exception messages and cause chains can contain SQL, constraint names and submitted values.
+        log.warn("Database integrity conflict ({})", ex.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(error("data_conflict", "Данные уже существуют или связаны с другими записями"));
+    }
+
+    private ApiErrorResponse error(String code, String message) {
+        return new ApiErrorResponse(code, message, OffsetDateTime.now(), List.of());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpected(
             Exception ex
     ) {
-        log.error("Unexpected internal server error", ex);
+        log.warn("Unexpected internal server error ({})", ex.getClass().getSimpleName());
 
         return ResponseEntity.status(
                 HttpStatus.INTERNAL_SERVER_ERROR
