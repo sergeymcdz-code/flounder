@@ -139,7 +139,7 @@ export function OrganizerHeatsPage() {
       <p>{blocking ? 'Публикация заблокирована: исправьте ошибки проверки.' : published ? 'Протокол доступен на публичной странице соревнования.' : 'Проверьте заплывы перед публикацией стартового протокола.'}</p>
     </Notice>
     {generating && <Notice tone="info"><p role="status">Формируем заплывы…</p></Notice>}
-    {error && <Notice tone="danger" className={styles.notice}><p>{error}</p><Button disabled={busy} title={busy ? reason : undefined} onClick={() => void run(refresh)}>Повторить</Button></Notice>}
+    {error && <Notice className={styles.notice}><p>Показаны последние загруженные данные. Обновите их и повторите действие.</p><Button disabled={busy} title={busy ? reason : undefined} onClick={() => void run(refresh)}>Повторить</Button></Notice>}
     {last && <Notice tone={last.violations.some(v => v.severity === 'ERROR') ? 'danger' : last.violations.length ? 'warning' : 'info'} className={styles.notice}>
       <h2 className={styles.noticeTitle}>Последнее формирование</h2><p role="status">Сформировано за {(last.durationMs / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} с · Исключено заявок: {last.excludedRegistrationIds.length}</p>
       {last.violations.length > 0 && <details><summary>Замечания формирования · {last.violations.length}</summary>{last.violations.map((v, i) => <p key={i}>{v.severity === 'ERROR' ? 'Ошибка' : 'Предупреждение'}: {v.message}</p>)}</details>}

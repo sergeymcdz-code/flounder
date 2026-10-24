@@ -195,7 +195,9 @@ it('explains empty, busy and error states while keeping existing heats visible',
   vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, heats: [draftHeat], busy: true, error: 'Сервер ответил ошибкой (500). Повторите попытку.' })
   renderHeats()
   expect(screen.getByRole('article', { name: 'Заплыв 1' })).toBeVisible()
-  expect(screen.getByRole('alert')).toHaveTextContent('Сервер ответил ошибкой (500)')
+  expect(screen.getByText('Показаны последние загруженные данные. Обновите их и повторите действие.')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument() // The layout owns the error alert.
   expect(screen.getByRole('button', { name: 'Опубликовать протокол' })).toHaveAttribute('title', 'Дождитесь завершения текущего действия')
 })
 
