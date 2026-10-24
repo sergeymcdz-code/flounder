@@ -57,7 +57,7 @@ it('renders organization contacts, results, metadata and archive links', async (
   expect(screen.getByRole('link', { name: 'club@example.org' })).toHaveAttribute('href', 'mailto:club@example.org')
   expect(screen.getByRole('link', { name: '+7 (900) 123-45-67' })).toHaveAttribute('href', 'tel:+79001234567')
   expect(screen.getByRole('link', { name: 'Все прошедшие старты →' })).toHaveAttribute('href', '/?organization=volna&status=past')
-  expect(document.title).toBe('Клуб Волна · SportGate')
+  await waitFor(() => expect(document.title).toBe('Клуб Волна · SportGate'))
   expect(document.querySelector('meta[property="og:description"]')).toHaveAttribute('content', 'Плаваем вместе')
   view.unmount()
   expect(document.querySelector('meta[property="og:description"]')).toBeNull()
