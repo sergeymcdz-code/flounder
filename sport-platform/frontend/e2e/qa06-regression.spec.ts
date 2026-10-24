@@ -136,6 +136,8 @@ test('QA06-13 valid WITHDRAWN registration shows its status to the participant',
 test('QA06-10 withdraw confirmation returns keyboard focus to its trigger', async ({ page }) => {
   await openAuditPage(page, `${base}/entries`, 'organizer')
   const trigger = page.getByRole('button', { name: 'Ещё ▾', exact: true }).first()
+  // Finish scrolling before opening a menu that closes on scroll events.
+  await trigger.scrollIntoViewIfNeeded()
   await trigger.click()
   await page.getByRole('region', { name: 'Действия заявки' }).getByRole('button', { name: 'Снять', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Снять заявку?' })).toBeVisible()
