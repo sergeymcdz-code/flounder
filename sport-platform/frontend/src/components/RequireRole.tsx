@@ -1,4 +1,4 @@
-import { Link, Navigate, Outlet, useLocation } from 'react-router'
+import { Link, Navigate, Outlet, useLocation, useOutletContext } from 'react-router'
 import { ErrorState } from './ErrorState'
 import { useAuth } from '../app/providers/AuthProvider'
 
@@ -10,6 +10,7 @@ type RequireRoleProps = {
 export function RequireRole({ roles, deniedMessage }: RequireRoleProps) {
   const { isAuthenticated, hasAnyRole, authLoading } = useAuth()
   const location = useLocation()
+  const ctx = useOutletContext()
 
   if (!isAuthenticated) {
     return (
@@ -27,5 +28,5 @@ export function RequireRole({ roles, deniedMessage }: RequireRoleProps) {
     return <div><ErrorState title="Нет доступа" message={deniedMessage ?? 'У вашей учётной записи нет доступа к этой странице.'} /><Link to="/">На главную</Link></div>
   }
 
-  return <Outlet />
+  return <Outlet context={ctx} />
 }

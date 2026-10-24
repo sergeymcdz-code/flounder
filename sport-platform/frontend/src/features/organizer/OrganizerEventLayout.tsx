@@ -4,7 +4,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { Notice } from '../../components/ui/Notice'
 import { isHeatPublished } from './organizer-event-context'
-import { useCallback, useEffect, useEffectEvent, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { useParams } from 'react-router'
 import { useAuth } from '../../app/providers/AuthProvider'
@@ -30,6 +30,7 @@ import {
   type RefreshTarget,
 } from './organizer-event-context'
 import { LoadingState } from '../../components/LoadingState'
+import { RouteErrorBoundary } from '../../components/RouteErrorBoundary'
 import { ErrorState } from '../../components/ErrorState'
 import styles from './OrganizerEventPage.module.css'
 
@@ -45,6 +46,7 @@ function OrganizerEventContent() {
   const judgeOnly = hasRole('judge') && !isOrganizer && !isPlatformAdmin && !isOperator
   const navigate = useNavigate()
   const location = useLocation()
+  const tabsRef = useRef<HTMLDivElement>(null)
   const [data, setData] = useState<{
     event: OrganizerEventDetails
     registrations: OrganizerRegistration[]
@@ -180,6 +182,21 @@ function OrganizerEventContent() {
     }
   }
   useEffect(() => { if (data?.event) document.title = `${data.event.title} · Соревнование · SportGate` }, [data?.event.title])
+  useEffect(() => {
+    const wrapper = tabsRef.current
+    const tabs = wrapper?.querySelector<HTMLElement>('.fl-tabs')
+    if (!wrapper || !tabs) return
+    const update = () => {
+      wrapper.dataset.overflowStart = String(tabs.scrollLeft > 1)
+      wrapper.dataset.overflowEnd = String(tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 1)
+    }
+    tabs.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    update()
+    tabs.addEventListener('scroll', update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(tabs)
+    return () => { tabs.removeEventListener('scroll', update); observer.disconnect() }
+  }, [location.pathname, loading, data?.event.id])
   if (loading) return <LoadingState message="Загружаем соревнование…" />
   if (!data)
     return (
@@ -197,6 +214,7 @@ function OrganizerEventContent() {
       </Link>
       <PageHeader title={data.event.title} badge={<StatusBadge kind="event" code={data.event.status} />} meta={<>{formatDate(data.event.eventStartAt, data.event.venue?.timezone)} — {formatDate(data.event.eventEndAt, data.event.venue?.timezone)} · {data.event.venue?.name ?? 'Площадка соревнования'}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}{data.event.venue?.lanes ? ` · ${data.event.venue.lanes} дорожек` : ''}{data.event.venue?.courseLength ? ` · ${data.event.venue.courseLength} м` : ''}</>} actions={<><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}`}>Публичная страница ↗</Link><details className="fl-overflow-menu"><summary className="fl-btn fl-btn-ghost" aria-label="Действия соревнования">⋯</summary><div><Link className="fl-btn fl-btn-ghost" to={`/e/${data.event.publicSlug}/poster`}>QR-плакат A4</Link>{data.event.status === 'COMPLETED' && (isOrganizer || isPlatformAdmin) && <Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${eventId}?archive=1`}>В архив</Link>}</div></details></>} />
       {data.event.status === 'ARCHIVED' && <Notice>Соревнование в архиве. Доступен только просмотр.</Notice>}
+      <div className={styles.tabsViewport} ref={tabsRef}>
       <Tabs items={([
         { path: '', label: 'Главная' },
         { path: 'program', label: 'Программа', count: `${data.event.disciplines.length} ${plural(data.event.disciplines.length, ['вид', 'вида', 'видов'])}` },
@@ -209,10 +227,12 @@ function OrganizerEventContent() {
         { path: 'notifications', label: 'Уведомления' },
         ...(isOrganizer || isPlatformAdmin ? [{ path: 'analytics', label: 'Аналитика' }] : []),
       ]).filter(item => !judgeOnly || item.path === 'results').map(({ path, ...item }) => ({ ...item, to: `/organizer/events/${eventId}${path ? `/${path}` : ''}` }) satisfies TabItem)} />
+      </div>
       {error && dialogCount === 0 && (
         <ErrorState title="Ошибка" message={error} />
       )}
       {busy && <LoadingState message="Выполняем действие…" />}
+      <RouteErrorBoundary key={location.pathname}>
       <Outlet
         context={
           {
@@ -230,6 +250,7 @@ function OrganizerEventContent() {
           } satisfies EventContext
         }
       />
+      </RouteErrorBoundary>
     </div>
   )
 }

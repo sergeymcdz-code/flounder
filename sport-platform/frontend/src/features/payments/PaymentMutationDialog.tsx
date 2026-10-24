@@ -149,7 +149,7 @@ export function PaymentMutationDialog({
               onChange={(e) => setComment(e.target.value)}
             />
           </label>
-          <button
+          <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
             className={styles.primary}
             disabled={busy || event.status === 'ARCHIVED'}
           >

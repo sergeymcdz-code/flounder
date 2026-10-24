@@ -11,7 +11,7 @@ export type UnitStatus =
   | 'COMPLETED'
   | 'FINISHED'
   | 'CANCELLED'
-export type ResultStatus = 'OK' | 'VALID' | 'DNS' | 'DNF' | 'DSQ'
+export type ResultStatus = 'OK' | 'VALID' | 'NT' | 'DNS' | 'DNF' | 'DSQ' | 'CORRECTED'
 export type AgeGroup = {
   code: string
   name: string

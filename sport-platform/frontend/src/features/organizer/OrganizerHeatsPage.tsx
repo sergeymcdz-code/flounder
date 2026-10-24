@@ -129,14 +129,14 @@ export function OrganizerHeatsPage() {
         <ActionBar>
           <HeatPrintControls />
           <details><summary className="fl-btn fl-btn-primary">Сформировать заплывы ▾</summary>
-            <button className="fl-btn fl-btn-secondary" disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
-            {event.disciplines.map(d => <button className="fl-btn fl-btn-secondary" key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
+            <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : (busy || !event.disciplines.length || event.status === 'ARCHIVED') ? 'Сначала добавьте виды программы' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || !event.disciplines.length || event.status === 'ARCHIVED'} onClick={() => requestGenerate()}>Всё соревнование</button>
+            {event.disciplines.map(d => <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" key={d.id} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>{d.name}</button>)}
           </details>
           <details><summary className="fl-btn fl-btn-secondary">Расписание ▾</summary>
-            <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
-            <button className="fl-btn fl-btn-secondary" title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
+            <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : (busy || !heats.length || event.status === 'ARCHIVED') ? 'Сначала сформируйте заплывы' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</button>
+            <button className="fl-btn fl-btn-secondary" title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : (busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED') ? 'Нет заплывов с доступным временем старта для сдвига' : undefined} disabled={busy || !heats.some(h => h.scheduledAt && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(h.status)) || event.status === 'ARCHIVED'} onClick={() => setShowShift(true)}>Сдвинуть расписание…</button>
           </details>
-          <button className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
+          <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : (busy || !heats.length || event.status === 'ARCHIVED') ? 'Сначала сформируйте заплывы' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || !heats.length || event.status === 'ARCHIVED'} onClick={() => { clearError(); setPublishOpen(true) }}>Опубликовать протокол</button>
           <details><summary className="fl-btn fl-btn-secondary">Печать ▾</summary>
             {heats.length > 0 && heats.every(heat => isHeatPublished(heat.status)) ? <a className="fl-btn fl-btn-secondary" href={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</a> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
             <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
@@ -169,7 +169,7 @@ export function OrganizerHeatsPage() {
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Проверка</h2>
-          <button
+          <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined}
             className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => {
               void validate()
@@ -228,7 +228,7 @@ export function OrganizerHeatsPage() {
       </article>
       {[...sessions.map(session => ({ id: session.id, name: session.name, disciplines: event.disciplines.filter(d => d.sessionId === session.id) })), ...(event.disciplines.some(d => !d.sessionId || !sessions.some(s => s.id === d.sessionId)) ? [{ id: 'unassigned', name: 'Без сессии', disciplines: event.disciplines.filter(d => !d.sessionId || !sessions.some(s => s.id === d.sessionId)) }] : [])].map((group, groupIndex) => <details className="fl-group" key={group.id} open={groupIndex === 0}><summary>{group.name} · {heats.filter(h => group.disciplines.some(d => d.id === h.eventDisciplineId)).length} {plural(heats.filter(h => group.disciplines.some(d => d.id === h.eventDisciplineId)).length, ['заплыв', 'заплыва', 'заплывов'])}</summary><div>{group.disciplines.map((d, index) => (
         <div className="fl-discipline-group" key={d.id}>
-        <button className="fl-btn fl-btn-secondary fl-group-action" aria-describedby={`discipline-summary-${d.id}`} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>Сформировать по виду</button>
+        <button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary fl-group-action" aria-describedby={`discipline-summary-${d.id}`} disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>Сформировать по виду</button>
         <details className="fl-group" open={d.id === (group.disciplines.find(item => heats.some(h => h.eventDisciplineId === item.id && !isHeatPublished(h.status))) ?? group.disciplines[0])?.id}>
           <summary id={`discipline-summary-${d.id}`}>Вид № {d.number ?? index + 1} · {d.name} · {heats.filter(h => h.eventDisciplineId === d.id).length} {plural(heats.filter(h => h.eventDisciplineId === d.id).length, ['заплыв', 'заплыва', 'заплывов'])} <StatusBadge kind="heat" code={heats.some(h => h.eventDisciplineId === d.id && !isHeatPublished(h.status)) ? 'DRAFT' : heats.some(h => h.eventDisciplineId === d.id) ? 'PUBLISHED' : 'DRAFT'} /></summary><div className={styles.stack}>
           {heats
@@ -337,7 +337,7 @@ export function OrganizerHeatsPage() {
               </article>
             ))}
           {!heats.some((h) => h.eventDisciplineId === d.id) && (
-            <EmptyState title="Заплывы ещё не сформированы" action={<button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>Сформировать заплывы</button>} />
+            <EmptyState title="Заплывы ещё не сформированы" action={<button title={event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => requestGenerate(d.id)}>Сформировать заплывы</button>} />
           )}
         </div></details></div>
       ))}</div></details>)}

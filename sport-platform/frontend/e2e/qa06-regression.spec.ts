@@ -142,8 +142,11 @@ test('QA06-13 valid WITHDRAWN registration shows its status to the participant',
 
 test('QA06-10 withdraw confirmation returns keyboard focus to its trigger', async ({ page }) => {
   await openAuditPage(page, `${base}/entries`, 'organizer')
-  const trigger = page.getByRole('button', { name: 'Снять', exact: true }).first()
+  const trigger = page.getByRole('button', { name: 'Ещё ▾', exact: true }).first()
+  // Finish scrolling before opening a menu that closes on scroll events.
+  await trigger.scrollIntoViewIfNeeded()
   await trigger.click()
+  await page.getByRole('region', { name: 'Действия заявки' }).getByRole('button', { name: 'Снять', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Снять заявку?' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -337,17 +340,17 @@ test('D01 review 1: all eight live lanes fit above navigation at 1366x768', asyn
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
 })
 
-test('D01 review 1: judge lane stays visible during horizontal scrolling at 375px', async ({ page }) => {
+test('UX-20: judge lane and time remain visible without horizontal scrolling at 375px', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await openAuditPage(page, `/operator/competition-units/${unitId}?eventId=${eventId}`, 'judge')
-  const wrapper = page.locator('[class*=tableWrap]')
-  const lane = page.locator('[class*=resultsTable] tbody tr').first().locator('td').first()
-  const initial = await lane.boundingBox()
-  await wrapper.evaluate(node => { node.scrollLeft = node.scrollWidth })
-  expect(await wrapper.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
-  const scrolled = await lane.boundingBox()
-  expect(Math.abs(scrolled!.x - initial!.x)).toBeLessThanOrEqual(1)
-  expect(await lane.evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
+  const lane = page.getByRole('article').first()
+  await expect(lane).toBeVisible()
+  await expect(page.getByRole('table')).toHaveCount(0)
+  const input = lane.getByRole('textbox')
+  await expect(input).toBeInViewport()
+  const box = (await input.boundingBox())!
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(375)
 })
 
 test('D01 review 1: login card retains the four-pixel primary top border', async ({ page }) => {

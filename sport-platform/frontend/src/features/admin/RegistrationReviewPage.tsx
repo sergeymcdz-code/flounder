@@ -215,7 +215,7 @@ export function RegistrationReviewPage() {
           </p>
         ) : null}
 
-        <button
+        <button title={isSubmitting ? 'Дождитесь сохранения' : undefined}
           className="fl-btn fl-btn-primary"
           disabled={isSubmitting}
           type="submit"
@@ -272,7 +272,7 @@ export function OrganizationRegistrationReviewPage() {
       <form className={adminStyles.form} onSubmit={decide}><p>{selected.name}</p>
         {selected.approve ? <p>Создать организацию и назначить заявителя владельцем?</p> : <label>Причина отклонения<textarea required maxLength={2000} disabled={busy} value={reason} onChange={event => setReason(event.target.value)} /></label>}
         {formError && <p className={adminStyles.error} role="alert">{formError}</p>}
-        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : 'Подтвердить'}</button>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : 'Подтвердить'}</button>
       </form>
     </AdminDialog>}
   </section>

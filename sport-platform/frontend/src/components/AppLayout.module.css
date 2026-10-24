@@ -21,7 +21,9 @@
  .mobileMenu > summary::-webkit-details-marker { display: none; }
  .navigation { position: absolute; left: 16px; right: 16px; top: 56px; display: grid; gap: 0; padding: 8px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-pop); }
  .adminLinks { max-width: calc(100vw - 32px); }
- .userMenu .navLink { flex-direction: column; gap: 0; justify-content: center; max-width: 140px; overflow: hidden; }
+ .userMenu .adminLinks { min-width: 200px; }
+ .userMenu .adminLinks .navLink { width: 100%; }
+ .userMenu summary.navLink { flex-direction: column; gap: 0; justify-content: center; max-width: 140px; overflow: hidden; }
 }
 
 .brand { cursor: pointer; }

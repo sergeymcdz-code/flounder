@@ -27,7 +27,7 @@ function Journal({ token, eventId }: { token: string; eventId: string }) {
     <h2>Уведомления</h2>
     <div className={styles.toolbar}><label>Статус <select value={status} onChange={e => { setLoading(true); setError(''); setStatus(e.target.value); setPage(0) }}>
       <option value="">Все</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-    </select></label><button className="fl-btn fl-btn-secondary" onClick={() => { setLoading(true); setError(''); setRefresh(n => n + 1) }} disabled={loading}>Обновить</button></div>
+    </select></label><button title={loading ? 'Дождитесь загрузки' : undefined} className="fl-btn fl-btn-secondary" onClick={() => { setLoading(true); setError(''); setRefresh(n => n + 1) }} disabled={loading}>Обновить</button></div>
     {loading && <p role="status">Загружаем журнал…</p>}
     {error && <p role="alert">{error}</p>}
     {!loading && data && <>
@@ -38,9 +38,9 @@ function Journal({ token, eventId }: { token: string; eventId: string }) {
           <td>{statusLabels[row.status]}</td><td>{row.attempts}</td><td>{row.sentAt ? new Date(row.sentAt).toLocaleString('ru-RU') : '—'}</td>
           <td>{row.lastError ?? '—'}</td></tr>)}</tbody>
       </table></div>}
-      <div className={styles.toolbar}><button className="fl-btn fl-btn-secondary" disabled={page === 0} onClick={() => { setLoading(true); setError(''); setPage(n => n - 1) }}>Назад</button>
+      <div className={styles.toolbar}><button title={(page === 0) ? 'Вы на первой странице' : undefined} className="fl-btn fl-btn-secondary" disabled={page === 0} onClick={() => { setLoading(true); setError(''); setPage(n => n - 1) }}>Назад</button>
         <span>Страница {page + 1} · Всего: {data.totalElements}</span>
-        <button className="fl-btn fl-btn-secondary" disabled={page + 1 >= data.totalPages} onClick={() => { setLoading(true); setError(''); setPage(n => n + 1) }}>Далее</button></div>
+        <button title={(page + 1 >= data.totalPages) ? 'Вы на последней странице' : undefined} className="fl-btn fl-btn-secondary" disabled={page + 1 >= data.totalPages} onClick={() => { setLoading(true); setError(''); setPage(n => n + 1) }}>Далее</button></div>
     </>}
   </section>
 }

@@ -1,3 +1,4 @@
+import { PageHeader } from '../../components/ui/PageHeader'
 import { JudgeActionBar } from './JudgeActionBar'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -16,6 +17,8 @@ import {
 } from '../../api/results.api'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { maskTime, normalizeTime } from './time-input'
+import { ResultStatus } from './ResultStatus'
+import { StatusLegend } from './StatusLegend'
 import { resultErrorMessage } from './results-ui'
 import styles from './JudgePanelPage.module.css'
 
@@ -35,6 +38,7 @@ export function JudgePanelPage() {
   const toast = useToast()
   const [publicationOpen, setPublicationOpen] = useState(false)
   const [context, setContext] = useState({ name: '', number: 0, total: 0, sequence: 0, time: '', session: '', slug: '' })
+  const [clubs, setClubs] = useState<Record<string, string | null>>({})
   const [unit, setUnit] = useState<CompetitionUnitDetailsResponse | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -46,6 +50,32 @@ export function JudgePanelPage() {
   const [loading, setLoading] = useState(true)
   const [nextId, setNextId] = useState<string | null>(null)
   const [nextError, setNextError] = useState('')
+  const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 767px)').matches ?? false)
+  useEffect(() => {
+    const query = window.matchMedia?.('(max-width: 767px)')
+    if (!query) return
+    const change = () => setMobile(query.matches)
+    query.addEventListener('change', change)
+    return () => query.removeEventListener('change', change)
+  }, [])
+  const Results = mobile ? 'div' : 'table'
+  const Rows = mobile ? 'div' : 'tbody'
+  const Row = mobile ? 'article' : 'tr'
+  const Cell = mobile ? 'div' : 'td'
+  const tableScroll = useRef<HTMLDivElement>(null)
+  const [scrollEdges, setScrollEdges] = useState('')
+  function measureTableScroll() {
+    const node = tableScroll.current
+    if (node) setScrollEdges(`${node.scrollLeft > 1 ? 'left' : ''} ${node.scrollLeft + node.clientWidth < node.scrollWidth - 1 ? 'right' : ''}`)
+  }
+  useEffect(() => {
+    measureTableScroll()
+    const node = tableScroll.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measureTableScroll)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [mobile, unit])
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
   const saveButton = useRef<HTMLButtonElement | null>(null)
   const eventId = unit?.eventId ?? params.get('eventId')
@@ -114,6 +144,17 @@ export function JudgePanelPage() {
     return () => { active = false }
   }, [token, loadedUnitId, disciplineId, unitId, eventId])
 
+  useEffect(() => {
+    if (!context.slug || !loadedUnitId) return
+    const controller = new AbortController()
+    void publicApi.startList(context.slug, controller.signal).then(list => {
+      if (controller.signal.aborted) return
+      const heat = list.sessions.flatMap(s => s.disciplines).flatMap(d => d.heats).find(h => h.id === loadedUnitId)
+      setClubs(Object.fromEntries((heat?.lanes ?? []).flatMap(lane => lane.empty ? [] : [[lane.registrationId, lane.athlete.club]])))
+    }).catch(() => { if (!controller.signal.aborted) setClubs({}) })
+    return () => controller.abort()
+  }, [context.slug, loadedUnitId])
+
   function update(id: string, change: Partial<Draft>) {
     setDrafts(current => ({ ...current, [id]: { ...current[id], ...change } }))
     setErrors(current => ({ ...current, [id]: '' }))
@@ -155,7 +196,7 @@ export function JudgePanelPage() {
     })
   }
 
-  const controls = unit && !loading ? (!canJudge ? <div className="fl-notice fl-notice-neutral">Нет прав для ввода результатов.</div> : <JudgeActionBar>
+  const controls = unit && !loading ? (!canJudge ? <div className="fl-notice fl-notice-neutral">Нет прав для ввода результатов.</div> : <JudgeActionBar mobile={mobile}>
         <button className={unit.status === 'IN_PROGRESS' && (!savedAt || dirty) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
         {(!resultsPublished || canCorrect) && <button className={unit.status === 'IN_PROGRESS' && savedAt && !dirty ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || (resultsPublished
           ? unit.status !== 'FINISHED'
@@ -178,11 +219,11 @@ export function JudgePanelPage() {
 
   return <section className={styles.page}>
     <Link className={styles.backLink} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
-    <div className="fl-judge-heading"><div className={styles.titleRow}><div><p className={styles.eyebrow}>Судейская панель</p>
-      <p>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</p><h1 className={`${styles.title} fl-judge-title`}>{context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}</h1><p>{context.time} · {context.session || 'Сессия'}</p></div>
-      {unit && <StatusBadge kind="heat" code={unit.status} />}
-    </div>{controls}</div>
-    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — DNS, Alt+N — DNF, Alt+Q — DSQ из поля времени. Пустые дорожки можно сохранить позже.</p></details>
+    <PageHeader title={context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}
+      badge={unit && <StatusBadge kind="heat" code={unit.status} />}
+      meta={<>Судейская панель · <span>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</span><br />{context.time} · {context.session || 'Сессия'}</>}
+      actions={controls} />
+    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — <ResultStatus status="DNS" />, Alt+N — <ResultStatus status="DNF" />, Alt+Q — <ResultStatus status="DSQ" /> из поля времени. Пустые дорожки можно сохранить позже.</p></details>
     {loading && <p role="status">Загрузка…</p>}
     {error && <p className={styles.errorMessage} role="alert">{error}</p>}
     {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
@@ -195,14 +236,14 @@ export function JudgePanelPage() {
         setNotice(resultsPublished ? 'Публикация результатов снята.' : 'Результаты опубликованы.')
         toast({ text: resultsPublished ? 'Публикация снята' : 'Опубликовано', href: context.slug ? `/e/${context.slug}/results` : undefined })
       })} />}
-      <div className={`${styles.tableWrap} fl-table-scroll`}><table className={`${styles.resultsTable} fl-table fl-judge-table`}>
-        <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>
-        <tbody>{entries.map((entry, index) => {
+      <div className={styles.tableFrame} data-scroll-edges={mobile ? '' : scrollEdges}><div ref={tableScroll} onScroll={measureTableScroll} className={mobile ? styles.cardsWrap : styles.tableWrap}><Results className={mobile ? styles.laneCards : `${styles.resultsTable} fl-table fl-judge-table`} aria-label="Дорожки заплыва">
+        {!mobile && <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>}
+        <Rows>{entries.map((entry, index) => {
           const draft = drafts[entry.entryId] ?? { time: '', status: 'VALID' }
-          return <tr key={entry.entryId}>
-            <td className={styles.laneCell}>{entry.laneOrPosition ?? '—'}</td>
-            <td><span className={styles.participantName}>{entry.participantName}</span></td><td>{entry.entryTime ?? '—'}</td>
-            <td><input className={styles.resultInput} aria-label={`Время, дорожка ${entry.laneOrPosition}`} aria-invalid={Boolean(errors[entry.entryId])}
+          return <Row className={mobile ? styles.laneCard : undefined} aria-label={mobile ? `Дорожка ${entry.laneOrPosition}` : undefined} key={entry.entryId}>
+            <Cell className={styles.laneCell}>{mobile && 'Дорожка '}{entry.laneOrPosition ?? '—'}</Cell>
+            <Cell><span className={styles.participantName}>{entry.participantName}</span>{mobile && <span className={styles.clubName}>{clubs[entry.registrationId] || 'Клуб не указан'}</span>}</Cell><Cell className={styles.entryTime}>{mobile && 'Заявочное время: '}{entry.entryTime ?? '—'}</Cell>
+            <Cell className={styles.timeCell}>{mobile && <label htmlFor={`time-${entry.entryId}`}>Время</label>}<input id={`time-${entry.entryId}`} className={styles.resultInput} aria-label={`Время, дорожка ${entry.laneOrPosition}`} aria-invalid={Boolean(errors[entry.entryId])}
               aria-describedby={errors[entry.entryId] ? `error-${entry.entryId}` : undefined}
               ref={node => { inputs.current[entry.entryId] = node }} value={draft.time} inputMode="decimal" placeholder="00:32.15"
               disabled={busy || !canEdit || draft.status !== 'VALID'} onChange={e => update(entry.entryId, { time: maskTime(e.target.value) })}
@@ -218,21 +259,36 @@ export function JudgePanelPage() {
                   return
                 }
                 if (e.key === 'Escape') { e.preventDefault(); update(entry.entryId, { time: '' }); return }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault(); validate(entry.entryId)
+                  const candidates = e.key === 'ArrowUp' ? entries.slice(0, index).reverse() : entries.slice(index + 1)
+                  const next = candidates.find(row => drafts[row.entryId]?.status === 'VALID')
+                  if (next) inputs.current[next.entryId]?.focus()
+                  return
+                }
                 if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
                   e.preventDefault(); validate(entry.entryId)
                   const next = entries.slice(index + 1).find(row => drafts[row.entryId]?.status === 'VALID')
-                  if (next) inputs.current[next.entryId]?.focus(); else saveButton.current?.focus()
+                  if (next) inputs.current[next.entryId]?.focus(); else {
+                    const menu = saveButton.current?.closest('details')
+                    if (menu) menu.open = true
+                    saveButton.current?.focus()
+                  }
                 }
               }} />
               {errors[entry.entryId] && <p id={`error-${entry.entryId}`} className={styles.fieldError} role="alert">{errors[entry.entryId]}</p>}
-            </td>
-            <td>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <button key={status} className={`fl-btn fl-btn-sm ${status === 'DSQ' ? 'fl-btn-danger' : 'fl-btn-ghost'}`} type="button" data-entry-id={entry.entryId} aria-pressed={draft.status === status} disabled={busy || !canEdit}
-              ref={node => { statusButtons.current[`${entry.entryId}-${status}`] = node }}
-              onClick={() => update(entry.entryId, { status: draft.status === status ? 'VALID' : status })}>{status}</button>)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}>исправлено</span>}</td>
-            <td className={styles.placeCell}>{entry.finalPlace ?? '—'}</td><td className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</td>
-          </tr>
-        })}</tbody>
-      </table></div>
+            </Cell>
+            <Cell>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <ResultStatus key={status} status={status} buttonProps={{
+              className: `fl-btn fl-btn-sm ${status === 'DSQ' ? 'fl-btn-danger' : 'fl-btn-ghost'}`, type: 'button',
+              'data-entry-id': entry.entryId, 'aria-pressed': draft.status === status, disabled: busy || !canEdit,
+              ref: node => { statusButtons.current[`${entry.entryId}-${status}`] = node },
+              onClick: () => update(entry.entryId, { status: draft.status === status ? 'VALID' : status }),
+            }} />)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}><ResultStatus status="CORRECTED">исправлено</ResultStatus></span>}</Cell>
+            <Cell className={styles.placeCell}>{mobile && 'Место: '}{entry.finalPlace ?? '—'}</Cell><Cell className={styles.placeCell}>{mobile && 'В группе: '}{entry.placeInAgeGroup ?? '—'}</Cell>
+          </Row>
+        })}</Rows>
+      </Results></div></div>
+      <StatusLegend statuses={[...(canJudge && entries.length ? specialStatuses : []), ...entries.flatMap(entry => [drafts[entry.entryId]?.status, entry.resultStatus])]} />
       {!entries.length && <p>В заплыве пока нет участников.</p>}
     </>}
   </section>

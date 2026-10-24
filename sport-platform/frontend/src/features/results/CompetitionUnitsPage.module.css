@@ -264,3 +264,15 @@
   background: var(--color-surface);
   color: var(--color-text);
 }
+
+@media (max-width: 767px) {
+  .page :is(a, button, summary) { min-height: 44px; box-sizing: border-box; }
+  .page summary { padding-block: 12px; cursor: pointer; }
+  .page a { align-items: center; }
+  .page :global(.fl-field) { min-width: 0; }
+  .page select { width: 100%; min-width: 0; }
+  .page :global(.fl-actionbar) { flex-wrap: wrap; }
+}
+@media (max-width: 767px) {
+  .page :global(.fl-btn) { min-height: 44px; }
+}

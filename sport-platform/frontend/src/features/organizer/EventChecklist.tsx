@@ -31,7 +31,7 @@ export function EventChecklist({ context, onTransition }: { context: Pick<EventC
     {steps.map((step, index) => <li className={styles.row} key={step.title} aria-current={index === current ? 'step' : undefined}>
       <StepIcon state={step.done ? 'done' : index === current ? 'current' : 'pending'} />
       <Link className={styles.stepLink} to={`${base}${step.path}`}><span className={styles.number}>{index + 1}.</span>{' '}<span>{step.title}<small>{step.summary}</small></span></Link>
-      {index === current && [1, 6].includes(index) ? <button className={'fl-btn fl-btn-primary'} onClick={() => onTransition(index)} disabled={index === 6 && !steps[5].done}>{step.action}</button>
+      {index === current && [1, 6].includes(index) ? <button title={(index === 6 && !steps[5].done) ? 'Сначала опубликуйте результаты соревнования' : undefined} className={'fl-btn fl-btn-primary'} onClick={() => onTransition(index)} disabled={index === 6 && !steps[5].done}>{step.action}</button>
         : <Link className={index === current ? 'fl-btn fl-btn-primary' : 'fl-btn fl-btn-ghost'} to={`${base}${step.path}`}>{index === current ? step.action : 'Открыть →'}</Link>}
     </li>)}
   </ol></article>

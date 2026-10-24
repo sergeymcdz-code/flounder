@@ -90,12 +90,12 @@ function ProfileForm({ token, id, organization }: { token: string; id: string; o
         <label>Публичный e-mail<input type="email" maxLength={255} value={profile.publicEmail ?? ''} onChange={e => setProfile({ ...profile, publicEmail: e.target.value })} /></label>
         <label>Публичный телефон<input type="tel" maxLength={32} value={profile.publicPhone ?? ''} onChange={e => setProfile({ ...profile, publicPhone: e.target.value })} /></label>
         <label><span><input type="checkbox" checked={profile.isPublic} onChange={e => setProfile({ ...profile, isPublic: e.target.checked })} /> Показывать организацию публично</span></label>
-        <button type="submit">{busy ? 'Сохраняем…' : 'Сохранить'}</button>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} type="submit">{busy ? 'Сохраняем…' : 'Сохранить'}</button>
       </fieldset>
       <fieldset disabled={busy}><legend>Логотип</legend>
         {profile.hasLogo && logoPreview && <img className={styles.logo} src={logoPreview} alt="Логотип организации" />}
         <label>Загрузить логотип (PNG или JPG, до 2 МБ)<input type="file" accept="image/png,image/jpeg" onChange={e => { upload(e.target.files?.[0]); e.target.value = '' }} /></label>
-        {profile.hasLogo && <button type="button" className="fl-button-ghost" onClick={() => void mutate(async () => {
+        {profile.hasLogo && <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} type="button" className="fl-button-ghost" onClick={() => void mutate(async () => {
           await apiFetch(`${path}/logo`, { accessToken: token, method: 'DELETE' }); setProfile(p => p && { ...p, hasLogo: false })
         }, 'Логотип удалён.')}>Удалить логотип</button>}
       </fieldset>

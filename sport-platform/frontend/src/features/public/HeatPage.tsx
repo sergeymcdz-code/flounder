@@ -6,6 +6,7 @@ import { HeatProtocol } from './Protocol'
 import { DataState } from './PublicLayout'
 import { usePublicEvent } from './publicContext'
 import { usePublicData } from './usePublicData'
+import styles from './HeatPage.module.css'
 
 export function HeatPage() {
   const event = usePublicEvent()
@@ -18,7 +19,7 @@ export function HeatPage() {
   const found = state.data && findHeat(state.data, unitId)
   return (
     <>
-      <Link to={`/e/${encodeURIComponent(event.publicSlug)}/start-list`}>
+      <Link className={styles.backLink} to={`/e/${encodeURIComponent(event.publicSlug)}/start-list`}>
         ← Стартовый протокол
       </Link>
       <h1>Заплыв {found?.heat.number ?? ''}</h1>

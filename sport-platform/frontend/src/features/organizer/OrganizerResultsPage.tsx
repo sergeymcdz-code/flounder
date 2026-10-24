@@ -63,7 +63,18 @@ export function OrganizerResultsPage() {
               <h2>
                 Вид № {d.number ?? index + 1}. {d.name}
               </h2>
-              <button
+              <button title={busy ? 'Дождитесь завершения текущего действия' : (busy ||
+                  !units.some(
+                    (h) =>
+                      ['PUBLISHED', 'IN_PROGRESS'].includes(h.status) &&
+                      h.entries.length > 0 &&
+                      h.entries.every(
+                        (e) =>
+                          e.rawValue != null ||
+                          (e.resultStatus != null &&
+                            e.resultStatus !== 'PENDING'),
+                      ),
+                  )) ? 'Сначала заполните результаты всех участников заплыва' : undefined}
                 className="fl-btn fl-btn-secondary" disabled={
                   busy ||
                   !units.some(

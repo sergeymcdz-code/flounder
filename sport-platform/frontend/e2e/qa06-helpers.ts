@@ -221,7 +221,7 @@ export async function navigate(page: Page, path: string) {
     else if (await page.getByRole('alert').count() === 0) await expect(page.getByRole('heading', { name: 'Регистрация', exact: true })).toBeVisible()
   }
   if (pathname.startsWith('/operator/competition-units/') && await page.getByRole('alert').count() === 0)
-    await expect(page.locator('table')).toBeVisible()
+    await expect(page.getByRole('table').or(page.getByRole('article').first())).toBeVisible()
   if (pathname === '/organizer/events/new' || pathname === '/organizer/regulations/create') await expect(page.getByRole('combobox').first()).toBeEnabled()
 }
 
