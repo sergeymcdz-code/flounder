@@ -1,48 +1,57 @@
-.page { min-width: 0; }
-.heading, .toolbar, .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.heading { justify-content: space-between; }
-.toolbar { margin: 24px 0; }
-.toolbar label { display: grid; gap: 6px; flex: 1; }
-.page input, .page select, .dialog input, .dialog select, .page textarea { padding: 9px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); max-width: 100%; }
-.page button, .dialog button { cursor: pointer; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface, white); color: var(--color-text); }
-.page button:disabled, .dialog button:disabled { cursor: default; opacity: .55; }
-.table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.table th, .table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; vertical-align: top; }
-.table th:first-child { width: 22%; }
-.table th:last-child { width: 23%; }
-.badge { display: inline-block; padding: 3px 7px; border-radius: var(--radius-sm); background: var(--color-primary-soft); margin: 2px; font-size: .8rem; }
-.dialog { width: min(520px, calc(100% - 48px)); border: 1px solid var(--color-border); border-radius: var(--radius-lg, 12px); padding: 24px; max-height: 85vh; overflow-y: auto; }
-.dialog::backdrop { background: #0006; }
-.form { display: grid; gap: 14px; }
-.form > label { display: grid; gap: 6px; }
-.checks { display: flex; gap: 12px; flex-wrap: wrap; }
-.checks label { display: flex; align-items: center; gap: 6px; }
-.form fieldset { border: 1px solid var(--color-border); padding: 12px; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; }
-.queue { display: grid; gap: 18px; }
-.card { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
-.error { color: var(--color-danger, #a51e2b); }
-
-.heading { border-bottom: 3px solid var(--color-text); padding-bottom: 16px; }
-.heading h1 { margin-block: 0; }
-.page input, .page select, .dialog input, .dialog select, .page textarea {
-  border-color: var(--color-border-strong);
-  background: var(--color-surface);
-  color: var(--color-text);
-  min-width: 0;
-}
-.heading > button { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); font-weight: 700; }
-.heading > button:disabled { background: var(--color-border-strong); border-color: var(--color-border-strong); color: var(--color-text-muted); opacity: 1; }
-.table { font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
-.table th { color: var(--color-text-muted); background: var(--color-surface-muted); position: sticky; top: 0; z-index: 1; }
-.table tbody tr:nth-child(even) { background: var(--color-surface-muted); }
-.table tbody tr:hover { background: var(--color-primary-soft); }
-.badge { background: var(--color-surface-muted); color: var(--color-text); font-weight: 700; }
-.card, .dialog { background: var(--color-surface); }
-.toolbar label { min-width: 160px; }
-.pagination { flex-wrap: wrap; }
-@media (max-width: 640px) {
-  .table { display: block; overflow-x: auto; table-layout: auto; }
-  .table th, .table td { min-width: 120px; overflow-wrap: normal; }
-  .table th:last-child, .table td:last-child { min-width: 180px; }
+.page { min-width: 0; display: grid; gap: var(--space-6); }
+.heading, .toolbar, .actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.heading { justify-content: space-between; border-bottom: var(--border-width-rule) solid var(--border-rule); padding-bottom: var(--space-4); }
+.heading h1 { margin: 0; }
+.toolbar { align-items: end; }
+.toolbar label { display: grid; gap: var(--space-2); flex: 1; min-width: 0; }
+.page :is(input, select, textarea), .dialog :is(input, select, textarea) { min-width: 0; max-width: 100%; color: var(--color-text); background: var(--surface-1); }
+.page input:not([type='checkbox']), .page select, .dialog input:not([type='checkbox']), .dialog select { min-height: var(--control-h); padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
+.table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); font-variant-numeric: var(--numeric-variant); }
+.table th, .table td { padding: var(--space-3) var(--space-2); text-align: left; border-bottom: 1px solid var(--border-subtle); overflow-wrap: anywhere; vertical-align: top; }
+.table th { background: var(--surface-2); color: var(--color-text-muted); }
+.badge { display: inline-block; padding: var(--space-1) var(--space-2); background: var(--surface-2); color: var(--color-text); border-radius: var(--radius-sm); font-size: var(--text-xs); }
+.badges { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.dialog { width: min(calc(var(--space-16) * 9), calc(100% - var(--space-8))); max-height: calc(100dvh - var(--space-8)); padding: var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); color: var(--color-text); overflow-y: auto; }
+.dialog::backdrop { background: var(--surface-overlay); }
+.dialog .heading { border: 0; align-items: start; }
+.dialog h2 { margin: 0; font-size: var(--font-size-24); }
+.dialog p { overflow-wrap: anywhere; }
+.form { display: grid; gap: var(--space-4); min-width: 0; }
+.form > label { display: grid; gap: var(--space-2); }
+.checks { display: grid; gap: var(--space-2); }
+.checks label, .check, .check span { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap-target); cursor: pointer; }
+.pagination { justify-content: center; flex-wrap: wrap; }
+.dialogActions { justify-content: flex-end; }
+.queue { display: grid; gap: var(--space-4); }
+.card { padding: var(--space-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-1); }
+.error { color: var(--color-danger); }
+.navigation { min-width: 0; }
+.navigation :global(.fl-tabs) { overflow-x: auto; scrollbar-width: thin; overscroll-behavior-inline: contain; scroll-padding-inline: var(--space-4); mask-image: linear-gradient(90deg, transparent, var(--color-text) var(--space-2), var(--color-text) calc(100% - var(--space-6)), transparent); padding-inline: var(--space-2) var(--space-6); }
+.navigation :global(.fl-tabs-wrap)::after { display: none; }
+.navigation :global(.fl-tabs a) { min-height: var(--tap-target); }
+/* Local scroll cue and row cards, as specified in D04 section (д). */
+.rowcards { min-width: 0; }
+.rowcards :global(.fl-data-table-scroll), .page :global(.fl-table-scroll) { scrollbar-width: thin; overscroll-behavior-inline: contain; background: linear-gradient(to right, var(--surface-1), var(--surface-1)) left / var(--space-6) 100% no-repeat local, linear-gradient(to left, var(--surface-1), var(--surface-1)) right / var(--space-6) 100% no-repeat local, linear-gradient(to right, var(--border-subtle), transparent) left / var(--space-4) 100% no-repeat scroll, linear-gradient(to left, var(--border-subtle), transparent) right / var(--space-4) 100% no-repeat scroll; }
+.rowcards :is(th, td) { overflow-wrap: anywhere; }
+.menu { position: fixed; inset: var(--header-h) var(--space-4) auto auto; z-index: var(--z-dialog); display: grid; gap: var(--space-1); width: min(calc(100% - var(--space-8)), calc(var(--space-16) * 5)); max-height: calc(100dvh - var(--header-h) - var(--space-4)); overflow-y: auto; padding: var(--space-3); background: var(--surface-1); color: var(--color-text); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); }
+.menu > button { justify-content: flex-start; min-height: var(--tap-target); }
+.skeleton { display: grid; gap: var(--space-2); }
+.skeleton span { min-height: var(--control-h); border-radius: var(--radius-sm); background: var(--surface-2); }
+@media (max-width: 767px) {
+  .table { min-width: max-content; }
+  .table th, .table td { overflow-wrap: normal; }
+  .toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: var(--space-4); }
+  .dialogActions { flex-direction: row; flex-wrap: wrap; }
+  .dialogActions > button { flex: 1; order: initial !important; }
+  .menu { inset: auto 0 0; width: 100%; max-height: 75dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); }
+  .rowcards :global(.fl-data-table-scroll) { border: 0; max-height: none !important; overflow: visible; background: none; }
+  .rowcards table { min-width: 0 !important; width: 100%; }
+  .rowcards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .rowcards :is(tbody, tr) { display: grid; gap: var(--space-2); }
+  .rowcards tr { background: var(--surface-1); grid-template-columns: minmax(0, 1fr) auto; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+  .rowcards :is(th, td) { min-height: 0; display: block; min-width: 0; padding: 0; border: 0; background: transparent; white-space: normal; }
+  .rowcards th[scope='row'] { grid-column: 1 / -1; font-size: var(--text-md); }
+  .rowcards td:nth-child(2), .rowcards td:nth-child(3), .rowcards td:last-child { grid-column: 1 / -1; }
+  .rowcards td:nth-child(5)::before { content: 'Создан '; color: var(--color-text-muted); font-size: var(--text-xs); }
 }
