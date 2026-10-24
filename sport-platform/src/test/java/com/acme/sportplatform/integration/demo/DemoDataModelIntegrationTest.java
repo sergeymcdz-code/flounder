@@ -890,7 +890,7 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
                 id + "@example.com",
                 "",
                 "active",
-                List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                List.of(new SimpleGrantedAuthority("ROLE_" + role)), memberships(id));
     }
 
     private PlatformUserPrincipal owner(String role, PlatformUserPrincipal a) {
@@ -903,6 +903,7 @@ class DemoDataModelIntegrationTest extends AbstractPostgresIntegrationTest {
         e.setId(UUID.randomUUID());
         e.setCreatedByUserId(owner);
         e.setOrganizationId(UUID.randomUUID());
+        ownerMembership(e.getOrganizationId(), owner);
         e.setVenueId(UUID.randomUUID());
         e.setSportId(SPORT);
         e.setRegulationVersionId(UUID.randomUUID());

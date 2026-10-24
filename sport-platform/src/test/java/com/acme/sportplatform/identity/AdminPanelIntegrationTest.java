@@ -138,10 +138,8 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
             String id = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Пакетный клуб " + i, "city", "Самара"))
                     .andExpect(status().isCreated())).get("id").asText();
             organizationIds.add(id);
-            call(post("/api/v1/organizations/" + id + "/members"), admin, Map.of("userId", firstUser, "memberRole", "owner"))
-                    .andExpect(status().isCreated());
-            call(post("/api/v1/organizations/" + id + "/members"), admin, Map.of("userId", secondUser, "memberRole", "owner"))
-                    .andExpect(status().isCreated());
+            ownerMembership(UUID.fromString(id), UUID.fromString(firstUser));
+            ownerMembership(UUID.fromString(id), UUID.fromString(secondUser));
         }
         assertSqlCount(4, () -> {
             mvc.perform(get("/api/v1/organizations")
@@ -266,7 +264,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         String email = email(); String user = create(email, "Член", "Организации");
         String org = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Клуб M01", "city", "Самара"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.city").value("Самара"))).get("id").asText();
-        call(post("/api/v1/organizations/" + org + "/members"), admin, Map.of("email", email.toUpperCase(), "memberRole", "owner"))
+        call(post("/api/v1/organizations/" + org + "/members"), admin, Map.of("email", email.toUpperCase(), "memberRole", "organizer"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.email").value(email)).andExpect(jsonPath("$.firstName").value("Член"));
         call(get("/api/v1/users/" + user), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$.memberships[0].organizationId").value(org));
         call(get("/api/v1/organizations/" + org + "/members"), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$[0].lastName").value("Организации"));

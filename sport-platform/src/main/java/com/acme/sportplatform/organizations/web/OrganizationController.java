@@ -1,5 +1,6 @@
 package com.acme.sportplatform.organizations.web;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.acme.sportplatform.common.api.ApiErrorResponse;
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.AuthenticatedUserPrincipal;
 import com.acme.sportplatform.organizations.api.AddOrganizationMemberRequest;
@@ -25,6 +28,7 @@ import com.acme.sportplatform.organizations.api.OrganizationMemberResponse;
 import com.acme.sportplatform.organizations.api.OrganizationResponse;
 import com.acme.sportplatform.organizations.api.UpdateOrganizationMemberRequest;
 import com.acme.sportplatform.organizations.application.OrganizationService;
+import com.acme.sportplatform.organizations.application.LastOrganizationOwnerException;
 
 import jakarta.validation.Valid;
 
@@ -156,11 +160,17 @@ public class OrganizationController {
         );
     }
 
+    @ExceptionHandler(LastOrganizationOwnerException.class)
+    public ResponseEntity<ApiErrorResponse> handleLastOwner(LastOrganizationOwnerException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiErrorResponse(
+                ex.getCode(), ex.getMessage(), OffsetDateTime.now(), ex.getViolations()));
+    }
+
     private UUID getCurrentUserId(
             AuthenticatedUserPrincipal principal,
             boolean platformAdmin
     ) {
-        if (platformAdmin) {
+        if (platformAdmin && principal == null) {
             return null;
         }
 

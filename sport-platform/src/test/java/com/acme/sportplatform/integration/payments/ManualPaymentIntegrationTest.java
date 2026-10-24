@@ -464,7 +464,7 @@ class ManualPaymentIntegrationTest
 
     private PlatformUserPrincipal managerPrincipal(String role) {
         return new PlatformUserPrincipal(managerUserId, "manager@example.com", "", "active",
-                List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                List.of(new SimpleGrantedAuthority("ROLE_" + role)), memberships(managerUserId));
     }
 
     private PlatformUserPrincipal principal(
@@ -549,6 +549,7 @@ class ManualPaymentIntegrationTest
         managerUserId = createdByUserId;
 
         event.setOrganizationId(UUID.randomUUID());
+        ownerMembership(event.getOrganizationId(), createdByUserId);
         event.setVenueId(UUID.randomUUID());
         event.setSportId(SWIMMING_SPORT_ID);
         event.setRegulationVersionId(

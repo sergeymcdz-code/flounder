@@ -45,9 +45,11 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     List<UUID> heats;
     String slug;
     OffsetDateTime start;
-    record Principal(UUID userId, List<GrantedAuthority> authorities) implements AuthenticatedUserPrincipal {
+    record Principal(UUID userId, List<GrantedAuthority> authorities,
+                     List<com.acme.sportplatform.identity.UserMembershipLookup.Membership> memberships) implements AuthenticatedUserPrincipal {
         @Override public UUID getUserId() { return userId; }
         @Override public List<GrantedAuthority> getAuthorities() { return authorities; }
+        @Override public List<com.acme.sportplatform.identity.UserMembershipLookup.Membership> getMemberships() { return memberships; }
     }
 
     @BeforeEach
@@ -75,6 +77,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
                 insert into discipline_templates(id,sport_id,code,name,competition_format,unit_type,result_type,ranking_strategy)
                 values (?, '10000000-0000-0000-0000-000000000001', ?, 'Плавание','INDIVIDUAL','HEAT','TIME','ASC')
                 """,templateId,"template-"+templateId);
+        ownerMembership(jdbc.queryForObject("select organization_id from events where id=?", UUID.class, eventId), ownerId);
         jdbc.update("insert into event_sessions(id,event_id,name,order_no,starts_at) values (?,?,'Утро',1,?),(?,?,'День',2,?)",
                 sessionId,eventId,start,session2Id,eventId,start.plusHours(3));
         discipline(disciplineId,sessionId,1,"50 м", "BY_AGE_GROUP");
@@ -145,7 +148,7 @@ class PublicPublicationIntegrationTest extends AbstractPostgresIntegrationTest {
     }
     private UsernamePasswordAuthenticationToken auth(UUID id,String role) {
         var authorities=List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_"+role));
-        return new UsernamePasswordAuthenticationToken(new Principal(id,authorities),null,authorities);
+        return new UsernamePasswordAuthenticationToken(new Principal(id,authorities,memberships(id)),null,authorities);
     }
 
     private void clearPublicCaches() {

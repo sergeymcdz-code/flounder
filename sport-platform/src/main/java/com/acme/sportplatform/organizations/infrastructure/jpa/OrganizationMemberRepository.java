@@ -22,6 +22,8 @@ public interface OrganizationMemberRepository
             """, nativeQuery = true)
     List<com.acme.sportplatform.identity.UserMembershipLookup.AuthenticationRow> authenticationOf(UUID userId);
 
+    long countByOrganizationIdAndMemberRoleIgnoreCase(UUID organizationId, String memberRole);
+
     List<OrganizationMemberEntity> findAllByOrganizationId(UUID organizationId);
 
     List<OrganizationMemberEntity> findAllByOrganizationIdIn(Collection<UUID> organizationIds);

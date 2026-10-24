@@ -35,7 +35,7 @@ class M06LifecycleLimitsIntegrationTest extends AbstractPostgresIntegrationTest 
 
     RequestPostProcessor actor(UUID id, String role) {
         var principal = new PlatformUserPrincipal(id, id + "@example.test", "", "active",
-                List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                List.of(new SimpleGrantedAuthority("ROLE_" + role)), memberships(id));
         return authentication(new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities()));
     }
 

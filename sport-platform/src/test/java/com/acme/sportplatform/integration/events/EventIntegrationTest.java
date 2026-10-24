@@ -236,8 +236,10 @@ class EventIntegrationTest
                 .with(authentication(platformAdminAuthentication()))).andExpect(status().isConflict());
         UUID venueId = createVenue();
         UUID regulationId = createRegulationVersion();
-        var organizer = new UsernamePasswordAuthenticationToken(applicantPrincipal, null,
-                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")));
+        var organizerPrincipal = new com.acme.sportplatform.identity.infrastructure.security.PlatformUserPrincipal(
+                applicant, applicant + "@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")), memberships(applicant));
+        var organizer = new UsernamePasswordAuthenticationToken(organizerPrincipal, null, organizerPrincipal.getAuthorities());
         var now = OffsetDateTime.now(ZoneOffset.UTC);
         var request = new CreateEventRequest(organizationId, venueId, SPORT_ID, regulationId,
                 "Кубок Самары 2026", null, now, now.plusDays(1), now.plusDays(2), now.plusDays(3));
@@ -333,6 +335,7 @@ class EventIntegrationTest
         UUID secondRequestId = UUID.randomUUID();
         jdbc.update("insert into organization_registration_requests(id,applicant_user_id,organization_type,organization_name,status,created_at,updated_at) values (?,?,'organizer','Клуб','PENDING',now(),now())", secondRequestId, applicant);
         UUID organizationId = createOrganization();
+        ownerMembership(organizationId, TEST_ADMIN_USER_ID);
         mockMvc.perform(post("/api/v1/organization-registration-requests/{id}/approve", secondRequestId)
                 .with(authentication(platformAdminAuthentication())).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"organizationId\":\"" + organizationId + "\"}"))
