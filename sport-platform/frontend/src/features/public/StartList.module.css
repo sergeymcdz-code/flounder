@@ -44,11 +44,7 @@
   .skeletonRow { min-height: var(--control-h); background: var(--surface-2); border-radius: var(--radius-sm); }
 }
 
-@media screen and (min-width: 768px) {
-}
 
-@media screen and (min-width: 1024px) {
-}
 
 @media screen and (max-width: 767px) {
   .page .pageHeader { margin-bottom: var(--space-4); }

@@ -216,6 +216,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor()
   await dialog.getByRole('button', { name: 'Подтвердить', exact: true }).click()
   await dialog.waitFor({ state: 'hidden' })
+  await page.getByText(/^Замечания формирования ·/).click()
   await page
     .getByText(
       'Опубликованные заплывы заменены. Требуется повторная публикация.',

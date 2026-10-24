@@ -65,7 +65,7 @@
   .actions, .controls, .disciplines, .loading, .error, .publication, .noPrint { display: none !important; }
   .printWarning { display: block; }
   .page { max-width: none; }
-    .page :global(.fl-page-title) h1, .results :is(h2, h3) { font-family: var(--font-body); }
+  .page :global(.fl-page-title) h1, .results :is(h2, h3) { font-family: var(--font-body); }
   .results h2 { font-size: var(--text-md); }
   .group h3 { font-size: var(--text-sm); }
   .results { margin: 0 0 var(--space-4); padding: 0; border: 0; border-radius: 0; }
