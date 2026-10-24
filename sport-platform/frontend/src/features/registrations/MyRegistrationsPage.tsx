@@ -79,7 +79,7 @@ export function MyRegistrationsPage() {
     <section className={styles.page}>
       <p className={styles.eyebrow}>Личный кабинет</p>
 
-      <h1 className={styles.title}>Мои заявки</h1><Link to="/">Подать ещё заявку</Link>
+      <h1 className={styles.title}>Мои заявки</h1><div className={styles.headerActions}><Link className="fl-btn fl-btn-secondary" to="/">Подать ещё заявку</Link></div>
 
       <p className={styles.description}>
         Здесь отображается актуальный статус ваших заявок на соревнования.

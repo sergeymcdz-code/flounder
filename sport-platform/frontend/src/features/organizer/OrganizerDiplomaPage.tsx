@@ -30,7 +30,7 @@ export function OrganizerDiplomaPage() {
       <p>Плейсхолдеры: {placeholders.map(p => `{${p}}`).join(' ')}. placeText: 1-е, 2-е, 3-е.</p>
       <label>Подписи<textarea maxLength={4000} disabled={archived} value={form.footer} onChange={e => changeForm({ ...form, footer: e.target.value })} /></label>
       <label><input type="checkbox" disabled={archived} checked={form.showLogo} onChange={e => changeForm({ ...form, showLogo: e.target.checked })} />Показывать SportGate</label>
-      <button disabled={busy || archived} type="submit">Сохранить шаблон</button>
+      <button title={archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} disabled={busy || archived} type="submit">Сохранить шаблон</button>
       {message && <p role="status">{message}</p>}
     </form>
     <label>Фон грамоты (PNG/JPEG, до 5 МБ)<input type="file" accept="image/png,image/jpeg" disabled={busy || archived} onChange={e => {
@@ -41,7 +41,7 @@ export function OrganizerDiplomaPage() {
       void run(async () => { const result = await uploadBackground(event.id, file, accessToken); setForm(current => ({ ...current, backgroundFileKey: result.backgroundFileKey })); setDirty(true); setMessage('Фон загружен') })
     }} /></label>
     {fileError && <p role="alert">{fileError}</p>}
-    {form.backgroundFileKey && <button disabled={busy || archived} onClick={() => changeForm({ ...form, backgroundFileKey: '' })}>Убрать фон из шаблона</button>}
+    {form.backgroundFileKey && <button title={archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} disabled={busy || archived} onClick={() => changeForm({ ...form, backgroundFileKey: '' })}>Убрать фон из шаблона</button>}
     <p>Сохраните изменения перед скачиванием пробной грамоты.</p>
     <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?sample=true`} filename="Пробная-грамота.pdf" accessToken={accessToken} label="Пробная грамота (PDF)" />
   </article>

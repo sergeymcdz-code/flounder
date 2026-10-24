@@ -854,7 +854,9 @@ export function CreateEventPage() {
           </NavLink>
 
 
-          <button
+          <button title={isSubmitting ? 'Дождитесь сохранения' : isLoadingOptions ? 'Загружаем справочники' :
+              !organizations.length || !venues.length || !sports.length || !regulationVersions.length
+                ? 'Нет доступных справочников: нужны организация, площадка, вид спорта и опубликованный регламент' : undefined}
             className={styles.primaryButton}
             type="submit"
             disabled={

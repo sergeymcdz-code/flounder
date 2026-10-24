@@ -143,7 +143,7 @@ export function OrganizerPaymentsPage() {
               }
             />
           </label>
-          <button className={styles.primary} disabled={disabled}>
+          <button title={disabled ? (busy ? 'Дождитесь завершения текущего действия' : 'Соревнование в архиве: доступен только просмотр') : undefined} className={styles.primary} disabled={disabled}>
             Сохранить настройки
           </button>
         </form>
@@ -151,7 +151,7 @@ export function OrganizerPaymentsPage() {
           Изменения применяются к новым подтверждениям. Для старых заявок без
           зафиксированного взноса используйте пересчёт.
         </p>
-        <button
+        <button title={disabled ? (busy ? 'Дождитесь завершения текущего действия' : 'Соревнование в архиве: доступен только просмотр') : undefined}
           disabled={disabled}
           onClick={() => {
             void run(async () => {
@@ -167,7 +167,7 @@ export function OrganizerPaymentsPage() {
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Оплата по клубам</h2>
-          <button
+          <button title={busy ? 'Дождитесь завершения текущего действия' : (busy || !summary) ? 'Сводка оплаты ещё не загружена' : undefined}
             disabled={busy || !summary}
             onClick={() => {
               void run(
@@ -228,7 +228,7 @@ export function OrganizerPaymentsPage() {
                       <td>{money(c.paid, summary.currency)}</td>
                       <td>{money(c.pending, summary.currency)}</td>
                       <td>
-                        <button
+                        <button title={busy ? 'Дождитесь завершения текущего действия' : event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : !c.pendingRegistrationIds.length ? 'У клуба нет заявок, ожидающих оплаты' : undefined}
                           disabled={
                             disabled || !c.pendingRegistrationIds.length
                           }

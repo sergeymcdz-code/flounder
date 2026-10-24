@@ -253,3 +253,5 @@
 .emptyState { border-inline-start: 3px solid var(--color-border-strong); background: var(--color-surface-muted); }
 .card { border-top: 3px solid var(--color-text); }
 .facts { font-variant-numeric: tabular-nums; }
+
+.headerActions { margin-top: 20px; }

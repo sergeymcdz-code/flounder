@@ -34,6 +34,22 @@ beforeEach(() => {
 })
 
 describe('Judge results publication', () => {
+  it('preserves exact DNS, DNF and DSQ button names and Russian descriptions', async () => {
+    mount('IN_PROGRESS', 'judge')
+    await screen.findByRole('textbox')
+    // Testing Library matches string accessible names exactly by default.
+    const dns = screen.getByRole('button', { name: 'DNS' })
+    expect(dns).toHaveAccessibleDescription('Не стартовал')
+    expect(screen.getByRole('button', { name: 'DNF' })).toHaveAccessibleDescription('Не финишировал')
+    expect(screen.getByRole('button', { name: 'DSQ' })).toHaveAccessibleDescription('Дисквалифицирован')
+    await userEvent.click(dns)
+    expect(dns).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('textbox')).toBeDisabled()
+    await userEvent.click(dns)
+    expect(dns).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('textbox')).toBeEnabled()
+  })
+
   it('publishes complete results and offers corrections after FINISHED', async () => {
     mount('IN_PROGRESS')
     const publish = await screen.findByRole('button', { name: 'Опубликовать результаты' })
