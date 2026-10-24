@@ -4,7 +4,7 @@
 .row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); min-height: var(--control-h-lg); border-bottom: 1px solid var(--border-subtle); padding: var(--space-2) 0; }
 .row:last-child { border-bottom: 0; }
 .row[aria-current] { background: var(--surface-3); border-radius: var(--radius-md); padding: var(--space-3); font-weight: var(--font-weight-medium); }
-.stepLink { display: flex; align-items: center; gap: var(--space-2); min-width: var(--tap-target); min-height: var(--tap-target); color: var(--color-text); text-decoration: none; overflow-wrap: anywhere; }
+.stepLink { display: flex; align-items: center; gap: var(--space-2); min-width: var(--tap-target); min-height: var(--tap-target); color: var(--color-text); font-weight: var(--font-weight-medium); text-decoration: none; overflow-wrap: anywhere; }
 .stepLink small, .action small { display: block; margin-top: var(--space-1); font: 400 var(--text-xs)/var(--line-height-body) var(--font-body); color: var(--color-text-muted); }
 .number { flex-shrink: 0; white-space: nowrap; font: var(--font-weight-medium) var(--text-lg) var(--font-heading); font-variant-numeric: var(--numeric-variant); }
 .action { grid-column: 2 / -1; min-width: 0; }
