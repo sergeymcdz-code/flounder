@@ -12,22 +12,22 @@ for (const width of [1366, 375]) {
     expect((await page.getByRole('button', { name: 'Сохранить', exact: true }).boundingBox())!.width).toBeLessThan(200)
     const tabs = page.getByRole('navigation', { name: 'Разделы соревнования' })
     const overflow = tabs.locator('..')
-    await expect(overflow).toHaveAttribute('data-overflow-end', 'true')
+    await expect(overflow).toHaveAttribute('data-overflow-end', String(width === 375))
     await tabs.getByRole('link', { name: 'Оплата', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Настройки оплаты' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     expect(errors).toEqual([])
     // At mobile widths analytics lives in the overflow menu; results remains a scrolling tab.
-    const activePath = width === 375 ? 'results' : 'analytics'
+    const activePath = 'results'
     await page.evaluate(({ path, activePath }) => { history.pushState(null, '', `${path}/${activePath}`); dispatchEvent(new PopStateEvent('popstate')) }, { path: eventPath, activePath })
-    const active = tabs.getByRole('link', { name: width === 375 ? 'Результаты' : 'Аналитика', exact: true })
+    const active = tabs.getByRole('link', { name: 'Результаты', exact: true })
     await expect(active).toHaveAttribute('aria-current', 'page')
     await expect.poll(async () => {
       const rect = await active.boundingBox(), container = await tabs.boundingBox()
       return !!rect && !!container && rect.x >= container.x - 1 && rect.x + rect.width <= container.x + container.width + 1
     }).toBe(true)
-    await expect(overflow).toHaveAttribute('data-overflow-start', 'true')
-    if (width === 375) {
+    await expect(overflow).toHaveAttribute('data-overflow-start', String(width === 375))
+    {
       await page.evaluate(path => { history.pushState(null, '', `${path}/analytics`); dispatchEvent(new PopStateEvent('popstate')) }, eventPath)
       const more = page.getByRole('button', { name: 'Другие разделы соревнования' })
       await more.click()
@@ -36,8 +36,9 @@ for (const width of [1366, 375]) {
       await expect(analytics).toBeInViewport()
       await page.keyboard.press('Escape')
       await expect(more).toBeFocused()
-      await page.getByRole('button', { name: 'Открыть меню' }).click()
-    } else await page.locator('header summary').filter({ hasText: 'Организатор' }).click()
+    }
+    if (width === 375) await page.getByRole('button', { name: 'Открыть меню' }).click()
+    else await page.locator('header summary').filter({ hasText: 'Организатор' }).click()
     const logout = page.getByRole('button', { name: 'Выйти', exact: true })
     await expect(logout).toBeVisible()
     const logoutBox = await logout.boundingBox()
@@ -49,12 +50,12 @@ for (const width of [1366, 375]) {
   test(`UX-19 entry actions do not resize rows and close on Escape/outside at ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 375 ? 812 : 768 })
     await openAuditPage(page, `${eventPath}/entries`, 'organizer')
-    const trigger = page.getByRole('button', { name: 'Ещё ▾', exact: true }).first()
+    const trigger = page.getByRole('button', { name: 'Действия', exact: true }).first()
     await trigger.scrollIntoViewIfNeeded()
     const row = trigger.locator('xpath=ancestor::tr')
     const before = await row.boundingBox()
     await trigger.click()
-    const panel = page.getByRole('region', { name: 'Действия заявки' })
+    const panel = page.getByRole('menu', { name: 'Действия', exact: true })
     await expect(panel).toBeVisible()
     expect((await row.boundingBox())!.height).toBe(before!.height)
     if (width === 375) {

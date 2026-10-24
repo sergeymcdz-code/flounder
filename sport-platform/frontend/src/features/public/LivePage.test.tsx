@@ -327,6 +327,11 @@ function FullLivePage() {
 }
 
 describe('Live redesign', () => {
+  it('labels a scheduled heat without announcing that it is running', () => {
+    render(<MemoryRouter><LiveBoard live={{ currentUnit: { ...units[0], status: 'SCHEDULED' }, next: [], updatedAt: '' }} lanes={8} slug="demo" /></MemoryRouter>)
+    expect(screen.getByText('Текущий заплыв', { selector: 'p.fl-eyebrow' })).toBeInTheDocument()
+    expect(screen.queryByText('● Сейчас в бассейне')).not.toBeInTheDocument()
+  })
   it('uses the reported heat status and does not infer publication from completion', () => {
     const { rerender } = render(
       <MemoryRouter>
@@ -342,6 +347,8 @@ describe('Live redesign', () => {
       </MemoryRouter>,
     )
     expect(screen.getByText('Идёт заплыв')).toBeInTheDocument()
+    expect(screen.getByText('● Сейчас в бассейне')).toBeInTheDocument()
+    expect(screen.getByRole('table')).not.toHaveAttribute('tabindex')
     expect(
       document.querySelector('[data-status="IN_PROGRESS"]'),
     ).toBeInTheDocument()
@@ -363,6 +370,7 @@ describe('Live redesign', () => {
       document.querySelector('[data-status="FINISHED"]'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Официально')).not.toBeInTheDocument()
+    expect(screen.queryByText('● Сейчас в бассейне')).not.toBeInTheDocument()
     expect(
       screen.getByText(/Опубликованные результаты — в разделе/),
     ).toBeInTheDocument()

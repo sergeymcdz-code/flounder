@@ -1,7 +1,7 @@
 .card { min-width: 0; display: grid; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); color: var(--color-text); }
 .toolbar, .meta, .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .toolbar h2, .meta p { margin: 0; }
-.card :is(button, summary), .entryActions :is(button, a) { min-height: var(--control-h); min-width: var(--control-h); }
+.card :is(button, summary) { min-height: var(--control-h); min-width: var(--control-h); }
 .card :is(input:not([type='checkbox']), select) { min-height: var(--control-h); min-width: 0; max-width: 100%; }
 .numeric, .seed { font-variant-numeric: var(--numeric-variant); }
 .muted, .mobileMeta, .mobileLabel { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: 400; }
@@ -44,7 +44,7 @@
 .seedForm input { width: 100%; font-variant-numeric: var(--numeric-variant); }
 .seedForm .actions { flex-wrap: wrap; }
 .paymentContent { display: grid; gap: var(--space-1); justify-items: start; }
-.table :is(th, td):has(> .rowActions) { position: sticky; right: 0; background: var(--surface-1); box-shadow: var(--shadow-drawer); }
+.table :is(th, td):has(> .rowActions) { position: sticky; right: 0; background: var(--surface-1); box-shadow: calc(-1 * var(--space-2)) 0 var(--space-3) var(--border-strong); }
 .table thead th:has(> .rowActions) { right: 0; z-index: 2; width: calc(var(--space-16) * 3); }
 .rowActions .actions { flex-wrap: nowrap; justify-content: flex-end; }
 .rowActions button { padding-inline: var(--space-2); white-space: normal; }
@@ -52,8 +52,6 @@
 .bulkBar > strong { font-variant-numeric: var(--numeric-variant); }
 .loading { display: grid; gap: var(--space-2); }
 .loading > div { height: var(--control-h); background: var(--surface-2); border-radius: var(--radius-sm); }
-.entryActions { box-sizing: border-box; position: absolute; z-index: var(--z-drawer); display: grid; gap: var(--space-2); width: max-content; max-width: min(calc(100vw - var(--space-4)), calc(var(--space-16) * 6)); max-height: calc(100dvh - var(--space-8)); overflow-y: auto; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-pop); }
-.entryActions p { margin: 0; overflow-wrap: anywhere; }
 @media (min-width: 768px) {
   .card { padding: var(--space-6); }
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -95,5 +93,4 @@
   .rowActions .actions > button:first-child { flex: 1; }
   .rowActions .actions > button:last-child { flex: 0 0 var(--control-h); }
   .bulkBar > button { flex: 1 1 auto; }
-  .entryActions { position: fixed; inset: auto 0 0 !important; width: 100%; max-width: 100%; padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 }

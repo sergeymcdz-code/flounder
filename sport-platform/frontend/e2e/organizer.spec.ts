@@ -27,15 +27,12 @@ async function submitMockRegistration(page: Page, index: number) {
 }
 
 async function rowAction(row: Locator, label: string) {
-  const button = row.getByRole('button', { name: label, exact: true }).first()
-  if (!await button.isVisible()) await row.getByRole('button', { name: 'Ещё ▾', exact: true }).click()
-  await button.click()
+  await row.getByRole('button', { name: 'Действия', exact: true }).click()
+  await row.page().getByRole('menu', { name: 'Действия', exact: true }).getByRole('menuitem', { name: label, exact: true }).click()
 }
 
 async function generateAll(page: Page) {
-  const button = page.getByRole('button', { name: 'Всё соревнование', exact: true })
-  if (!await button.isVisible()) await page.getByText('Сформировать заплывы ▾', { exact: true }).click()
-  await button.click()
+  await page.getByRole('button', { name: 'Сформировать заплывы', exact: true }).click()
 }
 
 async function mockTemplates(
@@ -156,7 +153,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   await page.getByRole('heading', { name: 'Последнее формирование' }).waitFor()
   await page.getByText('Расписание ▾', { exact: true }).click()
   await page
-    .getByRole('button', { name: 'Пересчитать время стартов', exact: true })
+    .getByRole('menuitem', { name: 'Пересчитать время стартов', exact: true })
     .click()
   await page
     .getByRole('status')
@@ -194,6 +191,11 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .getByRole('status')
     .filter({ hasText: 'Выполняем действие' })
     .waitFor({ state: 'hidden' })
+  const validation = page.getByRole('dialog', { name: 'Проверка заплывов' })
+  await expect(validation).toBeVisible()
+  await expect(validation.getByRole('status')).toHaveText('Нарушений не найдено.')
+  await validation.getByRole('button', { name: 'Закрыть', exact: true }).click()
+  await expect(validation).toHaveCount(0)
   await page
     .getByRole('button', {
       name: 'Опубликовать протокол',
@@ -213,6 +215,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .waitFor()
   await dialog.getByRole('button', { name: 'Подтвердить', exact: true }).click()
   await dialog.waitFor({ state: 'hidden' })
+  await page.getByText(/^Замечания формирования ·/).click()
   await page
     .getByText(
       'Опубликованные заплывы заменены. Требуется повторная публикация.',
@@ -233,7 +236,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   await page.goto(base + '/registrations')
   await page.waitForURL(base + '/entries')
   await page
-    .getByRole('heading', { name: 'Заявки участников · 30', exact: true })
+    .getByRole('heading', { name: 'Заявки · 30', exact: true })
     .waitFor()
 
   expect(errors).toEqual([])
@@ -653,34 +656,35 @@ test('generation admission persists across tabs with nested and flat summaries',
       .getByRole('navigation', { name: 'Разделы соревнования' })
       .getByRole('link', { name: 'Заявки', exact: true })
       .click()
-    for (const code of [
-      'GENDER_MISMATCH',
-      'AGE_GROUP_MISMATCH',
-      'DUPLICATE_ENTRY',
-      'ATHLETE_NOT_FOUND',
-    ])
-      await expect(page.getByText(code, { exact: true })).toHaveAttribute(
-        'title',
-        /[А-Яа-я]/,
-      )
+    for (const reason of [
+      'Пол участника не соответствует виду программы.',
+      'Год рождения не соответствует возрастным группам.',
+      'Участник уже заявлен на этот вид программы.',
+      'Спортсмен не найден в справочнике.',
+    ]) {
+      const admission = page.locator('span[title]').filter({ hasText: /^Не допущена$/ }).and(page.locator(`[title="${reason}"]`))
+      await expect(admission).toHaveCount(1)
+      await expect(admission).toHaveAttribute('title', reason)
+    }
     await page
       .getByRole('combobox', { name: /^Статус(?! оплаты)/ })
       .selectOption('EXCLUDED')
     await expect(page.getByRole('row')).toHaveCount(5)
     await page.getByRole('combobox', { name: /^Статус(?! оплаты)/ }).selectOption('')
     const admitted = page.getByRole('row').filter({ has: page.locator('[title="Заявка допущена по последнему результату формирования."]') }).first()
-    await admitted.locator('.fl-entry-details > summary').click()
-    await expect(admitted.getByText(/Допуск: ✓/)).toBeVisible()
+    await admitted.getByRole('button', { name: 'Действия', exact: true }).click()
+    await expect(page.getByRole('menu', { name: 'Действия', exact: true }).getByRole('menuitem', { name: 'Заявка допущена по последнему результату формирования.', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
   }
   await expect(
-    page.getByText('ATHLETE_NOT_FOUND', { exact: true }),
+    page.locator('span[title="Спортсмен не найден в справочнике."]'),
   ).toHaveAttribute('title', 'Спортсмен не найден в справочнике.')
   await page.reload()
   await expect(
-    page.getByRole('heading', { name: 'Заявки участников · 30', exact: true }),
+    page.getByRole('heading', { name: 'Заявки · 30', exact: true }),
   ).toBeVisible()
   await expect(
-    page.getByText('ATHLETE_NOT_FOUND', { exact: true }),
+    page.locator('span[title="Спортсмен не найден в справочнике."]'),
   ).toHaveCount(0)
   await expect(
     page.locator('[title="Сформируйте заплывы, чтобы проверить допуск."]'),

@@ -37,7 +37,7 @@ test('all public pages fit 375px, with screenshots and printable protocols', asy
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect(page.getByText('Загружаем данные…')).toHaveCount(0)
     if (route === '/live') {
-      await expect(page.getByText(/Сейчас заплыв №/)).toBeVisible()
+      await expect(page.getByRole('heading', { name: /^Сейчас заплыв №/ })).toBeVisible()
       await expect(page.getByTitle('Дорожка', { exact: true })).toBeVisible()
       expect(
         await page
@@ -47,12 +47,22 @@ test('all public pages fit 375px, with screenshots and printable protocols', asy
     }
     if (route === '/start-list')
       await expect(page.getByRole('table')).toHaveCount(6)
-    if (route === '/results')
+    if (route === '/results') {
+      await page.getByRole('button', { name: 'Абсолют', exact: true }).click()
       await expect(page.getByRole('table')).toHaveCount(4)
-    if (route === '/register')
-      await expect(
-        page.getByRole('button', { name: 'Отправить заявку' }),
-      ).toBeVisible()
+    }
+    if (route === '/register') {
+      await expect(page.getByRole('button', { name: 'Далее: Виды и время', exact: true })).toBeVisible()
+      await page.getByLabel('Фамилия', { exact: true }).fill('Иванов')
+      await page.getByLabel('Имя', { exact: true }).fill('Иван')
+      await page.getByLabel('Дата рождения').fill('2012-06-15')
+      await page.getByLabel('Пол', { exact: true }).selectOption('M')
+      await page.getByRole('button', { name: 'Далее: Виды и время', exact: true }).click()
+      await page.getByRole('button', { name: /50 м вольный стиль, юноши/ }).click()
+      await page.getByLabel(/Заявочное время/).fill('00:32.15')
+      await page.getByRole('button', { name: 'Далее: Проверка', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Отправить заявку', exact: true })).toBeVisible()
+    }
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -86,7 +96,8 @@ test('all public pages fit 375px, with screenshots and printable protocols', asy
 test('surname search, auto print and legacy redirect', async ({ page }) => {
   await page.goto('/events/demo')
   await expect(page).toHaveURL(/\/e\/demo$/)
-  await page.getByRole('link', { name: 'Найти себя', exact: true }).click()
+  await page.getByRole('link', { name: 'Табло', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Найти себя', exact: true })).toBeVisible()
   const lane = demoStartList.sessions[0].disciplines[0].heats[0].lanes[0]
   if (lane.empty) throw new Error('Expected an occupied lane')
   const athlete = lane.athlete
@@ -102,7 +113,7 @@ test('surname search, auto print and legacy redirect', async ({ page }) => {
       ;(window as unknown as { printCalls: number }).printCalls++
     }
   })
-  await page.getByRole('link', { name: 'SportGate', exact: true }).click()
+  await page.getByRole('link', { name: 'Осенний кубок SportGate', exact: true }).click()
   await page.getByRole('link', { name: /Стартовый протокол →/ }).click()
   await page.evaluate(() => history.replaceState(null, '', '?print=1'))
   // A full navigation requires reinstalling the print spy before app bootstrap.
@@ -126,7 +137,7 @@ test('anonymous registration returns after login; authenticated form validates p
   page,
 }) => {
   await page.goto('/e/demo/register')
-  await page.getByRole('link', { name: 'Войти', exact: true }).click()
+  await page.getByRole('main').getByRole('link', { name: 'Войти', exact: true }).click()
   await expect(page).toHaveURL(/next=%2Fe%2Fdemo%2Fregister/)
   await page.getByLabel('Email', { exact: true }).fill('parent@flounder.demo')
   await page.getByLabel('Пароль', { exact: true }).fill('Mock-only-password1!')
@@ -175,12 +186,12 @@ test('production PWA caches shell and live API and reloads offline', async ({
   })
   const page = await context.newPage()
   await page.goto('http://localhost:5175/e/demo/live')
-  await expect(page.getByText('Сейчас заплыв №1')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Сейчас заплыв №1(?: из \d+)?$/ })).toBeVisible()
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready
   })
   await page.reload()
-  await expect(page.getByText('Сейчас заплыв №1')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Сейчас заплыв №1(?: из \d+)?$/ })).toBeVisible()
   await expect
     .poll(() =>
       page.evaluate(async () => {
@@ -221,13 +232,13 @@ test('production PWA caches shell and live API and reloads offline', async ({
   await page.getByRole('link', { name: 'Осенний кубок SportGate' }).click()
   await expect(page).toHaveURL('http://localhost:5175/e/demo')
   await page.goto('http://localhost:5175/e/demo/live')
-  await expect(page.getByText('Сейчас заплыв №1')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Сейчас заплыв №1(?: из \d+)?$/ })).toBeVisible()
   const cdp = await context.newCDPSession(page)
   const installability = await cdp.send('Page.getInstallabilityErrors')
   expect(installability.installabilityErrors).toEqual([])
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByText('Сейчас заплыв №1')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Сейчас заплыв №1(?: из \d+)?$/ })).toBeVisible()
   await expect(
     page.getByText(/Нет связи, показаны последние данные/),
   ).toBeVisible()

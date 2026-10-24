@@ -18,13 +18,13 @@ vi.mock('./organizer-event-context', async (original) => ({
 it.each(['PAID', 'ADMITTED'])('hides rejection for %s entries', status => {
   context.registrations[0].status = status
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
-  expect(screen.queryByRole('button', { name: 'Отклонить' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('menuitem', { name: 'Отклонить' })).not.toBeInTheDocument()
 })
 it.each(['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED'])('allows rejection for %s entries', status => {
   context.registrations[0].status = status
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
-  fireEvent.click(screen.getByRole('button', { name: 'Ещё ▾' }))
-  expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Действия' }))
+  expect(screen.getByRole('menuitem', { name: 'Отклонить' })).toBeInTheDocument()
 })
 
 const initialRegistrations = structuredClone(context.registrations)
@@ -81,8 +81,8 @@ it.each(['PENDING', 'NOT_REQUIRED'])('offers payment for a confirmed entry with 
   context.registrations[0].paymentStatus = paymentStatus
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: 'Ещё ▾' }))
-  expect(within(screen.getByRole('region', { name: 'Действия заявки' })).getByRole('button', { name: 'Снять' })).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Действия' }))
+  expect(within(screen.getByRole('menu', { name: 'Действия' })).getByRole('menuitem', { name: 'Снять' })).toBeVisible()
 })
 it('confirms bulk review, runs sequentially, retains failed selection and refreshes once', async () => {
   const user = (await import('@testing-library/user-event')).default.setup()
@@ -131,11 +131,11 @@ it('includes confirmed zero-fee entries in bulk payment', async () => {
 it('opens row actions outside the table and closes on Escape and outside clicks', () => {
   context.registrations[0].status = 'SUBMITTED'
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
-  const trigger = screen.getByRole('button', { name: 'Ещё ▾' })
+  const trigger = screen.getByRole('button', { name: 'Действия' })
   fireEvent.click(trigger)
-  expect(screen.getByRole('region', { name: 'Действия заявки' }).closest('table')).toBeNull()
-  fireEvent.keyDown(document, { key: 'Escape' })
-  expect(screen.queryByRole('region', { name: 'Действия заявки' })).not.toBeInTheDocument()
+  expect(screen.getByRole('menu', { name: 'Действия' }).closest('table')).toBeNull()
+  fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Вернуть' }), { key: 'Escape' })
+  expect(screen.queryByRole('menu', { name: 'Действия' })).not.toBeInTheDocument()
   expect(trigger).toHaveFocus()
   fireEvent.click(trigger)
   fireEvent.pointerDown(document.body)
@@ -146,22 +146,22 @@ it('keeps withdrawal confirmation focus on the portal trigger', async () => {
   const user = userEvent.setup()
   context.registrations[0].status = 'CONFIRMED'
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
-  const trigger = screen.getByRole('button', { name: 'Ещё ▾' })
+  const trigger = screen.getByRole('button', { name: 'Действия' })
   await user.click(trigger)
-  await user.click(within(screen.getByRole('region', { name: 'Действия заявки' })).getByRole('button', { name: 'Снять' }))
+  await user.click(within(screen.getByRole('menu', { name: 'Действия' })).getByRole('menuitem', { name: 'Снять' }))
   await user.click(within(screen.getByRole('dialog', { name: 'Снять заявку?' })).getByRole('button', { name: 'Отмена' }))
   expect(trigger).toHaveFocus()
 })
 it('shows one contextual action plus overflow and moves secondary actions into the portal', async () => {
   context.registrations[0].status = 'CONFIRMED'
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
-  expect(screen.queryByRole('button', { name: 'История оплаты' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('menuitem', { name: 'История оплаты' })).not.toBeInTheDocument()
   const row = screen.getByRole('rowheader', { name: 'Тестов Иван' }).closest('tr')!
   const actions = row.querySelector('td:last-child') as HTMLElement
   expect(within(actions).getAllByRole('button')).toHaveLength(2)
-  await userEvent.click(screen.getByRole('button', { name: 'Ещё ▾' }))
-  expect(screen.getByRole('button', { name: 'История оплаты' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Освободить от взноса' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Действия' }))
+  expect(screen.getByRole('menuitem', { name: 'История оплаты' })).toBeInTheDocument()
+  expect(screen.getByRole('menuitem', { name: 'Освободить от взноса' })).toBeInTheDocument()
 })
 it('keeps the search reset available when filters have no results', async () => {
   const user = userEvent.setup()

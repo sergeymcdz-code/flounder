@@ -22,7 +22,7 @@ for (const width of [1366, 375]) test(`D03 navigation matrix ${width}`, async ({
     await page.evaluate(() => document.fonts.ready)
     if (name === 'judge') await expect(page.getByText(/^Вид № [1-9]/)).toBeVisible()
     if (name === 'entries' && width === 1366) {
-      const table = page.locator('.fl-table-scroll')
+      const table = page.getByRole('region', { name: 'Заявки участников', exact: true })
       // Payment actions added after D03 can overflow the table even on desktop.
       // D04 requires the overflow to stay inside the container, without hiding data.
       const dimensions = await table.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth }))
