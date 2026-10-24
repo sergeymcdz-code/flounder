@@ -136,9 +136,13 @@ it('shows a visible reason while a lifecycle action is loading', () => {
   context.busy = true
   render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
   const button = screen.getByRole('button', { name: 'Закрыть регистрацию' })
-  expect(button).toBeDisabled()
+  expect(button).toHaveAttribute('aria-disabled', 'true')
   expect(button).toHaveAttribute('aria-busy', 'true')
   expect(button).toHaveAccessibleDescription('Сначала: шаг 1 Дождитесь завершения текущего действия')
+  fireEvent.click(button)
+  expect(context.clearError).not.toHaveBeenCalled()
+  expect(context.run).not.toHaveBeenCalled()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
 it('rejects a past extension date without changing the event', () => {

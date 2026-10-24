@@ -83,12 +83,15 @@ it('marks the program as current when a draft has no program', () => {
 
 it('keeps the prerequisite hint visible while busy and blocks only the pending operation', () => {
   const context = createFixtures()
-  render(<MemoryRouter><EventChecklist context={context} onTransition={() => {}} busy action={{ label: 'Завершить соревнование', step: 6, reason: 'Сначала: шаг 2' }} /></MemoryRouter>)
+  const onTransition = vi.fn()
+  render(<MemoryRouter><EventChecklist context={context} onTransition={onTransition} busy action={{ label: 'Завершить соревнование', step: 6, reason: 'Сначала: шаг 2' }} /></MemoryRouter>)
   const button = screen.getByRole('button', { name: 'Завершить соревнование' })
-  expect(button).toBeDisabled()
+  expect(button).toHaveAttribute('aria-disabled', 'true')
   expect(button).toHaveAttribute('aria-busy', 'true')
   expect(button).toHaveAccessibleDescription('Сначала: шаг 2 Дождитесь завершения текущего действия')
   expect(screen.getByText('Сначала: шаг 2 Дождитесь завершения текущего действия')).toBeVisible()
+  fireEvent.click(button)
+  expect(onTransition).not.toHaveBeenCalled()
 })
 
 it('uses the lifecycle action as current when all seven steps are complete', () => {
