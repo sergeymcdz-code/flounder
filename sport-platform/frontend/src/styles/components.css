@@ -295,3 +295,8 @@ body .fl-btn { min-width: var(--tap-target); max-width: 100%; }
 .fl-status[data-status-kind="result"][data-status="DNF"] { color: var(--status-result-dnf); background: var(--status-result-dnf-soft); }
 .fl-status[data-status-kind="result"][data-status="DSQ"] { color: var(--status-result-dsq); background: var(--status-result-dsq-soft); }
 .fl-status[data-status-kind="result"][data-status="CORRECTED"] { color: var(--status-result-corrected); background: var(--status-result-corrected-soft); }
+
+/* Keep the existing compact lane table on the 4-point grid in short desktop viewports. */
+@media screen and (min-width: 1024px) and (max-height: 800px) {
+  body .fl-live-page ~ section .fl-lanes :is(th, td) { padding-block: var(--space-1); }
+}
