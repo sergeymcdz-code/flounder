@@ -15,6 +15,12 @@ for (const path of ['/organizer/events?all=1', '/operator/payments', '/events/de
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
     const wrapper = page.locator('[class*=tableWrap]')
     await wrapper.evaluate(node => { node.scrollLeft = node.scrollWidth })
+    if (path === '/operator/payments') {
+      // UX-22: mobile rows become cards with actions inside the viewport.
+      expect(await wrapper.evaluate(node => node.scrollWidth)).toBeLessThanOrEqual(375)
+      await expect(page.getByRole('link', { name: /Открыть заявку:/ }).first()).toBeInViewport()
+      return
+    }
     expect(await wrapper.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
     if (path.startsWith('/events/')) await expect(page.getByRole('columnheader', { name: 'Статус', exact: true })).toBeInViewport()
     else await expect(page.getByRole('link', { name: path.includes('organizer') ? 'Открыть' : 'Открыть', exact: true }).first()).toBeInViewport()
@@ -33,10 +39,11 @@ test('QA06-02 QR keeps its square geometry at 375px', async ({ page }) => {
 test('QA06-03 admin form uses separated, full-width labelled controls', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await openAuditPage(page, '/admin/registrations/review', 'platform_admin')
+  await page.getByRole('button', { name: /Выбрать заявку:/ }).first().click()
   const comment = page.getByLabel('Комментарий для участника')
   const box = await comment.boundingBox()
   expect(box?.width).toBeGreaterThan(300)
-  expect(await page.locator('.review-decisions').evaluate(node => getComputedStyle(node).display)).toBe('grid')
+  expect(await page.locator('[class*=decisions]').evaluate(node => getComputedStyle(node).display)).toBe('grid')
   await expect(page.locator('body')).not.toContainText('payment flow')
   await expect(page.locator('body')).not.toContainText('production')
 })

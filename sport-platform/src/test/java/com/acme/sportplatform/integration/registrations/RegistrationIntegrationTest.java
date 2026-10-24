@@ -419,7 +419,12 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(registrationId))
                 .andExpect(jsonPath("$[0].status").value("SUBMITTED"))
-                .andExpect(jsonPath("$[0].reviewedByUserId").doesNotExist());
+                .andExpect(jsonPath("$[0].reviewedByUserId").doesNotExist())
+                .andExpect(jsonPath("$[0].participantFullName").value("Иванов Иван Иванович"))
+                .andExpect(jsonPath("$[0].participantBirthYear").value(2004))
+                .andExpect(jsonPath("$[0].participantClubName").value("СК Олимп"))
+                .andExpect(jsonPath("$[0].eventTitle").value("Registration IT Event"))
+                .andExpect(jsonPath("$[0].eventStartAt").isNotEmpty());
 
         String reviewRequestJson = """
                 {

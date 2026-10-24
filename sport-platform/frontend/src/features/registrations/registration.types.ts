@@ -36,6 +36,9 @@ export type RegistrationStatus =
   | 'CANCELLED'
 
 export type Registration = import('../../api/registration-payments.api').PaymentDetails & {
+  participantFullName?: string
+  participantBirthYear?: number | null
+  participantClubName?: string | null
   eventTitle?: string
   disciplineName?: string
   eventStartAt?: string | null

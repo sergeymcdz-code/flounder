@@ -1,0 +1,18 @@
+.directory { min-width: 0; margin-top: var(--space-6); }
+.filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.tableWrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: var(--space-4); border-bottom: 1px solid var(--border-subtle); overflow-wrap: anywhere; }
+.table th { background: var(--surface-2); color: var(--color-text-muted); }
+.table tr[aria-selected='true'] { background: var(--color-primary-soft); }
+.meta { display: block; margin-top: var(--space-1); color: var(--color-text-muted); font-size: var(--text-sm); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 767px) {
+  .filters { grid-template-columns: minmax(0, 1fr); }
+  .tableWrap { border: 0; background: transparent; }
+  .table, .table tbody { display: block; }
+  .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .table tr { display: grid; gap: var(--space-3); padding: var(--space-4); margin-bottom: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }
+  .table td { display: block; padding: 0; border: 0; }
+  .table td:last-child :global(.fl-btn) { min-height: 44px; width: 100%; }
+}

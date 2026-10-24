@@ -1,0 +1,13 @@
+.page { min-width: 0; }
+.page :global(.page-description) { color: var(--color-text-muted); }
+.page :global(.eyebrow) { color: var(--color-primary); }
+.page :global(.form-error) { color: var(--color-danger); }
+.page :global(.form-success) { color: var(--color-success); }
+.form { display: grid; gap: var(--space-4); padding: var(--space-6); margin-top: var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }
+.form h2, .form p { margin: 0; }
+.decisions { display: grid; gap: var(--space-3); }
+.option { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; }
+.option:has(input:checked) { background: var(--color-primary-soft); border-color: var(--color-primary); }
+.option input { flex-shrink: 0; }
+.option small { display: block; margin-top: var(--space-1); color: var(--color-text-muted); }
+@media (max-width: 767px) { .form { padding: var(--space-4); } }
