@@ -100,9 +100,7 @@ export function LaneTable({ heat, lanes, compact = false }: { heat: Heat; lanes:
     const lane = heat.lanes.find(item => item.lane === index + 1)
     return lane && !lane.empty ? lane : undefined
   })
-  return (
-    <>
-    <div className={compact ? `${startStyles.tableScroll} fl-table-scroll` : undefined}>
+  const table = (
     <table className={`${styles.table} fl-protocol fl-lanes ${compact ? `${startStyles.laneTable} fl-table` : ''}`} role="table" tabIndex={compact ? undefined : 0}>
       <caption className={styles.srOnly}>
         Дорожки заплыва №{heat.number}
@@ -156,7 +154,10 @@ export function LaneTable({ heat, lanes, compact = false }: { heat: Heat; lanes:
         })}
       </tbody>
     </table>
-    </div>
+  )
+  return (
+    <>
+    {compact ? <div className={`${startStyles.tableScroll} fl-table-scroll`}>{table}</div> : table}
     <StatusLegend statuses={visibleLanes.map(entry => entry && !entry.withdrawn && entry.seedTimeMs === null ? 'NT' : null)} />
     </>
   )
