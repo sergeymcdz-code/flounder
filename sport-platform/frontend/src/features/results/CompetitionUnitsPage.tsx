@@ -39,7 +39,7 @@ export function CompetitionUnitsPage() {
   const [units, setUnits] = useState<CompetitionUnitResponse[]>([])
   const [unitId, setUnitId] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(Boolean(token))
 
   useEffect(() => {
     if (!token) return

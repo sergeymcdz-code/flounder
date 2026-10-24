@@ -164,7 +164,7 @@ export function JudgePanelPage() {
       if (!active) return
       const heat = list.sessions.flatMap(s => s.disciplines).flatMap(d => d.heats).find(h => h.id === loadedUnitId)
       setClubs(Object.fromEntries((heat?.lanes ?? []).flatMap(lane => lane.empty ? [] : [[lane.registrationId, lane.athlete.club]])))
-    }).catch(() => { if (active) setClubs({}) })
+    }).catch(() => { clubCache.current.delete(context.slug); if (active) setClubs({}) })
     return () => { active = false }
   }, [mobile, context.slug, loadedUnitId])
 
@@ -241,7 +241,7 @@ export function JudgePanelPage() {
 
   return <section className={styles.page}>
     <Link className={`${styles.backLink} fl-btn fl-btn-ghost fl-btn-sm`} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
-    <PageHeader title={context.sequence ? `ЗАПЛЫВ ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}
+    <PageHeader title={context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Заплыв'}
       badge={unit && <StatusBadge kind="heat" code={unit.status} />}
       meta={<><span className={styles.eyebrow}>Судейская панель{context.name && <> · <span>Вид № {context.number} · {context.name}</span></>}</span>{(context.time || context.session) && <span className={styles.context}>{[context.time, context.session].filter(Boolean).join(' · ')}</span>}</>}
       actions={controls} />
