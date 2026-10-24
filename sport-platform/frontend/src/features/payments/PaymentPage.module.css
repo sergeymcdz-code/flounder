@@ -194,7 +194,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-on-primary);
   font-weight: 750;
   text-decoration: none;
   transition: background-color 160ms ease, transform 160ms ease;

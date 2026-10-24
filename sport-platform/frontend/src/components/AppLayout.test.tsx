@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { expect, it, vi } from 'vitest'
 import { AuthProvider } from '../app/providers/AuthProvider'
@@ -27,7 +27,7 @@ it.each([['participant', 'Мои заявки', '/my/registrations'], ['organize
   expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href)
   expect(screen.queryByRole('link', { name: 'Заявки' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Заявки и платежи' })).not.toBeInTheDocument()
-  expect(screen.getByText('Сменить пароль').closest('details')?.querySelector('summary')).toHaveTextContent(/Профиль|user/)
+  expect(screen.getByText('Профиль').closest('summary')).toBeInTheDocument()
   sessionStorage.clear()
 })
 
@@ -37,10 +37,15 @@ it('closes the mobile navigation after following a workspace link', async () => 
   sessionStorage.setItem('flounder.auth-session', JSON.stringify({ accessToken: `demo.${btoa(JSON.stringify({ roles: ['organizer'] }))}.demo`, expiresAt: Date.now() + 60000 }))
   try {
     render(<MemoryRouter><AuthProvider><AppLayout /></AuthProvider></MemoryRouter>)
-    const menu = screen.getByLabelText('Меню').closest('details')!
-    await user.click(screen.getByLabelText('Меню'))
+    const trigger = screen.getByRole('button', { name: 'Открыть меню' })
+    await user.click(trigger)
+    const menu = screen.getByRole('dialog', { name: 'Меню кабинета' })
     expect(menu).toHaveAttribute('open')
-    await user.click(screen.getByRole('link', { name: 'Мои соревнования' }))
+    expect(within(menu).getByRole('navigation', { name: 'Разделы' })).toBeInTheDocument()
+    expect(within(menu).getByRole('navigation', { name: 'Навигация кабинета' })).toBeInTheDocument()
+    await user.click(within(menu).getByRole('link', { name: 'Мои соревнования' }))
     expect(menu).not.toHaveAttribute('open')
+    fireEvent(menu, new Event('close'))
+    expect(trigger).toHaveFocus()
   } finally { sessionStorage.clear(); vi.unstubAllGlobals() }
 })
