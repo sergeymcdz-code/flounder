@@ -2,9 +2,12 @@ import { ResultStatus } from '../results/ResultStatus'
 import { StatusLegend } from '../results/StatusLegend'
 import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
+import { Button } from '../../components/ui/Button'
+import { Notice } from '../../components/ui/Notice'
 import type { Heat, PublicEvent, ResultRow } from './public.types'
 import { date, isValidResult, seedTime, time } from './format'
 import styles from './Public.module.css'
+import startStyles from './StartList.module.css'
 
 export function PrintHeader({
   event,
@@ -55,39 +58,70 @@ export function PrintButton({ ready }: { ready: boolean }) {
     }
   }, [ready, search])
   return (
-    <button
-      className={`${styles.noPrint} fl-btn fl-btn-ghost`}
+    <Button
+      variant="ghost"
+      className={styles.noPrint}
       onClick={() => window.print()}
       disabled={!ready}
+      title={!ready ? 'Печать доступна после публикации протокола' : undefined}
     >
       Печать
-    </button>
+    </Button>
   )
 }
 
-export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
+export function ProtocolState({ loading, error, errorStatus, data, retry }: {
+  loading: boolean
+  error?: string
+  errorStatus?: number
+  data?: unknown
+  retry: () => void
+}) {
+  if (loading && data === undefined) return <div className={styles.noPrint} role="status">
+    <p>Загружаем стартовый протокол…</p>
+    <div aria-hidden="true" className={startStyles.skeletons}>
+      {[0, 1].map(heat => <div key={heat} className={startStyles.skeletonHeat}>
+        {[0, 1, 2].map(row => <div key={row} className={startStyles.skeletonRow} />)}
+      </div>)}
+    </div>
+  </div>
+  if (!error) return null
+  const message = errorStatus === 404 ? 'Данные не найдены.'
+    : errorStatus ? `Сервер ответил ошибкой (${errorStatus}). ${error}` : error
+  return <Notice tone="danger" className={`${styles.noPrint} ${startStyles.error}`}>
+    <p>{message}{data !== undefined && ' Показаны последние данные.'}</p>
+    <p>Попробуйте загрузить протокол ещё раз.</p>
+    <Button variant="secondary" onClick={retry}>Повторить</Button>
+  </Notice>
+}
+
+export function LaneTable({ heat, lanes, compact = false }: { heat: Heat; lanes: number; compact?: boolean }) {
   const visibleLanes = Array.from({ length: lanes }, (_, index) => {
     const lane = heat.lanes.find(item => item.lane === index + 1)
     return lane && !lane.empty ? lane : undefined
   })
   return (
     <>
-    <table className={`${styles.table} fl-protocol fl-lanes`} role="table" tabIndex={0}>
+    <div className={compact ? `${startStyles.tableScroll} fl-table-scroll` : undefined}>
+    <table className={`${styles.table} fl-protocol fl-lanes ${compact ? `${startStyles.laneTable} fl-table` : ''}`} role="table" tabIndex={compact ? undefined : 0}>
       <caption className={styles.srOnly}>
         Дорожки заплыва №{heat.number}
       </caption>
       <thead>
         <tr>
           <th scope="col">
-            <span className={styles.laneFull}>Дорожка</span>
-            <abbr className={styles.laneShort} title="Дорожка">
+            <span className={`${styles.laneFull} ${compact ? startStyles.laneFull : ''}`}>Дорожка</span>
+            <abbr className={`${styles.laneShort} ${compact ? startStyles.laneShort : ''}`} title="Дорожка">
               Дор.
             </abbr>
           </th>
           <th scope="col">Фамилия Имя</th>
-          <th scope="col">Год</th>
-          <th scope="col">Клуб</th>
-          <th scope="col">Заявочное время</th>
+          <th scope="col" className={compact ? startStyles.secondaryColumn : undefined}>Год</th>
+          <th scope="col" className={compact ? startStyles.secondaryColumn : undefined}>Клуб</th>
+          <th scope="col">
+            <span className={compact ? startStyles.seedFull : undefined}>Заявочное время</span>
+            {compact && <span className={`${startStyles.seedShort} ${styles.noPrint}`}>Заяв. время</span>}
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -105,20 +139,24 @@ export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
                     <span>
                       {entry.athlete.lastName} {entry.athlete.firstName}
                     </span>
+                    {compact && <small className={`${startStyles.athleteMeta} ${styles.noPrint}`} aria-hidden="true">
+                      {entry.athlete.birthYear} · {entry.athlete.club ?? 'Без клуба'}
+                    </small>}
                     {withdrawn && <small>Снят</small>}
                   </>
                 ) : (
                   '—'
                 )}
               </td>
-              <td>{entry?.athlete.birthYear ?? '—'}</td>
-              <td>{entry?.athlete.club ?? '—'}</td>
+              <td className={compact ? startStyles.secondaryColumn : undefined}>{entry?.athlete.birthYear ?? '—'}</td>
+              <td className={compact ? startStyles.secondaryColumn : undefined}>{entry?.athlete.club ?? '—'}</td>
               <td>{entry && !withdrawn ? <ResultStatus status={seedTime(entry.seedTimeMs)} /> : '—'}</td>
             </tr>
           )
         })}
       </tbody>
     </table>
+    </div>
     <StatusLegend statuses={visibleLanes.map(entry => entry && !entry.withdrawn && entry.seedTimeMs === null ? 'NT' : null)} />
     </>
   )
@@ -136,8 +174,14 @@ export function HeatProtocol({
   timeZone?: string
 }) {
   return (
-    <article className={`${styles.heat} fl-heat`}>
-      <h4>
+    <article className={`${styles.heat} ${startStyles.heat} fl-heat`}>
+      <div className={`${startStyles.heatHeading} ${styles.noPrint}`}>
+        <h4>Заплыв {heat.number} · {time(heat.scheduledAt, timeZone)}</h4>
+        {slug && <Button as={Link} variant="ghost" size="sm"
+          aria-label={`Открыть заплыв ${heat.number}`}
+          to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(heat.id)}`}>Открыть</Button>}
+      </div>
+      <h4 className={startStyles.printOnly} aria-hidden="true">
         {slug ? (
           <Link
             to={`/e/${encodeURIComponent(slug)}/heats/${encodeURIComponent(heat.id)}`}
@@ -150,7 +194,7 @@ export function HeatProtocol({
           </>
         )}
       </h4>
-      <LaneTable heat={heat} lanes={lanes} />
+      <LaneTable heat={heat} lanes={lanes} compact />
     </article>
   )
 }
