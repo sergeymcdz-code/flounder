@@ -25,20 +25,23 @@ public class RegulationService {
     private final RegulationTemplateRepository regulationTemplateRepository;
     private final RegulationVersionRepository regulationVersionRepository;
     private final SportLookup sportLookup;
+    private final com.acme.sportplatform.organizations.CatalogOrganizationAccess access;
 
     public RegulationService(
             RegulationTemplateRepository regulationTemplateRepository,
             RegulationVersionRepository regulationVersionRepository,
-            SportLookup sportLookup
+            SportLookup sportLookup,
+            com.acme.sportplatform.organizations.CatalogOrganizationAccess access
     ) {
         this.regulationTemplateRepository = regulationTemplateRepository;
         this.regulationVersionRepository = regulationVersionRepository;
         this.sportLookup = sportLookup;
+        this.access = access;
     }
 
     @Transactional(readOnly = true)
     public List<RegulationTemplateResponse> getTemplates() {
-        return regulationTemplateRepository.findAll().stream()
+        return regulationTemplateRepository.findVisible(access.isPlatformAdmin(), access.readableOrganizationIds()).stream()
                 .map(this::mapTemplate)
                 .toList();
     }
@@ -46,19 +49,21 @@ public class RegulationService {
     @Transactional
     public RegulationTemplateResponse createTemplate(CreateRegulationTemplateRequest request) {
         if (!sportLookup.existsById(request.sportId())) {
-            throw new BusinessException("sports.sport_not_found", "Sport not found");
+            throw new BusinessException("sports.sport_not_found", "Вид спорта не найден");
         }
 
-        if (regulationTemplateRepository.existsBySportIdAndCode(request.sportId(), request.code())) {
+        UUID owner = access.ownerForCreate(request.organizationId());
+        if (regulationTemplateRepository.existsBySportIdAndCodeAndOrganizationId(request.sportId(), request.code(), owner)) {
             throw new BusinessException(
                     "regulations.template_already_exists",
-                    "Regulation template already exists"
+                    "Шаблон регламента уже существует"
             );
         }
 
         RegulationTemplateEntity entity = new RegulationTemplateEntity();
         entity.setId(UUID.randomUUID());
         entity.setSportId(request.sportId());
+        entity.setOrganizationId(owner);
         entity.setCode(request.code());
         entity.setName(request.name());
         entity.setDescription(request.description());
@@ -70,63 +75,47 @@ public class RegulationService {
 
     @Transactional(readOnly = true)
     public RegulationTemplateResponse getTemplate(UUID id) {
-        return mapTemplate(regulationTemplateRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(
-                        "regulations.template_not_found",
-                        "Regulation template not found"
-                )));
+        return mapTemplate(visibleTemplate(id));
     }
 
     @Transactional
     public RegulationVersionResponse createVersion(UUID templateId, CreateRegulationVersionRequest request) {
-        RegulationTemplateEntity template = regulationTemplateRepository.findById(templateId)
-                .orElseThrow(() -> new BusinessException(
-                        "regulations.template_not_found",
-                        "Regulation template not found"
-                ));
-
-        if (regulationVersionRepository.existsByRegulationTemplateIdAndVersionNo(templateId, request.versionNo())) {
-            throw new BusinessException(
-                    "regulations.version_already_exists",
-                    "Regulation version already exists"
-            );
-        }
+        RegulationTemplateEntity template = visibleTemplate(templateId);
+        UUID owner = template.getOrganizationId() == null ? access.ownerForCreate(request.organizationId()) : template.getOrganizationId();
+        access.assertCanWrite(owner);
+        if (request.organizationId() != null && !request.organizationId().equals(owner))
+            throw new BusinessException("organizations.access_denied", "Доступ запрещён");
+        if (regulationVersionRepository.existsByRegulationTemplateIdAndVersionNoAndOrganizationId(templateId, request.versionNo(), owner))
+            throw new BusinessException("regulations.version_already_exists", "Версия регламента уже существует");
 
         RegulationVersionEntity entity = new RegulationVersionEntity();
         entity.setId(UUID.randomUUID());
         entity.setRegulationTemplateId(template.getId());
+        entity.setOrganizationId(owner);
         entity.setVersionNo(request.versionNo());
         entity.setStatus("draft");
         entity.setEffectiveFrom(request.effectiveFrom());
         entity.setRulesJson(request.rulesJson());
         entity.setNotes(request.notes());
         entity.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
-        entity.setCreatedBy(null);
+        entity.setCreatedBy(access.userId());
 
         return mapVersion(regulationVersionRepository.save(entity));
     }
 
     @Transactional(readOnly = true)
     public RegulationVersionResponse getVersion(UUID id) {
-        return mapVersion(regulationVersionRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(
-                        "regulations.version_not_found",
-                        "Regulation version not found"
-                )));
+        return mapVersion(visibleVersion(id));
     }
 
     @Transactional
     public RegulationVersionResponse publishVersion(UUID id) {
-        RegulationVersionEntity entity = regulationVersionRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(
-                        "regulations.version_not_found",
-                        "Regulation version not found"
-                ));
+        RegulationVersionEntity entity = visibleVersion(id);
 
         if (!"draft".equals(entity.getStatus())) {
             throw new BusinessException(
                     "regulations.invalid_status_transition",
-                    "Only draft regulation version can be published"
+                    "Опубликовать можно только черновик регламента"
             );
         }
 
@@ -136,10 +125,24 @@ public class RegulationService {
 
     @Transactional(readOnly = true)
         public List<RegulationVersionResponse> getVersions() {
-        return regulationVersionRepository.findAll().stream()
+        return regulationVersionRepository.findVisible(access.isPlatformAdmin(), access.readableOrganizationIds()).stream()
                 .map(this::mapVersion)
                 .toList();
         }
+
+    private RegulationTemplateEntity visibleTemplate(UUID id) {
+        return regulationTemplateRepository.findById(id).filter(t -> access.canRead(t.getOrganizationId()))
+                .orElseThrow(() -> new BusinessException("regulations.template_not_found", "Шаблон регламента не найден"));
+    }
+
+    private RegulationVersionEntity visibleVersion(UUID id) {
+        var version = regulationVersionRepository.findById(id).filter(v -> access.canRead(v.getOrganizationId()))
+                .orElseThrow(() -> new BusinessException("regulations.version_not_found", "Версия регламента не найдена"));
+        if (regulationTemplateRepository.findById(version.getRegulationTemplateId())
+                .filter(t -> access.canRead(t.getOrganizationId())).isEmpty())
+            throw new BusinessException("regulations.version_not_found", "Версия регламента не найдена");
+        return version;
+    }
 
     private RegulationTemplateResponse mapTemplate(RegulationTemplateEntity entity) {
         return new RegulationTemplateResponse(

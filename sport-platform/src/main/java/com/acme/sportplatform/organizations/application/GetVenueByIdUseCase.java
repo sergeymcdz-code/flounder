@@ -15,8 +15,10 @@ public class GetVenueByIdUseCase {
 
     private final VenueRepository venueRepository;
     private final VenueMapper venueMapper;
+    private final com.acme.sportplatform.organizations.CatalogOrganizationAccess access;
 
-    public GetVenueByIdUseCase(VenueRepository venueRepository, VenueMapper venueMapper) {
+    public GetVenueByIdUseCase(VenueRepository venueRepository, VenueMapper venueMapper, com.acme.sportplatform.organizations.CatalogOrganizationAccess access) {
+        this.access = access;
         this.venueRepository = venueRepository;
         this.venueMapper = venueMapper;
     }
@@ -29,6 +31,8 @@ public class GetVenueByIdUseCase {
                         "Площадка не найдена"
                 ));
 
+        if (!access.canRead(entity.getOrganizationId()))
+            throw new BusinessException("organizations.venue_not_found", "Площадка не найдена");
         return venueMapper.toResponse(entity);
     }
 }
