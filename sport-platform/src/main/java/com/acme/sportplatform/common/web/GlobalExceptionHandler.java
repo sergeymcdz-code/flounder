@@ -1,11 +1,16 @@
 package com.acme.sportplatform.common.web;
 
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -302,7 +307,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
         // Exception messages and cause chains can contain SQL, constraint names and submitted values.
-        log.warn("Database integrity conflict ({})", ex.getClass().getSimpleName());
+        var database = databaseError(ex);
+        log.warn("Database integrity conflict ({}, SQLState {})", database.exceptionClass(), database.sqlState());
+        log.debug("Database integrity conflict details", ex);
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(error("data_conflict", "Данные уже существуют или связаны с другими записями"));
     }
@@ -315,7 +322,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleUnexpected(
             Exception ex
     ) {
-        log.warn("Unexpected internal server error ({})", ex.getClass().getSimpleName());
+        var database = databaseError(ex);
+        if (database == null) {
+            log.error("Unexpected internal server error", ex);
+        } else {
+            log.error("Unexpected database error ({}, SQLState {})", database.exceptionClass(), database.sqlState());
+            log.debug("Unexpected database error details", ex);
+        }
 
         return ResponseEntity.status(
                 HttpStatus.INTERNAL_SERVER_ERROR
@@ -327,6 +340,19 @@ public class GlobalExceptionHandler {
                         List.of()
                 )
         );
+    }
+
+    private record DatabaseError(String exceptionClass, String sqlState) {}
+
+    private DatabaseError databaseError(Throwable exception) {
+        Throwable database = null;
+        String sqlState = null;
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = exception; cause != null && visited.add(cause); cause = cause.getCause()) {
+            if (database == null && (cause instanceof DataAccessException || cause instanceof SQLException)) database = cause;
+            if (sqlState == null && cause instanceof SQLException sql) sqlState = sql.getSQLState();
+        }
+        return database == null ? null : new DatabaseError(database.getClass().getSimpleName(), sqlState == null ? "unknown" : sqlState);
     }
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
