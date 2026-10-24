@@ -86,3 +86,10 @@ export function sessionSummary(
       (ends.length ? new Date(Math.max(...ends)).toISOString() : null),
   }
 }
+
+/** Shared priority for disabled actions. Screens supply their domain-specific reason. */
+export function disabledReason({ busy = false, archived = false, reason = '' }: { busy?: boolean; archived?: boolean; reason?: string } = {}): string {
+  if (archived) return 'Соревнование в архиве: доступен только просмотр'
+  if (busy) return 'Выполняем действие…'
+  return reason
+}

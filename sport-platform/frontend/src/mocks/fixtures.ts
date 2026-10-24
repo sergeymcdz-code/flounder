@@ -112,6 +112,8 @@ export function createFixtures() {
       return {
         id: id(4, i + 1),
         eventId: event.id,
+        eventTitle: event.title,
+        eventStartAt: sessions[0].startsAt,
         eventDisciplineId: d.id,
         participantUserId: id(5, i + 1),
         participantProfileId: id(6, i + 1),

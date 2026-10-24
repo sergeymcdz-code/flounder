@@ -91,7 +91,7 @@ it.each([
 ])('shows an unpublished state when the response has no result rows', async data => {
   vi.spyOn(publicApi, 'results').mockResolvedValue(data)
   showPage()
-  expect(await screen.findByText('Результаты ещё не опубликованы', { selector: 'strong' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Результаты ещё не опубликованы', level: 2 })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Открыть табло' })).toHaveAttribute('href', '/e/demo/live')
   expect(screen.queryByRole('table')).not.toBeInTheDocument()
 })

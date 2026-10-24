@@ -1,6 +1,5 @@
-import { statusLabel } from '../../components/ui/status-dictionary'
+import { RegistrationDirectory } from '../registrations/RegistrationDirectory'
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router'
 import { ApiError } from '../../api/http'
 import { getRegistrations } from '../../api/registrations.api'
 import { useAuth } from '../../app/providers/AuthProvider'
@@ -17,27 +16,6 @@ function getErrorMessage(error: unknown) {
   }
 
   return 'Не удалось загрузить список заявок.'
-}
-
-const registrationStatusLabel = (status: Registration['status']) => statusLabel('registration', status)
-
-function registrationStatusClassName(status: Registration['status']) {
-  const classes: Partial<Record<Registration['status'], string>> = {
-    WAITLISTED: styles.statusCorrection,
-    SUBMITTED: styles.statusSubmitted,
-    CONFIRMED: styles.statusConfirmed,
-    PAID: styles.statusConfirmed,
-    ADMITTED: styles.statusConfirmed,
-    REJECTED: styles.statusRejected,
-    NEEDS_CORRECTION: styles.statusCorrection,
-    CANCELLED: styles.statusCancelled,
-  }
-
-  return `${styles.statusBadge} ${classes[status]}`
-}
-
-function shortId(value: string) {
-  return value.slice(0, 8)
 }
 
 export function OperatorPaymentsPage() {
@@ -107,69 +85,7 @@ export function OperatorPaymentsPage() {
         </p>
       ) : null}
 
-      {!isLoading && !errorMessage ? (
-        registrations.length === 0 ? (
-          <div className={styles.stateCard}>Заявок пока нет.</div>
-        ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Заявка</th>
-                  <th scope="col">Соревнование</th>
-                  <th scope="col">Статус</th>
-                  <th scope="col">
-                    <span className={styles.visuallyHidden}>Действия</span>
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {registrations.map((registration) => (
-                  <tr key={registration.id}>
-                    <td>
-                      <strong className={styles.registrationTitle}>
-                        Заявка #{shortId(registration.id)}
-                      </strong>
-
-                      <span className={styles.registrationId}>
-                        {registration.id}
-                      </span>
-                    </td>
-
-                    <td>
-                      <strong className={styles.eventLabel}>Соревнование</strong>
-
-                      <span className={styles.registrationId}>
-                        {registration.eventId}
-                      </span>
-                    </td>
-
-                    <td>
-                      <span
-                        className={registrationStatusClassName(
-                          registration.status,
-                        )}
-                      >
-                        {registrationStatusLabel(registration.status)}
-                      </span>
-                    </td>
-
-                    <td>
-                      <NavLink
-                        className={styles.openLink}
-                        to={`/operator/registrations/${registration.id}`}
-                      >
-                        Открыть
-                      </NavLink>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      ) : null}
+      {!isLoading && !errorMessage ? <RegistrationDirectory registrations={registrations} /> : null}
     </section>
   )
 }
