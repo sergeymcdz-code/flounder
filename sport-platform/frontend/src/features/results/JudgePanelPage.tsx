@@ -1,3 +1,6 @@
+import { Button } from '../../components/ui/Button'
+import { Notice } from '../../components/ui/Notice'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { JudgeActionBar } from './JudgeActionBar'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -45,6 +48,10 @@ export function JudgePanelPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [savedAt, setSavedAt] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [reload, setReload] = useState(0)
+  const clubCache = useRef(new Map<string, ReturnType<typeof publicApi.startList>>())
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -104,13 +111,13 @@ export function JudgePanelPage() {
     if (!token || !unitId) return
     let active = true
     Promise.resolve().then(() => {
-      if (active) { setLoading(true); setError(''); setNotice(''); setSavedAt(''); setUnit(null) }
+      if (active) { setLoading(true); setError(''); setSaveError(''); setNotice(''); setSavedAt(''); setUnit(null); setContext({ name: '', number: 0, total: 0, sequence: 0, time: '', session: '', slug: '' }) }
       return getCompetitionUnitDetails(unitId, token)
     }).then(data => { if (active) applyUnit(data) })
       .catch(error => { if (active) setError(resultErrorMessage(error, 'Не удалось загрузить заплыв. Повторите попытку.')) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [token, unitId])
+  }, [token, unitId, reload])
 
   useEffect(() => {
     if (!token || !disciplineId || loadedUnitId !== unitId) return
@@ -145,20 +152,26 @@ export function JudgePanelPage() {
   }, [token, loadedUnitId, disciplineId, unitId, eventId])
 
   useEffect(() => {
-    if (!context.slug || !loadedUnitId) return
-    const controller = new AbortController()
-    void publicApi.startList(context.slug, controller.signal).then(list => {
-      if (controller.signal.aborted) return
+    if (!mobile || !context.slug || !loadedUnitId) return
+    let active = true
+    // Cache the promise too: viewport changes and heat navigation share one request per slug.
+    let request = clubCache.current.get(context.slug)
+    if (!request) {
+      request = publicApi.startList(context.slug)
+      clubCache.current.set(context.slug, request)
+    }
+    void request.then(list => {
+      if (!active) return
       const heat = list.sessions.flatMap(s => s.disciplines).flatMap(d => d.heats).find(h => h.id === loadedUnitId)
       setClubs(Object.fromEntries((heat?.lanes ?? []).flatMap(lane => lane.empty ? [] : [[lane.registrationId, lane.athlete.club]])))
-    }).catch(() => { if (!controller.signal.aborted) setClubs({}) })
-    return () => controller.abort()
-  }, [context.slug, loadedUnitId])
+    }).catch(() => { clubCache.current.delete(context.slug); if (active) setClubs({}) })
+    return () => { active = false }
+  }, [mobile, context.slug, loadedUnitId])
 
   function update(id: string, change: Partial<Draft>) {
     setDrafts(current => ({ ...current, [id]: { ...current[id], ...change } }))
     setErrors(current => ({ ...current, [id]: '' }))
-    setDirty(true); setNotice('')
+    setDirty(true); setNotice(''); setSaveError('')
   }
 
   function validate(id: string) {
@@ -186,27 +199,36 @@ export function JudgePanelPage() {
     const invalid = entries.filter(e => !validate(e.entryId))
     if (invalid.length) { inputs.current[invalid[0].entryId]?.focus(); return }
     void run(async () => {
-      const data = await saveHeatResults(unit.id, entries.map(e => ({
-        competitionUnitEntryId: e.entryId,
-        status: drafts[e.entryId].status,
-        time: drafts[e.entryId].status === 'VALID' ? normalizeTime(drafts[e.entryId].time) : null,
-      })), token)
-      applyUnit(data)
-      setSavedAt(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
+      setSaving(true); setSaveError('')
+      try {
+        const data = await saveHeatResults(unit.id, entries.map(e => ({
+          competitionUnitEntryId: e.entryId,
+          status: drafts[e.entryId].status,
+          time: drafts[e.entryId].status === 'VALID' ? normalizeTime(drafts[e.entryId].time) : null,
+        })), token)
+        applyUnit(data)
+        setSavedAt(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
+      } catch (cause) {
+        setSaveError(resultErrorMessage(cause, 'Проверьте подключение и повторите попытку.'))
+        toast({ text: 'Не удалось сохранить — повторить', tone: 'danger' })
+      } finally { setSaving(false) }
     })
   }
 
-  const controls = unit && !loading ? (!canJudge ? <div className="fl-notice fl-notice-neutral">Нет прав для ввода результатов.</div> : <JudgeActionBar mobile={mobile}>
-        <button className={unit.status === 'IN_PROGRESS' && (!savedAt || dirty) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} ref={saveButton} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
-        {(!resultsPublished || canCorrect) && <button className={unit.status === 'IN_PROGRESS' && savedAt && !dirty ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || (resultsPublished
+  const saveStatus = saving ? 'Сохраняем…' : dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''
+  const actionHint = busy ? 'Дождитесь завершения действия.' : dirty ? 'Сначала сохраните изменения.' : ''
+
+  const controls = unit && !loading ? (!canJudge ? <Notice>Нет прав для ввода результатов.</Notice> : <JudgeActionBar mobile={mobile} status={saveStatus} feedback={saveError && <Notice tone="danger"><strong>Не удалось сохранить — повторить</strong><p>{saveError}</p><Button disabled={busy} title={busy ? 'Дождитесь завершения действия.' : undefined} onClick={save}>Повторить</Button></Notice>}>
+        <button className={unit.status === 'IN_PROGRESS' && (!savedAt || dirty) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} ref={saveButton} title={busy ? 'Дождитесь завершения действия.' : !canEdit ? 'Опубликованные результаты может исправить секретарь или организатор.' : !entries.length ? 'В заплыве нет участников.' : undefined} aria-busy={saving || undefined} disabled={busy || !canEdit || !entries.length} onClick={save}>{resultsPublished ? 'Сохранить исправление' : 'Сохранить и пересчитать'}</button>
+        {(!resultsPublished || canCorrect) && <button className={unit.status === 'IN_PROGRESS' && savedAt && !dirty ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} title={actionHint || 'Публикация доступна после сохранения результатов всех дорожек.'} disabled={busy || dirty || (resultsPublished
           ? unit.status !== 'FINISHED'
           : !['PUBLISHED', 'IN_PROGRESS'].includes(unit.status) || !entries.length || entries.some(e => !e.rawValue && !e.display && !statusMap[e.resultStatus ?? '']))} onClick={() => setPublicationOpen(true)}>{resultsPublished ? 'Снять результаты с публикации' : 'Опубликовать результаты'}</button>}
-        {(['start', 'finish'] as const).map(action => <button key={action} className={action === 'start' && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(unit.status) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
+        {(['start', 'finish'] as const).map(action => <button key={action} title={actionHint || (action === 'start' ? 'Старт доступен до начала заплыва.' : 'Финиш доступен после старта заплыва.')} className={action === 'start' && ['DRAFT', 'SCHEDULED', 'PUBLISHED'].includes(unit.status) ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || !(action === 'start' ? ['DRAFT', 'SCHEDULED', 'PUBLISHED'] : ['IN_PROGRESS', 'FINISHED']).includes(unit.status)} onClick={() => void run(async () => {
           await changeHeatState(unit.id, action, token!)
           const data = await getCompetitionUnitDetails(unit.id, token!)
           applyUnit(data); setNotice(action === 'start' ? 'Заплыв начат.' : 'Заплыв завершён.')
         })}>{action === 'start' ? 'Старт' : 'Финиш'}</button>)}
-        <button className={resultsPublished ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
+        <button className={resultsPublished ? 'fl-btn fl-btn-primary fl-btn-lg' : 'fl-btn fl-btn-ghost fl-btn-sm'} title={actionHint || (nextError ? 'Не удалось определить следующий заплыв.' : !nextId ? 'Это последний заплыв' : undefined)} disabled={busy || dirty || !nextId} onClick={() => void run(async () => {
           let liveWarning: string | undefined
           if (eventId) {
             try { await setLiveHeat(eventId, nextId!, token!) } catch (error) {
@@ -218,34 +240,33 @@ export function JudgePanelPage() {
       </JudgeActionBar>) : null
 
   return <section className={styles.page}>
-    <Link className={styles.backLink} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
-    <PageHeader title={context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Результаты'}
+    <Link className={`${styles.backLink} fl-btn fl-btn-ghost fl-btn-sm`} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
+    <PageHeader title={context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Заплыв'}
       badge={unit && <StatusBadge kind="heat" code={unit.status} />}
-      meta={<>Судейская панель · <span>Вид № {context.number || '—'} · {context.name || 'Вид программы'}</span><br />{context.time} · {context.session || 'Сессия'}</>}
+      meta={<><span className={styles.eyebrow}>Судейская панель{context.name && <> · <span>Вид № {context.number} · {context.name}</span></>}</span>{(context.time || context.session) && <span className={styles.context}>{[context.time, context.session].filter(Boolean).join(' · ')}</span>}</>}
       actions={controls} />
-    <details><summary>Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — <ResultStatus status="DNS" />, Alt+N — <ResultStatus status="DNF" />, Alt+Q — <ResultStatus status="DSQ" /> из поля времени. Пустые дорожки можно сохранить позже.</p></details>
-    {loading && <p role="status">Загрузка…</p>}
-    {error && <p className={styles.errorMessage} role="alert">{error}</p>}
-    {navigationWarning && <p className={styles.recalculateHint} role="alert">{navigationWarning}</p>}
+    <details className={styles.help}><summary className="fl-btn fl-btn-ghost fl-btn-sm">Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — <ResultStatus status="DNS" />, Alt+N — <ResultStatus status="DNF" />, Alt+Q — <ResultStatus status="DSQ" /> из поля времени. Пустые дорожки можно сохранить позже.</p></details>
+    {loading && <div className={styles.loading} role="status" aria-label="Загружаем заплыв…"><span>Загружаем заплыв…</span>{Array.from({ length: 8 }, (_, index) => <div className={styles.skeleton} aria-hidden="true" key={index} />)}</div>}
+    {error && <Notice tone="danger">{error} {!unit && <Button onClick={() => setReload(value => value + 1)}>Повторить</Button>}</Notice>}
+    {navigationWarning && <Notice tone="warning">{navigationWarning}</Notice>}
     {unit && !loading && <>
-      <p role="status" aria-live="polite" aria-atomic="true">{dirty ? 'Есть несохранённые изменения' : savedAt ? `Сохранено ${savedAt}` : ''}</p>
-      <p className={notice ? styles.successMessage : undefined} role="status" aria-live="polite" aria-atomic="true">{notice}</p>
-      {nextError && <p role="status">{nextError}</p>}
+      {notice && <p role="status">{notice}</p>}
+      {nextError && <Notice tone="warning">{nextError}</Notice>}
       {publicationOpen && <ConfirmDialog title={resultsPublished ? 'Снять результаты с публикации?' : `Опубликовать результаты «${unit.label}»?`} description={resultsPublished ? 'Результаты перестанут быть видны зрителям.' : 'Места и времена появятся на публичной странице результатов как неофициальные.'} confirmLabel={resultsPublished ? 'Снять' : 'Опубликовать'} tone={resultsPublished ? 'danger' : 'primary'} busy={busy} error={error} onClose={() => setPublicationOpen(false)} onConfirm={() => void run(async () => {
         applyUnit(await changeCompetitionUnitPublication(unit.id, !resultsPublished, token!)); setPublicationOpen(false)
         setNotice(resultsPublished ? 'Публикация результатов снята.' : 'Результаты опубликованы.')
         toast({ text: resultsPublished ? 'Публикация снята' : 'Опубликовано', href: context.slug ? `/e/${context.slug}/results` : undefined })
       })} />}
-      <div className={styles.tableFrame} data-scroll-edges={mobile ? '' : scrollEdges}><div ref={tableScroll} onScroll={measureTableScroll} className={mobile ? styles.cardsWrap : styles.tableWrap}><Results className={mobile ? styles.laneCards : `${styles.resultsTable} fl-table fl-judge-table`} aria-label="Дорожки заплыва">
-        {!mobile && <thead><tr><th>Дорожка</th><th>Участник</th><th>Заявочное время</th><th>Время</th><th>Статус</th><th>Место</th><th>В группе</th></tr></thead>}
+      {entries.length > 0 && <div className={styles.tableFrame} data-scroll-edges={mobile ? '' : scrollEdges}><div ref={tableScroll} onScroll={measureTableScroll} className={mobile ? undefined : styles.tableWrap}><Results className={mobile ? styles.laneCards : `${styles.resultsTable} fl-table fl-judge-table`} aria-label="Дорожки заплыва">
+        {!mobile && <><caption className="fl-sr-only">Дорожки заплыва</caption><thead><tr>{['Дорожка', 'Участник', 'Заявочное время', 'Время', 'Статус', 'Место', 'В группе'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead></>}
         <Rows>{entries.map((entry, index) => {
           const draft = drafts[entry.entryId] ?? { time: '', status: 'VALID' }
           return <Row className={mobile ? styles.laneCard : undefined} aria-label={mobile ? `Дорожка ${entry.laneOrPosition}` : undefined} key={entry.entryId}>
             <Cell className={styles.laneCell}>{mobile && 'Дорожка '}{entry.laneOrPosition ?? '—'}</Cell>
-            <Cell><span className={styles.participantName}>{entry.participantName}</span>{mobile && <span className={styles.clubName}>{clubs[entry.registrationId] || 'Клуб не указан'}</span>}</Cell><Cell className={styles.entryTime}>{mobile && 'Заявочное время: '}{entry.entryTime ?? '—'}</Cell>
+            <Cell><span className={styles.participantName}>{entry.participantName}</span>{mobile && clubs[entry.registrationId] && <span className={styles.clubName}>{clubs[entry.registrationId]}</span>}</Cell>{!mobile && <Cell className={styles.entryTime}>{entry.entryTime ?? '—'}</Cell>}
             <Cell className={styles.timeCell}>{mobile && <label htmlFor={`time-${entry.entryId}`}>Время</label>}<input id={`time-${entry.entryId}`} className={styles.resultInput} aria-label={`Время, дорожка ${entry.laneOrPosition}`} aria-invalid={Boolean(errors[entry.entryId])}
               aria-describedby={errors[entry.entryId] ? `error-${entry.entryId}` : undefined}
-              ref={node => { inputs.current[entry.entryId] = node }} value={draft.time} inputMode="decimal" placeholder="00:32.15"
+              ref={node => { inputs.current[entry.entryId] = node }} value={draft.time} inputMode="decimal" placeholder="00:00.00" title={!canEdit ? 'Нет прав для изменения опубликованных результатов.' : draft.status !== 'VALID' ? 'Снимите особый статус, чтобы ввести время.' : undefined}
               disabled={busy || !canEdit || draft.status !== 'VALID'} onChange={e => update(entry.entryId, { time: maskTime(e.target.value) })}
               onFocus={e => e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
               onBlur={e => {
@@ -280,16 +301,17 @@ export function JudgePanelPage() {
             </Cell>
             <Cell>{canJudge && <div className={styles.statusButtons}>{specialStatuses.map(status => <ResultStatus key={status} status={status} buttonProps={{
               className: `fl-btn fl-btn-sm ${status === 'DSQ' ? 'fl-btn-danger' : 'fl-btn-ghost'}`, type: 'button',
+              title: busy ? 'Дождитесь завершения действия.' : !canEdit ? 'Нет прав для изменения опубликованных результатов.' : undefined,
               'data-entry-id': entry.entryId, 'aria-pressed': draft.status === status, disabled: busy || !canEdit,
               ref: node => { statusButtons.current[`${entry.entryId}-${status}`] = node },
               onClick: () => update(entry.entryId, { status: draft.status === status ? 'VALID' : status }),
-            }} />)}</div>}{entry.resultStatus === 'CORRECTED' && <span className={`${styles.resultStatus} ${styles.resultStatusCorrected}`}><ResultStatus status="CORRECTED">исправлено</ResultStatus></span>}</Cell>
-            <Cell className={styles.placeCell}>{mobile && 'Место: '}{entry.finalPlace ?? '—'}</Cell><Cell className={styles.placeCell}>{mobile && 'В группе: '}{entry.placeInAgeGroup ?? '—'}</Cell>
+            }} />)}</div>}{entry.resultStatus === 'CORRECTED' && <span><ResultStatus status="CORRECTED">исправлено</ResultStatus></span>}</Cell>
+            {!mobile && <><Cell className={styles.placeCell}>{entry.finalPlace ?? '—'}</Cell><Cell className={styles.placeCell}>{entry.placeInAgeGroup ?? '—'}</Cell></>}
           </Row>
         })}</Rows>
-      </Results></div></div>
+      </Results></div></div>}
       <StatusLegend statuses={[...(canJudge && entries.length ? specialStatuses : []), ...entries.flatMap(entry => [drafts[entry.entryId]?.status, entry.resultStatus])]} />
-      {!entries.length && <p>В заплыве пока нет участников.</p>}
+      {!entries.length && <article aria-label="Пустой заплыв"><EmptyState title="В заплыве пока нет участников." action={<Button as={Link} to="/operator/results">К списку заплывов</Button>}><p>Выберите другой заплыв в списке соревнования.</p></EmptyState></article>}
     </>}
   </section>
 }

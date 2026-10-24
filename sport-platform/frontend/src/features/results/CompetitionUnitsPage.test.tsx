@@ -35,3 +35,18 @@ it('keeps a multi-day live competition in Today after its first day', async () =
     expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeVisible()
   } finally { localStorage.clear(); setAuthSession(null) }
 })
+
+it('shows the competition empty state only after the initial request completes', async () => {
+  let complete!: (response: Response) => void
+  const response = new Promise<Response>(resolve => { complete = resolve })
+  server.use(http.get('*/api/v1/organizer/events', () => response))
+  localStorage.clear()
+  setAuthSession({ accessToken: 'test', expiresAt: Date.now() + 60000, tokenType: 'Bearer' })
+  try {
+    render(<MemoryRouter><AuthProvider><CompetitionUnitsPage /></AuthProvider></MemoryRouter>)
+    expect(screen.queryByText('Нет доступных соревнований')).not.toBeInTheDocument()
+    expect(screen.getByText('Загружаем данные…', { selector: 'div' })).toBeVisible()
+    complete(HttpResponse.json([]))
+    expect(await screen.findByText('Нет доступных соревнований')).toBeVisible()
+  } finally { complete(HttpResponse.json([])); localStorage.clear(); setAuthSession(null) }
+})

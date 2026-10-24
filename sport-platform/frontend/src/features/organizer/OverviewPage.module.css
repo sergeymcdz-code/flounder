@@ -1,0 +1,37 @@
+.page { display: grid; gap: var(--space-4); min-width: 0; }
+.grid { display: grid; gap: var(--space-4); min-width: 0; }
+.grid > *, .publicLinks { min-width: 0; }
+.attention, .summary, .registration, .public { padding: var(--space-4); }
+.page h2 { margin: 0 0 var(--space-4); font-size: var(--text-lg); }
+.muted { color: var(--color-text-muted); font-size: var(--text-sm); }
+.attentionList { display: flex; flex-wrap: wrap; gap: var(--space-2); font-variant-numeric: var(--numeric-variant); }
+.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.metric { display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-2); min-height: var(--tap-target); text-decoration: none; color: var(--color-text); }
+.metric span { color: var(--color-text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.metric strong { font: var(--font-weight-medium) var(--text-xl)/var(--line-height-tight) var(--font-heading); font-variant-numeric: var(--numeric-variant); text-align: right; white-space: nowrap; }
+.details { display: grid; gap: var(--space-4); margin: 0 0 var(--space-4); overflow-wrap: anywhere; }
+.limitForm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); margin-block: var(--space-4); }
+.limitForm input { width: 100%; min-width: 0; }
+.page .save { flex-direction: row; justify-content: flex-end; }
+.save > button { width: auto; flex: 0 0 auto; }
+.publicCard { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+.publicCard > svg { flex: 0 0 auto; }
+.publicLinks { width: 100%; }
+.url { display: inline-flex; align-items: center; min-height: var(--tap-target); min-width: var(--tap-target); max-width: 100%; overflow-wrap: anywhere; }
+.publicActions { flex-direction: column; align-items: stretch; }
+.extension input { width: 100%; min-width: 0; }
+@media (min-width: 768px) {
+  .page, .grid { gap: var(--space-6); }
+  .attention, .summary, .registration, .public { padding: var(--space-6); }
+  .limitForm { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+  .publicCard { flex-direction: row; align-items: flex-start; }
+  .publicLinks { flex: 1; }
+  .publicActions { flex-direction: row; }
+}
+@media (min-width: 1024px) {
+  .grid { grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); align-items: start; }
+  .checklist { grid-column: 1; grid-row: 1 / 3; }
+  .summary { grid-column: 2; grid-row: 1; }
+  .registration { grid-column: 1; grid-row: 3; }
+  .public { grid-column: 2; grid-row: 2 / 4; }
+}
