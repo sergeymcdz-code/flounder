@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 import { eventId, unitId, openAuditPage, navigate, scenario } from './qa06-helpers'
 
 declare global {
@@ -15,6 +16,12 @@ for (const path of ['/organizer/events?all=1', '/operator/payments', '/events/de
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
     const wrapper = page.locator('[class*=tableWrap]')
     await wrapper.evaluate(node => { node.scrollLeft = node.scrollWidth })
+    if (path === '/operator/payments') {
+      // UX-22: mobile rows become cards with actions inside the viewport.
+      expect(await wrapper.evaluate(node => node.scrollWidth)).toBeLessThanOrEqual(375)
+      await expect(page.getByRole('link', { name: /Открыть заявку:/ }).first()).toBeInViewport()
+      return
+    }
     expect(await wrapper.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
     if (path.startsWith('/events/')) await expect(page.getByRole('columnheader', { name: 'Статус', exact: true })).toBeInViewport()
     else await expect(page.getByRole('link', { name: path.includes('organizer') ? 'Открыть' : 'Открыть', exact: true }).first()).toBeInViewport()
@@ -33,10 +40,11 @@ test('QA06-02 QR keeps its square geometry at 375px', async ({ page }) => {
 test('QA06-03 admin form uses separated, full-width labelled controls', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await openAuditPage(page, '/admin/registrations/review', 'platform_admin')
+  await page.getByRole('button', { name: /Выбрать заявку:/ }).first().click()
   const comment = page.getByLabel('Комментарий для участника')
   const box = await comment.boundingBox()
   expect(box?.width).toBeGreaterThan(300)
-  expect(await page.locator('.review-decisions').evaluate(node => getComputedStyle(node).display)).toBe('grid')
+  expect(await page.locator('[class*=decisions]').evaluate(node => getComputedStyle(node).display)).toBe('grid')
   await expect(page.locator('body')).not.toContainText('payment flow')
   await expect(page.locator('body')).not.toContainText('production')
 })
@@ -170,7 +178,7 @@ test('QA06-15 print removes the page background', async ({ page }) => {
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark' })
   await page.emulateMedia({ media: 'print' })
   expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
-  await expect(page.getByRole('navigation')).toBeHidden()
+  for (const nav of await page.getByRole('navigation').all()) await expect(nav).toBeHidden()
   expect(await page.locator('html').evaluate(node => getComputedStyle(node).colorScheme)).toBe('light')
   expect(await page.locator('article').first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 255, 255)')
   const printTokens = await page.locator('html').evaluate(node => {
@@ -266,8 +274,8 @@ test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page 
     sequenceInSession: 1, scheduledAt: '2026-10-17T10:00:00+04:00', status: 'PUBLISHED',
   }])
   await navigate(page, '/e/demo/schedule')
-  await expect(page.locator('li')).toContainText('Заплыв 1')
-  await expect(page.locator('li')).toContainText('10:00')
+  await expect(page.locator('li').filter({ hasText: 'Заплыв 1' }).last()).toContainText('Заплыв 1')
+  await expect(page.locator('li').filter({ hasText: 'Заплыв 1' }).last()).toContainText('10:00')
 })
 
 test('QA06-22 judge can discover the results panel from primary navigation', async ({ page }) => {
@@ -355,10 +363,12 @@ test('D01 review 1: all eight live lanes fit above navigation at 1366x768', asyn
   for (const row of await rows.all()) {
     const box = await row.boundingBox()
     expect(box!.y).toBeGreaterThanOrEqual(0)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(nav!.y)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(768)
+    expect(box!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height)
   }
   const board = await page.locator('section').filter({ has: page.locator('.fl-lanes') }).first().boundingBox()
-  expect(board!.y + board!.height).toBeLessThanOrEqual(nav!.y)
+  expect(board!.y + board!.height).toBeLessThanOrEqual(768)
+  expect(board!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height)
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
 })
 
@@ -415,4 +425,117 @@ test('D01 owner: print is a ghost action and central lanes have no color fill', 
     expect(lanes[index].background).toBe('rgba(0, 0, 0, 0)')
     expect(lanes[index].weight).toBe('700')
   }
+})
+
+for (const width of [375, 768, 1366]) {
+  test(`D04-2a shared shell, menus and tabs at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 768 ? 1024 : 812 })
+    await openAuditPage(page, base, 'organizer')
+    await expect(page.getByRole('banner')).toHaveCSS('height', '56px')
+    if (width === 375) {
+      const burger = page.getByRole('button', { name: 'Открыть меню' })
+      await expect(burger).toHaveCSS('width', '44px')
+      await expect(burger).toHaveCSS('height', '44px')
+      await burger.click()
+      const drawer = page.getByRole('dialog', { name: 'Меню кабинета' })
+      await expect(drawer.getByRole('navigation', { name: 'Разделы', exact: true })).toBeVisible()
+      await expect(drawer.getByRole('navigation', { name: 'Навигация кабинета' })).toBeVisible()
+      await expect(drawer.getByRole('link', { name: 'Сменить пароль' })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+      const targets = await drawer.locator('a, button, summary').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent, width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })))
+      expect(targets.filter(target => target.height < 44 || target.width < 44)).toEqual([])
+      await page.keyboard.press('Escape')
+      await expect(drawer).not.toBeVisible()
+      await expect(burger).toBeFocused()
+    } else {
+      const profile = page.getByRole('banner').locator('summary')
+      await profile.click()
+      const panel = page.getByRole('banner').locator('details > div')
+      expect((await panel.boundingBox())!.width).toBeGreaterThanOrEqual(240)
+      await expect(panel.getByRole('button', { name: 'Выйти' })).toBeVisible()
+      await expect(panel.getByRole('button', { name: 'Тёмная тема' })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(profile).toBeFocused()
+    }
+    if (width < 1366) {
+      const more = page.getByRole('button', { name: 'Другие разделы соревнования' })
+      await more.click()
+      await expect(page.getByRole('menuitem', { name: 'Аналитика' })).toBeVisible()
+      if (width === 375) {
+        const box = (await page.getByRole('menu', { name: 'Другие разделы соревнования' }).boundingBox())!
+        expect(box.x).toBe(0)
+        expect(box.width).toBe(width)
+      }
+      await page.keyboard.press('Escape')
+      await expect(more).toBeFocused()
+    } else await expect(page.getByRole('navigation', { name: 'Разделы соревнования' }).getByRole('link', { name: 'Аналитика', exact: true })).toBeAttached()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    await navigate(page, '/e/demo/start-list')
+    const nav = page.getByRole('navigation', { name: 'Разделы соревнования' })
+    if (width >= 1024) {
+      expect((await nav.boundingBox())!.y).toBe(56)
+      await expect(nav.locator('..').locator('..')).toHaveCSS('position', 'static')
+    } else expect((await nav.boundingBox())!.y).toBeGreaterThan(700)
+    await navigate(page, '/e/demo/register')
+    await expect(page.getByRole('navigation', { name: 'Разделы соревнования' })).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+  })
+}
+
+test('D04-2a row menu escapes table clipping and keeps its actions clickable', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openAuditPage(page, '/dev/ui')
+  const cards = page.locator('.fl-rowcards')
+  await cards.evaluate(node => node.scrollIntoView({ block: 'center' }))
+  const trigger = cards.getByRole('button').last()
+  await trigger.click()
+  const menu = page.getByRole('menu')
+  await expect(menu).toBeVisible()
+  const tableBox = (await cards.boundingBox())!, menuBox = (await menu.boundingBox())!
+  expect(menuBox.y + menuBox.height).toBeGreaterThan(tableBox.y + tableBox.height)
+  for (const item of await menu.getByRole('menuitem').all()) {
+    await expect(item).toBeInViewport()
+    expect(await item.evaluate(node => { const box = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)) })).toBe(true)
+  }
+  await menu.getByRole('menuitem', { name: 'Открыть заявку' }).click()
+  await expect(page.getByRole('status')).toContainText('Открыта заявка')
+  await expect(trigger).toBeFocused()
+})
+
+test('D04-2a route loading, error and missing states retain one page heading', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await openAuditPage(page, '/')
+  await scenario(page, 'public/events/demo', null, 'loading')
+  await page.evaluate(() => { history.pushState(null, '', '/e/demo'); dispatchEvent(new PopStateEvent('popstate')) })
+  await expect(page.getByRole('status').filter({ hasText: 'Загружаем данные' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.locator('.fl-skeleton > div')).toHaveCount(3)
+  await navigate(page, '/')
+  await scenario(page, 'public/events/demo', null, '500')
+  await navigate(page, '/e/demo')
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Повторить', exact: true })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('Загружаем сведения')
+  await navigate(page, '/e/missing')
+  await expect(page.getByRole('heading', { name: 'Соревнование не найдено' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+})
+
+test('D04-2a cards table keeps keyboard scrolling at tablet width', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await openAuditPage(page, '/dev/ui')
+  const cards = page.locator('.fl-rowcards')
+  await expect(cards).toHaveAttribute('tabindex', '0')
+  expect(await cards.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(true)
+  await cards.focus()
+  await expect(cards).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(() => cards.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
+  const accessibility = await new AxeBuilder({ page }).include('.fl-rowcards').analyze()
+  expect(accessibility.violations.filter(item => ['serious', 'critical'].includes(item.impact ?? ''))).toEqual([])
+  await page.setViewportSize({ width: 375, height: 812 })
+  await expect.poll(() => cards.getAttribute('tabindex')).toBeNull()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
 })

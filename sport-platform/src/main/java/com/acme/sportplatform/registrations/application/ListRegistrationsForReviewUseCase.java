@@ -19,18 +19,21 @@ public class ListRegistrationsForReviewUseCase {
     private final RegistrationMapper registrationMapper;
     private final RegistrationFeeService fees;
     private final com.acme.sportplatform.events.EventLookup events;
+    private final com.acme.sportplatform.organizations.VenueLookup venues;
 
     public ListRegistrationsForReviewUseCase(
             RegistrationRepository registrationRepository,
             RegistrationMapper registrationMapper,
             com.acme.sportplatform.events.EventLookup events,
             DocumentSummaryService summaries,
-            RegistrationFeeService fees) {
+            RegistrationFeeService fees,
+            com.acme.sportplatform.organizations.VenueLookup venues) {
         this.registrationRepository = registrationRepository;
         this.registrationMapper = registrationMapper;
         this.events = events;
         this.summaries = summaries;
         this.fees = fees;
+        this.venues = venues;
     }
 
     public List<RegistrationResponse> execute(
@@ -57,6 +60,8 @@ public class ListRegistrationsForReviewUseCase {
             entities = registrationRepository.findAll();
         }
 
+        var timezones = new java.util.HashMap<UUID, String>();
+        var headers = new java.util.HashMap<UUID, com.acme.sportplatform.events.EventProtocolHeader>();
         return summaries.enrichForManager(
                 registrationMapper.toResponses(
                         entities,
@@ -64,6 +69,13 @@ public class ListRegistrationsForReviewUseCase {
                                 entities.stream()
                                         .filter(r -> r.getReviewedAt() != null)
                                         .map(r -> r.getEventId())
-                                        .collect(java.util.stream.Collectors.toSet()))));
+                                        .collect(java.util.stream.Collectors.toSet())))).stream()
+                .map(registration -> {
+                    var header = headers.computeIfAbsent(registration.eventId(), events::protocolHeader);
+                    String timezone = header.venueId() == null ? "UTC" : timezones.computeIfAbsent(
+                            header.venueId(), id -> venues.existsById(id) ? venues.getTimezone(id) : "UTC");
+                    return registration.withEventContext(header.title(), null, header.startsAt(), timezone, header.publicSlug());
+                })
+                .toList();
     }
 }
