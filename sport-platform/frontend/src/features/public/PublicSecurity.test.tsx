@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
-import { HeatProtocol, PrintHeader, ResultsTable } from './Protocol'
+import { HeatProtocol, PrintHeader } from './Protocol'
 import { demoEvent, demoStartList } from '../../mocks/demo-data'
+import { ResultsTable } from './ResultsTable'
 import type { ResultRow } from './public.types'
 
 describe('QA04: public content security', () => {
@@ -36,7 +37,7 @@ describe('QA04: public content security', () => {
           }}
           lanes={8}
         />
-        <ResultsTable rows={[row]} />
+        <ResultsTable rows={[row]} caption="Итоговый протокол" />
       </MemoryRouter>,
     )
     expect(screen.getByText(`${title} · Протокол`)).toBeInTheDocument()

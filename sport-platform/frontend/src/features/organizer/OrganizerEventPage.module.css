@@ -25,34 +25,10 @@
 .toolbar {
   justify-content: space-between;
 }
-.eyebrow {
-  color: var(--color-primary);
-  text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.09em;
-  font-weight: 700;
-}
 .muted {
   overflow-wrap: anywhere;
   color: var(--color-text-muted);
   font-size: 14px;
-}
-.tabs {
-  display: flex;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--color-border);
-  gap: 8px;
-}
-.tab,
-.activeTab {
-  padding: 14px 12px;
-  white-space: nowrap;
-  font-size: 14px;
-  font-weight: 600;
-}
-.activeTab {
-  color: var(--color-primary);
-  border-bottom: 3px solid var(--color-primary);
 }
 .stack {
   display: grid;
@@ -67,29 +43,7 @@
   box-shadow: var(--shadow-card);
   min-width: 0;
 }
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  gap: 12px;
-}
-.metric {
-  font-size: 30px;
-}
-.publicCard {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-}
-.publicCard a {
-  overflow-wrap: anywhere;
-}
-.publicCard svg {
-  flex-shrink: 0;
-}
 @media (max-width: 640px) {
-  .publicCard {
-    flex-direction: column;
-  }
 }
 .badge {
   background: var(--color-primary-soft);
@@ -201,22 +155,6 @@
   color: var(--color-danger);
   font-size: 13px;
 }
-.warning {
-  color: var(--color-warning);
-  background: var(--color-warning-soft);
-  padding: 10px;
-  border-radius: 8px;
-}
-.violationError {
-  color: var(--color-danger);
-  background: var(--color-danger-soft);
-  padding: 10px;
-  border-radius: 8px;
-}
-.highlight {
-  outline: 3px solid var(--color-accent);
-  scroll-margin-top: 20px;
-}
 .groups {
   display: grid;
   gap: 12px;
@@ -233,16 +171,7 @@
   .card {
     padding: 16px;
   }
-  .tabs {
-    gap: 0;
-  }
-  .tab,
-  .activeTab {
-    padding: 12px 8px;
-  }
 }
-
-.header { border-bottom: 3px solid var(--color-text); padding-bottom: 12px; }
 .table table { font-variant-numeric: tabular-nums; }
 .table th { position: sticky; top: 0; z-index: 1; }
 .table tbody tr:nth-child(even) { background: var(--color-surface-muted); }
@@ -254,7 +183,6 @@
 }
 .badge { background: var(--color-surface-muted); color: var(--color-text); font-weight: 700; }
 .dialog, .drawer { background: var(--color-surface); }
-.metric { font: 600 28px var(--font-heading); }
 .table { max-height: calc(100vh - 240px); }
 
 .tabsViewport { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
@@ -286,5 +214,3 @@
     border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
 }
-
-.registrationActions { align-self: flex-start; }

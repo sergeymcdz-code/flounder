@@ -52,7 +52,6 @@
   .fl-heat select:has(option[value='5']:checked) { border-inline-start: 4px solid var(--color-text); font-weight: 700; }
   .fl-result-dsq { color: var(--color-danger); }
   .fl-result-muted { color: var(--color-text-muted); }
-  .fl-results td:last-child { font-size: var(--font-size-18); font-weight: 700; font-variant-numeric: var(--numeric-variant); }
   .fl-empty { border-inline-start: var(--border-width-rule) solid var(--color-border-strong); padding: var(--space-4); background: var(--color-surface-muted); line-height: 1.5; }
   .fl-button-primary { background: var(--color-primary); color: var(--color-on-primary); border: 1px solid var(--color-primary); }
   .fl-button-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
@@ -71,7 +70,6 @@
 
 @media screen and (max-width: 480px) {
   .fl-lanes tbody th[scope='row'] { font-size: var(--font-size-18); border-inline-start-width: 4px; }
-  .fl-results td:last-child { font-size: var(--font-size-14); }
 }
 
 /* D03: shared cabinet controls; legacy aliases above remain available. */
@@ -344,3 +342,5 @@ body .fl-btn.fl-back-link { justify-self: start; min-height: var(--tap-target); 
 
 .fl-tab-label-short { display: none; }
 @media screen and (max-width: 1023px) { .fl-tab-label:has(+ .fl-tab-label-short) { display: none; } .fl-tab-label-short { display: inline; } }
+
+body .fl-btn-ghost:disabled { background: transparent; }

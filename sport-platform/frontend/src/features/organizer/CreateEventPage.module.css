@@ -3,20 +3,9 @@
   gap: 1.5rem;
 }
 
-.backLink {
-  width: fit-content;
-  color: var(--color-primary);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.backLink:hover {
-  text-decoration: underline;
-}
-
 .eyebrow {
   margin: 0;
-  color: var(--color-text-muted);
+
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.08em;

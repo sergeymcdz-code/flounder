@@ -6,6 +6,6 @@ export function StatusLegend({ statuses }: { statuses: readonly (string | null |
   const codes = (Object.keys(resultStatusDictionary) as ResultStatusCode[]).filter(code => present.has(code))
   if (!codes.length) return null
   return <div className={`${styles.legend} fl-status-legend`} aria-label="Обозначения статусов результатов">
-    {codes.map(code => `${code} — ${resultStatusDictionary[code].legend}`).join(' · ')}
+    {codes.map(code => `${code === 'CORRECTED' ? 'исправлено' : code} — ${resultStatusDictionary[code].legend}`).join(' · ')}
   </div>
 }

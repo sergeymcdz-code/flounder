@@ -6,7 +6,7 @@
 .status:empty { display: none; }
 
 @media (max-width: 767px) {
-  .bar.bar { display: grid; grid-template-columns: minmax(0, 1fr); position: fixed; inset: auto 0 0; z-index: var(--z-drawer); box-sizing: border-box; width: 100%; padding: var(--space-2) var(--space-4) max(var(--space-2), env(safe-area-inset-bottom)); background: var(--surface-1); border-top: 1px solid var(--border-subtle); box-shadow: var(--shadow-pop); }
+  .bar.bar { display: grid; grid-template-columns: minmax(0, 1fr); position: fixed; inset: auto 0 0; z-index: var(--z-drawer); box-sizing: border-box; width: 100%; padding: var(--space-2) var(--space-4) max(var(--space-2), env(safe-area-inset-bottom)); background: var(--surface-1); border-top: 1px solid var(--border-subtle); box-shadow: var(--shadow-sticky); }
   .primary, .secondary { display: grid; grid-template-columns: minmax(0, 1fr); }
   .primary:empty { display: none; }
   .secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

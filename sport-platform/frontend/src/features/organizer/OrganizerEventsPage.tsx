@@ -77,7 +77,7 @@ export function OrganizerEventsPage() {
     <section className={styles.page}>
       <div className={styles.titleRow}>
         <div>
-          <p className={styles.eyebrow}>Организатор</p>
+          <p className={`${styles.eyebrow} fl-eyebrow`}>Организатор</p>
           <h1 className={styles.title}>Мои соревнования</h1>
         </div>
 

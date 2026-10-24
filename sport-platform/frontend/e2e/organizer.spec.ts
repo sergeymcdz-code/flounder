@@ -33,9 +33,7 @@ async function rowAction(row: Locator, label: string) {
 }
 
 async function generateAll(page: Page) {
-  const button = page.getByRole('button', { name: 'Всё соревнование', exact: true })
-  if (!await button.isVisible()) await page.getByText('Сформировать заплывы ▾', { exact: true }).click()
-  await button.click()
+  await page.getByRole('button', { name: 'Сформировать заплывы', exact: true }).click()
 }
 
 async function mockTemplates(
@@ -156,7 +154,7 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
   await page.getByRole('heading', { name: 'Последнее формирование' }).waitFor()
   await page.getByText('Расписание ▾', { exact: true }).click()
   await page
-    .getByRole('button', { name: 'Пересчитать время стартов', exact: true })
+    .getByRole('menuitem', { name: 'Пересчитать время стартов', exact: true })
     .click()
   await page
     .getByRole('status')

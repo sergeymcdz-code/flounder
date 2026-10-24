@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState, useSyncExternalStore } from 'react'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { Button } from '../../components/ui/Button'
 import { ActionBar } from '../../components/ui/ActionBar'
 import { Notice } from '../../components/ui/Notice'
@@ -79,34 +80,42 @@ export function AwardsPrintControls() {
   </>
 }
 
-// Local overflow sheet until the shared D04-2a OverflowMenu reaches main.
+const desktopPrintQuery = '(min-width: 768px)'
+function subscribePrintViewport(onChange: () => void) {
+  const media = window.matchMedia?.(desktopPrintQuery)
+  media?.addEventListener('change', onChange)
+  return () => media?.removeEventListener('change', onChange)
+}
+const desktopPrintSnapshot = () => window.matchMedia?.(desktopPrintQuery).matches ?? false
+
 export function ResultsPrintControls() {
   const { event, heats, accessToken, busy } = useOrganizerEvent()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDialogElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
-  const titleId = useId()
-  useEffect(() => {
-    if (!open) return
-    const dialog = ref.current
-    const button = trigger.current
-    dialog?.showModal()
-    return () => { dialog?.close(); button?.focus() }
-  }, [open])
-  const reason = busy ? 'Дождитесь завершения текущего действия' : !heats.some(h => h.entries.some(e => e.rawValue != null || (e.resultStatus != null && e.resultStatus !== 'PENDING'))) ? 'Сначала введите результаты заплывов' : undefined
+  const [awardsOpen, setAwardsOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState('')
+  const desktop = useSyncExternalStore(subscribePrintViewport, desktopPrintSnapshot, () => false)
+  const reason = busy || downloading ? 'Дождитесь завершения текущего действия' : !heats.some(h => h.entries.some(e => e.rawValue != null || (e.resultStatus != null && e.resultStatus !== 'PENDING'))) ? 'Сначала введите результаты заплывов' : undefined
+  async function download() {
+    setDownloading(true)
+    setError('')
+    try { await downloadProtocol(`/api/v1/events/${event.id}/documents/results.pdf`, 'Итоговый-протокол.pdf', accessToken) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось скачать PDF. Повторите попытку.') }
+    finally { setDownloading(false) }
+  }
   return <>
-    <button ref={trigger} className="fl-btn fl-btn-secondary" type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>Печать ▾</button>
-    <dialog ref={ref} className={resultsStyles.printSheet} aria-labelledby={titleId} onCancel={e => { e.preventDefault(); setOpen(false) }} onClick={e => { if (e.target === e.currentTarget) { const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setOpen(false) } }}>
-      <header className={resultsStyles.sheetHeading}><h2 id={titleId}>Печать результатов</h2><Button onClick={() => setOpen(false)}>Закрыть</Button></header>
-      <ActionBar className={resultsStyles.printActions}>
-        <Button as="a" variant="ghost" href={`/e/${encodeURIComponent(event.publicSlug)}/results?print=1`} target="_blank" rel="noreferrer">Печать итогового протокола</Button>
-        <ResultPdfButton path={`/api/v1/events/${event.id}/documents/results.pdf`} filename="Итоговый-протокол.pdf" accessToken={accessToken} disabledReason={reason} label="Скачать PDF" />
-      </ActionBar>
-      <details className={resultsStyles.awardDetails} open={window.matchMedia?.('(min-width: 768px)')?.matches}>
+    <OverflowMenu label="Печать" trigger="Печать ▾" items={[
+      { label: 'Печать итогового протокола', target: '_blank', href: `/e/${encodeURIComponent(event.publicSlug)}/results?print=1` },
+      { label: 'Скачать PDF', disabled: !!reason, disabledReason: reason, onSelect: () => void download() },
+      { label: 'Параметры награждения', onSelect: () => setAwardsOpen(true) },
+    ]} />
+    {reason && <small className={resultsStyles.muted}>{reason}</small>}
+    {error && <Notice tone="danger">{error} <Button onClick={() => void download()}>Повторить</Button></Notice>}
+    <OrganizerDialog open={awardsOpen} title="Печать результатов" onClose={() => setAwardsOpen(false)}>
+      <details className={resultsStyles.awardDetails} open={desktop}>
         <summary>Параметры награждения</summary>
         <AwardsPrintControls />
       </details>
-    </dialog>
+    </OrganizerDialog>
   </>
 }
 

@@ -1,5 +1,6 @@
+import { Button } from '../../components/ui/Button'
 import { useEffect, useState, type FormEvent } from 'react'
-import { NavLink, useNavigate } from 'react-router'
+import { Link, NavLink, useNavigate } from 'react-router'
 import { ApiError } from '../../api/http'
 import {
   createRegulationTemplate,
@@ -175,11 +176,11 @@ export function CreateRegulationPage() {
 
   return (
     <section className={styles.page}>
-      <NavLink className={styles.backLink} to="/organizer/events/new">
+      <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to="/organizer/events/new">
         ← Вернуться к созданию соревнования
-      </NavLink>
+      </Button>
 
-      <p className={styles.eyebrow}>Панель организатора</p>
+      <p className={`${styles.eyebrow} fl-eyebrow`}>Панель организатора</p>
 
       <div className={styles.header}>
         <div>

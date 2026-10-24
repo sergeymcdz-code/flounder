@@ -4,8 +4,8 @@ import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Button } from '../../components/ui/Button'
 import { Notice } from '../../components/ui/Notice'
-import type { Heat, PublicEvent, ResultRow } from './public.types'
-import { date, isValidResult, seedTime, time } from './format'
+import type { Heat, PublicEvent } from './public.types'
+import { date, seedTime, time } from './format'
 import styles from './Public.module.css'
 import startStyles from './StartList.module.css'
 
@@ -31,7 +31,7 @@ export function PrintHeader({
   )
 }
 
-export function PrintButton({ ready }: { ready: boolean }) {
+export function PrintButton({ ready, disabledReason = 'Печать доступна после публикации протокола' }: { ready: boolean; disabledReason?: string }) {
   const { search } = useLocation()
   const printed = useRef(false)
   useEffect(() => {
@@ -60,10 +60,11 @@ export function PrintButton({ ready }: { ready: boolean }) {
   return (
     <Button
       variant="ghost"
+      size="sm"
       className={styles.noPrint}
       onClick={() => window.print()}
       disabled={!ready}
-      title={!ready ? 'Печать доступна после публикации протокола' : undefined}
+      title={!ready ? disabledReason : undefined}
     >
       Печать
     </Button>
@@ -197,58 +198,5 @@ export function HeatProtocol({
       </h4>
       <LaneTable heat={heat} lanes={lanes} compact />
     </article>
-  )
-}
-
-export function ResultsTable({
-  rows,
-  grouped = false,
-}: {
-  rows: ResultRow[]
-  grouped?: boolean
-}) {
-  const sorted = [...rows].sort(
-    (a, b) =>
-      Number(!isValidResult(a.status)) - Number(!isValidResult(b.status)) ||
-      (a.timeMs ?? Infinity) - (b.timeMs ?? Infinity) ||
-      a.lastName.localeCompare(b.lastName, 'ru'),
-  )
-  return (
-    <>
-    <table className={`${styles.table} fl-protocol fl-results`} role="table" tabIndex={0}>
-      <caption className={styles.srOnly}>
-        Итоговый протокол{grouped ? ' по возрастной группе' : ''}
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col">Место</th>
-          <th scope="col">Фамилия Имя</th>
-          <th scope="col">Год</th>
-          <th scope="col">Клуб</th>
-          <th scope="col">Результат</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sorted.map((row, rowIndex) => (
-          <tr
-            key={`${row.lastName}-${row.firstName}-${row.birthYear}-${row.club}-${rowIndex}`}
-          >
-            <th scope="row">
-              {isValidResult(row.status) ? (row.place ?? '—') : '—'}
-            </th>
-            <td>
-              {row.lastName} {row.firstName}
-            </td>
-            <td>{row.birthYear}</td>
-            <td>{row.club ?? '—'}</td>
-            <td className={`fl-stopwatch ${row.status === 'DSQ' ? 'fl-result-dsq' : row.status === 'DNS' || row.status === 'DNF' ? 'fl-result-muted' : ''}`}>
-              {isValidResult(row.status) ? (row.display ?? '—') : row.status === 'CORRECTED' ? <>{row.display ?? '—'} <ResultStatus status={row.status} /></> : <ResultStatus status={row.status} />}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    <StatusLegend statuses={rows.map(row => row.status)} />
-    </>
   )
 }

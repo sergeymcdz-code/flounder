@@ -72,9 +72,10 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await spectator.goto(publicBase)
       await expect(spectator.getByRole('heading', { name: `Открытый кубок Самары по плаванию${seed.suffix}`, exact: true })).toBeVisible()
       await expect.soft(spectator.getByText('8 дорожек · бассейн 25 м', { exact: true })).toBeVisible()
-      const program = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Сессии и виды программы' }) })
+      const program = spectator.locator('section').filter({ has: spectator.getByRole('heading', { name: 'Программа' }) })
       await expect.soft(program.getByRole('heading', { level: 3 })).toHaveCount(2)
-      await expect.soft(program.getByRole('listitem')).toHaveCount(4)
+      await expect.soft(program.locator('ol > li')).toHaveCount(2)
+      await expect.soft(program.locator('ul > li')).toHaveCount(4)
       await screenshots(spectator, '01-public-overview')
       await login(org, 'org@flounder.demo', base)
       await loadEvent()
@@ -216,8 +217,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       if (await circle.count()) await expect.soft(circle).not.toBeChecked()
       const responsePromise = org.waitForResponse(r => r.url().endsWith('/generate-competition-units') && r.request().method() === 'POST')
       const start = Date.now()
-      await org.getByText('Сформировать заплывы ▾', { exact: true }).click()
-      await org.getByRole('button', { name: 'Всё соревнование', exact: true }).click()
+      await org.getByRole('button', { name: 'Сформировать заплывы', exact: true }).click()
       const response = await responsePromise
       const generation = await response.json() as EventGenerationResult
       const results = generation.disciplines.map(d => 'result' in d ? d.result : d)
@@ -343,7 +343,7 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await screenshots(org, '06-withdrawn-entry')
       await org.getByRole('navigation', { name: 'Разделы соревнования' }).getByRole('link', { name: 'Заплывы', exact: true }).click()
       await org.getByText('Расписание ▾', { exact: true }).click()
-      await org.getByRole('button', { name: 'Пересчитать время стартов', exact: true }).click()
+      await org.getByRole('menuitem', { name: 'Пересчитать время стартов', exact: true }).click()
       await settle(org)
       await expect.poll(async () => {
         const list = await api<StartList>(spectator, `/public/events/${seed.slug}/start-list`)

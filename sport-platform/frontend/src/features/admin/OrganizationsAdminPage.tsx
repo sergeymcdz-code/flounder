@@ -49,7 +49,7 @@ export function OrganizationsAdminPage() {
   return <section className={styles.page}>
     <div className={styles.heading}><h1>Организации</h1><button className="fl-btn fl-btn-secondary" onClick={() => { setOpen(true); setFormError('') }}>Создать организацию</button></div>
     {loading ? <p role="status">Загружаем организации…</p> : error ? <p role="alert" className={styles.error}>{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !organizations.length ? <p className="fl-empty">Организаций пока нет — создайте первую. <button className="fl-btn fl-btn-ghost" onClick={() => setOpen(true)}>Создать организацию</button></p> : <div className="fl-table-scroll"><table className={`${styles.table} fl-table fl-admin-table`}>
+      : !organizations.length ? <p className="fl-empty">Организаций пока нет — создайте первую. <button className="fl-btn fl-btn-ghost" onClick={() => setOpen(true)}>Создать организацию</button></p> : <div className="fl-table-scroll fl-data-table-scroll fl-scroll-x"><table className={`${styles.table} fl-table fl-admin-table`}>
         <thead><tr><th>Название</th><th>Город</th><th>Владелец</th><th>Членов / соревнования</th></tr></thead>
         <tbody>{organizations.map(org => <tr key={org.id}><td><Link to={`/admin/organizations/${org.id}`}>{org.name}</Link></td>
           <td>{org.city || '—'}</td><td>{org.owner || 'Не назначен'}</td><td>{org.memberCount ?? '—'}<br /><Link to={`/admin/organizations/${org.id}#events`}>Соревнования</Link></td></tr>)}</tbody>
@@ -118,7 +118,7 @@ export function OrganizationAdminPage() {
   return <section className={styles.page}><Link to="/admin/organizations">← Организации</Link>
     <div className={styles.heading}><h1>{organization?.name ?? 'Организация'}</h1><button title={loading ? 'Дождитесь загрузки' : (loading || !!error) ? 'Не удалось загрузить организацию: обновите страницу' : undefined} className="fl-btn fl-btn-secondary" disabled={loading || !!error} onClick={() => open({ type: 'add' })}>Добавить участника</button></div>
     {loading ? <p role="status">Загружаем участников…</p> : error ? <p role="alert" className={styles.error}>{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !members.length ? <p className="fl-empty">Участников пока нет — добавьте пользователя по email. <button className="fl-btn fl-btn-ghost" onClick={() => open({ type: 'add' })}>Добавить участника</button></p> : <div className="fl-table-scroll"><table className={`${styles.table} fl-table fl-admin-table`}>
+      : !members.length ? <p className="fl-empty">Участников пока нет — добавьте пользователя по email. <button className="fl-btn fl-btn-ghost" onClick={() => open({ type: 'add' })}>Добавить участника</button></p> : <div className="fl-table-scroll fl-data-table-scroll fl-scroll-x"><table className={`${styles.table} fl-table fl-admin-table`}>
         <thead><tr><th>Email</th><th>ФИО</th><th>Роль в организации</th><th>Действия</th></tr></thead>
         <tbody>{members.map(member => <tr key={member.userId}><td>{member.email}</td><td>{member.lastName} {member.firstName}</td>
           <td>{memberRoles.find(([code]) => code === member.memberRole)?.[1] ?? member.memberRole}</td><td className={styles.actions}>

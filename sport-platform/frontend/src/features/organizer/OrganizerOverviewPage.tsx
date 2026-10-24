@@ -90,10 +90,11 @@ export function OrganizerOverviewPage() {
     { states: ['REGISTRATION_CLOSED', 'LIVE'], label: 'Завершить соревнование', action: completeEvent, step: 6 },
   ]
   const transition = canManage ? transitions.find(t => t.states.includes(status)) : undefined
-  const firstUndone = checklistSteps(context).findIndex(step => !step.done)
+  const steps = checklistSteps(context)
+  const firstUndone = steps.findIndex(step => !step.done)
   const action: ChecklistAction | undefined = transition && {
     label: transition.label, step: transition.step,
-    reason: firstUndone !== -1 && firstUndone < transition.step ? `Сначала: шаг ${firstUndone + 1}` : undefined,
+    reason: transition.action !== archiveEvent && firstUndone !== -1 && firstUndone < transition.step ? `Сначала: ${steps[firstUndone].title}` : undefined,
   }
   useEffect(() => {
     if (params.get('archive') !== '1') return

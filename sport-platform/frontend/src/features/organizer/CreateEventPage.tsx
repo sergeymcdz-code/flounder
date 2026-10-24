@@ -1,3 +1,5 @@
+import { Link } from 'react-router'
+import { Button } from '../../components/ui/Button'
 import { useEffect, useState, type FormEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 
@@ -413,14 +415,14 @@ export function CreateEventPage() {
 
   return (
     <section className={styles.page}>
-      <NavLink
-        className={styles.backLink}
+      <Button as={Link} variant="ghost" size="sm"
+        className="fl-back-link"
         to="/organizer/events"
       >
         ← Назад к моим соревнованиям
-      </NavLink>
+      </Button>
 
-      <p className={styles.eyebrow}>
+      <p className={`${styles.eyebrow} fl-eyebrow`}>
         Панель организатора
       </p>
 

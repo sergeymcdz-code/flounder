@@ -3,19 +3,6 @@
   margin: 0 auto;
 }
 
-.backLink {
-  display: inline-flex;
-  margin-bottom: 24px;
-  color: var(--color-primary);
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.backLink:hover {
-  text-decoration: underline;
-}
-
 .card {
   padding: 28px;
   border: 1px solid var(--color-border);
@@ -27,7 +14,7 @@
 
 .eyebrow {
   margin: 0 0 8px;
-  color: var(--color-primary);
+
   font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.1em;

@@ -119,7 +119,7 @@ export function OrganizerDashboardPage() {
     <section className={styles.page}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Личный кабинет</p>
+          <p className={`${styles.eyebrow} fl-eyebrow`}>Личный кабинет</p>
           <h1 className={styles.title}>Панель организатора</h1>
           <p className={styles.description}>
             Управляйте своими соревнованиями, отслеживайте статусы и быстро переходите

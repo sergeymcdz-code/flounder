@@ -7,36 +7,44 @@ export function OrganizerDialog({
   children,
   onClose,
   side = false,
+  busy = false,
+  open = true,
 }: {
   title: string
   children: ReactNode
   onClose: () => void
   side?: boolean
+  busy?: boolean
+  open?: boolean
 }) {
-  const { error, registerDialog } = useOrganizerEvent()
+  const context = useOrganizerEvent()
+  const { error, registerDialog } = context ?? {}
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
+    if (!open) return
+    const previous = document.activeElement as HTMLElement | null
     const dialog = ref.current
     dialog?.showModal()
-    const unregister = registerDialog()
+    const unregister = registerDialog?.()
     return () => {
       dialog?.close()
-      unregister()
+      unregister?.()
+      previous?.focus()
     }
-  }, [registerDialog])
+  }, [registerDialog, open])
   return (
     <dialog
       ref={ref}
       className={side ? styles.drawer : styles.dialog}
       onCancel={(e) => {
         e.preventDefault()
-        onClose()
+        if (!busy) onClose()
       }}
       aria-label={title}
     >
       <header className={styles.toolbar}>
         <h2>{title}</h2>
-        <button className="fl-btn fl-btn-secondary" type="button" onClick={onClose} aria-label="Закрыть">
+        <button className="fl-btn fl-btn-secondary" type="button" disabled={busy} title={busy ? 'Дождитесь завершения текущего действия' : undefined} onClick={onClose} aria-label="Закрыть">
           ×
         </button>
       </header>

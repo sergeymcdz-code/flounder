@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
           short_name: 'SportGate',
           lang: 'ru',
           description:
-            'SportGate — расписание, заплывы и результаты соревнований по плаванию',
+            'SportGate — расписание, заявки и результаты соревнований',
           theme_color: '#182126',
           background_color: '#ffffff',
           display: 'standalone',

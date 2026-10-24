@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState } from 'react'
+import { OrganizerDialog } from '../organizer/OrganizerDialog'
 import { Button } from '../../components/ui/Button'
 import { ActionBar } from '../../components/ui/ActionBar'
 import { Notice } from '../../components/ui/Notice'
@@ -12,24 +13,6 @@ import {
   type BulkResult,
 } from '../../api/registration-payments.api'
 import styles from './OrganizerPayments.module.css'
-export function PaymentDialog({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose: () => void; busy?: boolean }) {
-  const context = useOrganizerEvent()
-  const ref = useRef<HTMLDialogElement>(null)
-  const registerDialog = context?.registerDialog
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null
-    const element = ref.current
-    element?.showModal()
-    const unregister = registerDialog?.()
-    return () => { element?.close(); unregister?.(); previous?.focus() }
-  }, [registerDialog])
-  return <dialog ref={ref} className={styles.dialog} aria-label={title} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}>
-    <header className={styles.dialogHeader}><h2>{title}</h2><Button disabled={busy} title={busy ? 'Дождитесь завершения текущего действия' : undefined} onClick={onClose} aria-label="Закрыть">×</Button></header>
-    {context?.error && <Notice tone="danger">{context.error}</Notice>}
-    {children}
-  </dialog>
-}
-
 export function PaymentMutationDialog({
   ids,
   action = 'mark-paid',
@@ -66,7 +49,7 @@ export function PaymentMutationDialog({
           ? 'Вернуть оплату'
           : 'Сбросить отметку оплаты'
   return (
-    <PaymentDialog title={title} onClose={onClose} busy={busy}>
+    <OrganizerDialog title={title} onClose={onClose} busy={busy}>
       {result ? (
         <div role="status">
           <p>Обновлено: {result.updated}</p>
@@ -183,6 +166,6 @@ export function PaymentMutationDialog({
           </ActionBar>
         </form>
       )}
-    </PaymentDialog>
+    </OrganizerDialog>
   )
 }

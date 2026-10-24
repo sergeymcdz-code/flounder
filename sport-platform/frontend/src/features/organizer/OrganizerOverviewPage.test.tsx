@@ -92,7 +92,7 @@ it.each([
   expect(document.querySelectorAll('.fl-btn-primary')).toHaveLength(1)
   expect(screen.getByRole('button', { name: label })).toHaveClass('fl-btn-primary')
   expect(screen.getByRole('button', { name: label })).toBeEnabled()
-  expect(screen.getByRole('button', { name: label })).toHaveAccessibleDescription('Сначала: шаг 1')
+  expect(screen.getByRole('button', { name: label })).toHaveAccessibleDescription(status === 'COMPLETED' ? '' : 'Сначала: Программа')
   expect(screen.getByLabelText('текущий шаг').parentElement).toHaveTextContent('1. Программа')
 })
 
@@ -138,7 +138,7 @@ it('shows a visible reason while a lifecycle action is loading', () => {
   const button = screen.getByRole('button', { name: 'Закрыть регистрацию' })
   expect(button).toHaveAttribute('aria-disabled', 'true')
   expect(button).toHaveAttribute('aria-busy', 'true')
-  expect(button).toHaveAccessibleDescription('Сначала: шаг 1 Дождитесь завершения текущего действия')
+  expect(button).toHaveAccessibleDescription('Сначала: Программа · Дождитесь завершения текущего действия')
   fireEvent.click(button)
   expect(context.clearError).not.toHaveBeenCalled()
   expect(context.run).not.toHaveBeenCalled()

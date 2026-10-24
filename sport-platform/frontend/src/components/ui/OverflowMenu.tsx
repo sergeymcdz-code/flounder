@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { Button } from './Button'
 
-export type OverflowMenuItem = { label: string; to?: string; href?: string; onSelect?: () => void; disabled?: boolean; disabledReason?: string; active?: boolean }
+export type OverflowMenuItem = { label: string; target?: '_blank'; to?: string; href?: string; onSelect?: () => void; disabled?: boolean; disabledReason?: string; active?: boolean }
 export function OverflowMenu({ items, label = 'Другие действия', trigger = '⋯' }: { items: readonly OverflowMenuItem[]; label?: string; trigger?: ReactNode }) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -53,7 +53,7 @@ export function OverflowMenu({ items, label = 'Другие действия', t
     {open && createPortal(<div className="fl-overflow-menu" style={{ position: 'fixed', left: anchor.x, top: anchor.y, zIndex: 'var(--z-drawer)' }}><div ref={panel} id={id} role="menu" aria-label={label}>
       {items.map((item, index) => {
         const props = { role: 'menuitem', tabIndex: -1, 'aria-disabled': item.disabled || undefined, 'aria-current': item.active ? 'page' as const : undefined, title: item.disabledReason, className: 'fl-btn fl-btn-ghost', onClick: (event: MouseEvent) => { if (item.disabled) { event.preventDefault(); return }; item.onSelect?.(); close() } }
-        return item.to ? <Link key={index} {...props} to={item.to}>{item.label}</Link> : item.href ? <a key={index} {...props} href={item.href}>{item.label}</a> : <button key={index} {...props} type="button">{item.label}</button>
+        return item.to ? <Link key={index} {...props} to={item.to} target={item.target} rel={item.target ? 'noreferrer' : undefined}>{item.label}</Link> : item.href ? <a key={index} {...props} href={item.href} target={item.target} rel={item.target ? 'noreferrer' : undefined}>{item.label}</a> : <button key={index} {...props} type="button">{item.label}</button>
       })}
     </div></div>, document.body)}
   </div>

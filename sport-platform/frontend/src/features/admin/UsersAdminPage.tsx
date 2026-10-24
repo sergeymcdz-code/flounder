@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { ActionBar } from '../../components/ui/ActionBar'
 import { Button } from '../../components/ui/Button'
 import { DataTable, type DataTableColumn } from '../../components/ui/DataTable'
@@ -15,38 +15,6 @@ import { AdminDialog } from './AdminDialog'
 import styles from './Admin.module.css'
 
 type Action = { type: 'roles' | 'password' | 'status'; user: AdminUser } | { type: 'create' }
-
-// Local fallback until the shared OverflowMenu from D04-2a is available.
-function UserMenu({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const id = useId()
-  const trigger = useRef<HTMLButtonElement>(null)
-  const panel = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    panel.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
-    const close = (event: KeyboardEvent | PointerEvent) => {
-      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
-      if (event instanceof PointerEvent && (panel.current?.contains(event.target as Node) || trigger.current?.contains(event.target as Node))) return
-      setOpen(false)
-      if (event instanceof KeyboardEvent) trigger.current?.focus()
-    }
-    document.addEventListener('keydown', close)
-    document.addEventListener('pointerdown', close)
-    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
-  }, [open])
-  return <><button ref={trigger} type="button" className="fl-btn fl-btn-ghost" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>⋯</button>
-    {open && createPortal(<div id={id} ref={panel} className={styles.menu} role="menu" aria-label={label} onKeyDown={event => {
-      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-      event.preventDefault()
-      const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
-      const current = items.indexOf(document.activeElement as HTMLButtonElement)
-      const index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
-      items[index]?.focus()
-    }} onClick={event => {
-      if ((event.target as HTMLElement).closest('button:not(:disabled)')) { setOpen(false); trigger.current?.focus() }
-    }}>{children}</div>, document.body)}</>
-}
 
 export function UsersAdminPage() {
   const { session } = useAuth()
@@ -164,10 +132,10 @@ export function UsersAdminPage() {
     { key: 'created', header: 'Создан', numeric: true, render: user => new Date(user.createdAt).toLocaleDateString('ru-RU') },
     { key: 'actions', header: 'Действия', render: user => <div className={styles.actions}>
       <Button onClick={() => open({ type: 'roles', user })}>Роли</Button>
-      <UserMenu label={`Действия пользователя ${user.email}`}>
-        {user.status !== 'INACTIVE' && <Button role="menuitem" variant="ghost" onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</Button>}
-        <Button role="menuitem" variant="ghost" onClick={() => open({ type: 'password', user })}>Сменить пароль</Button>
-      </UserMenu>
+      <OverflowMenu label={`Действия пользователя ${user.email}`} items={[
+        ...(user.status !== 'INACTIVE' ? [{ label: user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать', onSelect: () => open({ type: 'status', user }) }] : []),
+        { label: 'Сменить пароль', onSelect: () => open({ type: 'password', user }) },
+      ]} />
     </div> },
   ]
   return <section className={styles.page}>
@@ -181,9 +149,9 @@ export function UsersAdminPage() {
     </div>
     {success && <p role="status">{success}</p>}
     {(error || rolesError) && <Notice tone="danger">{error || rolesError} <Button onClick={() => setReload(value => value + 1)}>Повторить</Button></Notice>}
-    {loading && <div role="status"><p>Загружаем пользователей…</p><div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div></div>}
+    {loading && <div role="status"><p>Загружаем пользователей…</p><div className="fl-skeleton" aria-hidden="true"><div /><div /><div /></div></div>}
     {data && <>
-      {!data.items.length ? <EmptyState title="Пользователи не найдены — измените запрос" action={<Button onClick={() => { setQuery(''); setRole(''); setPage(0) }}>Сбросить поиск</Button>}><p>Попробуйте другое имя, email или роль.</p></EmptyState> : <div className={styles.rowcards}><DataTable caption="Пользователи платформы" columns={columns} rows={data.items} rowKey={user => user.id} minWidth={900} /></div>}
+      {!data.items.length ? <EmptyState title="Пользователи не найдены — измените запрос" action={<Button onClick={() => { setQuery(''); setRole(''); setPage(0) }}>Сбросить поиск</Button>}><p>Попробуйте другое имя, email или роль.</p></EmptyState> : <div className={styles.usersCards}><DataTable cards caption="Пользователи платформы" columns={columns} rows={data.items} rowKey={user => user.id} minWidth={900} /></div>}
       <ActionBar className={styles.pagination}><Button title={page === 0 ? 'Вы на первой странице' : loading ? 'Дождитесь загрузки пользователей' : undefined} disabled={page === 0 || loading} onClick={() => setPage(value => value - 1)}>Назад</Button>
         <span className="fl-numeric">Страница {page + 1} из {Math.max(1, Math.ceil(data.total / data.size))} · Всего {data.total}</span><Button title={(page + 1) * data.size >= data.total ? 'Вы на последней странице' : loading ? 'Дождитесь загрузки пользователей' : undefined} disabled={(page + 1) * data.size >= data.total || loading} onClick={() => setPage(value => value + 1)}>Далее</Button></ActionBar>
     </>}

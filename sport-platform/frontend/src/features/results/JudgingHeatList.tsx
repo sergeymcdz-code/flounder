@@ -1,3 +1,4 @@
+import { DataTable } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import styles from './CompetitionUnitsPage.module.css'
 import { Link } from 'react-router'
@@ -27,17 +28,12 @@ export function JudgingHeatList({ eventId, sessions, disciplines, units, timeZon
         const heats = units.filter(u => u.eventDisciplineId === d.id)
         return <section key={d.id}>
           <h3>Вид № {d.number ?? d.orderInSession} · {d.name}</h3>
-          {heats.length ? <div className={`${styles.tableScroll} fl-data-table-scroll`}>
-            <table className={`fl-table ${styles.heatTable}`}><caption className="fl-sr-only">{d.name} — заплывы</caption>
-              <thead><tr><th scope="col">№</th><th scope="col" data-numeric>Время</th><th scope="col">Статус</th><th scope="col">Действия</th></tr></thead>
-              <tbody>{heats.map(unit => <tr key={unit.id}>
-                <td data-label="Заплыв" data-number>{unit.sequenceNumber ?? unit.label}</td>
-                <td data-label="Время" data-numeric>{formatDateTime(unit.scheduledAt, timeZone)}</td>
-                <td data-label="Статус"><StatusBadge kind="heat" code={unit.status} /></td>
-                <td><Link className="fl-btn fl-btn-ghost fl-btn-sm" to={`/operator/competition-units/${unit.id}?eventId=${eventId}`}>Открыть →</Link></td>
-              </tr>)}</tbody>
-            </table>
-          </div> : <EmptyState title="Заплывы пока не сформированы" action={<Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${eventId}/results`}>К результатам соревнования</Link>}><p>Организатор готовит стартовый протокол.</p></EmptyState>}
+          {heats.length ? <DataTable cards caption={`${d.name} — заплывы`} rows={heats} rowKey={unit => unit.id} columns={[
+            { key: 'number', header: '№', label: 'Заплыв', rowHeader: true, render: unit => unit.sequenceNumber ?? unit.label },
+            { key: 'time', header: 'Время', numeric: true, render: unit => formatDateTime(unit.scheduledAt, timeZone) },
+            { key: 'status', header: 'Статус', render: unit => <StatusBadge kind="heat" code={unit.status} /> },
+            { key: 'actions', header: 'Действия', render: unit => <Link className="fl-btn fl-btn-ghost fl-btn-sm" to={`/operator/competition-units/${unit.id}?eventId=${eventId}`}>Открыть →</Link> },
+          ]} /> : <EmptyState title="Заплывы пока не сформированы" action={<Link className="fl-btn fl-btn-ghost" to={`/organizer/events/${eventId}/results`}>К результатам соревнования</Link>}><p>Организатор готовит стартовый протокол.</p></EmptyState>}
         </section>
       })}</div>
     </details>)}

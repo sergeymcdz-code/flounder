@@ -62,8 +62,11 @@ it.each([
       : result)
   }))
   render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
-  await userEvent.click(screen.getByText('Сформировать заплывы ▾'))
-  await userEvent.click(screen.getByRole('button', { name: button }))
+  if (scope === 'events') await userEvent.click(screen.getByRole('button', { name: 'Сформировать заплывы' }))
+  else {
+    await userEvent.click(screen.getByRole('button', { name: 'По виду' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: button }))
+  }
   await waitFor(() => expect(context.saveGeneration).toHaveBeenCalledOnce())
   expect(requestBody).toHaveBeenCalledExactlyOnceWith({ force: false, circleSeedTopHeats: false })
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
@@ -90,7 +93,8 @@ it('assigns bibs from the dialog and reports the assigned count', async () => {
     return HttpResponse.json({ assigned: 12, kept: 3, total: 15 })
   }))
   render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
-  await userEvent.click(screen.getByRole('button', { name: 'Печать ▾' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Печать' }))
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Протокол и карточки (PDF)' }))
   await userEvent.click(screen.getByRole('button', { name: 'Стартовые номера…' }))
   await userEvent.selectOptions(screen.getByLabelText('Порядок'), 'BY_NAME')
   const start = screen.getByLabelText('Начать с')
@@ -105,8 +109,9 @@ it('assigns bibs from the dialog and reports the assigned count', async () => {
 it('offers both card formats and filters print requests without disabling archived printing', async () => {
   vi.mocked(useOrganizerEvent).mockReturnValue({ ...context, event: { ...context.event, status: 'ARCHIVED' } })
   render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
-  expect(screen.getAllByRole('button', { name: 'Печать ▾' })).toHaveLength(1)
-  await userEvent.click(screen.getByRole('button', { name: 'Печать ▾' }))
+  expect(screen.getAllByRole('button', { name: 'Печать' })).toHaveLength(1)
+  await userEvent.click(screen.getByRole('button', { name: 'Печать' }))
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Протокол и карточки (PDF)' }))
   expect(screen.getByRole('button', { name: 'Стартовые номера…' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Карточки заплывов (A5)' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Карточки заплывов (2 на A4)' })).toBeEnabled()
@@ -127,7 +132,8 @@ it('uses a valid query string for card printing without filters', async () => {
     return new HttpResponse(new Uint8Array([37, 80, 68, 70]), { headers: { 'Content-Type': 'application/pdf' } })
   }))
   render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
-  await userEvent.click(screen.getByRole('button', { name: 'Печать ▾' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Печать' }))
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Протокол и карточки (PDF)' }))
   await userEvent.click(screen.getByRole('button', { name: 'Карточки заплывов (A5)' }))
   await waitFor(() => expect(requested).toHaveBeenCalledWith('?format=A5'))
 })
@@ -138,10 +144,10 @@ it('disables schedule shifting for archived events with a read-only explanation'
     scheduledAt: '2026-10-19T06:00:00Z', status: 'PUBLISHED', entries: [],
   }] })
   render(<MemoryRouter><ToastProvider><OrganizerHeatsPage /></ToastProvider></MemoryRouter>)
-  await userEvent.click(screen.getByRole('button', { name: 'Расписание ▾' }))
-  const button = screen.getByRole('button', { name: 'Сдвинуть расписание…' })
-  expect(button).toBeDisabled()
-  expect(button).toHaveAttribute('title', 'Архивное событие доступно только для чтения')
+  await userEvent.click(screen.getByRole('button', { name: 'Расписание' }))
+  const button = screen.getByRole('menuitem', { name: 'Сдвинуть расписание…' })
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+  expect(button).toHaveAttribute('title', 'Соревнование в архиве: доступен только просмотр')
 })
 
 const draftHeat = { id: 'heat', eventDisciplineId: 'discipline', label: '1', sequenceNumber: 1, status: 'DRAFT', scheduledAt: '2026-10-17T06:00:00Z', entries: [] }
@@ -185,9 +191,9 @@ it('keeps discipline actions outside summaries and restores popover focus on Esc
   const menu = screen.getByRole('button', { name: 'Действия вида 50 м' })
   expect(menu.closest('summary')).toBeNull()
   await userEvent.click(menu)
-  expect(within(screen.getByRole('region', { name: 'Действия вида 50 м' })).getByRole('button', { name: 'Пересобрать' })).toBeVisible()
+  expect(within(screen.getByRole('menu', { name: 'Действия вида 50 м' })).getByRole('menuitem', { name: 'Пересобрать' })).toBeVisible()
   await userEvent.keyboard('{Escape}')
-  expect(screen.queryByRole('region', { name: 'Действия вида 50 м' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('menu', { name: 'Действия вида 50 м' })).not.toBeInTheDocument()
   expect(menu).toHaveFocus()
 })
 
@@ -198,7 +204,7 @@ it('explains empty, busy and error states while keeping existing heats visible',
   expect(screen.getByText('Показаны последние загруженные данные. Обновите их и повторите действие.')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument() // The layout owns the error alert.
-  expect(screen.getByRole('button', { name: 'Опубликовать протокол' })).toHaveAttribute('title', 'Дождитесь завершения текущего действия')
+  expect(screen.getByRole('button', { name: 'Опубликовать протокол' })).toHaveAttribute('title', 'Выполняем действие…')
 })
 
 it('links to the program when disciplines are missing and has one primary when empty', () => {
@@ -217,8 +223,7 @@ it('confirms before force-regenerating published heats', async () => {
     return HttpResponse.json({ disciplines: [], durationMs: 12 })
   }))
   renderHeats()
-  await userEvent.click(screen.getByRole('button', { name: 'Сформировать заплывы ▾' }))
-  await userEvent.click(screen.getByRole('button', { name: 'Всё соревнование' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Сформировать заплывы' }))
   expect(requestBody).not.toHaveBeenCalled()
   await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
   await waitFor(() => expect(requestBody).toHaveBeenCalledExactlyOnceWith({ force: true, circleSeedTopHeats: false }))

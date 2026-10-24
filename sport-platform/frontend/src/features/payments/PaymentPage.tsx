@@ -329,7 +329,7 @@ export function PaymentPage() {
         ← К моим заявкам
       </Link>
 
-      <p className={styles.eyebrow}>Оплата участия</p>
+      <p className={`${styles.eyebrow} fl-eyebrow`}>Оплата участия</p>
 
       <h1 className={styles.title}>Оплата заявки</h1>
 

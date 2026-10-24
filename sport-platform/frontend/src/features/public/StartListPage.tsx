@@ -37,7 +37,7 @@ export function StartListPage() {
           <ActionBar className={`fl-print-actions ${styles.printActions}`}>
             <PrintButton ready={hasHeats} />
             <span className={styles.pdf}>
-              <PdfDownloadButton
+              <PdfDownloadButton size="sm"
                 path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/start-list.pdf`}
                 filename="Стартовый-протокол.pdf"
                 disabled={!hasHeats}
@@ -45,13 +45,12 @@ export function StartListPage() {
             </span>
           </ActionBar>
         </div>
-        {!hasHeats && <small className={styles.muted}>Печать и PDF доступны после публикации заплывов.</small>}
+        {state.data && !hasHeats && <small className={styles.muted}>Печать и PDF доступны после публикации заплывов.</small>}
       </div>
       <ProtocolState {...state} />
       {state.data && (hasHeats ? (
         <>
-          <nav className={`${styles.anchors} ${printStyles.noPrint}`} aria-label="Виды программы"
-            onScroll={event => { event.currentTarget.dataset.scrolled = String(event.currentTarget.scrollLeft > 0) }}>
+          <nav className={`${styles.anchors} ${printStyles.noPrint} fl-scroll-x`} aria-label="Виды программы">
             {state.data.sessions.flatMap(session => session.disciplines.map(discipline => {
               const id = `discipline-${session.id}-${discipline.id}`
               return <Button key={id} as="a" href={`#${id}`} variant="ghost" size="sm"
