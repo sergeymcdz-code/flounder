@@ -8,7 +8,7 @@
 .error { color: var(--color-danger); }
 .link { color: var(--color-primary); text-decoration: underline; }
 .stack, .form { display: grid; gap: var(--space-4); min-width: 0; }
-.chips { min-width: 0; max-width: 100%; display: flex; flex-wrap: nowrap !important; gap: var(--space-2); overflow-x: auto; scrollbar-width: thin; overscroll-behavior-inline: contain; scroll-padding-inline: var(--space-4); mask-image: linear-gradient(90deg, var(--color-text) calc(100% - var(--space-6)), transparent); padding-inline-end: var(--space-6); }
+.card .chips { min-width: 0; max-width: 100%; display: flex; flex-wrap: nowrap; gap: var(--space-2); }
 .chips > button { flex: 0 0 auto; white-space: nowrap; }
 .chips [aria-pressed='true'] { background: var(--surface-3); color: var(--color-primary); box-shadow: var(--focus-ring-inset); }
 .filterPanel { min-width: 0; max-width: 100%; }
@@ -22,16 +22,21 @@
 .card .selection input[type='checkbox']:disabled { opacity: .5; }
 .tableFrame { min-width: 0; position: relative; }
 .tableFrame::after { content: ''; position: absolute; inset: 0 0 0 auto; width: var(--space-6); background: linear-gradient(to left, var(--surface-1), transparent); pointer-events: none; }
-.table { max-height: min(60vh, calc(var(--space-16) * 10)); overflow: auto; scrollbar-width: thin; overscroll-behavior-inline: contain; box-shadow: inset var(--space-2) 0 var(--space-2) calc(-1 * var(--space-2)) var(--border-strong); }
+.table > :global(.fl-data-table-scroll) { max-height: min(60vh, calc(var(--space-16) * 10)); overflow: auto; scrollbar-width: thin; overscroll-behavior-inline: contain; box-shadow: inset var(--space-2) 0 var(--space-2) calc(-1 * var(--space-2)) var(--border-strong); }
+.table { min-width: 0; }
 .table table { width: 100%; table-layout: fixed; }
+.table caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .table :is(td, th) { overflow-wrap: anywhere; vertical-align: middle; }
 .table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); font-size: var(--text-xs); }
-.table .number { width: var(--control-h); overflow-wrap: normal; }
-.table thead .number { width: calc(var(--control-h) + var(--space-10)); }
-.table thead .seed { width: calc(var(--space-16) * 2); }
-.table thead .status, .table thead .payment { width: calc(var(--space-16) * 2 + var(--space-4)); }
-.table :is(.admission, .documents) { display: none; }
-.table .mobileMeta, .mobileLabel { display: none; }
+.table :is(th, td):has(> .number) { width: var(--control-h); overflow-wrap: normal; }
+.table thead th:has(> .number) { width: calc(var(--control-h) + var(--space-10)); }
+.card:global(.fl-entries) .table :global(.fl-table) :is(th, td):has(> :is(.number, .name)) { left: auto; }
+.card:global(.fl-entries) .table :global(.fl-table) tbody :is(th, td):has(> :is(.number, .name)) { position: static; box-shadow: none; }
+.table thead th:has(> .name) { width: calc(var(--space-16) * 3); }
+.table thead th:has(> .seed) { width: calc(var(--space-16) * 2); }
+.table thead th:has(> .status), .table thead th:has(> .payment) { width: calc(var(--space-16) * 2 + var(--space-4)); }
+.table :is(th, td):has(> :is(.admission, .documents)) { display: none; }
+.table :is(th, td):has(> .mobileMeta), .mobileLabel { display: none; }
 .name > small { display: block; font-size: var(--text-xs); font-weight: 400; }
 .name { font-size: var(--text-md); font-weight: var(--font-weight-medium); }
 .table .seedButton { font-variant-numeric: var(--numeric-variant); font-size: var(--text-md); font-weight: var(--font-weight-medium); white-space: nowrap; }
@@ -39,8 +44,8 @@
 .seedForm input { width: 100%; font-variant-numeric: var(--numeric-variant); }
 .seedForm .actions { flex-wrap: wrap; }
 .paymentContent { display: grid; gap: var(--space-1); justify-items: start; }
-.table .rowActions { position: sticky; right: 0; background: var(--surface-1); box-shadow: var(--shadow-drawer); }
-.table thead .rowActions { right: 0; z-index: 2; }
+.table :is(th, td):has(> .rowActions) { position: sticky; right: 0; background: var(--surface-1); box-shadow: var(--shadow-drawer); }
+.table thead th:has(> .rowActions) { right: 0; z-index: 2; width: calc(var(--space-16) * 3); }
 .rowActions .actions { flex-wrap: nowrap; justify-content: flex-end; }
 .rowActions button { padding-inline: var(--space-2); white-space: normal; }
 .bulkBar { display: flex; flex-wrap: wrap; gap: var(--space-2); bottom: 0; box-shadow: var(--shadow-sticky); }
@@ -52,46 +57,41 @@
 @media (min-width: 768px) {
   .card { padding: var(--space-6); }
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .table table { min-width: var(--content-max); }
 }
 @media (min-width: 1024px) {
   .filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-@media (max-width: 1366px) {
-  .table thead .rowActions { width: 21%; }
-}
 @media (min-width: 1367px) {
-  .table :is(.admission, .documents) { display: table-cell; }
-  .table table { min-width: calc(var(--space-16) * 17); }
+  .table :is(th, td):has(> :is(.admission, .documents)) { display: table-cell; }
 }
 @media (max-width: 767px) {
   .card { border: 0; padding: 0; background: transparent; }
   .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .toolbar > .actions { display: contents; }
   .toolbar .importButton { grid-column: 1 / -1; grid-row: 2; width: 100%; }
-  .toolbar > .actions > button:not(.importButton) { grid-area: 1 / 2; }
+  .toolbar > .actions > :global(.fl-overflow-menu), .toolbar > .actions > button:not(.importButton) { grid-area: 1 / 2; }
   .meta { flex-wrap: nowrap; }
   .meta p, .selectAllLabel { white-space: nowrap; }
-  .table :is(.year, .club) { display: none; }
+  .card .table :is(th, td):has(> :is(.year, .club, .admission, .documents)) { display: none; }
   .tableFrame::after { display: none; }
-  .table { border: 0; border-radius: 0; max-height: none; overflow: visible; box-shadow: none; background: transparent; }
-  .table :is(table, tbody) { display: block; width: 100%; }
-  .card .table thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
-  .card:global(.fl-entries) .table :global(.fl-table) :is(.number, .name) { position: static; left: auto; width: auto; min-width: 0; max-width: none; box-shadow: none; background: transparent; }
-  .table tr { display: grid; grid-template-columns: var(--control-h) minmax(0, 1fr) auto; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: var(--space-2); background: var(--surface-1); }
-  .card .table tr > :is(td, th) { border: 0; padding: 0; background: transparent; }
-  .table .number { grid-area: 1 / 1; align-self: start; }
+  .card .table > :global(.fl-data-table-scroll) { box-shadow: none; }
+  .card:global(.fl-entries) .table :global(.fl-table) :is(th, td):has(> :is(.number, .name)) { position: static; left: auto; width: auto; min-width: 0; max-width: none; box-shadow: none; background: transparent; }
+  .card .table tbody tr { grid-template-columns: var(--control-h) minmax(0, 1fr) auto; gap: var(--space-2); }
+  .card .table tr > :is(td, th) { display: block; border: 0; padding: 0; background: transparent; }
+  .table :is(th, td):has(> .number) { grid-area: 1 / 1; align-self: start; }
   .number span { display: none; }
-  .table .name { grid-area: 1 / 2; align-self: center; text-align: left; }
-  .table .status { grid-area: 1 / 3; align-self: center; max-width: calc(var(--space-16) * 2); }
-  .table .mobileMeta { display: block; grid-area: 2 / 1 / auto / -1; }
-  .table .discipline { display: none; }
-  .table .seed { grid-area: 3 / 1 / auto / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); white-space: normal; }
+  .table :is(th, td):has(> .name) { grid-area: 1 / 2; align-self: center; text-align: left; }
+  .table :is(th, td):has(> .status) { grid-area: 1 / 3; align-self: center; max-width: calc(var(--space-16) * 2); }
+  .card .table :is(th, td):has(> .mobileMeta) { display: block; grid-area: 2 / 1 / auto / -1; }
+  .card .table :is(th, td):has(> .discipline) { display: none; }
+  .table :is(th, td):has(> .seed) { grid-area: 3 / 1 / auto / -1; }
+  .seed { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); white-space: normal; }
   .mobileLabel { display: inline; text-align: left; }
   .seedForm { max-width: 60%; }
   .paymentContent { justify-items: end; }
-  .table .payment { grid-area: 4 / 1 / auto / -1; display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
-  .table .rowActions { grid-area: 5 / 1 / auto / -1; position: static; box-shadow: none; }
+  .table :is(th, td):has(> .payment) { grid-area: 4 / 1 / auto / -1; }
+  .payment { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+  .table :is(th, td):has(> .rowActions) { grid-area: 5 / 1 / auto / -1; position: static; box-shadow: none; }
   .rowActions .actions > button:first-child { flex: 1; }
   .rowActions .actions > button:last-child { flex: 0 0 var(--control-h); }
   .bulkBar > button { flex: 1 1 auto; }
