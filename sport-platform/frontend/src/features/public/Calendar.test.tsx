@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
 import { http, HttpResponse } from 'msw'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { server } from '../../test/setup'
 import { AuthProvider } from '../../app/providers/AuthProvider'
+import { calendarApi } from '../../api/calendar.api'
 import { setAuthSession } from '../../api/auth-session'
 import { DirectoryLayout } from './DirectoryLayout'
 import { PublicLayout } from './PublicLayout'
@@ -30,7 +31,7 @@ it('groups cards by month, filters by city and resets pagination', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
   expect(await screen.findByRole('heading', { name: 'Ноябрь 2026' })).toBeInTheDocument()
   expect(requests.map(r => r.searchParams.get('page'))).toEqual(['0', '1'])
-  fireEvent.change(screen.getByLabelText('Город'), { target: { value: 'Самара' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Самара' }))
   expect(await screen.findByText('Городской старт')).toBeInTheDocument()
   expect(screen.queryByText('Ноябрьский кубок')).not.toBeInTheDocument()
   expect(requests.at(-1)?.searchParams.get('city')).toBe('Самара')
@@ -43,11 +44,11 @@ it('shows the empty state and sends past and title filters', async () => {
     return HttpResponse.json({ items: [], page: 0, size: 20, total: 0, cities: [] })
   }))
   calendar()
-  expect(await screen.findByText('Пока нет соревнований')).toBeInTheDocument()
+  expect(await screen.findByText('Соревнований не найдено')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Прошедшие' }))
   await waitFor(() => expect(requests.at(-1)?.searchParams.get('status')).toBe('past'))
   fireEvent.change(screen.getByLabelText('Поиск по названию'), { target: { value: 'Кубок' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Найти' }))
+  expect(screen.queryByRole('button', { name: 'Найти' })).not.toBeInTheDocument()
   await waitFor(() => expect(requests.at(-1)?.searchParams.get('q')).toBe('Кубок'))
 })
 it('renders organization contacts, results, metadata and archive links', async () => {
@@ -100,7 +101,7 @@ it('participant logout returns the directory to guest navigation', async () => {
 })
 it('registration deadline uses the venue timezone across midnight', () => {
   render(<MemoryRouter><CalendarCards items={[{ ...card, registrationOpen: true, registrationCloseAt: '2026-10-19T20:30:00Z', venueTimezone: 'Europe/Samara' }]} /></MemoryRouter>)
-  expect(screen.getByText('Регистрация открыта до 20.10')).toBeInTheDocument()
+  expect(screen.getByText(/Регистрация до 20.10/)).toBeInTheDocument()
 })
 it('a failed next page preserves cards and can retry only that page', async () => {
   const pages: string[] = []
@@ -143,4 +144,82 @@ it('public event layout preserves role home and links to the calendar and organi
   expect(await nav.findByRole('link', { name: 'Страница организации' })).toHaveAttribute('href', '/o/volna')
   expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
   expect(screen.getByRole('navigation', { name: 'Разделы соревнования' })).toBeInTheDocument()
+})
+
+it('debounces title input for 300 ms without losing focus', async () => {
+  const load = vi.spyOn(calendarApi, 'calendar').mockResolvedValue({ items: [card], page: 0, size: 20, total: 1, cities: ['Самара'] })
+  calendar()
+  await screen.findByText(card.title)
+  vi.useFakeTimers()
+  try {
+    const input = screen.getByRole('searchbox')
+    input.focus()
+    fireEvent.change(input, { target: { value: 'Ку' } })
+    act(() => { vi.advanceTimersByTime(200) })
+    fireEvent.change(input, { target: { value: 'Кубок' } })
+    act(() => { vi.advanceTimersByTime(299) })
+    expect(load).toHaveBeenCalledTimes(1)
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(load.mock.calls[1][0].get('q')).toBe('Кубок')
+    expect(input).toHaveFocus()
+    expect(input).toHaveValue('Кубок')
+  } finally { vi.useRealTimers(); load.mockRestore() }
+})
+
+it('resets search, city, period and pagination while preserving organization scope', async () => {
+  const requests: URL[] = []
+  server.use(http.get('*/api/v1/public/calendar', ({ request }) => {
+    requests.push(new URL(request.url))
+    return HttpResponse.json({ items: [], page: 0, size: 20, total: 0, cities: ['Самара'] })
+  }))
+  render(<MemoryRouter initialEntries={['/?q=Кубок&city=Самара&status=past&page=3&organization=volna']}><CalendarPage /></MemoryRouter>)
+  await screen.findByText('Соревнований не найдено')
+  expect(screen.getByRole('searchbox')).toHaveValue('Кубок')
+  expect(screen.getByRole('button', { name: 'Самара' })).toHaveAttribute('aria-pressed', 'true')
+  fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }))
+  await waitFor(() => expect(requests).toHaveLength(2))
+  expect(Object.fromEntries(requests[1].searchParams)).toEqual({ organization: 'volna', page: '0', size: '20' })
+  expect(screen.getByRole('searchbox')).toHaveValue('')
+  expect(screen.getByRole('button', { name: 'Ближайшие' })).toHaveAttribute('aria-pressed', 'true')
+})
+
+it.each([
+  ['network', 'Нет связи. Проверьте подключение к интернету.'],
+  ['server', 'Сервер ответил ошибкой (503).'],
+  ['missing', 'Данные не найдены.'],
+])('shows loading, a useful %s error and retries', async (mode, message) => {
+  let resolve!: () => void
+  let failed = false
+  server.use(http.get('*/api/v1/public/calendar', async () => {
+    if (!failed) {
+      failed = true
+      await new Promise<void>(done => { resolve = done })
+      return mode === 'network' ? HttpResponse.error() : HttpResponse.json({ message: 'Попробуйте позже.' }, { status: mode === 'missing' ? 404 : 503 })
+    }
+    return HttpResponse.json({ items: [card], page: 0, size: 20, total: 1, cities: [] })
+  }))
+  calendar()
+  expect(screen.getByRole('status', { name: 'Загружаем соревнования…' })).toBeInTheDocument()
+  await waitFor(() => expect(resolve).toBeTypeOf('function'))
+  await act(async () => { resolve() })
+  expect(await screen.findByRole('alert')).toHaveTextContent(message)
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  expect(await screen.findByText(card.title)).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+it('uses event status, a single title destination, conditional actions and missing dates', () => {
+  render(<MemoryRouter><CalendarCards grouped items={[
+    { ...card, status: 'LIVE', hasResults: true, registrationOpen: false },
+    { ...card, slug: 'pending', title: 'Будущий старт', startDate: null, endDate: null, city: null, organization: null, hasResults: false, status: 'PUBLISHED' },
+  ]} /></MemoryRouter>)
+  const live = screen.getByRole('heading', { name: card.title }).closest('article')!
+  expect(within(live).getByText('Идёт')).toHaveAttribute('data-status', 'LIVE')
+  expect(within(live).getByRole('link', { name: card.title })).toHaveAttribute('href', '/e/cup')
+  expect(within(live).getByRole('link', { name: 'Табло' })).toHaveAttribute('href', '/e/cup/live')
+  expect(within(live).getByRole('link', { name: 'Результаты' })).toHaveAttribute('href', '/e/cup/results')
+  expect(within(live).queryByRole('link', { name: /Подробнее/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Дата уточняется' })).toBeInTheDocument()
+  expect(within(screen.getByRole('heading', { name: 'Будущий старт' }).closest('article')!).queryByRole('link', { name: 'Табло' })).not.toBeInTheDocument()
 })
