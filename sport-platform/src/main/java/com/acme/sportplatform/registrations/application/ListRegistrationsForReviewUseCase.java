@@ -57,6 +57,7 @@ public class ListRegistrationsForReviewUseCase {
             entities = registrationRepository.findAll();
         }
 
+        var headers = new java.util.HashMap<UUID, com.acme.sportplatform.events.EventProtocolHeader>();
         return summaries.enrichForManager(
                 registrationMapper.toResponses(
                         entities,
@@ -64,6 +65,11 @@ public class ListRegistrationsForReviewUseCase {
                                 entities.stream()
                                         .filter(r -> r.getReviewedAt() != null)
                                         .map(r -> r.getEventId())
-                                        .collect(java.util.stream.Collectors.toSet()))));
+                                        .collect(java.util.stream.Collectors.toSet())))).stream()
+                .map(registration -> {
+                    var header = headers.computeIfAbsent(registration.eventId(), events::protocolHeader);
+                    return registration.withEventContext(header.title(), null, header.startsAt(), null, header.publicSlug());
+                })
+                .toList();
     }
 }

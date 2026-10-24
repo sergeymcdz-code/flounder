@@ -14,6 +14,19 @@ import java.util.*;
 
 class RegistrationMapperTest {
     @Test
+    void serializesMissingParticipantDetailsWithoutInventingAnIdentity() {
+        var entity = new RegistrationEntity();
+        entity.setParticipantSnapshot("{\"firstName\":\"Анна\",\"birthDate\":\"invalid\"}");
+        entity.setRegistrationMeta("{}");
+        var mapper = new ObjectMapper();
+        var response = new RegistrationMapper(mapper, mock(RegistrationFeeService.class), mock(UserLookup.class)).toResponse(entity);
+        var json = mapper.valueToTree(response);
+        assertThat(json.path("participantFullName").asText()).isEqualTo("Анна");
+        assertThat(json.path("participantBirthYear").isNull()).isTrue();
+        assertThat(json.path("participantClubName").isNull()).isTrue();
+    }
+
+    @Test
     void mapsDueDatesAndActorsFromBatchContextWithoutPerRegistrationReads() {
         var fees = mock(RegistrationFeeService.class);
         var users = mock(UserLookup.class);

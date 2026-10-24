@@ -2,15 +2,20 @@ import { getOrganizationRequests, approveOrganizationRequest, rejectOrganization
 import { AdminDialog } from './AdminDialog'
 import { adminError } from './admin-utils'
 import adminStyles from './Admin.module.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ApiError } from '../../api/http'
 import {
   type RegistrationReviewDecision,
   reviewRegistration,
+  getRegistrations,
 } from '../../api/registrations.api'
 import { useAuth } from '../../app/providers/AuthProvider'
 import './AdminPages.css'
+import { RegistrationDirectory } from '../registrations/RegistrationDirectory'
+import { participantName, eventLabel } from '../registrations/registration-display'
+import type { Registration } from '../registrations/registration.types'
+import reviewStyles from './RegistrationReviewPage.module.css'
 
 type DecisionOption = {
   value: RegistrationReviewDecision
@@ -46,7 +51,7 @@ function getErrorMessage(error: unknown) {
   }
 
   if (error.status === 404) {
-    return 'Заявка с таким ID не найдена.'
+    return 'Заявка не найдена. Обновите список.'
   }
 
   return error.message
@@ -55,7 +60,26 @@ function getErrorMessage(error: unknown) {
 export function RegistrationReviewPage() {
   const { session } = useAuth()
 
-  const [registrationId, setRegistrationId] = useState('')
+  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const [selected, setSelected] = useState<Registration | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
+  const accessToken = session?.accessToken
+  useEffect(() => {
+    let active = true
+    setIsLoading(true)
+    setLoadError(null)
+    if (!accessToken) { setIsLoading(false); return }
+    getRegistrations(accessToken).then(rows => { if (active) setRegistrations(rows) })
+      .catch(error => { if (active) setLoadError(getErrorMessage(error)) })
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
+  }, [accessToken, reload])
+  useEffect(() => {
+    if (selected) headingRef.current?.focus()
+  }, [selected])
   const [decision, setDecision] =
     useState<RegistrationReviewDecision>('CONFIRMED')
   const [reviewNote, setReviewNote] = useState('')
@@ -70,11 +94,11 @@ export function RegistrationReviewPage() {
       return
     }
 
-    const normalizedRegistrationId = registrationId.trim()
+    const normalizedRegistrationId = selected?.id
     const normalizedReviewNote = reviewNote.trim()
 
     if (!normalizedRegistrationId) {
-      setErrorMessage('Укажите ID заявки.')
+      setErrorMessage('Выберите заявку из списка.')
       return
     }
 
@@ -104,7 +128,9 @@ export function RegistrationReviewPage() {
         'Обработана'
 
       setSuccessMessage(`Заявка успешно обработана: ${label}.`)
-      setRegistrationId(reviewedRegistration.id)
+      setRegistrations(rows => rows.map(row => row.id === reviewedRegistration.id ? { ...row, status: reviewedRegistration.status, reviewNote: reviewedRegistration.reviewNote } : row))
+      setSelected(null)
+      setReviewNote('')
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     } finally {
@@ -113,14 +139,13 @@ export function RegistrationReviewPage() {
   }
 
   return (
-    <section className="admin-section">
-      <p className="eyebrow">Панель организатора</p>
+    <section className={reviewStyles.page}>
+      <p className="eyebrow">Панель администратора</p>
 
       <h1>Рассмотрение заявки</h1>
 
       <p className="page-description">
-        Укажите ID заявки, выберите решение и оставьте понятный комментарий
-        участнику.
+        Найдите участника, выберите заявку и оставьте понятный комментарий.
       </p>
 
       <div className="admin-warning">
@@ -128,25 +153,22 @@ export function RegistrationReviewPage() {
         Для тестов используйте отдельную заявку в статусе «На рассмотрении».
       </div>
 
-      <form className="admin-review-form" onSubmit={handleSubmit}>
-        <label>
-          <span>ID заявки</span>
-          <input
-            disabled={isSubmitting}
-            onChange={(event) => setRegistrationId(event.target.value)}
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            required
-            value={registrationId}
-          />
-        </label>
-
-        <fieldset disabled={isSubmitting}>
+      {isLoading && <p role="status">Загружаем заявки…</p>}
+      {loadError && <p role="alert">{loadError} <button className="fl-btn" onClick={() => setReload(value => value + 1)}>Повторить</button></p>}
+      {!isLoading && !loadError && <RegistrationDirectory registrations={registrations} selectedId={selected?.id} disabled={isSubmitting} onSelect={row => {
+        setSelected(row); setReviewNote(''); setDecision('CONFIRMED'); setErrorMessage(null); setSuccessMessage(null)
+      }} />}
+      {successMessage && <p className="form-success" role="status">{successMessage}</p>}
+      {selected && <form className={`fl-form ${reviewStyles.form}`} onSubmit={handleSubmit}>
+        <h2 ref={headingRef} tabIndex={-1}>Решение по заявке</h2>
+        <p>{participantName(selected)} · {eventLabel(selected)}</p>
+        <fieldset className="fl-fieldset" disabled={isSubmitting}>
           <legend>Решение</legend>
 
-          <div className="review-decisions">
+          <div className={reviewStyles.decisions}>
             {DECISIONS.map((option) => (
               <label
-                className="decision-option"
+                className={reviewStyles.option}
                 key={option.value}
               >
                 <input
@@ -166,7 +188,7 @@ export function RegistrationReviewPage() {
           </div>
         </fieldset>
 
-        <label>
+        <label className="fl-field">
           <span>Комментарий для участника</span>
           <textarea
             disabled={isSubmitting}
@@ -185,12 +207,6 @@ export function RegistrationReviewPage() {
           </p>
         ) : null}
 
-        {successMessage ? (
-          <p className="form-success" role="status">
-            {successMessage}
-          </p>
-        ) : null}
-
         <button
           className="fl-btn fl-btn-primary"
           disabled={isSubmitting}
@@ -198,7 +214,8 @@ export function RegistrationReviewPage() {
         >
           {isSubmitting ? 'Сохраняем…' : 'Сохранить решение'}
         </button>
-      </form>
+        <button className="fl-btn fl-btn-secondary" type="button" disabled={isSubmitting} onClick={() => setSelected(null)}>Отменить выбор</button>
+      </form>}
     </section>
   )
 }

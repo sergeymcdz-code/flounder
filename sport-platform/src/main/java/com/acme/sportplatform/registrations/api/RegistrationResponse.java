@@ -31,6 +31,29 @@ public record RegistrationResponse(
         java.math.BigDecimal feeAmount, String feeCurrency, java.math.BigDecimal paidAmount, OffsetDateTime paidAt,
         PaidBy paidBy, String paymentMethod, String paymentReference, String paymentComment, OffsetDateTime dueAt,
         String eventTitle, String disciplineName, OffsetDateTime eventStartAt, String venueTimezone, String publicSlug) {
+    @com.fasterxml.jackson.annotation.JsonProperty("participantFullName")
+    public String participantFullName() {
+        return java.util.stream.Stream.of("lastName", "firstName", "middleName")
+                .map(key -> participantSnapshot == null ? "" : participantSnapshot.path(key).asText(""))
+                .filter(value -> !value.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("participantBirthYear")
+    public Integer participantBirthYear() {
+        String date = participantSnapshot == null ? "" : participantSnapshot.path("birthDate").asText("");
+        try {
+            return java.time.LocalDate.parse(date).getYear();
+        } catch (java.time.format.DateTimeParseException exception) {
+            return null;
+        }
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("participantClubName")
+    public String participantClubName() {
+        return participantSnapshot == null ? null : participantSnapshot.path("clubName").asText(null);
+    }
+
     public record PaidBy(UUID userId, String name) {}
     public RegistrationResponse(UUID id, UUID eventId, UUID eventDisciplineId, UUID participantUserId,
             UUID participantProfileId, String status, JsonNode participantSnapshot, JsonNode registrationMeta,
