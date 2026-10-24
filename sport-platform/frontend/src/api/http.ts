@@ -80,7 +80,7 @@ export async function apiFetch<T>(
 
     throw new ApiError(
       response.status,
-      payload?.message ?? `Ошибка запроса: HTTP ${response.status}`,
+      serverErrorMessage(response.status, payload?.message),
       payload?.code,
       payload?.violations,
       retryAfterSeconds(response),
@@ -98,6 +98,12 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T
+}
+
+function serverErrorMessage(status: number, message?: string, fallback?: string): string {
+  // Business messages from the backend (GlobalExceptionHandler) are shown on any status;
+  // the generic text is only for responses without a JSON message (HTML error pages, proxies).
+  return message || fallback || `Сервер вернул ошибку (${status})`
 }
 
 function retryAfterSeconds(response: Response): number | undefined {
@@ -164,7 +170,7 @@ export async function apiDownload(path: string, accessToken?: string): Promise<B
   if (!response.ok) {
     const payload = await response.json().catch(() => ({})) as ApiErrorResponse
     throw new ApiError(
-      response.status, payload.message ?? 'Не удалось скачать файл.', payload.code, payload.violations, retryAfterSeconds(response),
+      response.status, serverErrorMessage(response.status, payload?.message, 'Не удалось скачать файл.'), payload?.code, payload?.violations, retryAfterSeconds(response),
     )
   }
   return response.blob()

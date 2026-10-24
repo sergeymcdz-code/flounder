@@ -68,12 +68,12 @@ export function OrganizerStandingsPage() {
           }} />{d.name}</label>)}
         </fieldset>
         <label><input type="checkbox" checked={config.published} onChange={e => change({ published: e.target.checked })} />Показывать публично</label>
-        <button className="fl-button-primary" type="submit">Сохранить настройки</button>
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-button-primary" type="submit">Сохранить настройки</button>
       </fieldset>
       {saved && <p role="status">Настройки сохранены, зачёт пересчитан.</p>}
     </form>}
     <div className={styles.actions}>
-      <button className="fl-button-ghost" disabled={busy} onClick={() => void run(async () => setResult(await getStandings(event.id, accessToken)), 'none')}>Обновить</button>
+      <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-button-ghost" disabled={busy} onClick={() => void run(async () => setResult(await getStandings(event.id, accessToken)), 'none')}>Обновить</button>
       <PdfDownloadButton path={`/api/v1/events/${encodeURIComponent(event.id)}/documents/standings.pdf`} filename="Зачёт.pdf" accessToken={accessToken} disabled={busy || !result} />
     </div>
     {result && <StandingsTables data={result} disciplineNames={Object.fromEntries(event.disciplines.map(d => [d.id, d.name]))} />}

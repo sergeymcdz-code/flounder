@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -23,6 +23,7 @@ it.each(['PAID', 'ADMITTED'])('hides rejection for %s entries', status => {
 it.each(['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED'])('allows rejection for %s entries', status => {
   context.registrations[0].status = status
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  fireEvent.click(screen.getByRole('button', { name: 'Ещё ▾' }))
   expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument()
 })
 
@@ -53,6 +54,7 @@ it('disables payment changes for archived events', () => {
   context.registrations[0].status = 'CONFIRMED'; context.event.status = 'ARCHIVED'
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toHaveAttribute('title', 'Соревнование в архиве: доступен только просмотр')
 })
 
 it('shows participant names for skipped bulk payments', async () => {
@@ -76,7 +78,8 @@ it.each(['PENDING', 'NOT_REQUIRED'])('offers payment for a confirmed entry with 
   context.registrations[0].paymentStatus = paymentStatus
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toBeVisible()
-  expect(screen.getByText('Снять').closest('details')).not.toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Ещё ▾' }))
+  expect(within(screen.getByRole('region', { name: 'Действия заявки' })).getByRole('button', { name: 'Снять' })).toBeVisible()
 })
 it('confirms bulk review, runs sequentially, retains failed selection and refreshes once', async () => {
   const user = (await import('@testing-library/user-event')).default.setup()
@@ -120,4 +123,18 @@ it('includes confirmed zero-fee entries in bulk payment', async () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Подтвердить' }))
     await waitFor(() => expect(bulkPayment).toHaveBeenCalledWith('event', ['zero-fee'], expect.objectContaining({ method: 'CLUB_INVOICE' }), 'test'))
   } finally { bulkPayment.mockClear() }
+})
+
+it('opens row actions outside the table and closes on Escape and outside clicks', () => {
+  context.registrations[0].status = 'SUBMITTED'
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  const trigger = screen.getByRole('button', { name: 'Ещё ▾' })
+  fireEvent.click(trigger)
+  expect(screen.getByRole('region', { name: 'Действия заявки' }).closest('table')).toBeNull()
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(screen.queryByRole('region', { name: 'Действия заявки' })).not.toBeInTheDocument()
+  expect(trigger).toHaveFocus()
+  fireEvent.click(trigger)
+  fireEvent.pointerDown(document.body)
+  expect(trigger).toHaveAttribute('aria-expanded', 'false')
 })

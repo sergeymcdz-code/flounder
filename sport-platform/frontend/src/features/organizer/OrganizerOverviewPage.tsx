@@ -108,7 +108,7 @@ export function OrganizerOverviewPage() {
           <label className="fl-field">Лимит участников (необязательно)
             <input type="number" min="1" step="1" value={limit} placeholder="Без лимита" onChange={e => setLimit(e.target.value)} />
           </label>
-          <button className="fl-btn fl-btn-secondary" disabled={busy}>Сохранить</button>
+          <div className={`fl-actionbar ${styles.registrationActions}`}><button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy}>Сохранить</button></div>
         </form>}
         {['REGISTRATION_CLOSED', 'REGISTRATIONCLOSED'].includes(event.status) && <label className="fl-field">Новая дата закрытия регистрации
           <input type="datetime-local" value={closeAt} onChange={e => setCloseAt(e.target.value)} />
@@ -117,7 +117,7 @@ export function OrganizerOverviewPage() {
           {transitions
             .filter((t) => t.states.includes(event.status) && (t.action !== archiveEvent || isOrganizer || isPlatformAdmin))
             .map((t) => (
-              <button
+              <button title={busy ? 'Дождитесь завершения текущего действия' : undefined}
                 className="fl-btn fl-btn-secondary"
                 key={t.label}
                 disabled={busy}

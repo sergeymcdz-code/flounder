@@ -54,8 +54,8 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
       <p>Будет сдвинуто заплывов: {changes.length}.</p>
     </div>}
     <div className={styles.actions}>
-      <button className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={onClose}>Отмена</button>
-      <button className="fl-btn fl-btn-primary" title={archived ? 'Архивное событие доступно только для чтения' : undefined} disabled={busy || archived || !changes.length} type="submit">Подтвердить сдвиг</button>
+      <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={onClose}>Отмена</button>
+      <button className="fl-btn fl-btn-primary" title={archived ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : (busy || archived || !changes.length) ? 'Нет заплывов для сдвига расписания' : undefined} disabled={busy || archived || !changes.length} type="submit">Подтвердить сдвиг</button>
     </div>
   </form>
 }

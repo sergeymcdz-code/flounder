@@ -114,7 +114,7 @@ export function UsersAdminPage() {
     <label className="fl-field"><span><input type="checkbox" checked={showPassword} onChange={event => setShowPassword(event.target.checked)} /> Показать пароль</span></label>
   </>
   return <section className={styles.page}>
-    <div className={styles.heading}><h1>Пользователи</h1><button className="fl-btn fl-btn-secondary" type="button" disabled={!roles.length} onClick={() => open({ type: 'create' })}>Создать пользователя</button></div>
+    <div className={styles.heading}><h1>Пользователи</h1><button title={(!roles.length) ? 'Нет доступного справочника ролей' : undefined} className="fl-btn fl-btn-secondary" type="button" disabled={!roles.length} onClick={() => open({ type: 'create' })}>Создать пользователя</button></div>
     <div className={styles.toolbar}>
       <label className="fl-field">Поиск пользователей<input placeholder="Email, фамилия или имя" value={query} onChange={event => setQuery(event.target.value)} /></label>
       <label className="fl-field">Фильтр по роли<select aria-label="Фильтр по роли" value={role} onChange={event => { setRole(event.target.value); setPage(0) }}><option value="">Все роли</option>
@@ -133,8 +133,8 @@ export function UsersAdminPage() {
             {user.status !== 'INACTIVE' && <button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</button>}
             <button className="fl-btn fl-btn-secondary" onClick={() => open({ type: 'password', user })}>Сменить пароль</button></div></td>
         </tr>)}</tbody></table></div>}
-      <div className={styles.pagination}><button className="fl-btn fl-btn-secondary" disabled={page === 0} onClick={() => setPage(value => value - 1)}>Назад</button>
-        <span>Страница {page + 1} · Всего {data.total}</span><button className="fl-btn fl-btn-secondary" disabled={(page + 1) * data.size >= data.total} onClick={() => setPage(value => value + 1)}>Далее</button></div>
+      <div className={styles.pagination}><button title={(page === 0) ? 'Вы на первой странице' : undefined} className="fl-btn fl-btn-secondary" disabled={page === 0} onClick={() => setPage(value => value - 1)}>Назад</button>
+        <span>Страница {page + 1} · Всего {data.total}</span><button title={((page + 1) * data.size >= data.total) ? 'Вы на последней странице' : undefined} className="fl-btn fl-btn-secondary" disabled={(page + 1) * data.size >= data.total} onClick={() => setPage(value => value + 1)}>Далее</button></div>
     </>}
     {action && <AdminDialog title={action.type === 'create' ? 'Создать пользователя' : action.type === 'roles' ? 'Роли пользователя' : action.type === 'password' ? 'Сменить пароль' : 'Изменить статус'} busy={busy} onClose={() => setAction(null)}>
       <form className={styles.form} onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
@@ -154,7 +154,7 @@ export function UsersAdminPage() {
         {action.type === 'status' && <p>{action.user.status === 'ACTIVE' ? 'Заблокировать пользователя? Вход и существующие токены станут недоступны.' : 'Разблокировать пользователя?'}</p>}
       </fieldset>
         {formError && <p className={styles.error} role="alert">{formError}</p>}
-        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy || (action.type === 'roles' && !roleReady)}>{busy ? 'Сохраняем…' : action.type === 'status' ? 'Подтвердить' : 'Сохранить'}</button>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : (busy || (action.type === 'roles' && !roleReady)) ? 'Дождитесь загрузки ролей пользователя' : undefined} className="fl-btn fl-btn-secondary" type="submit" disabled={busy || (action.type === 'roles' && !roleReady)}>{busy ? 'Сохраняем…' : action.type === 'status' ? 'Подтвердить' : 'Сохранить'}</button>
       </form>
     </AdminDialog>}
   </section>

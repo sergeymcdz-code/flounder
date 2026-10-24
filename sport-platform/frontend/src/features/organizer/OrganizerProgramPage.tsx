@@ -70,7 +70,7 @@ export function OrganizerProgramPage() {
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Сессии соревнования</h2>
-          <button
+          <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
             className="fl-btn fl-btn-primary"
             disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => setSessionEdit('new')}
@@ -109,13 +109,13 @@ export function OrganizerProgramPage() {
                     <td>{s.breakBetweenEventsSec} с</td>
                     <td>
                       <div className={styles.actions}>
-                        <button
+                        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
                           className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() => setSessionEdit(s)}
                         >
                           Изменить
                         </button>
-                        <button
+                        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
                           className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                           onClick={() =>
                             setRemove({
@@ -134,13 +134,13 @@ export function OrganizerProgramPage() {
           </table>
         </div>
         {sessions.length === 0 && (
-          <EmptyState title="Сессий пока нет" action={<button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setSessionEdit('new')}>Добавить сессию</button>} />
+          <EmptyState title="Сессий пока нет" action={<button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setSessionEdit('new')}>Добавить сессию</button>} />
         )}
       </article>
       <article className={styles.card}>
         <div className={styles.toolbar}>
           <h2>Виды программы</h2>
-          <button
+          <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
             className="fl-btn fl-btn-primary"
             disabled={busy || event.status === 'ARCHIVED'}
             onClick={() => setDisciplineEdit('new')}
@@ -196,13 +196,13 @@ export function OrganizerProgramPage() {
                   </td>
                   <td>
                     <div className={styles.actions}>
-                      <button
+                      <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
                         className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() => setDisciplineEdit(d)}
                       >
                         Изменить
                       </button>
-                      <button
+                      <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
                         className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
                         onClick={() =>
                           setRemove({
@@ -216,7 +216,7 @@ export function OrganizerProgramPage() {
 
                       {d.status !== 'PUBLISHED' && <button className="fl-btn fl-btn-secondary"
                         disabled={busy || event.status === 'ARCHIVED'}
-                        title="Вид появится в форме заявки, импорте и результатах"
+                        title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : 'Вид появится в форме заявки, импорте и результатах'}
                         onClick={() => void run(() => publishDiscipline(event.id, d.id, accessToken))}
                       >Показать на публичной странице</button>}
                     </div>
@@ -227,7 +227,7 @@ export function OrganizerProgramPage() {
           </table>
         </div>
         {event.disciplines.length === 0 && (
-          <EmptyState title="Видов программы пока нет" action={<button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setDisciplineEdit('new')}>Добавить вид</button>} />
+          <EmptyState title="Видов программы пока нет" action={<button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setDisciplineEdit('new')}>Добавить вид</button>} />
         )}
       </article>
       {sessionEdit && (
@@ -353,7 +353,7 @@ function SessionEditor({
           />
           <span id="editor-breakBetweenEventsSec-error" className={styles.error}>{error('breakBetweenEventsSec')}</span>
         </label>
-        <button className="fl-btn fl-btn-primary" disabled={busy || event.status === 'ARCHIVED'}>
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-primary" disabled={busy || event.status === 'ARCHIVED'}>
           Сохранить сессию
         </button>
       </form>
@@ -770,7 +770,11 @@ function DisciplineEditor({
           Добавить группу вручную
         </button>
         </fieldset>
-        <button
+        <button title={busy ? 'Дождитесь завершения текущего действия' : templatesLoading ? 'Загружаем справочники' : (busy ||
+            templatesLoading ||
+            (!templates.length &&
+              !(discipline && templatesState === 'failed')) ||
+            !form.disciplineTemplateId) ? 'Выберите доступный шаблон вида программы' : undefined}
           className="fl-btn fl-btn-primary"
           disabled={
             busy ||
