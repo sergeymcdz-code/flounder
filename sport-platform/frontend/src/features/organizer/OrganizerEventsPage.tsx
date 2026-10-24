@@ -86,6 +86,7 @@ export function OrganizerEventsPage() {
         </NavLink>}
       </div>
 
+      {!canCreate && <p className={styles.stateCard}>Для создания соревнования нужны права владельца, администратора или организатора в выбранной организации. Обратитесь к её администратору.</p>}
       <label className={`fl-field ${styles.filter}`}>Статус соревнования<select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">Все статусы</option>{[...new Set(events.map(event => event.status))].map(status => <option key={status} value={status}>{statusLabel('event', status)}</option>)}</select></label>
       {isLoading ? (
         <div className={styles.stateCard}>Загружаем соревнования…</div>

@@ -62,10 +62,10 @@ export function OrganizerConfirm({
     <OrganizerDialog title={title} onClose={onClose}>
       <p>{message}</p>
       <div className={styles.actions}>
-        <button className="fl-btn fl-btn-secondary" disabled={busy} onClick={onClose}>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy} onClick={onClose}>
           Отмена
         </button>
-        <button className="fl-btn fl-btn-primary" disabled={busy} onClick={onConfirm}>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-primary" disabled={busy} onClick={onConfirm}>
           Подтвердить
         </button>
       </div>

@@ -54,6 +54,7 @@ it('disables payment changes for archived events', () => {
   context.registrations[0].status = 'CONFIRMED'; context.event.status = 'ARCHIVED'
   render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
   expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Отметить оплату…' })).toHaveAttribute('title', 'Соревнование в архиве: доступен только просмотр')
 })
 
 it('shows participant names for skipped bulk payments', async () => {

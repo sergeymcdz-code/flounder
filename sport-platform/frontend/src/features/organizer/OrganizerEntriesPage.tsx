@@ -135,7 +135,7 @@ export function OrganizerEntriesPage() {
     <article className={`${styles.card} fl-entries`}>
       <div className={styles.toolbar}>
         <h2>Заявки участников · {registrations.length}</h2>
-        <button
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
           className="fl-btn fl-btn-primary"
           disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => setImportOpen(true)}
@@ -288,19 +288,19 @@ export function OrganizerEntriesPage() {
                 <td>
                   <div className={styles.actions}>
                     {['CONFIRMED', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <>
-                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button>
-                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>
+                      <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button>
+                      <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>
                     </>}
-                    {r.paymentStatus === 'PAID' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
-                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
+                    {r.paymentStatus === 'PAID' && <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
+                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
                     <button className="fl-btn fl-btn-ghost" onClick={() => setHistoryId(r.id)}>История оплаты</button>
-                    {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
-                      : ['PAID', 'ADMITTED'].includes(r.status) ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
+                    {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) ? <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
+                      : ['PAID', 'ADMITTED'].includes(r.status) ? <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button> : null}
                     {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <EntryActions>
-                      {r.status === 'WAITLISTED' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
-                      {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
-                      {!['PAID', 'ADMITTED'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
-                      <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>
+                      {r.status === 'WAITLISTED' && <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
+                      {['SUBMITTED', 'UNDER_REVIEW'].includes(r.status) && <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
+                      {!['PAID', 'ADMITTED'].includes(r.status) && <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
+                      <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>
                     </EntryActions>}
                   </div>
                 </td>
@@ -311,10 +311,10 @@ export function OrganizerEntriesPage() {
       </div>
       {!visible.length && (
         <p className={`${styles.muted} fl-empty`}>
-          Заявок не найдено. Измените фильтры или импортируйте заявки. <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
+          Заявок не найдено. Измените фильтры или импортируйте заявки. <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
         </p>
       )}
-      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong><button className="fl-btn fl-btn-secondary fl-btn-sm" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: selected, bulk: true })}>Отметить оплату выбранных ({selected.length})</button>{(['CONFIRMED','REJECTED'] as const).map(action => <button className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => { clearError(); setBulkAction(action) }}>{action === 'CONFIRMED' ? 'Подтвердить' : 'Отклонить'}</button>)}<button className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
+      {selected.length > 0 && <div className="fl-bulk-bar fl-actionbar"><strong>Выбрано {selected.length}</strong><button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : bulkBusy ? 'Дождитесь завершения обработки заявок' : undefined} className="fl-btn fl-btn-secondary fl-btn-sm" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} onClick={() => setPaymentDialog({ ids: selected, bulk: true })}>Отметить оплату выбранных ({selected.length})</button>{(['CONFIRMED','REJECTED'] as const).map(action => <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : bulkBusy ? 'Дождитесь завершения обработки заявок' : (bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))) ? 'Среди выбранных нет заявок для этого действия' : undefined} className={`fl-btn fl-btn-sm ${action === 'REJECTED' ? 'fl-btn-danger' : 'fl-btn-secondary'}`} key={action} disabled={bulkBusy || busy || event.status === 'ARCHIVED' || !registrations.some(r => selected.includes(r.id) && eligible(action, r))} onClick={() => { clearError(); setBulkAction(action) }}>{action === 'CONFIRMED' ? 'Подтвердить' : 'Отклонить'}</button>)}<button title={bulkBusy ? 'Дождитесь завершения обработки заявок' : undefined} className="fl-btn fl-btn-ghost fl-btn-sm" disabled={bulkBusy} onClick={() => setSelected([])}>Снять выбор</button></div>}
       {bulkAction && <ConfirmDialog title={`${bulkAction === 'CONFIRMED' ? 'Подтвердить заявки' : 'Отклонить заявки'}?`} description={`Подходящих заявок: ${registrations.filter(r => selected.includes(r.id) && eligible(bulkAction, r)).length} из ${selected.length}. Действия выполняются последовательно; участники увидят новый статус.`} confirmLabel={bulkBusy ? progress : 'Применить'} tone={bulkAction === 'REJECTED' ? 'danger' : 'primary'} reason={bulkAction === 'REJECTED'} busy={bulkBusy} busyLabel={progress} onClose={() => setBulkAction(null)} onConfirm={reason => void applyBulk(reason)} />}
       {review && <ConfirmDialog title={review.decision === 'CONFIRMED' ? 'Подтвердить заявку?' : review.decision === 'REJECTED' ? 'Отклонить заявку?' : 'Вернуть на исправление?'}
         description={review.decision === 'CONFIRMED' ? 'Участник получит подтверждение и сможет оплатить участие.' : review.decision === 'REJECTED' ? 'Участник получит причину отклонения. Оплата станет недоступна.' : 'Участник получит комментарий и сможет исправить данные.'}
@@ -389,8 +389,8 @@ function SeedTimeEditor({
         }}
       />
       <div className={styles.actions}>
-        <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}>Сохранить</button>
-        <button className="fl-btn fl-btn-secondary" type="button" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setEditing(false)}>
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}>Сохранить</button>
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" type="button" disabled={busy || event.status === 'ARCHIVED'} onClick={() => setEditing(false)}>
           Отмена
         </button>
       </div>
@@ -403,7 +403,7 @@ function SeedTimeEditor({
   ) : (
     <button
       className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
-      title="Изменить заявочное время"
+      title={(busy || event.status === 'ARCHIVED') ? (event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined) : 'Изменить заявочное время'}
       aria-label="Изменить заявочное время"
       onClick={() => {
         setValue(
@@ -459,7 +459,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
       }}
     >
       <div className={styles.stack}>
-        <button
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
           disabled={busy || event.status === 'ARCHIVED'}
           className={styles.link}
           onClick={() => {
@@ -483,7 +483,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
             />
           </label>
           {error && <p className={styles.error}>{error}</p>}
-          <button className="fl-btn fl-btn-primary" disabled={busy || !file}>
+          <button title={busy ? 'Дождитесь завершения текущего действия' : (busy || !file) ? 'Выберите файл .xlsx для импорта' : undefined} className="fl-btn fl-btn-primary" disabled={busy || !file}>
             Импортировать
           </button>
         </form>
@@ -526,7 +526,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
             )}
           </div>
         )}
-        <button
+        <button title={event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined}
           className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'}
           onClick={() => {
             onClose()

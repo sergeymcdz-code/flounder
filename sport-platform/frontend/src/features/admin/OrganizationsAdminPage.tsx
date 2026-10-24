@@ -64,7 +64,7 @@ export function OrganizationsAdminPage() {
         <label className="fl-field">Контактный email<input name="contactEmail" type="email" /></label>
         <label className="fl-field">Контактный телефон<input name="contactPhone" maxLength={32} /></label>
       </fieldset>{formError && <p className={styles.error} role="alert">{formError}</p>}
-        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Создаём…' : 'Создать'}</button>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Создаём…' : 'Создать'}</button>
       </form>
     </AdminDialog>}
   </section>
@@ -116,7 +116,7 @@ export function OrganizationAdminPage() {
     } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
   }
   return <section className={styles.page}><Link to="/admin/organizations">← Организации</Link>
-    <div className={styles.heading}><h1>{organization?.name ?? 'Организация'}</h1><button className="fl-btn fl-btn-secondary" disabled={loading || !!error} onClick={() => open({ type: 'add' })}>Добавить участника</button></div>
+    <div className={styles.heading}><h1>{organization?.name ?? 'Организация'}</h1><button title={loading ? 'Дождитесь загрузки' : (loading || !!error) ? 'Не удалось загрузить организацию: обновите страницу' : undefined} className="fl-btn fl-btn-secondary" disabled={loading || !!error} onClick={() => open({ type: 'add' })}>Добавить участника</button></div>
     {loading ? <p role="status">Загружаем участников…</p> : error ? <p role="alert" className={styles.error}>{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
       : !members.length ? <p className="fl-empty">Участников пока нет — добавьте пользователя по email. <button className="fl-btn fl-btn-ghost" onClick={() => open({ type: 'add' })}>Добавить участника</button></p> : <div className="fl-table-scroll"><table className={`${styles.table} fl-table fl-admin-table`}>
         <thead><tr><th>Email</th><th>ФИО</th><th>Роль в организации</th><th>Действия</th></tr></thead>
@@ -133,7 +133,7 @@ export function OrganizationAdminPage() {
         {action.type === 'add' ? <label className="fl-field">Email пользователя<input name="email" type="email" required /></label> : <p>{action.member.email}</p>}
         {action.type === 'delete' ? <p>Удалить пользователя из организации?</p> : <MemberRoleSelect value={role} onChange={setRole} />}
       </fieldset>{formError && <p className={styles.error} role="alert">{formError}</p>}
-        <button className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : action.type === 'delete' ? 'Удалить' : 'Сохранить'}</button>
+        <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : action.type === 'delete' ? 'Удалить' : 'Сохранить'}</button>
       </form>
     </AdminDialog>}
   </section>
