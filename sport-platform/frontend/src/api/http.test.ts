@@ -137,12 +137,13 @@ it.each([apiFetch, apiDownload])('reports loss of connection only when fetch has
   await expect(request('/offline')).rejects.toMatchObject({ status: 0, message: 'Нет связи. Проверьте интернет и повторите' })
 })
 it.each([404, 500, 503])('reports HTTP %s as a server response for JSON and file requests', async (status) => {
-  for (const response of [() => HttpResponse.json({ message: 'Нет связи' }, { status }), () => new HttpResponse('<html>Error</html>', { status })]) {
-    server.use(http.get('*/unavailable', response))
-    for (const request of [apiFetch, apiDownload]) {
-      await expect(request('/unavailable')).rejects.toMatchObject({ status, message: `Сервер вернул ошибку (${status})` })
-    }
+  server.use(http.get('*/unavailable', () => HttpResponse.json({ message: 'Сервер занят формированием PDF' }, { status })))
+  for (const request of [apiFetch, apiDownload]) {
+    await expect(request('/unavailable')).rejects.toMatchObject({ status, message: 'Сервер занят формированием PDF' })
   }
+  server.use(http.get('*/unavailable', () => new HttpResponse('<html>Error</html>', { status })))
+  await expect(apiFetch('/unavailable')).rejects.toMatchObject({ status, message: `Сервер вернул ошибку (${status})` })
+  await expect(apiDownload('/unavailable')).rejects.toMatchObject({ status, message: 'Не удалось скачать файл.' })
 })
 it('preserves business validation messages and violations', async () => {
   const violations = [{ field: 'title', message: 'Укажите название' }]

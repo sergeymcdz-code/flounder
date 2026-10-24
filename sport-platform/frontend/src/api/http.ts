@@ -101,7 +101,8 @@ export async function apiFetch<T>(
 }
 
 function serverErrorMessage(status: number, message?: string, fallback?: string): string {
-  if (status === 404 || status >= 500) return `Сервер вернул ошибку (${status})`
+  // Business messages from the backend (GlobalExceptionHandler) are shown on any status;
+  // the generic text is only for responses without a JSON message (HTML error pages, proxies).
   return message || fallback || `Сервер вернул ошибку (${status})`
 }
 
