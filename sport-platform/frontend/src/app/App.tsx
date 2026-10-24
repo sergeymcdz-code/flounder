@@ -118,9 +118,15 @@ const OrganizationsAnalyticsListPage = lazy(() => import('../features/analytics/
 const PublicOrganizationPage = lazy(() => import('../features/public/PublicOrganizationPage').then(m => ({ default: m.PublicOrganizationPage })))
 const OrganizationPublicSettingsPage = lazy(() => import('../features/organizer/OrganizationPublicSettingsPage').then(m => ({ default: m.OrganizationPublicSettingsPage })))
 
+// Vite removes the showcase import and route from the production module graph.
+const UiShowcase = import.meta.env.DEV || import.meta.env.MODE === 'demo'
+  ? lazy(() => import('../dev/UiShowcase'))
+  : null
+
 export default function App() {
   const routes = (
     <Routes>
+      {UiShowcase && <Route path="dev/ui/*" element={<UiShowcase />} />}
       <Route element={<PublicLayout />}>
         <Route index element={<CalendarPage />} />
         <Route path="o/:slug" element={<PublicOrganizationPage />} />

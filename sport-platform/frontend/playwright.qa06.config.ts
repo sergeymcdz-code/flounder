@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: 'qa06-*.spec.ts',
   forbidOnly: !!process.env.CI,
   timeout: 240000,
-  workers: 1,
+  workers: process.env.CI ? 2 : 1,
   outputDir: 'work/qa06-playwright',
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
