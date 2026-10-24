@@ -760,7 +760,6 @@
  .root { padding-bottom: 0; }
  .eventNavigation { position: sticky; top: var(--header-h); z-index: var(--z-sticky); display: flex; align-items: center; justify-content: center; gap: var(--space-4); padding-inline: var(--space-8); background: var(--surface-1); box-shadow: var(--shadow-sticky); }
  .directoryNav { width: auto; margin: 0; padding: 0; flex-shrink: 0; }
- .directoryNav > a:not(:first-child) { display: none; }
  .nav { position: static; height: auto; max-width: calc(var(--space-16) * 12); min-width: 0; padding: 0; border: 0; box-shadow: none; }
  .nav :global(.fl-tabs) { gap: var(--space-4); }
  .nav :global(.fl-tabs) a { font-size: var(--text-sm); }
@@ -768,3 +767,5 @@
 @media print { .eventNavigation { display: none; } }
 
 @media screen { .root :global(.fl-btn-ghost), .root :global(.fl-btn-secondary) { color: var(--color-text); } }
+
+@media screen and (max-width: 1023px) { .directoryNav { background: transparent; border: 0; } }

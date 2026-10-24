@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 import { eventId, unitId, openAuditPage, navigate, scenario } from './qa06-helpers'
 
 declare global {
@@ -463,4 +464,42 @@ test('D04-2a row menu escapes table clipping and keeps its actions clickable', a
   await menu.getByRole('menuitem', { name: 'Открыть заявку' }).click()
   await expect(page.getByRole('status')).toContainText('Открыта заявка')
   await expect(trigger).toBeFocused()
+})
+
+test('D04-2a route loading, error and missing states retain one page heading', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await openAuditPage(page, '/')
+  await scenario(page, 'public/events/demo', null, 'loading')
+  await page.evaluate(() => { history.pushState(null, '', '/e/demo'); dispatchEvent(new PopStateEvent('popstate')) })
+  await expect(page.getByRole('status').filter({ hasText: 'Загружаем данные' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.locator('.fl-skeleton > div')).toHaveCount(3)
+  await navigate(page, '/')
+  await scenario(page, 'public/events/demo', null, '500')
+  await navigate(page, '/e/demo')
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Повторить', exact: true })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('Загружаем сведения')
+  await navigate(page, '/e/missing')
+  await expect(page.getByRole('heading', { name: 'Соревнование не найдено' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+})
+
+test('D04-2a cards table keeps keyboard scrolling at tablet width', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await openAuditPage(page, '/dev/ui')
+  const cards = page.locator('.fl-rowcards')
+  await expect(cards).toHaveAttribute('tabindex', '0')
+  expect(await cards.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(true)
+  await cards.focus()
+  await expect(cards).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(() => cards.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
+  const accessibility = await new AxeBuilder({ page }).include('.fl-rowcards').analyze()
+  expect(accessibility.violations.filter(item => ['serious', 'critical'].includes(item.impact ?? ''))).toEqual([])
+  await page.setViewportSize({ width: 375, height: 812 })
+  await expect.poll(() => cards.getAttribute('tabindex')).toBeNull()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
 })

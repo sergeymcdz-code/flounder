@@ -15,7 +15,7 @@ export function OrganizerLayout() {
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          <p className={styles.eyebrow}>{isPlatformAdmin ? 'Администрирование' : isOrganizer ? 'Кабинет организатора' : 'Кабинет секретаря'}</p>
+          <p className={`fl-eyebrow ${styles.eyebrow}`}>{isPlatformAdmin ? 'Администрирование' : isOrganizer ? 'Кабинет организатора' : 'Кабинет секретаря'}</p>
         </div>
 
         <nav className={styles.navigation} aria-label="Навигация организатора">

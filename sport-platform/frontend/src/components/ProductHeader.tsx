@@ -76,13 +76,13 @@ export function ProductHeader({ publicPage = false, eventContext }: { publicPage
     <header className={styles.header}>
       <NavLink className={styles.brand} to={roleHomeTarget(roles, isAuthenticated)} aria-label="На главную"><span className={styles.logo} aria-hidden="true">S</span>SportGate</NavLink>
       {eventContext && desktop && <div className={styles.eventMeta}>{eventContext}</div>}
-      <nav className={`${styles.navigation} fl-scroll-x`} aria-label="Основная навигация">{links}</nav>
+      <nav className={styles.navigation} aria-label="Основная навигация">{links}</nav>
       <div className={`${styles.userMenu} ${cabinet ? styles.cabinetUser : ''}`}>
         {!publicPage && <OrganizationSwitcher />}
         {isAuthenticated ? <details ref={menu} className={styles.profileMenu} onToggle={event => setMenuOpen(event.currentTarget.open)}>
           <summary className={styles.navLink}>{name || 'Профиль'} <small>{role}</small><span aria-hidden="true">▾</span></summary>
           {menuOpen && <div className={styles.profileLinks}>
-            {links}
+            {!desktop && links}
             <NavLink className={navClass} to="/account/password">Сменить пароль</NavLink>
             {!publicPage && <ThemeToggle />}
             <Button variant="ghost" onClick={handleLogout}>Выйти</Button>

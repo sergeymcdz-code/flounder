@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useHeaderContext } from '../../components/AppLayout'
+import { useHeaderContext } from '../../components/header-context'
 import { Button } from '../../components/ui/Button'
 import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -188,15 +188,15 @@ function OrganizerEventContent() {
   useEffect(() => { if (data?.event) document.title = `${data.event.title} · Соревнование · SportGate` }, [data?.event.title])
   const headerContext = useMemo(() => data ? <>{data.event.title} · {formatDate(data.event.eventStartAt, data.event.venue?.timezone)}{data.event.venue?.city ? ` · ${data.event.venue.city}` : ''}</> : null, [data])
   useHeaderContext(headerContext)
-  if (loading) return <LoadingState message="Загружаем соревнование…" />
+  if (loading) return <><PageHeader title="Соревнование" /><LoadingState message="Загружаем соревнование…" /></>
   if (!data)
     return (
-      <ErrorState
+      <><PageHeader title="Соревнование" /><ErrorState
         message={error || 'Соревнование не найдено.'}
         onRetry={() => {
           void run(refresh)
         }}
-      />
+      /></>
     )
   return (
     <div className={styles.page}>

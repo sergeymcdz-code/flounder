@@ -35,6 +35,7 @@ it('shows tab counters without changing its navigation name', () => {
 it('offers an action in an empty state', () => {
  render(<EmptyState title="Сессий пока нет" action={<Button>Добавить сессию</Button>} />)
  expect(screen.getByRole('button', { name: 'Добавить сессию' })).toBeEnabled()
+ expect(screen.getByRole('heading', { name: 'Сессий пока нет', level: 2 })).toBeInTheDocument()
 })
 it.each(['primary','secondary','ghost','danger'] as const)('supports the %s button variant', variant => {
  render(<Button variant={variant}>Действие</Button>)

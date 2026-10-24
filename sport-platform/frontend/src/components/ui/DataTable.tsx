@@ -1,4 +1,4 @@
-import { useId, type CSSProperties, type Key, type ReactNode } from 'react'
+import { useId, useSyncExternalStore, type CSSProperties, type Key, type ReactNode } from 'react'
 
 export type DataTableColumn<T> = {
   key: string
@@ -23,10 +23,23 @@ export type DataTableProps<T> = {
   maxHeight?: CSSProperties['maxHeight']
 }
 
+const mobileCardsQuery = '(max-width: 767px)'
+function subscribeCardViewport(onChange: () => void) {
+  const media = window.matchMedia?.(mobileCardsQuery)
+  if (media) {
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }
+  window.addEventListener('resize', onChange)
+  return () => window.removeEventListener('resize', onChange)
+}
+const isMobileCardViewport = () => window.matchMedia?.(mobileCardsQuery).matches ?? window.innerWidth < 768
+
 /** Keep overflow in a labelled, keyboard-scrollable region, including in flex/grid parents. */
 export function DataTable<T>({ caption, columns, rows, rowKey, emptyMessage = 'Нет данных', compact = false, cards = false, minWidth = '100%', maxHeight = 'min(60vh, 640px)' }: DataTableProps<T>) {
   const captionId = useId()
-  return <div className={`fl-data-table-scroll fl-scroll-x${cards ? ' fl-rowcards' : ''}`} role="region" aria-labelledby={captionId} tabIndex={cards ? undefined : 0} style={{ maxHeight }}>
+  const mobileCards = useSyncExternalStore(subscribeCardViewport, isMobileCardViewport, () => false)
+  return <div className={`fl-data-table-scroll fl-scroll-x${cards ? ' fl-rowcards' : ''}`} role="region" aria-labelledby={captionId} tabIndex={cards && mobileCards ? undefined : 0} style={{ maxHeight }}>
     <table className={`fl-table fl-data-table${compact ? ' fl-table-compact' : ''}`} style={{ minWidth }}>
       <caption id={captionId}>{caption}</caption>
       <thead><tr>{columns.map(column => <th key={column.key} scope="col" data-numeric={column.numeric || undefined}>{column.header}</th>)}</tr></thead>

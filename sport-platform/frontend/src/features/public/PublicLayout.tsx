@@ -14,6 +14,7 @@ import { PublicConnectionContext } from './publicContext'
 import { DirectoryLayout } from './DirectoryLayout'
 import { ProductHeader } from '../../components/ProductHeader'
 import { Tabs } from '../../components/ui/Tabs'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
@@ -93,7 +94,7 @@ function EventPublicLayout() {
         <a className={styles.skip} href="#public-content">
           К содержимому
         </a>
-        <ProductHeader publicPage eventContext={<><Link to={base}><strong>{eventState.data?.title ?? 'Соревнование'}</strong></Link>{' · '}<span>{eventState.data ? `${date(eventState.data.eventStartAt, eventState.data.venue?.timezone)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}` : 'Загружаем сведения…'}</span></>} />
+        <ProductHeader publicPage eventContext={eventState.data || (eventState.loading && !eventState.errorStatus) ? <><Link to={base}><strong>{eventState.data?.title ?? 'Соревнование'}</strong></Link>{' · '}<span>{eventState.data ? `${date(eventState.data.eventStartAt, eventState.data.venue?.timezone)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}` : 'Загружаем сведения…'}</span></> : null} />
         {eventState.errorStatus !== 404 && <div className={styles.eventNavigation}>
           <nav className={styles.directoryNav} aria-label="Навигация события"><Button as={Link} to="/" variant="ghost" size="sm" className="fl-back-link">← Календарь</Button>{eventState.data?.organization?.publicSlug && <Button as={Link} variant="ghost" size="sm" to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Button>}</nav>
           {!pathname.replace(/\/$/, '').endsWith('/register') && <div className={styles.nav}><Tabs items={links.map(([path, label]) => ({ to: `${base}/${path}`, label, shortLabel: path === 'standings' ? 'Зачёт' : undefined }))} /></div>}
@@ -117,6 +118,7 @@ function EventPublicLayout() {
             <tr>
               <td>
                 <main id="public-content" className={styles.main}>
+                  {!eventState.data && eventState.errorStatus !== 404 && <PageHeader title="Соревнование" />}
                   {eventState.errorStatus === 404 ? <EmptyState headingLevel={1} title="Соревнование не найдено" action={<Button as={Link} to="/">К соревнованиям</Button>}>Проверьте ссылку или выберите соревнование в календаре.</EmptyState> : <DataState {...eventState} />}
                   {eventState.data && (
                     <Outlet key={slug} context={{ event: eventState.data }} />

@@ -7,9 +7,12 @@ export function Tabs({ items, label = 'Разделы соревнования' 
   const ref = useRef<HTMLElement>(null)
   const id = useId()
   const location = useLocation()
+  const destinations = items.map(item => item.to).join('|')
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[aria-current="page"]')
       ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [location.pathname])
+  useEffect(() => {
     const node = ref.current
     if (!node) return
     const update = () => {
@@ -21,8 +24,9 @@ export function Tabs({ items, label = 'Разделы соревнования' 
     node.addEventListener('scroll', update, { passive: true })
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
     observer?.observe(node)
+    node.querySelectorAll('a').forEach(link => observer?.observe(link))
     return () => { node.removeEventListener('scroll', update); observer?.disconnect() }
-  }, [location.pathname, items])
+  }, [destinations])
 
   return <div className="fl-tabs-wrap">
     <nav ref={ref} className="fl-tabs fl-scroll-x" aria-label={label}>

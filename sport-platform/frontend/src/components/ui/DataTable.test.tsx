@@ -1,5 +1,5 @@
-import { render, screen, within } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { act, render, screen, within } from '@testing-library/react'
+import { expect, it, vi } from 'vitest'
 import { DataTable, type DataTableColumn } from './DataTable'
 
 type Row = { id: string; name: string; time: string }
@@ -29,13 +29,28 @@ it('preserves row identity when results are reordered', () => {
   rerender(<DataTable caption="Результаты" columns={columns} rows={[...rows].reverse()} rowKey={row => row.id} compact />)
   expect(screen.getAllByRole('row')[2]).toBe(anna)
 })
-it('provides card labels and primary fields without an extra tab stop', () => {
+it('provides card labels and keeps the desktop scroll region focusable', () => {
   render(<DataTable cards caption="Карточки результатов" columns={columns} rows={rows} rowKey={row => row.id} minWidth={760} />)
   const region = screen.getByRole('region', { name: 'Карточки результатов' })
   expect(region).toHaveClass('fl-rowcards')
-  expect(region).not.toHaveAttribute('tabindex')
+  expect(region).toHaveAttribute('tabindex', '0')
   expect(screen.getByRole('rowheader', { name: 'Анна' })).toHaveAttribute('data-primary', 'true')
   expect(screen.getByRole('rowheader', { name: 'Анна' })).toHaveAttribute('data-label', 'Участник')
   expect(screen.getByRole('cell', { name: '00:31.02' })).toHaveAttribute('data-label', 'Время')
   expect(screen.getByRole('cell', { name: '00:31.02' })).toHaveAttribute('data-numeric', 'true')
+})
+
+it('removes the cards tab stop only on mobile and restores it at the tablet breakpoint', () => {
+  let mobile = true
+  let change = () => {}
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: mobile, addEventListener: (_: string, listener: () => void) => { change = listener }, removeEventListener: vi.fn() })))
+  try {
+    render(<DataTable cards caption="Адаптивные карточки" columns={columns} rows={rows} rowKey={row => row.id} minWidth={760} />)
+    const region = screen.getByRole('region', { name: 'Адаптивные карточки' })
+    expect(region).not.toHaveAttribute('tabindex')
+    act(() => { mobile = false; change() })
+    expect(region).toHaveAttribute('tabindex', '0')
+    act(() => { mobile = true; change() })
+    expect(region).not.toHaveAttribute('tabindex')
+  } finally { vi.unstubAllGlobals() }
 })

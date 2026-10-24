@@ -1,15 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../app/providers/AuthProvider'
+import { HeaderContext } from './header-context'
 import { ProductHeader } from './ProductHeader'
 import { adminNavigation } from './CabinetNavigation'
 import styles from './AppLayout.module.css'
 
-const HeaderContext = createContext<((value: ReactNode) => void) | null>(null)
-export function useHeaderContext(value: ReactNode) {
-  const setContext = useContext(HeaderContext)
-  useEffect(() => { setContext?.(value); return () => setContext?.(null) }, [setContext, value])
-}
 export function AppLayout() {
   useEffect(() => { document.title = 'SportGate' }, [])
   const { sessionMessage } = useAuth()
