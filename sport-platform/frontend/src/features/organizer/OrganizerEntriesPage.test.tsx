@@ -27,11 +27,14 @@ it.each(['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED'])('allows reject
   expect(screen.getByRole('button', { name: 'Отклонить' })).toBeInTheDocument()
 })
 
+const initialRegistrations = structuredClone(context.registrations)
+
 const { paymentAction, bulkPayment, paymentHistory } = vi.hoisted(() => ({ paymentAction: vi.fn().mockResolvedValue({}), bulkPayment: vi.fn(), paymentHistory: vi.fn() }))
 vi.mock('../../api/registration-payments.api', async original => ({ ...await original<typeof import('../../api/registration-payments.api')>(), paymentAction, bulkPayment, paymentHistory }))
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
+  context.registrations = structuredClone(initialRegistrations); context.busy = false; context.error = '';
   context.registrations[0].paymentStatus = 'PENDING'; context.event.status = 'REGISTRATION_OPEN'; paymentAction.mockClear() })
 it.each([['PENDING', 'Ожидает оплаты'], ['PAID', 'Оплачено'], ['WAIVED', 'Освобождён'], ['REFUNDED', 'Возврат']])('displays the %s payment badge', (payment, label) => {
   context.registrations[0].paymentStatus = payment
@@ -137,4 +140,75 @@ it('opens row actions outside the table and closes on Escape and outside clicks'
   fireEvent.click(trigger)
   fireEvent.pointerDown(document.body)
   expect(trigger).toHaveAttribute('aria-expanded', 'false')
+})
+
+it('keeps withdrawal confirmation focus on the portal trigger', async () => {
+  const user = userEvent.setup()
+  context.registrations[0].status = 'CONFIRMED'
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  const trigger = screen.getByRole('button', { name: 'Ещё ▾' })
+  await user.click(trigger)
+  await user.click(within(screen.getByRole('region', { name: 'Действия заявки' })).getByRole('button', { name: 'Снять' }))
+  await user.click(within(screen.getByRole('dialog', { name: 'Снять заявку?' })).getByRole('button', { name: 'Отмена' }))
+  expect(trigger).toHaveFocus()
+})
+it('shows one contextual action plus overflow and moves secondary actions into the portal', async () => {
+  context.registrations[0].status = 'CONFIRMED'
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.queryByRole('button', { name: 'История оплаты' })).not.toBeInTheDocument()
+  const row = screen.getByRole('rowheader', { name: 'Тестов Иван' }).closest('tr')!
+  const actions = row.querySelector('td:last-child') as HTMLElement
+  expect(within(actions).getAllByRole('button')).toHaveLength(2)
+  await userEvent.click(screen.getByRole('button', { name: 'Ещё ▾' }))
+  expect(screen.getByRole('button', { name: 'История оплаты' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Освободить от взноса' })).toBeInTheDocument()
+})
+it('keeps the search reset available when filters have no results', async () => {
+  const user = userEvent.setup()
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  await user.click(screen.getByText('Фильтры ▾'))
+  await user.type(screen.getByPlaceholderText('ФИО или клуб'), 'Нет такого участника')
+  expect(screen.getByText('Ничего не найдено')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Сбросить фильтры' }))
+  expect(screen.getByRole('rowheader', { name: 'Тестов Иван' })).toBeInTheDocument()
+})
+it('distinguishes an empty list, loading and a retryable error', () => {
+  context.registrations = []
+  const view = render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.getByText('Заявок пока нет')).toBeInTheDocument()
+  context.busy = true
+  view.rerender(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.getByRole('status', { name: 'Загружаем заявки' })).toBeInTheDocument()
+  expect(screen.queryByText('Заявок пока нет')).not.toBeInTheDocument()
+  context.busy = false; context.error = 'Нет связи. Проверьте интернет и повторите.'
+  view.rerender(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.getByRole('alert')).toHaveTextContent(context.error)
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  expect(context.run).toHaveBeenCalledWith(expect.any(Function), 'none')
+})
+it('filters by discipline and club using chips', async () => {
+  Object.assign(context.registrations[0].participantSnapshot, { clubName: 'Волна' })
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  const user = userEvent.setup()
+  await user.click(screen.getByText('Фильтры ▾'))
+  const clubs = within(screen.getByRole('group', { name: 'Фильтр по клубу' }))
+  await user.click(clubs.getByRole('button', { name: 'Волна' }))
+  expect(clubs.getByRole('button', { name: 'Волна' })).toHaveAttribute('aria-pressed', 'true')
+  await user.click(within(screen.getByRole('group', { name: 'Фильтр по виду программы' })).getByRole('button', { name: '50 м' }))
+  expect(screen.getByRole('rowheader', { name: 'Тестов Иван' })).toBeInTheDocument()
+})
+it('retains loaded entries alongside an error notice', () => {
+  context.error = 'Сервер ответил ошибкой (500)'
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  expect(screen.getByRole('alert')).toHaveTextContent(context.error)
+  expect(screen.getByRole('rowheader', { name: 'Тестов Иван' })).toBeInTheDocument()
+})
+it('opens import from the header overflow', async () => {
+  render(<MemoryRouter><OrganizerEntriesPage /></MemoryRouter>)
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Импорт из Excel' }))
+  const menu = screen.getByRole('region', { name: 'Импорт и экспорт заявок' })
+  expect(within(menu).getByRole('button', { name: 'Экспорт списка (CSV)' })).toBeInTheDocument()
+  await user.click(within(menu).getByRole('button', { name: 'Импорт из Excel' }))
+  expect(screen.getByRole('dialog', { name: 'Импорт заявок из Excel' })).toBeInTheDocument()
 })
