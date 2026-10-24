@@ -1,4 +1,6 @@
 import { Link, Navigate, Outlet, useLocation, useOutletContext } from 'react-router'
+import { Button } from './ui/Button'
+import { LoadingState } from './LoadingState'
 import { ErrorState } from './ErrorState'
 import { useAuth } from '../app/providers/AuthProvider'
 
@@ -22,10 +24,10 @@ export function RequireRole({ roles, deniedMessage }: RequireRoleProps) {
     )
   }
 
-  if (authLoading) return <p role="status">Загружаем права доступа…</p>
+  if (authLoading) return <LoadingState message="Загружаем права доступа…" />
 
   if (!hasAnyRole(roles)) {
-    return <div><ErrorState title="Нет доступа" message={deniedMessage ?? 'У вашей учётной записи нет доступа к этой странице.'} /><Link to="/">На главную</Link></div>
+    return <div><ErrorState title="Нет доступа" message={deniedMessage ?? 'У вашей учётной записи нет доступа к этой странице.'} /><Button as={Link} to="/" variant="ghost">← На главную</Button></div>
   }
 
   return <Outlet context={ctx} />

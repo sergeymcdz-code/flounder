@@ -57,3 +57,27 @@ it('blocks an open shift dialog when the event becomes archived', async () => {
   expect(screen.getByRole('button', { name: 'Подтвердить сдвиг' })).toBeDisabled()
   expect(onApply).not.toHaveBeenCalled()
 })
+
+it('does not apply preview while busy, even on direct submit', async () => {
+  const onApply = vi.fn()
+  server.use(http.post('*/api/v1/events/event/schedule/shift/preview', () => HttpResponse.json({ units: [{ id: 'one', previousScheduledAt: heats[0].scheduledAt, scheduledAt: '2026-10-17T06:20:00Z' }] })))
+  const props = { eventId: 'event', heats, accessToken: 'test-token', onApply, onClose: vi.fn() }
+  const { rerender, container } = render(<ScheduleShiftForm {...props} busy={false} />)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить сдвиг' })).toBeEnabled())
+  rerender(<ScheduleShiftForm {...props} busy />)
+  container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  expect(onApply).not.toHaveBeenCalled()
+})
+
+it('explains an empty preview and retries server errors', async () => {
+  let failed = true
+  server.use(http.post('*/api/v1/events/event/schedule/shift/preview', () => failed
+    ? HttpResponse.json({ message: 'Сервер временно недоступен' }, { status: 503 })
+    : HttpResponse.json({ units: [] })))
+  render(<ScheduleShiftForm eventId="event" heats={heats} accessToken="test-token" busy={false} onApply={vi.fn()} onClose={vi.fn()} />)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Сервер временно недоступен')
+  failed = false
+  await userEvent.click(screen.getByRole('button', { name: 'Повторить расчёт' }))
+  expect(await screen.findByText('Нет заплывов для сдвига расписания. Выберите другой заплыв.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Подтвердить сдвиг' })).toBeDisabled()
+})

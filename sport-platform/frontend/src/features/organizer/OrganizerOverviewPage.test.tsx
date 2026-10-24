@@ -1,13 +1,18 @@
 import { Link, MemoryRouter } from 'react-router'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../../components/ui/Toast'
+import { createFixtures } from '../../mocks/fixtures'
+import type { Heat, OrganizerRegistration } from '../../api/organizer.types'
 import { OrganizerOverviewPage } from './OrganizerOverviewPage'
-import { closeEventRegistration, openEventRegistration, patchEvent } from '../../api/events.api'
+import { publishEvent, closeEventRegistration, openEventRegistration, patchEvent } from '../../api/events.api'
 
 const context = vi.hoisted(() => ({
   event: { id: 'event', status: 'REGISTRATION_OPEN', publicSlug: 'cup', title: 'Кубок', eventStartAt: '2030-06-01T10:00:00Z', eventEndAt: '2030-06-01T18:00:00Z', maxParticipants: 1, disciplines: [] },
-  registrations: [{ participantProfileId: 'profile', status: 'CONFIRMED' }],
-  sessions: [], heats: [], accessToken: 'test', busy: false,
+  registrations: [{ participantProfileId: 'profile', status: 'CONFIRMED' }] as OrganizerRegistration[],
+  sessions: [], heats: [] as Heat[], accessToken: 'test', busy: false, error: '',
+  refresh: vi.fn().mockResolvedValue(undefined),
+  registerDialog: vi.fn(() => vi.fn()),
   clearError: vi.fn(),
   run: vi.fn(async (action: () => Promise<unknown>) => { await action(); return true }),
 }))
@@ -22,15 +27,15 @@ vi.mock('../../api/events.api', () => ({
   patchEvent: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../../app/providers/AuthProvider', () => ({ useAuth: () => ({ isOrganizer: true, isPlatformAdmin: false }) }))
-vi.mock('./OrganizerDialog', () => ({
-  OrganizerConfirm: ({ title, onConfirm, onClose }: { title: string; onConfirm: () => void; onClose: () => void }) => (
-    <div role="dialog" aria-label={title}>
-      <button className="fl-btn fl-btn-secondary" onClick={onConfirm}>Подтвердить</button>
-      <button className="fl-btn fl-btn-secondary" onClick={onClose}>Отмена</button>
-    </div>
-  ),
-}))
-beforeEach(() => { context.event.status = 'REGISTRATION_OPEN'; vi.clearAllMocks() })
+beforeEach(() => {
+  context.event.status = 'REGISTRATION_OPEN'
+  context.event.maxParticipants = 1
+  context.registrations = [{ participantProfileId: 'profile', status: 'CONFIRMED', paymentStatus: 'PAID' }] as OrganizerRegistration[]
+  context.heats = []
+  context.busy = false
+  context.error = ''
+  vi.clearAllMocks()
+})
 
 it('M06 closes registration only after confirmation', async () => {
   render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
@@ -39,14 +44,15 @@ it('M06 closes registration only after confirmation', async () => {
   expect(context.clearError).toHaveBeenCalledOnce()
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Закрыть регистрацию' }))
   await waitFor(() => expect(closeEventRegistration).toHaveBeenCalledWith('event', 'test'))
-  expect(screen.getByText('Лимит: 1/1')).toBeInTheDocument()
+  expect(screen.getByText('1/1')).toBeInTheDocument()
 })
 
 it('M06 extension saves the new deadline before reopening', async () => {
   context.event.status = 'REGISTRATION_CLOSED'
   render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
-  fireEvent.change(screen.getByLabelText('Новая дата закрытия регистрации'), { target: { value: '2099-06-01T12:00' } })
+  expect(screen.queryByLabelText('Новая дата закрытия регистрации')).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Продлить' }))
+  fireEvent.change(screen.getByLabelText('Новая дата закрытия регистрации'), { target: { value: '2099-06-01T12:00' } })
   expect(patchEvent).not.toHaveBeenCalled()
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Продлить' }))
   await waitFor(() => expect(openEventRegistration).toHaveBeenCalledWith('event', 'test'))
@@ -57,7 +63,8 @@ it('M06 extension saves the new deadline before reopening', async () => {
 it('M06 archive has no status changes or limit editor', () => {
   context.event.status = 'ARCHIVED'
   render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
-  expect(screen.getByText('Архив')).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Сводка' })).toBeInTheDocument()
+  expect(document.querySelector('.fl-btn-primary')).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Закрыть регистрацию' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Продлить' })).not.toBeInTheDocument()
@@ -73,4 +80,124 @@ it('opens the archive query on the mounted overview and can open it again after 
   fireEvent.click(screen.getByRole('link', { name: 'Архив из меню' }))
   expect(await screen.findByRole('dialog', { name: 'Отправить соревнование в архив?' })).toBeVisible()
   expect(context.clearError).toHaveBeenCalledTimes(2)
+})
+
+it.each([
+  ['DRAFT', 'Опубликовать'], ['PUBLISHED', 'Открыть регистрацию'],
+  ['REGISTRATION_OPEN', 'Закрыть регистрацию'], ['REGISTRATION_CLOSED', 'Завершить соревнование'],
+  ['LIVE', 'Завершить соревнование'], ['COMPLETED', 'В архив'],
+])('shows one lifecycle primary for %s', (status, label) => {
+  context.event.status = status
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  expect(document.querySelectorAll('.fl-btn-primary')).toHaveLength(1)
+  expect(screen.getByRole('button', { name: label })).toHaveClass('fl-btn-primary')
+  expect(screen.getByRole('button', { name: label })).toBeEnabled()
+  expect(screen.getByRole('button', { name: label })).toHaveAccessibleDescription('Сначала: шаг 1')
+  expect(screen.getByLabelText('текущий шаг').parentElement).toHaveTextContent('1. Программа')
+})
+
+it('publishes only once after confirmation', async () => {
+  context.event.status = 'DRAFT'
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  fireEvent.click(screen.getByRole('button', { name: 'Опубликовать' }))
+  expect(publishEvent).not.toHaveBeenCalled()
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Опубликовать' }))
+  await waitFor(() => expect(publishEvent).toHaveBeenCalledExactlyOnceWith('event', 'test'))
+})
+
+it('keeps zero summary links and a next step when no registrations exist', () => {
+  context.registrations = []
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const summary = screen.getByRole('region', { name: 'Сводка' })
+  expect(within(summary).getByRole('link', { name: 'Заявок 0' })).toHaveAttribute('href', '/organizer/events/event/entries')
+  expect(within(summary).getByText('Заявок пока нет')).toBeVisible()
+})
+
+it('puts pending work before statistics and preserves the existing destinations', () => {
+  context.registrations = createFixtures().registrations
+  context.registrations[0].status = 'SUBMITTED'
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const attention = screen.getByRole('region', { name: 'Требует внимания' })
+  expect(within(attention).getByRole('link', { name: /Заявки на проверке/ })).toHaveAttribute('href', '/organizer/events/event/entries?status=SUBMITTED')
+  expect(within(attention).getByRole('link', { name: /Неоплаченные взносы/ })).toHaveAttribute('href', '/organizer/events/event/payments')
+  expect(attention.compareDocumentPosition(screen.getByRole('region', { name: 'Сводка' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
+it('keeps data visible and offers retry while the layout owns the global error', () => {
+  context.error = 'Сервер ответил ошибкой (500).'
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Сводка' })).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  expect(context.run).toHaveBeenCalledWith(context.refresh)
+})
+
+it('shows a visible reason while a lifecycle action is loading', () => {
+  context.busy = true
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const button = screen.getByRole('button', { name: 'Закрыть регистрацию' })
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+  expect(button).toHaveAttribute('aria-busy', 'true')
+  expect(button).toHaveAccessibleDescription('Сначала: шаг 1 Дождитесь завершения текущего действия')
+  fireEvent.click(button)
+  expect(context.clearError).not.toHaveBeenCalled()
+  expect(context.run).not.toHaveBeenCalled()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('rejects a past extension date without changing the event', () => {
+  context.event.status = 'REGISTRATION_CLOSED'
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  fireEvent.click(screen.getByRole('button', { name: 'Продлить' }))
+  fireEvent.change(screen.getByLabelText('Новая дата закрытия регистрации'), { target: { value: '2020-06-01T12:00' } })
+  fireEvent.submit(screen.getByLabelText('Новая дата закрытия регистрации').closest('form')!)
+  expect(screen.getByRole('alert')).toHaveTextContent('Новая дата закрытия должна быть в будущем.')
+  expect(patchEvent).not.toHaveBeenCalled()
+  expect(openEventRegistration).not.toHaveBeenCalled()
+})
+
+it('reports clipboard success through a toast and failure with a useful next step', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  render(<MemoryRouter><ToastProvider><OrganizerOverviewPage /></ToastProvider></MemoryRouter>)
+  fireEvent.click(screen.getByRole('button', { name: 'Копировать' }))
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ссылка скопирована'))
+  expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/e/cup`)
+  writeText.mockRejectedValueOnce(new Error('Denied'))
+  fireEvent.click(screen.getByRole('button', { name: 'Копировать' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Выделите ссылку и скопируйте вручную.')
+})
+
+it('does not flag waived, refunded or free registrations as unpaid contributions', () => {
+  context.registrations = ['PAID', 'WAIVED', 'REFUNDED', 'NOT_REQUIRED'].map(paymentStatus => ({
+    participantProfileId: paymentStatus, status: 'CONFIRMED', paymentStatus,
+  })) as OrganizerRegistration[]
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const attention = screen.getByRole('region', { name: 'Требует внимания' })
+  expect(within(attention).queryByRole('link', { name: /Неоплаченные взносы/ })).not.toBeInTheDocument()
+  expect(within(attention).getByText(/Срочных задач нет/)).toBeVisible()
+})
+
+it('uses the visible registration heading as its accessible name', () => {
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const registration = screen.getByRole('region', { name: 'Регистрация и площадка' })
+  const heading = within(registration).getByRole('heading', { name: 'Регистрация' })
+  expect(heading).toHaveTextContent(/^Регистрация$/)
+  expect(heading).not.toHaveAttribute('aria-label')
+})
+
+it.each([
+  ['DRAFT', false, false], ['PUBLISHED', false, false],
+  ['REGISTRATION_OPEN', false, true], ['REGISTRATION_CLOSED', true, true],
+  ['LIVE', true, true], ['COMPLETED', false, false], ['ARCHIVED', false, false],
+])('limits protocol and payment attention to relevant lifecycle states: %s', (status, protocol, payment) => {
+  const fixture = createFixtures()
+  context.event.status = status
+  context.registrations = fixture.registrations
+  context.heats = fixture.heats
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const attention = screen.getByRole('region', { name: 'Требует внимания' })
+  expect(!!within(attention).queryByRole('link', { name: /Неопубликованный стартовый протокол/ })).toBe(protocol)
+  expect(!!within(attention).queryByRole('link', { name: /Неоплаченные взносы/ })).toBe(payment)
+  if (!protocol && !payment) expect(within(attention).getByText(/Срочных задач нет/)).toBeVisible()
 })

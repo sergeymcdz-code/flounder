@@ -10,7 +10,8 @@ it('keeps button label space and disables while loading', () => {
  const button = screen.getByRole('button', { name: 'Опубликовать' })
  expect(button).toHaveClass('fl-btn-danger', 'fl-btn-lg')
  expect(button).toHaveAttribute('aria-busy', 'true')
- expect(button).toBeDisabled()
+ expect(button).toHaveAttribute('aria-disabled', 'true')
+ expect(button).not.toBeDisabled()
  expect(button.style.opacity).not.toBe('0.5')
  expect(screen.getByText('Опубликовать')).toHaveStyle({ visibility: 'hidden' })
 })
@@ -34,8 +35,14 @@ it('shows tab counters without changing its navigation name', () => {
 it('offers an action in an empty state', () => {
  render(<EmptyState title="Сессий пока нет" action={<Button>Добавить сессию</Button>} />)
  expect(screen.getByRole('button', { name: 'Добавить сессию' })).toBeEnabled()
+ expect(screen.getByRole('heading', { name: 'Сессий пока нет', level: 2 })).toBeInTheDocument()
 })
 it.each(['primary','secondary','ghost','danger'] as const)('supports the %s button variant', variant => {
  render(<Button variant={variant}>Действие</Button>)
  expect(screen.getByRole('button', { name: 'Действие' })).toHaveClass(`fl-btn-${variant}`)
+})
+it('keeps the canonical accessible tab name alongside a short mobile label', () => {
+ render(<MemoryRouter><Tabs items={[{ to: '/standings', label: 'Командный зачёт', shortLabel: 'Зачёт' }]} /></MemoryRouter>)
+ expect(screen.getByRole('link', { name: 'Командный зачёт' })).toHaveAttribute('href', '/standings')
+ expect(screen.getByText('Зачёт')).toHaveAttribute('aria-hidden', 'true')
 })

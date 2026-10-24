@@ -5,9 +5,11 @@ export function resultErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return 'Сессия истекла. Войдите в систему снова.'
     if (error.status === 403) return 'У вашей учётной записи нет прав для работы с этими результатами.'
-    if (error.status === 404) return 'Событие, вид программы или заплыв не найден. Вернитесь к списку заплывов.'
+    if (error.status === 404) return 'Соревнование, вид программы или заплыв не найден. Вернитесь к списку заплывов.'
+    if (error.status >= 500) return `Сервер ответил ошибкой (${error.status}). ${error.message || fallback}`
     return error.message
   }
+  if (error instanceof TypeError) return `Нет связи с сервером. ${fallback}`
   return fallback
 }
 
