@@ -130,7 +130,7 @@ export function OrganizerOverviewPage() {
         return openEventRegistration(event.id, accessToken)
       }).then(ok => { if (ok) { setExtending(false); toast({ text: 'Регистрация продлена' }) } })
     }} />}
-    {error && !confirmation && !extending && <Notice tone="danger">{error} <Button onClick={() => { void run(context.refresh) }} disabled={busy} title={reason}>Повторить</Button></Notice>}
+    {error && !confirmation && !extending && <ActionBar><Button onClick={() => { void run(context.refresh) }} disabled={busy} title={reason}>Повторить</Button></ActionBar>}
     <section className={`fl-card ${styles.attention}`} aria-label="Требует внимания">
       <h2>Требует внимания</h2>
       {pending || unpublished || unpaid ? <div className={styles.attentionList}>

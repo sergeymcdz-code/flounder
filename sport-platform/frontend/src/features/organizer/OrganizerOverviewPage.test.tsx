@@ -120,10 +120,10 @@ it('puts pending work before statistics and preserves the existing destinations'
   expect(attention.compareDocumentPosition(screen.getByRole('region', { name: 'Сводка' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
-it('keeps data visible on error and retries through the existing refresh action', () => {
+it('keeps data visible and offers retry while the layout owns the global error', () => {
   context.error = 'Сервер ответил ошибкой (500).'
   render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
-  expect(screen.getByRole('alert')).toHaveTextContent(context.error)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'Сводка' })).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
   expect(context.run).toHaveBeenCalledWith(context.refresh)
