@@ -6,11 +6,11 @@
 .navLink { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap-target); padding: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--font-weight-medium); text-decoration: none; overflow-wrap: anywhere; }
 .navLink small { font-size: var(--text-xs); font-weight: normal; color: var(--color-text-muted); }
 .navLink:hover, .navLinkActive { color: var(--color-text); background: var(--surface-2); }
-.headerContext { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-text-muted); font-size: var(--text-sm); }
-.headerContext ~ .navigation { max-width: 40%; }
+.eventMeta { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-text-muted); font-size: var(--text-sm); }
+.eventMeta ~ .navigation { max-width: 40%; }
 .navigation { overflow-x: auto; scrollbar-width: thin; }
 .navigation > a { flex-shrink: 0; white-space: nowrap; }
-.mobileContext { display: none; }
+.eventMetaMobile { display: none; }
 .userMenu { margin-left: auto; flex-shrink: 0; }
 .profileMenu { position: relative; }
 .profileMenu > summary { cursor: pointer; list-style: none; }
@@ -40,16 +40,16 @@
 }
 @media (max-width: 767px) {
  .header { padding-inline: var(--space-4); gap: var(--space-2); }
- .navigation, .headerContext, .cabinetUser { display: none; }
+ .navigation, .eventMeta, .cabinetUser { display: none; }
  .burger { display: inline-flex !important; margin-left: auto; padding: 0 !important; width: var(--tap-target); height: var(--tap-target); }
  .content { width: calc(100% - var(--space-8)); margin-block: var(--space-4); }
- .mobileContext { display: block; padding: var(--space-2) var(--space-4); color: var(--color-text-muted); background: var(--surface-1); font-size: var(--text-sm); overflow-wrap: anywhere; }
+ .eventMetaMobile { display: block; padding: var(--space-2) var(--space-4); color: var(--color-text-muted); background: var(--surface-1); font-size: var(--text-sm); overflow-wrap: anywhere; }
  .profileMenu > summary { max-width: calc(var(--space-16) * 2); flex-wrap: wrap; gap: var(--space-1); }
  .profileMenu > summary small { display: none; }
  .adminLayout { display: block; }
  .adminSidebar { display: none; }
 }
-@media print { .header, .mobileContext, .drawer, .adminSidebar { display: none !important; } }
+@media print { .header, .eventMetaMobile, .drawer, .adminSidebar { display: none !important; } }
 
 .userMenu { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .userMenu > :not(details) { max-width: calc(var(--space-16) * 3); }
