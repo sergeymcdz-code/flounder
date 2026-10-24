@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { shiftSchedule, type ScheduleShift } from '../../api/scheduling.api'
 import { time } from '../public/format'
 import type { Heat } from '../../api/organizer.types'
-import styles from './OrganizerEventPage.module.css'
+import { ActionBar } from '../../components/ui/ActionBar'
+import { Button } from '../../components/ui/Button'
+import { Notice } from '../../components/ui/Notice'
+import styles from './Heats.module.css'
 
 export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disciplineNames = {}, busy, archived = false, onApply, onClose }: {
   eventId: string
@@ -20,8 +23,9 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
   const [from, setFrom] = useState(candidates[0]?.id ?? '')
   const [minutes, setMinutes] = useState('20')
   const delta = Number(minutes) * 60
-  const valid = !archived && from && Number.isInteger(delta) && delta !== 0 && Math.abs(delta) <= 86400
-  const key = `${from}/${delta}`
+  const valid = !archived && candidates.some(h => h.id === from) && Number.isInteger(Number(minutes)) && Number.isInteger(delta) && delta !== 0 && Math.abs(delta) <= 86400
+  const key = `${eventId}/${from}/${delta}`
+  const [retry, setRetry] = useState(0)
   const [preview, setPreview] = useState<{ key: string; data?: ScheduleShift; error?: string }>()
   useEffect(() => {
     if (!valid) return
@@ -32,30 +36,33 @@ export function ScheduleShiftForm({ eventId, heats, accessToken, timeZone, disci
         .catch((error: unknown) => { if (!controller.signal.aborted) setPreview({ key, error: error instanceof Error ? error.message : 'Не удалось рассчитать сдвиг.' }) })
     }, 300)
     return () => { window.clearTimeout(timer); controller.abort() }
-  }, [eventId, from, delta, accessToken, key, valid])
+  }, [eventId, from, delta, accessToken, key, valid, retry])
   const current = valid && preview?.key === key ? preview : undefined
   const changes = current?.data?.units ?? []
-  return <form className={styles.stack} onSubmit={e => { e.preventDefault(); if (!archived && changes.length) onApply(from, delta) }}>
+  const reason = archived ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : !valid ? 'Выберите заплыв и ненулевой целый сдвиг до 1440 минут' : !current ? 'Дождитесь расчёта нового расписания' : current.error ? 'Повторите расчёт перед подтверждением' : !changes.length ? 'Нет заплывов для сдвига расписания' : undefined
+  return <form className={styles.form} onSubmit={e => { e.preventDefault(); if (!reason && changes.length) onApply(from, delta) }}>
     <label className="fl-field">С какого заплыва
-      <select value={from} disabled={busy} onChange={e => setFrom(e.target.value)} required>
+      <select value={from} disabled={busy || archived} title={archived ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined} onChange={e => { setFrom(e.target.value); setPreview(undefined) }} required>
         {candidates.map(h => <option key={h.id} value={h.id}>{disciplineNames[h.eventDisciplineId]} · {h.label} · {time(h.scheduledAt, timeZone)}</option>)}
       </select>
     </label>
     <label className="fl-field">Сдвиг в минутах
-      <input type="number" min={-1440} max={1440} step={1} required value={minutes} disabled={busy} onChange={e => setMinutes(e.target.value)} />
+      <input type="number" min={-1440} max={1440} step={1} required value={minutes} disabled={busy || archived} title={archived ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined} onChange={e => { setMinutes(e.target.value); setPreview(undefined) }} />
     </label>
     <p>Положительное число — позже, отрицательное — раньше. При перекрытии следующая сессия этого дня сдвигается на величину перекрытия.</p>
-    {!valid && <p role="alert">Выберите заплыв и ненулевой сдвиг до 1440 минут.</p>}
+    {!valid && <Notice tone="warning">{reason}</Notice>}
     {valid && !current && <p role="status">Расчёт нового расписания…</p>}
-    {current?.error && <p role="alert">{current.error}</p>}
-    {changes.length > 0 && <div aria-live="polite">
+    {current?.error && <Notice tone="danger"><p>{current.error}</p><Button onClick={() => { setPreview(undefined); setRetry(n => n + 1) }}>Повторить расчёт</Button></Notice>}
+    {current?.data && !changes.length && <Notice>Нет заплывов для сдвига расписания. Выберите другой заплыв.</Notice>}
+    {changes.length > 0 && <Notice tone="info" className={styles.preview}><div aria-live="polite">
       <p>Первый заплыв: {time(changes[0].previousScheduledAt, timeZone)} → {time(changes[0].scheduledAt, timeZone)}</p>
       <p>Последний заплыв: {time(changes.at(-1)!.previousScheduledAt, timeZone)} → {time(changes.at(-1)!.scheduledAt, timeZone)}</p>
       <p>Будет сдвинуто заплывов: {changes.length}.</p>
-    </div>}
-    <div className={styles.actions}>
-      <button title={busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" type="button" disabled={busy} onClick={onClose}>Отмена</button>
-      <button className="fl-btn fl-btn-primary" title={archived ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : (busy || archived || !changes.length) ? 'Нет заплывов для сдвига расписания' : undefined} disabled={busy || archived || !changes.length} type="submit">Подтвердить сдвиг</button>
-    </div>
+    </div></Notice>}
+    <ActionBar>
+      <Button title={busy ? 'Дождитесь завершения текущего действия' : undefined} disabled={busy} onClick={onClose}>Отмена</Button>
+      <Button variant="primary" title={reason} disabled={!!reason} loading={busy} type="submit">Подтвердить сдвиг</Button>
+    </ActionBar>
+    {reason && <small className={styles.muted}>{reason}</small>}
   </form>
 }
