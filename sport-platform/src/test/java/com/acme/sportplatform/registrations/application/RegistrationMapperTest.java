@@ -16,6 +16,7 @@ class RegistrationMapperTest {
     @Test
     void serializesMissingParticipantDetailsWithoutInventingAnIdentity() {
         var entity = new RegistrationEntity();
+        entity.setEventId(UUID.randomUUID());
         entity.setParticipantSnapshot("{\"firstName\":\"Анна\",\"birthDate\":\"invalid\"}");
         entity.setRegistrationMeta("{}");
         var mapper = new ObjectMapper();
