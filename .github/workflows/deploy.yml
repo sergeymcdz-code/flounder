@@ -1,5 +1,6 @@
 # Manual deployment. Configure these secrets in the production environment:
-# SSH_HOST, SSH_USER, SSH_KEY, SSH_HOST_KEY (one trusted public host key, type + base64),
+# SSH_HOST, SSH_USER, SSH_KEY (private key as is) or SSH_KEY_B64 (the same key, `base64 -w0` — one line,
+# safe to copy from any terminal; takes precedence), SSH_HOST_KEY (one trusted public host key, type + base64),
 # SSH_HOST_KEY_FINGERPRINT (SHA256:... obtained via the provider console).
 name: Deploy demo stand
 
@@ -31,6 +32,7 @@ jobs:
       - name: Подготовить и проверить SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KEY_B64: ${{ secrets.SSH_KEY_B64 }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_HOST_KEY: ${{ secrets.SSH_HOST_KEY }}
           SSH_HOST_KEY_FINGERPRINT: ${{ secrets.SSH_HOST_KEY_FINGERPRINT }}
@@ -38,7 +40,11 @@ jobs:
           set -euo pipefail
           umask 077
           [[ "$SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || exit 2
+          if [[ -n "${SSH_KEY_B64:-}" ]]; then
+            SSH_KEY="$(printf '%s' "$SSH_KEY_B64" | tr -d ' \r\n' | base64 -d)" || { echo 'SSH_KEY_B64 не декодируется.' >&2; exit 2; }
+          fi
           [[ -n "$SSH_KEY" && -n "$SSH_HOST_KEY_FINGERPRINT" ]] || exit 2
+          [[ "$SSH_KEY" == *"PRIVATE KEY-----"* ]] || { echo 'SSH_KEY не похож на приватный ключ OpenSSH.' >&2; exit 2; }
           [[ "$SSH_HOST_KEY" != *$'\n'* && "$SSH_HOST_KEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)\ [A-Za-z0-9+/=]+$ ]] || exit 2
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
