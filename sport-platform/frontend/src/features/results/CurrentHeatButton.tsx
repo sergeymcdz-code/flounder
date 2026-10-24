@@ -2,7 +2,7 @@ import { useCallback, useId } from 'react'
 import { Link } from 'react-router'
 import { publicApi } from '../../api/public.api'
 import { LIVE_POLL_MS, usePublicData } from '../public/usePublicData'
-import styles from './CurrentHeatButton.module.css'
+import styles from './CompetitionUnitsPage.module.css'
 
 export function CurrentHeatButton({ eventId, slug }: { eventId: string; slug?: string }) {
   const hintId = useId()
