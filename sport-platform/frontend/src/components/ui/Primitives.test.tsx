@@ -40,3 +40,8 @@ it.each(['primary','secondary','ghost','danger'] as const)('supports the %s butt
  render(<Button variant={variant}>Действие</Button>)
  expect(screen.getByRole('button', { name: 'Действие' })).toHaveClass(`fl-btn-${variant}`)
 })
+it('keeps the canonical accessible tab name alongside a short mobile label', () => {
+ render(<MemoryRouter><Tabs items={[{ to: '/standings', label: 'Командный зачёт', shortLabel: 'Зачёт' }]} /></MemoryRouter>)
+ expect(screen.getByRole('link', { name: 'Командный зачёт' })).toHaveAttribute('href', '/standings')
+ expect(screen.getByText('Зачёт')).toHaveAttribute('aria-hidden', 'true')
+})

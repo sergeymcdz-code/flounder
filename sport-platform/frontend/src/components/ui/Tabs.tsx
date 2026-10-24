@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
 
-export type TabItem = { to: string; label: string; count?: string | number; attention?: number; status?: string }
+export type TabItem = { to: string; label: string; shortLabel?: string; count?: string | number; attention?: number; status?: string }
 
 export function Tabs({ items, label = 'Разделы соревнования' }: { items: TabItem[]; label?: string }) {
   const ref = useRef<HTMLElement>(null)
@@ -31,7 +31,7 @@ export function Tabs({ items, label = 'Разделы соревнования' 
         const attentionId = `${id}-${index}-attention`
         const description = [item.count !== undefined && countId, !!item.attention && attentionId].filter(Boolean).join(' ')
         return <NavLink key={item.to} to={item.to} end aria-label={item.label} aria-describedby={description || undefined}>
-          {item.label}
+          <span className="fl-tab-label">{item.label}</span>{item.shortLabel && <span className="fl-tab-label-short" aria-hidden="true">{item.shortLabel}</span>}
           {item.count !== undefined && <small id={countId} className="fl-tab-count">{item.count}</small>}
           {!!item.attention && <small id={attentionId} className="fl-tab-count fl-tab-attention" aria-label={`${item.attention} требуют внимания`}>·{item.attention}</small>}
           {item.status && <small className="fl-tab-count">{item.status}</small>}
