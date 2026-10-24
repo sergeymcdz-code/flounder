@@ -41,3 +41,11 @@ it('supports route links and opening from the keyboard', async () => {
   await userEvent.keyboard('{Tab}')
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 })
+it('escapes a clipped table container while retaining outside-click dismissal', async () => {
+  const { container } = render(<div style={{ overflow: 'hidden', maxHeight: 44 }}><OverflowMenu items={[{ label: 'Открыть' }]} /></div>)
+  await userEvent.click(screen.getByRole('button', { name: 'Другие действия' }))
+  expect(container).not.toContainElement(screen.getByRole('menu'))
+  expect(document.body).toContainElement(screen.getByRole('menu'))
+  await userEvent.click(document.body)
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+})

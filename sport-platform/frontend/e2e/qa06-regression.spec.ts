@@ -444,3 +444,23 @@ for (const width of [375, 768, 1366]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
   })
 }
+
+test('D04-2a row menu escapes table clipping and keeps its actions clickable', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openAuditPage(page, '/dev/ui')
+  const cards = page.locator('.fl-rowcards')
+  await cards.evaluate(node => node.scrollIntoView({ block: 'center' }))
+  const trigger = cards.getByRole('button').last()
+  await trigger.click()
+  const menu = page.getByRole('menu')
+  await expect(menu).toBeVisible()
+  const tableBox = (await cards.boundingBox())!, menuBox = (await menu.boundingBox())!
+  expect(menuBox.y + menuBox.height).toBeGreaterThan(tableBox.y + tableBox.height)
+  for (const item of await menu.getByRole('menuitem').all()) {
+    await expect(item).toBeInViewport()
+    expect(await item.evaluate(node => { const box = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)) })).toBe(true)
+  }
+  await menu.getByRole('menuitem', { name: 'Открыть заявку' }).click()
+  await expect(page.getByRole('status')).toContainText('Открыта заявка')
+  await expect(trigger).toBeFocused()
+})
