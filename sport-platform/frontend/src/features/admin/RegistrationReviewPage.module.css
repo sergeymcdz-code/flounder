@@ -1,4 +1,5 @@
 .page { min-width: 0; }
+.page :global(.page-description) { color: var(--color-text-muted); }
 .page :global(.eyebrow) { color: var(--color-primary); }
 .page :global(.form-error) { color: var(--color-danger); }
 .page :global(.form-success) { color: var(--color-success); }

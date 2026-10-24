@@ -49,3 +49,11 @@ it('shows a list loading failure', async () => {
   render(<MemoryRouter><OperatorPaymentsPage /></MemoryRouter>)
   expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить список заявок.')
 })
+
+it('uses the venue timezone for a start near the UTC date boundary', async () => {
+  vi.mocked(getRegistrations).mockResolvedValue([{ ...rows[0], eventStartAt: '2026-10-23T21:30:00Z', venueTimezone: 'Europe/Samara' }])
+  render(<MemoryRouter><OperatorPaymentsPage /></MemoryRouter>)
+  await screen.findByText('Иванова Анна Сергеевна')
+  expect(screen.getAllByText('Кубок Москвы · 24.10.2026')).toHaveLength(2)
+  expect(screen.queryByText(/23.10.2026/)).not.toBeInTheDocument()
+})
