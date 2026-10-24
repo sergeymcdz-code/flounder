@@ -93,7 +93,7 @@ export function ProductHeader({ publicPage = false, eventContext }: { publicPage
       {cabinet && <Button ref={burger} className={styles.burger} variant="ghost" aria-label="Открыть меню" aria-expanded={drawerOpen} aria-controls={drawerId} onClick={() => { drawer.current?.showModal(); setDrawerOpen(true) }}><MenuIcon /></Button>}
     </header>
     {eventContext && !desktop && <div className={styles.mobileContext}>{eventContext}</div>}
-    {cabinet && <dialog ref={drawer} id={drawerId} className={styles.drawer} aria-label="Меню кабинета" onClose={() => { setDrawerOpen(false); burger.current?.focus() }} onCancel={closeDrawer} onClick={event => { if (event.target === drawer.current) { const bounds = drawer.current.getBoundingClientRect(); if (event.clientX < bounds.left) closeDrawer() } }}>
+    {cabinet && <dialog ref={drawer} id={drawerId} className={styles.drawer} aria-label="Меню кабинета" onClose={() => { setDrawerOpen(false); burger.current?.focus() }} onCancel={event => { event.preventDefault(); closeDrawer() }} onClick={event => { if (event.target === drawer.current) { const bounds = drawer.current.getBoundingClientRect(); if (event.clientX < bounds.left) closeDrawer() } }}>
       {drawerOpen && <><div className={styles.drawerHeading}><strong>Меню</strong><Button variant="ghost" aria-label="Закрыть меню" onClick={closeDrawer}>×</Button></div>
       <nav className={styles.drawerGroup} aria-label="Разделы"><p>Разделы</p>{links}</nav>
       <nav className={styles.drawerGroup} aria-label="Навигация кабинета"><p>Кабинет</p>{sidebar.map(item => <NavLink key={item.to} className={navClass} to={item.to} end={item.end}>{item.label}</NavLink>)}</nav>

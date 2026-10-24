@@ -85,7 +85,7 @@ function EventPublicLayout() {
     ['schedule', 'Расписание'],
     ['live', 'Табло'],
     ['results', 'Результаты'],
-    ...(standingsState.data && !standingsState.errorStatus ? [['standings', 'Командный зачёт']] : []),
+    ...(standingsState.data && !standingsState.errorStatus ? [['standings', 'Зачёт']] : []),
   ]
   return (
     <PublicConnectionContext value={offline || cached}>
@@ -95,7 +95,7 @@ function EventPublicLayout() {
         </a>
         <ProductHeader publicPage eventContext={<><Link to={base}><strong>{eventState.data?.title ?? 'Соревнование'}</strong></Link>{' · '}<span>{eventState.data ? `${date(eventState.data.eventStartAt, eventState.data.venue?.timezone)} · ${eventState.data.venue?.city ?? 'Площадка не указана'}` : 'Загружаем сведения…'}</span></>} />
         {eventState.errorStatus !== 404 && <div className={styles.eventNavigation}>
-          <nav className={styles.directoryNav} aria-label="Навигация события"><Button as={Link} to="/" variant="ghost" size="sm">← Календарь</Button>{eventState.data?.organization?.publicSlug && <Button as={Link} variant="ghost" size="sm" to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Button>}</nav>
+          <nav className={styles.directoryNav} aria-label="Навигация события"><Button as={Link} to="/" variant="ghost" size="sm" className="fl-back-link">← Календарь</Button>{eventState.data?.organization?.publicSlug && <Button as={Link} variant="ghost" size="sm" to={`/o/${encodeURIComponent(eventState.data.organization.publicSlug)}`}>Страница организации</Button>}</nav>
           {!pathname.replace(/\/$/, '').endsWith('/register') && <div className={styles.nav}><Tabs items={links.map(([path, label]) => ({ to: `${base}/${path}`, label }))} /></div>}
         </div>}
 

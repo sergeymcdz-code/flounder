@@ -38,10 +38,10 @@ it('blocks loading anchor handlers and retains an explicit accessible label', as
   await userEvent.click(screen.getByRole('link', { name: 'Скачать протокол' }))
   expect(click).not.toHaveBeenCalled()
 })
-it('retains focus while loading and supports a contextual loading label', async () => {
+it.each([false, true])('retains focus while loading (disabled=%s) and supports a contextual loading label', async disabled => {
   const submit = vi.fn(event => event.preventDefault())
   const click = vi.fn()
-  const view = (loading: boolean) => <form onSubmit={submit}><Button type="submit" loading={loading} loadingLabel="Публикуем…" onClick={click}>Опубликовать</Button></form>
+  const view = (loading: boolean) => <form onSubmit={submit}><Button type="submit" disabled={disabled && loading} loading={loading} loadingLabel="Публикуем…" onClick={click}>Опубликовать</Button></form>
   const { rerender } = render(view(false))
   const button = screen.getByRole('button', { name: 'Опубликовать' })
   button.focus()

@@ -20,5 +20,5 @@ export function Button({ variant = 'secondary', size = 'md', loading = false, lo
     return <Link {...rest} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : rest.tabIndex} onClick={event => { if (disabled) event.preventDefault(); else rest.onClick?.(event) }} onAuxClick={event => { if (disabled) event.preventDefault(); else rest.onAuxClick?.(event) }} className={classes} aria-busy={loading || undefined} aria-label={accessibleName}>{content}</Link>
   }
   const { as: _, ...rest } = props; void _
-  return <button type="button" {...rest} className={classes} aria-busy={loading || undefined} aria-label={accessibleName} disabled={rest.disabled} aria-disabled={loading || rest['aria-disabled'] || undefined} onClick={event => { if (loading || rest['aria-disabled'] === true || rest['aria-disabled'] === 'true') { event.preventDefault(); return }; rest.onClick?.(event) }}>{content}</button>
+  return <button type="button" {...rest} className={classes} aria-busy={loading || undefined} aria-label={accessibleName} disabled={!loading && rest.disabled} aria-disabled={loading || rest['aria-disabled'] || undefined} onClick={event => { if (loading || rest['aria-disabled'] === true || rest['aria-disabled'] === 'true') { event.preventDefault(); event.stopPropagation(); return }; rest.onClick?.(event) }}>{content}</button>
 }

@@ -759,7 +759,7 @@
 @media screen and (min-width: 1024px) {
  .root { padding-bottom: 0; }
  .eventNavigation { position: sticky; top: var(--header-h); z-index: var(--z-sticky); display: flex; align-items: center; justify-content: center; gap: var(--space-4); padding-inline: var(--space-8); background: var(--surface-1); box-shadow: var(--shadow-sticky); }
- .directoryNav { width: auto; margin: 0; flex-shrink: 0; }
+ .directoryNav { width: auto; margin: 0; padding: 0; flex-shrink: 0; }
  .directoryNav > a:not(:first-child) { display: none; }
  .nav { position: static; height: auto; max-width: calc(var(--space-16) * 12); min-width: 0; padding: 0; border: 0; box-shadow: none; }
  .nav :global(.fl-tabs) { gap: var(--space-4); }

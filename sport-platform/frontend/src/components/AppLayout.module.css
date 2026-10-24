@@ -57,3 +57,4 @@
 
 .profileMenu > summary { max-width: calc(var(--space-16) * 3); }
 @media (min-width: 768px) and (max-width: 1023px) { .userMenu > :not(details) { display: none; } }
+.userMenu select, .drawer select { min-height: var(--tap-target); min-width: var(--tap-target); }
