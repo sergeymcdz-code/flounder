@@ -1,7 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import type {
   LoginRequest,
-  LoginResponse,
   RegisterRequest,
   RegisterResponse,
 } from '../features/auth/auth.types'
@@ -23,7 +22,7 @@ export function isDemoParticipant(email: string): boolean {
 
 const sessions = new Map<string, { accessToken: string; email: string }>()
 const resets = new Map<string, { email: string; expiresAt: number }>()
-export function mockAuthSession(accessToken: string, email: string, expiresIn = 7200): LoginResponse {
+export function mockAuthSession(accessToken: string, email: string, expiresIn = 7200) {
   const parts = accessToken.split('.')
   if (parts.length === 3) {
     try {
@@ -33,7 +32,9 @@ export function mockAuthSession(accessToken: string, email: string, expiresIn = 
   }
   const refreshToken = crypto.randomUUID()
   sessions.set(refreshToken, { accessToken, email })
-  return { accessToken, refreshToken, tokenType: 'Bearer', expiresIn }
+  return HttpResponse.json({ accessToken, tokenType: 'Bearer', expiresIn }, {
+    headers: { 'Set-Cookie': `sportgate_refresh=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=2592000` },
+  })
 }
 const failure = (status: number, code: string, message: string) => HttpResponse.json({ code, message }, { status })
 const weak = (password: string) => [...password].length < 8 || !/\p{L}/u.test(password) || !/\p{Nd}/u.test(password) || new TextEncoder().encode(password).length > 72
@@ -45,17 +46,17 @@ export const authHandlers = [
     try { const payload = JSON.parse(atob(token.split('.')[1])); return HttpResponse.json({ id: 'demo-user', email: payload.sub ?? 'user@flounder.demo', roles: payload.roles ?? [], status: 'ACTIVE' }) }
     catch { return failure(401, 'auth.unauthorized', 'Войдите в систему') }
   }),
-  http.post('*/api/v1/auth/refresh', async ({ request }) => {
-    const { refreshToken } = await request.json() as { refreshToken: string }
+  http.post('*/api/v1/auth/refresh', ({ cookies }) => {
+    const refreshToken = cookies.sportgate_refresh
     const session = sessions.get(refreshToken)
     if (!session) return failure(401, 'identity.refresh_token_invalid', 'Сессия истекла, войдите снова')
     sessions.delete(refreshToken)
-    return HttpResponse.json(mockAuthSession(session.accessToken, session.email))
+    return mockAuthSession(session.accessToken, session.email)
   }),
-  http.post('*/api/v1/auth/logout', async ({ request }) => {
-    const { refreshToken } = await request.json() as { refreshToken: string }
+  http.post('*/api/v1/auth/logout', ({ cookies }) => {
+    const refreshToken = cookies.sportgate_refresh
     sessions.delete(refreshToken)
-    return new HttpResponse(null, { status: 204 })
+    return new HttpResponse(null, { status: 204, headers: { 'Set-Cookie': 'sportgate_refresh=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=0' } })
   }),
   http.post('*/api/v1/auth/logout-all', ({ request }) => {
     const accessToken = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -69,7 +70,7 @@ export const authHandlers = [
     if (mockPassword(email)) {
       const token = crypto.randomUUID()
       resets.set(token, { email: email.trim().toLowerCase(), expiresAt: Date.now() + 3600000 })
-      console.info(`DEV Восстановление пароля SportGate: ${window.location.origin}/reset-password?token=${token}`)
+      console.info(`DEV Восстановление пароля SportGate: ${window.location.origin}/reset-password#token=${token}`)
     }
     return new HttpResponse(null, { status: 202 })
   }),
@@ -110,7 +111,7 @@ export const authHandlers = [
       btoa(JSON.stringify({ roles: ['participant'] })).replaceAll('=', '') +
       '.demo'
     const response = mockAuthSession(token, body.email, 3600)
-    return HttpResponse.json(response)
+    return response
   }),
   http.post('*/api/v1/auth/register', async ({ request }) => {
     const body = (await request.json()) as RegisterRequest

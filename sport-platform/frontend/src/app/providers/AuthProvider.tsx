@@ -12,7 +12,8 @@ import type {
 } from '../../features/auth/auth.types'
 
 import { getAuthState, setAuthSession, subscribeAuth } from '../../api/auth-session'
-import { apiFetch } from '../../api/http'
+import { apiFetch, sanitizeStoredSession, settleRefresh, restoreCookieSession } from '../../api/http'
+import { LoadingState } from '../../components/LoadingState'
 
 export const ROLE_PLATFORM_ADMIN = 'platform_admin'
 export const ROLE_ORGANIZER = 'organizer'
@@ -89,6 +90,14 @@ function getRoles(accessToken: string | null): string[] {
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const [restore] = useState(sanitizeStoredSession)
+  const [restoring, setRestoring] = useState(restore)
+  useEffect(() => {
+    if (!restore) return
+    let active = true
+    void restoreCookieSession().finally(() => { if (active) setRestoring(false) })
+    return () => { active = false }
+  }, [restore])
   const { session, message: sessionMessage } = useSyncExternalStore(subscribeAuth, getAuthState)
 
   const [profile, setProfile] = useState<{ token: string; user: Profile | null } | null>(null)
@@ -114,14 +123,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     localStorage.setItem('flounder.current-org', id)
     setSelectedOrg(id)
   }, [])
-  const authLoading = !!token && profile?.token !== token
+  const authLoading = restoring || (!!token && profile?.token !== token)
 
   const login = useCallback(async (request: LoginRequest): Promise<AuthSession & { roles: string[] }> => {
+    await settleRefresh()
     const response = await loginRequest(request)
 
     const nextSession: AuthSession = {
       accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
       tokenType: response.tokenType,
       expiresAt: Date.now() + response.expiresIn * 1000,
     }
@@ -133,13 +142,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [])
 
   const logout = useCallback(async () => {
-    const current = getAuthState().session
     setAuthSession(null)
-    if (current?.refreshToken) {
-      await apiFetch('/api/v1/auth/logout', {
-        method: 'POST', body: JSON.stringify({ refreshToken: current.refreshToken }), skipRefresh: true,
-      })
-    }
+    await settleRefresh()
+    await apiFetch('/api/v1/auth/logout', { method: 'POST', skipRefresh: true })
   }, [])
 
   const roles = useMemo(() => currentProfile?.effectiveRoles ?? getRoles(token || null), [currentProfile?.effectiveRoles, token])
@@ -176,7 +181,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {restoring ? <LoadingState message="Восстанавливаем сессию…" /> : children}
     </AuthContext.Provider>
   )
 }

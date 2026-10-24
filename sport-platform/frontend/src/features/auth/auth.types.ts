@@ -7,7 +7,6 @@ export type LoginResponse = {
   accessToken: string
   tokenType: 'Bearer'
   expiresIn: number
-  refreshToken: string
 }
 
 export type AuthSession = {

@@ -113,35 +113,54 @@ function retryAfterSeconds(response: Response): number | undefined {
   return Number.isFinite(seconds) ? seconds : undefined
 }
 
-let refreshInFlight: Promise<string> | null = null
+// Upgrade old stored sessions without retaining a refresh secret in browser storage.
+export function sanitizeStoredSession() {
+  const key = 'flounder.auth-session'
+  const stored = sessionStorage.getItem(key)
+  if (!stored) return false
+  try {
+    const parsed = JSON.parse(stored)
+    const expired = !!parsed?.accessToken && parsed.expiresAt <= Date.now()
+    if (parsed && 'refreshToken' in parsed) {
+      delete parsed.refreshToken
+      sessionStorage.setItem(key, JSON.stringify(parsed))
+    }
+    return expired
+  } catch { sessionStorage.removeItem(key); return false }
+}
 
-async function refreshAccessToken(failedToken: string): Promise<string> {
-  const session = getAuthState().session
-  if (session && session.accessToken !== failedToken) return session.accessToken
+let refreshInFlight: Promise<string> | null = null
+export async function settleRefresh() { await refreshInFlight?.catch(() => {}) }
+export async function restoreCookieSession() { await refreshAccessToken().catch(() => {}) }
+
+async function refreshAccessToken(failedToken?: string): Promise<string> {
+  const initialState = getAuthState()
+  const session = initialState.session
+  if (failedToken && session && session.accessToken !== failedToken) return session.accessToken
   if (refreshInFlight) return refreshInFlight
-  if (!session?.refreshToken) {
-    if (session?.accessToken === failedToken) setAuthSession(null, SESSION_EXPIRED)
+  if (!session && failedToken) {
+    setAuthSession(null, SESSION_EXPIRED)
     throw new ApiError(401, SESSION_EXPIRED, 'identity.refresh_token_invalid')
   }
   refreshInFlight = (async () => {
     try {
       const response = await apiFetch<LoginResponse>('/api/v1/auth/refresh', {
-        method: 'POST', body: JSON.stringify({ refreshToken: session.refreshToken }), skipRefresh: true,
+        method: 'POST', skipRefresh: true,
       })
-      if (getAuthState().session !== session) {
+      if (getAuthState() !== initialState) {
         // Revoke a rotated token if logout or a different login won the race.
-        void apiFetch('/api/v1/auth/logout', {
-          method: 'POST', body: JSON.stringify({ refreshToken: response.refreshToken }), skipRefresh: true,
+        await apiFetch('/api/v1/auth/logout', {
+          method: 'POST', skipRefresh: true,
         }).catch(() => {})
         throw new ApiError(401, SESSION_EXPIRED)
       }
       setAuthSession({
-        accessToken: response.accessToken, refreshToken: response.refreshToken,
+        accessToken: response.accessToken,
         tokenType: response.tokenType, expiresAt: Date.now() + response.expiresIn * 1000,
       })
       return response.accessToken
     } catch {
-      if (getAuthState().session === session) setAuthSession(null, SESSION_EXPIRED)
+      if (getAuthState() === initialState) setAuthSession(null, failedToken ? SESSION_EXPIRED : null)
       throw new ApiError(401, SESSION_EXPIRED, 'identity.refresh_token_invalid')
     }
   })()
@@ -177,7 +196,7 @@ export async function apiDownload(path: string, accessToken?: string): Promise<B
 }
 
 async function networkFetch(url: string, options: RequestInit) {
-  try { return await fetch(url, options) } catch (error) {
+  try { return await fetch(url, { ...options, credentials: 'include' }) } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error
     throw new ApiError(0, 'Нет связи. Проверьте интернет и повторите')
   }
