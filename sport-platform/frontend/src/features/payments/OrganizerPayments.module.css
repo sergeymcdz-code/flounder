@@ -1,0 +1,67 @@
+.page, .lists { display: grid; gap: var(--space-6); min-width: 0; }
+.heading h2, .card h2 { margin: 0; font-size: var(--font-size-20); }
+.heading { display: flex; align-items: center; gap: var(--space-4); }
+.cardHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+.heading p { margin-bottom: 0; }
+.summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin: 0; }
+.summary dt { font-size: var(--text-sm); color: var(--color-text-muted); }
+.summary dd { margin: var(--space-2) 0 0; font: 600 var(--font-size-24)/var(--line-height-tight) var(--font-heading); font-variant-numeric: var(--numeric-variant); overflow-wrap: anywhere; }
+.currency { font: 400 var(--text-sm) var(--font-body); }
+.layout { display: grid; gap: var(--space-6); min-width: 0; align-items: start; }
+.card { min-width: 0; padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }
+.card > h2 { margin-bottom: var(--space-4); }
+.actions { display: flex; align-items: center; gap: var(--space-2); }
+.debt { color: var(--color-danger); }
+.settings :global(.fl-form) { max-width: calc(var(--space-16) * 10); }
+.settings > summary { cursor: pointer; min-height: var(--tap-target); display: flex; align-items: center; gap: var(--space-2); }
+.settings > summary::after { content: '⌄'; margin-left: auto; }
+.settings[open] > summary { margin-bottom: var(--space-4); }
+.settings[open] > summary::after { content: '⌃'; }
+.settings :is(input, select, textarea), .dialog :is(input, select, textarea) { max-width: 100%; min-width: 0; }
+.check { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap-target); cursor: pointer; }
+/* Local scroll cue and row cards, as specified in D04 section (д). */
+.rowcards { min-width: 0; }
+.rowcards :global(.fl-data-table-scroll) { scrollbar-width: thin; overscroll-behavior-inline: contain; background: linear-gradient(to right, var(--surface-1), var(--surface-1)) left / var(--space-6) 100% no-repeat local, linear-gradient(to left, var(--surface-1), var(--surface-1)) right / var(--space-6) 100% no-repeat local, linear-gradient(to right, var(--border-subtle), transparent) left / var(--space-4) 100% no-repeat scroll, linear-gradient(to left, var(--border-subtle), transparent) right / var(--space-4) 100% no-repeat scroll; }
+.rowcards th, .rowcards td { overflow-wrap: anywhere; }
+.menu { position: fixed; inset: var(--header-h) var(--space-4) auto auto; z-index: var(--z-dialog); display: grid; gap: var(--space-1); width: min(calc(100% - var(--space-8)), calc(var(--space-16) * 5)); max-height: calc(100dvh - var(--header-h) - var(--space-4)); overflow-y: auto; padding: var(--space-3); background: var(--surface-1); color: var(--color-text); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); }
+.menu > button { justify-content: flex-start; min-height: var(--tap-target); text-align: left; }
+.dialog { width: min(calc(100% - var(--space-8)), calc(var(--space-16) * 10)); max-height: calc(100dvh - var(--space-8)); padding: var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); color: var(--color-text); overflow: auto; }
+.dialog::backdrop { background: var(--surface-overlay); }
+.dialogHeader { display: flex; justify-content: space-between; align-items: start; gap: var(--space-4); margin-bottom: var(--space-4); }
+.dialogHeader h2 { margin: 0; font-size: var(--font-size-24); }
+.dialog :is(form, fieldset) { min-width: 0; }
+.dialog p { overflow-wrap: anywhere; }
+.dialogActions { justify-content: flex-end; }
+.history { display: grid; gap: var(--space-3); padding: 0; list-style: none; }
+.history li { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow-wrap: anywhere; }
+.skeleton { display: grid; gap: var(--space-2); }
+.skeleton span { min-height: var(--control-h); background: var(--surface-2); border-radius: var(--radius-sm); }
+@media (min-width: 768px) { .summary { grid-template-columns: repeat(5, minmax(0, 1fr)); } .card { padding: var(--space-6); } }
+@media (min-width: 1600px) { .layout { grid-template-columns: minmax(0, 1fr) minmax(0, calc(var(--space-16) * 5 + var(--space-10))); } }
+@media (max-width: 767px) {
+  .menu { inset: auto 0 0; width: 100%; max-height: 75dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); }
+  .dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: var(--space-4); }
+  .dialogActions { flex-direction: row; flex-wrap: wrap; }
+  .dialogActions > button { flex: 1; order: initial !important; }
+  .rowcards :global(.fl-data-table-scroll) { border: 0; max-height: none !important; overflow: visible; background: none; }
+  .rowcards table { min-width: 0 !important; width: 100%; }
+  .rowcards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .rowcards :is(tbody, tr) { display: grid; gap: var(--space-2); }
+  .rowcards tr { background: var(--surface-1); grid-template-columns: minmax(0, 1fr) auto; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+  .rowcards :is(th, td) { min-height: 0; display: block; min-width: 0; padding: 0; border: 0; background: transparent; white-space: normal; }
+  .rowcards th[scope='row'] { grid-column: 1 / -1; font-size: var(--text-md); }
+  .rowcards td:last-child { grid-column: 1 / -1; }
+  .rowcards td[data-numeric] { text-align: right; font-variant-numeric: var(--numeric-variant); }
+  .rowcards td::before { display: block; font-size: var(--text-xs); font-weight: 400; color: var(--color-text-muted); }
+  .rowcards article { min-width: 0; }
+  .clubCards td:nth-child(2)::before { content: 'Участники'; }
+  .clubCards td:nth-child(3)::before { content: 'Заявки'; }
+  .clubCards td:nth-child(4)::before { content: 'Начислено'; }
+  .clubCards td:nth-child(5)::before { content: 'Оплачено'; }
+  .clubCards td:nth-child(6)::before { content: 'Долг'; }
+  .entryCards td:nth-child(2)::before { content: 'Клуб'; }
+  .entryCards td:nth-child(3)::before { content: 'Вид программы'; }
+  .entryCards td:nth-child(4)::before { content: 'Сумма'; }
+  .entryCards td:nth-child(5)::before { content: 'Оплата'; }
+  .entryCards td:nth-child(3) { grid-column: 1 / -1; }
+}
