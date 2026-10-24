@@ -107,7 +107,8 @@ public class GetPublicCompetitionUnitResultsUseCase {
                 unit.getId(),
                 unit.getEventDisciplineId(),
                 unit.getLabel(),
-                entryViews
+                entryViews,
+                unit.isOfficial()
         );
     }
 

@@ -9,6 +9,9 @@ public interface CompetitionUnitRepository
         extends JpaRepository<CompetitionUnitEntity, UUID> {
     List<CompetitionUnitEntity> findByEventDisciplineIdInOrderBySequenceNumberAsc(List<UUID> ids);
 
+    List<CompetitionUnitEntity> findByEventDisciplineIdInAndStatusInOrderBySequenceNumberAsc(
+            List<UUID> ids, List<String> statuses);
+
     boolean existsByEventDisciplineId(UUID id);
 
     @org.springframework.data.jpa.repository.Query(value = "select d.event_id from competition_units u"

@@ -6,13 +6,15 @@ import java.util.UUID;
 public record PublicDisciplineResultsResponse(
         UUID eventId,
         UUID eventDisciplineId,
-        List<UnitView> units
+        List<UnitView> units,
+        boolean official
 ) {
     public record UnitView(
             UUID id,
             String label,
             Integer sequenceNumber,
-            List<EntryView> entries
+            List<EntryView> entries,
+            boolean official
     ) {
     }
 

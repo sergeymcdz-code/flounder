@@ -23,11 +23,14 @@ public class PublicPublicationService {
     private final com.acme.sportplatform.events.EventPublicLookup events;
     private final com.acme.sportplatform.competition.EventDisciplineLookup eventDisciplines;
     private final PublicationReadRepository reads;
+    private final com.acme.sportplatform.results.ResultsPublicationLookup publications;
     private final com.acme.sportplatform.organizations.OrganizationLookup organizations;
     private final ObjectMapper mapper;
     private final Clock clock;
     public PublicPublicationService(PublicationReadRepository reads, ObjectMapper mapper,
-            @Qualifier("publicationClock") Clock clock, com.acme.sportplatform.events.EventPublicLookup events, com.acme.sportplatform.competition.EventDisciplineLookup eventDisciplines, com.acme.sportplatform.organizations.OrganizationLookup organizations) {
+            @Qualifier("publicationClock") Clock clock, com.acme.sportplatform.events.EventPublicLookup events, com.acme.sportplatform.competition.EventDisciplineLookup eventDisciplines, com.acme.sportplatform.organizations.OrganizationLookup organizations,
+            com.acme.sportplatform.results.ResultsPublicationLookup publications) {
+        this.publications = publications;
         this.organizations = organizations;
         this.events = events; this.eventDisciplines = eventDisciplines;
 
@@ -146,6 +149,7 @@ public class PublicPublicationService {
         var units = reads.units(event.id()).stream().collect(Collectors.toMap(ReadModels.Unit::id,Function.identity()));
         var byDiscipline = reads.entries(event.id()).stream().filter(e -> e.resultStatus() != null)
                 .collect(Collectors.groupingBy(e -> units.get(e.unitId()).disciplineId()));
+        var official = publications.officialByDiscipline(disciplines.stream().map(ReadModels.Discipline::id).toList());
         List<DisciplineResults> result = new ArrayList<>();
         for (var d : disciplines) {
             var rows = byDiscipline.getOrDefault(d.id(),List.of());
@@ -155,9 +159,10 @@ public class PublicPublicationService {
                 var groupRows = rows.stream().filter(e -> inAgeGroup(e,units.get(e.unitId()),d,group)).toList();
                 if (!groupRows.isEmpty()) groups.add(new AgeGroupResults(group.path("code").asText(),group.path("name").asText(),resultRows(groupRows,true)));
             }
-            result.add(new DisciplineResults(d.id(),d.number(),d.name(),resultRows(rows,false),List.copyOf(groups)));
+            result.add(new DisciplineResults(d.id(),d.number(),d.name(),resultRows(rows,false),List.copyOf(groups), official.getOrDefault(d.id(), false)));
         }
-        return new Results(List.copyOf(result));
+        return new Results(List.copyOf(result), !result.isEmpty() && !official.isEmpty()
+                && official.values().stream().allMatch(Boolean::booleanValue));
     }
     private boolean inAgeGroup(ReadModels.Entry entry, ReadModels.Unit unit, ReadModels.Discipline discipline, JsonNode group) {
         if ("BY_AGE_GROUP".equals(discipline.seedingMode()) && unit.ageGroupCode() != null)

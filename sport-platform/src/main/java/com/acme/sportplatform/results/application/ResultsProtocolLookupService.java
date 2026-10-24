@@ -46,8 +46,15 @@ public class ResultsProtocolLookupService implements ResultsProtocolLookup {
 
     @Override
     public List<Heat> heats(List<UUID> disciplineIds) {
+        return heats(disciplineIds, false);
+    }
+
+    @Override
+    public List<Heat> heats(List<UUID> disciplineIds, boolean publishedOnly) {
         if (disciplineIds.isEmpty()) return List.of();
-        var heats = units.findByEventDisciplineIdInOrderBySequenceNumberAsc(disciplineIds);
+        var heats = publishedOnly
+                ? units.findByEventDisciplineIdInAndStatusInOrderBySequenceNumberAsc(disciplineIds, List.of("FINISHED", "COMPLETED"))
+                : units.findByEventDisciplineIdInOrderBySequenceNumberAsc(disciplineIds);
         if (heats.isEmpty()) return List.of();
         var lanes = entries.findByCompetitionUnitIdIn(heats.stream().map(CompetitionUnitEntity::getId).toList());
         var registered = registrations.findByIdIn(lanes.stream().map(CompetitionUnitEntryEntity::getRegistrationId).toList())
@@ -73,6 +80,6 @@ public class ResultsProtocolLookupService implements ResultsProtocolLookup {
                                     "WITHDRAWN".equals(e.getEntryStatus()) || "WITHDRAWN".equals(registration.status()),
                                     result == null ? null : new Outcome(result.getTimeMs(), result.getStatus(),
                                             result.getRawValue(), result.getFinalPlace(), result.getPlaceInAgeGroup()), athlete.id());
-                        }).toList())).toList();
+                        }).toList(), h.isOfficial())).toList();
     }
 }

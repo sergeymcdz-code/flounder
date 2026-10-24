@@ -7,7 +7,8 @@ public record PublicCompetitionUnitResultsResponse(
         UUID id,
         UUID eventDisciplineId,
         String label,
-        List<EntryView> entries
+        List<EntryView> entries,
+        boolean official
 ) {
     public record EntryView(
             String participantName,
