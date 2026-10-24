@@ -494,3 +494,35 @@
   .resultsTable tbody tr:nth-child(even) td:nth-child(-n+2) { background: var(--color-surface-muted); }
   .participantName { max-width: 108px; overflow-wrap: anywhere; }
 }
+
+.page { min-width: 0; }
+.page > :global(.fl-page-header) { align-items: center; }
+.page :global(.fl-page-title) { align-items: center; flex-wrap: wrap; }
+.page :global(.fl-page-actions) { min-width: 0; max-width: 55%; }
+.tableFrame { position: relative; min-width: 0; }
+.tableFrame::before, .tableFrame::after { position: absolute; z-index: 4; inset-block: 0; width: 16px; pointer-events: none; content: ''; opacity: 0; }
+.tableFrame::before { left: 0; background: linear-gradient(to right, rgb(0 0 0 / 20%), transparent); }
+.tableFrame::after { right: 0; background: linear-gradient(to left, rgb(0 0 0 / 20%), transparent); }
+.tableFrame[data-scroll-edges~='left']::before, .tableFrame[data-scroll-edges~='right']::after { opacity: 1; }
+@media (max-width: 767px) {
+  .page:has(.tableFrame) { padding-bottom: calc(var(--judge-actions-height, 200px) + 16px); }
+  .page :is(a, summary) { min-height: 44px; box-sizing: border-box; }
+  .page summary { padding-block: 12px; cursor: pointer; }
+  .backLink { align-items: center; }
+  .page > :global(.fl-page-header) { flex-direction: row; }
+  .page :global(.fl-page-actions) { max-width: 100%; }
+  .laneCards { display: grid; gap: 16px; }
+  .laneCard { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; scroll-margin-bottom: calc(var(--judge-actions-height, 200px) + 16px); }
+  .laneCard > div { min-width: 0; }
+  .laneCard .laneCell { text-align: left !important; }
+  .participantName { max-width: none; overflow-wrap: anywhere; }
+  .clubName, .entryTime { display: block; color: var(--color-text-muted); font-size: .875rem; overflow-wrap: anywhere; }
+  .timeCell { display: grid; gap: 8px; }
+  .laneCard .resultInput { width: 100%; min-width: 0; min-height: 56px; box-sizing: border-box; font-size: 24px; scroll-margin-top: 16px; scroll-margin-bottom: calc(var(--judge-actions-height, 200px) + 24px); }
+  .laneCard .statusButtons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .statusButtons button { min-width: 0; min-height: 44px; }
+  .laneCard .placeCell { text-align: left !important; font-size: .875rem; }
+}
+@media (max-width: 767px) {
+  .laneCard .statusButtons button { min-height: 44px; }
+}

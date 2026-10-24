@@ -94,3 +94,45 @@ it('shows a notice instead of action buttons without judge rights', async () => 
   expect(await screen.findByText('Нет прав для ввода результатов.')).toBeInTheDocument()
   for (const name of ['Старт', 'Финиш', 'Сохранить и пересчитать', 'Опубликовать результаты']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
 })
+
+it('renders lane cards at 375px and reserves the measured action bar height', async () => {
+  const originalMatchMedia = window.matchMedia
+  const bounds = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ height: 184, width: 375, left: 0, right: 375, top: 628, bottom: 812, x: 0, y: 628, toJSON: () => ({}) })
+  window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  try {
+    mount('IN_PROGRESS')
+    const card = await screen.findByRole('article', { name: 'Дорожка 4' })
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(card).toContainElement(screen.getByRole('textbox', { name: 'Время, дорожка 4' }))
+    expect(screen.getByText('Заявочное время: —')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'DNS' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('group', { name: 'Действия заплыва' }).closest('section')).toHaveStyle({ '--judge-actions-height': '184px' })
+    await userEvent.click(screen.getByRole('button', { name: 'DNS' }))
+    expect(screen.getByRole('textbox')).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'DNS' }))
+    expect(screen.getByRole('textbox')).toBeEnabled()
+  } finally {
+    window.matchMedia = originalMatchMedia
+    bounds.mockRestore()
+  }
+})
+
+it.each([false, true])('keeps arrow and Enter navigation between editable lanes (mobile: %s)', async mobile => {
+  const originalMatchMedia = window.matchMedia
+  window.matchMedia = vi.fn().mockReturnValue({ matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  try {
+    mount('IN_PROGRESS')
+    vi.mocked(api.getCompetitionUnitDetails).mockResolvedValue({ ...unit, entries: [unit.entries[0], { ...unit.entries[0], entryId: 'second', laneOrPosition: 5 }] })
+    const first = await screen.findByRole('textbox', { name: 'Время, дорожка 4' })
+    const second = await screen.findByRole('textbox', { name: 'Время, дорожка 5' })
+    first.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(second).toHaveFocus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(first).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(second).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Сохранить и пересчитать' })).toHaveFocus()
+  } finally { window.matchMedia = originalMatchMedia }
+})

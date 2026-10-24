@@ -1,0 +1,5 @@
+.currentHeat { margin-block: 16px; min-width: 0; }
+.currentHeat p { color: var(--color-text-muted); margin-block: 8px; }
+@media (max-width: 767px) {
+  .currentHeat :is(a, button) { box-sizing: border-box; min-height: 44px; max-width: 100%; white-space: normal; }
+}
