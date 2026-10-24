@@ -51,15 +51,20 @@ describe('Result status explanations', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
-  it('keeps the judge action and opens a hint when its button is pressed', async () => {
+  it('keeps the judge button name, description and action, with a tooltip only on touch', async () => {
     const user = userEvent.setup()
     const action = vi.fn()
     render(<ResultStatus status="DSQ" buttonProps={{ onClick: action, type: 'button' }} />)
-    const button = screen.getByRole('button', { name: 'DSQ — Дисквалифицирован' })
+    const button = screen.getByRole('button', { name: 'DSQ' })
     expect(button).toHaveAttribute('title', 'Дисквалифицирован')
+    expect(button).toHaveAccessibleDescription('Дисквалифицирован')
     await user.click(button)
     expect(action).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    await user.pointer([{ keys: '[TouchA>]', target: button }, { keys: '[/TouchA]' }])
+    expect(action).toHaveBeenCalledTimes(2)
     expect(screen.getByRole('tooltip')).toHaveTextContent('Дисквалифицирован')
+    expect(button).toHaveAccessibleDescription('Дисквалифицирован')
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })

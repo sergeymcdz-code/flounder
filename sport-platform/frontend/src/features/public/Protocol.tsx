@@ -66,6 +66,10 @@ export function PrintButton({ ready }: { ready: boolean }) {
 }
 
 export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
+  const visibleLanes = Array.from({ length: lanes }, (_, index) => {
+    const lane = heat.lanes.find(item => item.lane === index + 1)
+    return lane && !lane.empty ? lane : undefined
+  })
   return (
     <>
     <table className={`${styles.table} fl-protocol fl-lanes`} role="table" tabIndex={0}>
@@ -87,9 +91,7 @@ export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
         </tr>
       </thead>
       <tbody>
-        {Array.from({ length: lanes }, (_, index) => {
-          const lane = heat.lanes.find((item) => item.lane === index + 1)
-          const entry = lane && !lane.empty ? lane : undefined
+        {visibleLanes.map((entry, index) => {
           const withdrawn = entry?.withdrawn === true
           return (
             <tr
@@ -117,7 +119,7 @@ export function LaneTable({ heat, lanes }: { heat: Heat; lanes: number }) {
         })}
       </tbody>
     </table>
-    <StatusLegend statuses={heat.lanes.filter(lane => !lane.empty && !lane.withdrawn && lane.lane >= 1 && lane.lane <= lanes).map(lane => !lane.empty && lane.seedTimeMs === null ? 'NT' : null)} />
+    <StatusLegend statuses={visibleLanes.map(entry => entry && !entry.withdrawn && entry.seedTimeMs === null ? 'NT' : null)} />
     </>
   )
 }

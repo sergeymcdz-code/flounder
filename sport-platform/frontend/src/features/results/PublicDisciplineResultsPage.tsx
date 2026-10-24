@@ -1,5 +1,6 @@
 import { ResultStatus } from './ResultStatus'
 import { StatusLegend } from './StatusLegend'
+import { resultStatusCode } from './results-ui'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getPublicEventDetails } from '../../api/events.api'
@@ -27,10 +28,6 @@ function resultStatusLabel(status: string) {
   const labels: Record<string, string> = {
     PENDING: 'Ожидает пересчёта',
     VALID: 'Учтён',
-    DID_NOT_START: 'Не стартовал',
-    DID_NOT_FINISH: 'Не финишировал',
-    DISQUALIFIED: 'Дисквалифицирован',
-    CORRECTED: 'Исправлен',
     EXHIBITION: 'Вне зачёта',
   }
 
@@ -326,7 +323,7 @@ export function PublicDisciplineResultsPage() {
                                     entry.status,
                                   )}
                                 >
-                                  <ResultStatus status={entry.status}>{resultStatusLabel(entry.status)}</ResultStatus>
+                                  <ResultStatus status={entry.status}>{resultStatusCode(entry.status) ? undefined : resultStatusLabel(entry.status)}</ResultStatus>
                                 </span>
                               </td>
                             </tr>
