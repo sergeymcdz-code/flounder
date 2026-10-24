@@ -13,8 +13,10 @@ public class CreateVenueUseCase {
 
     private final VenueRepository venueRepository;
     private final VenueMapper venueMapper;
+    private final com.acme.sportplatform.organizations.CatalogOrganizationAccess access;
 
-    public CreateVenueUseCase(VenueRepository venueRepository, VenueMapper venueMapper) {
+    public CreateVenueUseCase(VenueRepository venueRepository, VenueMapper venueMapper, com.acme.sportplatform.organizations.CatalogOrganizationAccess access) {
+        this.access = access;
         this.venueRepository = venueRepository;
         this.venueMapper = venueMapper;
     }
@@ -33,6 +35,7 @@ public class CreateVenueUseCase {
                                 : "Длина бассейна должна быть 25 или 50 м");
         }
         VenueEntity entity = new VenueEntity();
+        entity.setOrganizationId(access.ownerForCreate(request.organizationId()));
         entity.setName(request.name());
         entity.setCountryCode(request.countryCode());
         entity.setCity(request.city());

@@ -13,15 +13,17 @@ public class GetVenuesUseCase {
 
     private final VenueRepository venueRepository;
     private final VenueMapper venueMapper;
+    private final com.acme.sportplatform.organizations.CatalogOrganizationAccess access;
 
-    public GetVenuesUseCase(VenueRepository venueRepository, VenueMapper venueMapper) {
+    public GetVenuesUseCase(VenueRepository venueRepository, VenueMapper venueMapper, com.acme.sportplatform.organizations.CatalogOrganizationAccess access) {
+        this.access = access;
         this.venueRepository = venueRepository;
         this.venueMapper = venueMapper;
     }
 
     @Transactional(readOnly = true)
     public List<VenueResponse> execute() {
-        return venueRepository.findAll()
+        return venueRepository.findVisible(access.isPlatformAdmin(), access.readableOrganizationIds())
                 .stream()
                 .map(venueMapper::toResponse)
                 .toList();
