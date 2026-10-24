@@ -3,14 +3,14 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../components/ui/Toast'
 import { createFixtures } from '../../mocks/fixtures'
-import type { OrganizerRegistration } from '../../api/organizer.types'
+import type { Heat, OrganizerRegistration } from '../../api/organizer.types'
 import { OrganizerOverviewPage } from './OrganizerOverviewPage'
 import { publishEvent, closeEventRegistration, openEventRegistration, patchEvent } from '../../api/events.api'
 
 const context = vi.hoisted(() => ({
   event: { id: 'event', status: 'REGISTRATION_OPEN', publicSlug: 'cup', title: 'Кубок', eventStartAt: '2030-06-01T10:00:00Z', eventEndAt: '2030-06-01T18:00:00Z', maxParticipants: 1, disciplines: [] },
   registrations: [{ participantProfileId: 'profile', status: 'CONFIRMED' }] as OrganizerRegistration[],
-  sessions: [], heats: [], accessToken: 'test', busy: false, error: '',
+  sessions: [], heats: [] as Heat[], accessToken: 'test', busy: false, error: '',
   refresh: vi.fn().mockResolvedValue(undefined),
   registerDialog: vi.fn(() => vi.fn()),
   clearError: vi.fn(),
@@ -31,6 +31,7 @@ beforeEach(() => {
   context.event.status = 'REGISTRATION_OPEN'
   context.event.maxParticipants = 1
   context.registrations = [{ participantProfileId: 'profile', status: 'CONFIRMED', paymentStatus: 'PAID' }] as OrganizerRegistration[]
+  context.heats = []
   context.busy = false
   context.error = ''
   vi.clearAllMocks()
@@ -91,6 +92,8 @@ it.each([
   expect(document.querySelectorAll('.fl-btn-primary')).toHaveLength(1)
   expect(screen.getByRole('button', { name: label })).toHaveClass('fl-btn-primary')
   expect(screen.getByRole('button', { name: label })).toBeEnabled()
+  expect(screen.getByRole('button', { name: label })).toHaveAccessibleDescription('Сначала: шаг 1')
+  expect(screen.getByLabelText('текущий шаг').parentElement).toHaveTextContent('1. Программа')
 })
 
 it('publishes only once after confirmation', async () => {
@@ -135,7 +138,7 @@ it('shows a visible reason while a lifecycle action is loading', () => {
   const button = screen.getByRole('button', { name: 'Закрыть регистрацию' })
   expect(button).toBeDisabled()
   expect(button).toHaveAttribute('aria-busy', 'true')
-  expect(button).toHaveAccessibleDescription('Дождитесь завершения текущего действия')
+  expect(button).toHaveAccessibleDescription('Сначала: шаг 1 Дождитесь завершения текущего действия')
 })
 
 it('rejects a past extension date without changing the event', () => {
@@ -169,4 +172,28 @@ it('does not flag waived, refunded or free registrations as unpaid contributions
   const attention = screen.getByRole('region', { name: 'Требует внимания' })
   expect(within(attention).queryByRole('link', { name: /Неоплаченные взносы/ })).not.toBeInTheDocument()
   expect(within(attention).getByText(/Срочных задач нет/)).toBeVisible()
+})
+
+it('uses the visible registration heading as its accessible name', () => {
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const registration = screen.getByRole('region', { name: 'Регистрация и площадка' })
+  const heading = within(registration).getByRole('heading', { name: 'Регистрация' })
+  expect(heading).toHaveTextContent(/^Регистрация$/)
+  expect(heading).not.toHaveAttribute('aria-label')
+})
+
+it.each([
+  ['DRAFT', false, false], ['PUBLISHED', false, false],
+  ['REGISTRATION_OPEN', false, true], ['REGISTRATION_CLOSED', true, true],
+  ['LIVE', true, true], ['COMPLETED', false, false], ['ARCHIVED', false, false],
+])('limits protocol and payment attention to relevant lifecycle states: %s', (status, protocol, payment) => {
+  const fixture = createFixtures()
+  context.event.status = status
+  context.registrations = fixture.registrations
+  context.heats = fixture.heats
+  render(<MemoryRouter><OrganizerOverviewPage /></MemoryRouter>)
+  const attention = screen.getByRole('region', { name: 'Требует внимания' })
+  expect(!!within(attention).queryByRole('link', { name: /Неопубликованный стартовый протокол/ })).toBe(protocol)
+  expect(!!within(attention).queryByRole('link', { name: /Неоплаченные взносы/ })).toBe(payment)
+  if (!protocol && !payment) expect(within(attention).getByText(/Срочных задач нет/)).toBeVisible()
 })

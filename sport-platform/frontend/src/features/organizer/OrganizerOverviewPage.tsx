@@ -10,7 +10,7 @@ import { Notice } from '../../components/ui/Notice'
 import { useToast } from '../../components/ui/Toast'
 import { normalizeStatus } from '../../components/ui/status-dictionary'
 import { useAuth } from '../../app/providers/AuthProvider'
-import { EventChecklist, type ChecklistAction } from './EventChecklist'
+import { EventChecklist, checklistSteps, type ChecklistAction } from './EventChecklist'
 import {
   publishEvent, openEventRegistration, closeEventRegistration,
   completeEvent, archiveEvent, patchEvent,
@@ -78,8 +78,10 @@ export function OrganizerOverviewPage() {
   const base = `/organizer/events/${event.id}`
   const participants = new Set(registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW', 'CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status)).map(r => r.participantProfileId)).size
   const pending = registrations.filter(r => ['SUBMITTED', 'UNDER_REVIEW'].includes(r.status)).length
-  const unpaid = registrations.filter(r => ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED', 'NOT_REQUIRED'].includes(r.paymentStatus)).length
-  const unpublished = heats.filter(h => !isHeatPublished(h.status)).length
+  const unpaid = ['REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'LIVE'].includes(status)
+    ? registrations.filter(r => ['CONFIRMED', 'PAID', 'ADMITTED'].includes(r.status) && !['PAID', 'WAIVED', 'REFUNDED', 'NOT_REQUIRED'].includes(r.paymentStatus)).length : 0
+  const unpublished = ['REGISTRATION_CLOSED', 'LIVE'].includes(status)
+    ? heats.filter(h => !isHeatPublished(h.status)).length : 0
   const transitions = [
     { states: ['COMPLETED'], label: 'В архив', action: archiveEvent, step: 6 },
     { states: ['DRAFT'], label: 'Опубликовать', action: publishEvent, step: 1 },
@@ -88,8 +90,10 @@ export function OrganizerOverviewPage() {
     { states: ['REGISTRATION_CLOSED', 'LIVE'], label: 'Завершить соревнование', action: completeEvent, step: 6 },
   ]
   const transition = canManage ? transitions.find(t => t.states.includes(status)) : undefined
+  const firstUndone = checklistSteps(context).findIndex(step => !step.done)
   const action: ChecklistAction | undefined = transition && {
     label: transition.label, step: transition.step,
+    reason: firstUndone !== -1 && firstUndone < transition.step ? `Сначала: шаг ${firstUndone + 1}` : undefined,
   }
   useEffect(() => {
     if (params.get('archive') !== '1') return
@@ -158,7 +162,7 @@ export function OrganizerOverviewPage() {
         </EmptyState>}
       </section>
       <section className={`fl-card ${styles.registration}`} aria-label="Регистрация и площадка">
-        <h2 aria-label="Регистрация">Регистрация и площадка</h2>
+        <h2>Регистрация</h2>
         <dl className={styles.details}>
           <KeyValue label="Регистрация">{formatDate(event.registrationOpenAt, event.venue?.timezone)} — {formatDate(event.registrationCloseAt, event.venue?.timezone)}</KeyValue>
           <KeyValue label="Площадка">{event.venue ? `${event.venue.name} · ${event.venue.city} · ${event.venue.lanes ?? '—'} дорожек · ${event.venue.courseLength ?? '—'} м` : 'Площадка не указана'}</KeyValue>

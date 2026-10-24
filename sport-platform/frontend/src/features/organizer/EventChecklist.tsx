@@ -33,12 +33,13 @@ export function EventChecklist({ context, onTransition, action, busy = false }: 
   busy?: boolean
 }) {
   const steps = checklistSteps(context)
-  const current = action?.step ?? steps.findIndex(step => !step.done)
+  const first = steps.findIndex(step => !step.done)
+  const current = first === -1 ? (action?.step ?? -1) : first
   const base = `/organizer/events/${context.event.id}`
   const completed = steps.filter((step, index) => step.done && index !== action?.step)
   function row(step: typeof steps[number], index: number) {
     const active = index === current
-    const reason = busy ? 'Дождитесь завершения текущего действия' : action?.reason
+    const reason = [action?.reason, busy ? 'Дождитесь завершения текущего действия' : undefined].filter(Boolean).join(' ') || undefined
     return <li className={styles.row} key={step.title} aria-current={active ? 'step' : undefined}>
       <StepIcon state={step.done && !active ? 'done' : active ? 'current' : 'pending'} />
       <Link className={styles.stepLink} to={`${base}${step.path}`}>
@@ -46,7 +47,7 @@ export function EventChecklist({ context, onTransition, action, busy = false }: 
         <span>{step.title}{step.summary && <small>{step.summary}</small>}</span>
       </Link>
       {action?.step === index ? <div className={styles.action}>
-        <Button variant="primary" loading={busy} disabled={!!reason} title={reason}
+        <Button variant="primary" loading={busy} disabled={busy} title={reason}
           aria-describedby={reason ? `checklist-reason-${index}` : undefined}
           onClick={() => onTransition(index)}>{action.label}</Button>
         {reason && <small id={`checklist-reason-${index}`}>{reason}</small>}
