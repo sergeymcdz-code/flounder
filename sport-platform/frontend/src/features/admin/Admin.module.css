@@ -20,7 +20,6 @@
 .form > label { display: grid; gap: var(--space-2); }
 .checks { display: grid; gap: var(--space-2); }
 .checks label, .check, .check span { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap-target); cursor: pointer; }
-.checks input, .check input { min-height: var(--tap-target); min-width: var(--tap-target); }
 .pagination { justify-content: center; flex-wrap: wrap; }
 .dialogActions { justify-content: flex-end; }
 .queue { display: grid; gap: var(--space-4); }
@@ -32,13 +31,15 @@
 .navigation :global(.fl-tabs a) { min-height: var(--tap-target); }
 /* Local scroll cue and row cards, as specified in D04 section (д). */
 .rowcards { min-width: 0; }
-.rowcards :global(.fl-data-table-scroll) { scrollbar-width: thin; overscroll-behavior-inline: contain; background: linear-gradient(to right, var(--surface-1), var(--surface-1)) left / var(--space-6) 100% no-repeat local, linear-gradient(to left, var(--surface-1), var(--surface-1)) right / var(--space-6) 100% no-repeat local, linear-gradient(to right, var(--border-subtle), transparent) left / var(--space-4) 100% no-repeat scroll, linear-gradient(to left, var(--border-subtle), transparent) right / var(--space-4) 100% no-repeat scroll; }
+.rowcards :global(.fl-data-table-scroll), .page :global(.fl-table-scroll) { scrollbar-width: thin; overscroll-behavior-inline: contain; background: linear-gradient(to right, var(--surface-1), var(--surface-1)) left / var(--space-6) 100% no-repeat local, linear-gradient(to left, var(--surface-1), var(--surface-1)) right / var(--space-6) 100% no-repeat local, linear-gradient(to right, var(--border-subtle), transparent) left / var(--space-4) 100% no-repeat scroll, linear-gradient(to left, var(--border-subtle), transparent) right / var(--space-4) 100% no-repeat scroll; }
 .rowcards :is(th, td) { overflow-wrap: anywhere; }
 .menu { position: fixed; inset: var(--header-h) var(--space-4) auto auto; z-index: var(--z-dialog); display: grid; gap: var(--space-1); width: min(calc(100% - var(--space-8)), calc(var(--space-16) * 5)); max-height: calc(100dvh - var(--header-h) - var(--space-4)); overflow-y: auto; padding: var(--space-3); background: var(--surface-1); color: var(--color-text); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); }
 .menu > button { justify-content: flex-start; min-height: var(--tap-target); }
 .skeleton { display: grid; gap: var(--space-2); }
 .skeleton span { min-height: var(--control-h); border-radius: var(--radius-sm); background: var(--surface-2); }
 @media (max-width: 767px) {
+  .table { min-width: max-content; }
+  .table th, .table td { overflow-wrap: normal; }
   .toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
   .dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: var(--space-4); }
   .dialogActions { flex-direction: row; flex-wrap: wrap; }

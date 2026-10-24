@@ -69,7 +69,7 @@ it('checks matching passwords and supports revealing them', async () => {
   render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('user@flounder.demo')).closest('tr')!
   await userEvent.click(within(row).getByRole('button', { name: 'Действия пользователя user@flounder.demo' }))
-  await userEvent.click(screen.getByRole('button', { name: 'Сменить пароль' }))
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Сменить пароль' }))
   await userEvent.type(screen.getByLabelText('Новый пароль'), 'NewPass2026!')
   await userEvent.type(screen.getByLabelText('Повторите пароль'), 'Different2026!')
   await userEvent.click(screen.getByLabelText('Показать пароль'))
@@ -106,9 +106,12 @@ it('closes the overflow menu on Escape and returns focus to its trigger', async 
   render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const trigger = await screen.findByRole('button', { name: 'Действия пользователя user@flounder.demo' })
   await userEvent.click(trigger)
-  expect(screen.getByRole('dialog', { name: 'Действия пользователя user@flounder.demo' })).toBeInTheDocument()
-  await userEvent.keyboard('{Escape}')
+  expect(screen.getByRole('menu', { name: 'Действия пользователя user@flounder.demo' })).toBeInTheDocument()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  await userEvent.keyboard('{ArrowDown}')
+  expect(screen.getByRole('menuitem', { name: 'Сменить пароль' })).toHaveFocus()
+  await userEvent.keyboard('{Escape}')
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   expect(trigger).toHaveFocus()
 })
 it('keeps existing users visible on a failed search and allows retry', async () => {
@@ -122,4 +125,17 @@ it('keeps existing users visible on a failed search and allows retry', async () 
   await userEvent.click(screen.getByRole('button', { name: 'Повторить' }))
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   expect(screen.getByText('user@flounder.demo')).toBeInTheDocument()
+})
+it('waits for roles before showing the unavailable-role hint', async () => {
+  let resolve!: () => void
+  const pending = new Promise<void>(done => { resolve = done })
+  server.use(http.get('*/api/v1/roles', async () => {
+    await pending
+    return HttpResponse.json([])
+  }))
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
+  expect(screen.queryByText('Создание пользователя станет доступно после загрузки справочника ролей.')).not.toBeInTheDocument()
+  resolve()
+  expect(await screen.findByText('Создание пользователя станет доступно после загрузки справочника ролей.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Создать пользователя' })).toBeDisabled()
 })

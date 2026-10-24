@@ -35,8 +35,15 @@ function UserMenu({ label, children }: { label: string; children: ReactNode }) {
     document.addEventListener('pointerdown', close)
     return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
   }, [open])
-  return <><button ref={trigger} type="button" className="fl-btn fl-btn-ghost" aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>⋯</button>
-    {open && createPortal(<div id={id} ref={panel} className={styles.menu} role="dialog" aria-label={label} onClick={event => {
+  return <><button ref={trigger} type="button" className="fl-btn fl-btn-ghost" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>⋯</button>
+    {open && createPortal(<div id={id} ref={panel} className={styles.menu} role="menu" aria-label={label} onKeyDown={event => {
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+      event.preventDefault()
+      const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
+      const current = items.indexOf(document.activeElement as HTMLButtonElement)
+      const index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+      items[index]?.focus()
+    }} onClick={event => {
       if ((event.target as HTMLElement).closest('button:not(:disabled)')) { setOpen(false); trigger.current?.focus() }
     }}>{children}</div>, document.body)}</>
 }
@@ -52,6 +59,7 @@ export function UsersAdminPage() {
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [rolesLoading, setRolesLoading] = useState(true)
   const [rolesError, setRolesError] = useState('')
   const [reload, setReload] = useState(0)
   const [action, setAction] = useState<Action | null>(null)
@@ -72,8 +80,8 @@ export function UsersAdminPage() {
   }, [query])
   useEffect(() => {
     let active = true
-    setRolesError('')
-    getRoles(token).then(value => { if (active) setRoles(value) }).catch(err => { if (active) setRolesError(adminError(err)) })
+    setRolesLoading(true); setRolesError('')
+    getRoles(token).then(value => { if (active) setRoles(value) }).catch(err => { if (active) setRolesError(adminError(err)) }).finally(() => { if (active) setRolesLoading(false) })
     return () => { active = false }
   }, [token, reload])
   useEffect(() => {
@@ -157,14 +165,14 @@ export function UsersAdminPage() {
     { key: 'actions', header: 'Действия', render: user => <div className={styles.actions}>
       <Button onClick={() => open({ type: 'roles', user })}>Роли</Button>
       <UserMenu label={`Действия пользователя ${user.email}`}>
-        {user.status !== 'INACTIVE' && <Button variant="ghost" onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</Button>}
-        <Button variant="ghost" onClick={() => open({ type: 'password', user })}>Сменить пароль</Button>
+        {user.status !== 'INACTIVE' && <Button role="menuitem" variant="ghost" onClick={() => open({ type: 'status', user })}>{user.status === 'ACTIVE' ? 'Заблокировать' : 'Разблокировать'}</Button>}
+        <Button role="menuitem" variant="ghost" onClick={() => open({ type: 'password', user })}>Сменить пароль</Button>
       </UserMenu>
     </div> },
   ]
   return <section className={styles.page}>
     <PageHeader title="Пользователи" actions={<Button variant="primary" title={!roles.length ? 'Нет доступного справочника ролей' : undefined} disabled={!roles.length} onClick={() => open({ type: 'create' })}>Создать пользователя</Button>} />
-    {!roles.length && <p className="fl-meta">Создание пользователя станет доступно после загрузки справочника ролей.</p>}
+    {!roles.length && (rolesError || !rolesLoading) && <p className="fl-meta">Создание пользователя станет доступно после загрузки справочника ролей.</p>}
     <AdminNav />
     <div className={styles.toolbar}>
       <label className="fl-field">Поиск пользователей<input type="search" placeholder="Email, фамилия или имя" value={query} onChange={event => setQuery(event.target.value)} /></label>

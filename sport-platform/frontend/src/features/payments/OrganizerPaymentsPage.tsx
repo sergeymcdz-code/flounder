@@ -43,8 +43,15 @@ function PaymentMenu({ label, children }: { label: string; children: ReactNode }
     document.addEventListener('pointerdown', close)
     return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
   }, [open])
-  return <><button ref={trigger} type="button" className="fl-btn fl-btn-ghost" aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>⋯</button>
-    {open && createPortal(<div ref={panel} id={id} className={styles.menu} role="dialog" aria-label={label} onClick={event => {
+  return <><button ref={trigger} type="button" className="fl-btn fl-btn-ghost" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>⋯</button>
+    {open && createPortal(<div ref={panel} id={id} className={styles.menu} role="menu" aria-label={label} onKeyDown={event => {
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+      event.preventDefault()
+      const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
+      const current = items.indexOf(document.activeElement as HTMLButtonElement)
+      const index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+      items[index]?.focus()
+    }} onClick={event => {
       if ((event.target as HTMLElement).closest('button:not(:disabled)')) { setOpen(false); trigger.current?.focus() }
     }}>{children}</div>, document.body)}</>
 }
@@ -105,21 +112,23 @@ function PaymentsContent({ context }: { context: EventContext }) {
     { key: 'actions', header: 'Действия', render: r => <div className={styles.actions}>
       <Button disabled={disabled} title={disabledReason} onClick={() => setMutation({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату</Button>
       <PaymentMenu label={`Действия оплаты: ${name(r)}`}>
-        {([['waive-payment', 'Освободить от взноса'], ['refund-payment', 'Вернуть оплату'], ['reset-payment', 'Сбросить отметку']] as const).map(([action, label]) => <Button key={action} variant="ghost" disabled={disabled} title={disabledReason} onClick={() => setMutation({ ids: [r.id], action, amount: action === 'refund-payment' ? r.paidAmount : undefined })}>{label}</Button>)}
-        <Button variant="ghost" onClick={() => setHistory(r.id)}>Журнал оплаты</Button>
+        {([['waive-payment', 'Освободить от взноса'], ['refund-payment', 'Вернуть оплату'], ['reset-payment', 'Сбросить отметку']] as const).map(([action, label]) => <Button key={action} role="menuitem" variant="ghost" disabled={disabled} title={disabledReason} onClick={() => setMutation({ ids: [r.id], action, amount: action === 'refund-payment' ? r.paidAmount : undefined })}>{label}</Button>)}
+        <Button role="menuitem" variant="ghost" onClick={() => setHistory(r.id)}>Журнал оплаты</Button>
       </PaymentMenu>
     </div> },
   ]
   return <section className={styles.page} aria-label="Оплата">
-    <header className={`fl-page-header ${styles.heading}`}><div><h2>Оплата</h2><p className="fl-meta">Взносы участников и долги клубов</p></div>
-      <PaymentMenu label="Действия оплаты"><Button variant="ghost" disabled={busy || !summary} title={busy ? disabledReason : !summary ? 'Сводка оплаты ещё не загружена' : undefined} onClick={() => { void run(() => downloadPaymentSummary(event.id, accessToken), 'registrations') }}>Экспорт XLSX</Button>{!summary && <small>Для экспорта дождитесь загрузки сводки.</small>}</PaymentMenu>
-    </header>
-    {error && <Notice tone="danger">{error} <Button onClick={retry}>Повторить</Button></Notice>}
-    {loading && <div role="status"><p>Загружаем сводку оплаты…</p><div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div></div>}
+    <header className={styles.heading}><div><h2>Оплата</h2><p className="fl-meta">Взносы участников и долги клубов</p></div></header>
     {summary && <dl className={styles.summary}>{Object.entries({ due: 'Начислено', paid: 'Оплачено', pending: 'Ожидается', waived: 'Освобождено', refunded: 'Возвращено' }).map(([key, label]) => <div className="fl-summary-cell" key={key}><dt>{label}</dt><dd>{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: summary.currency }).formatToParts(summary.totals[key as keyof PaymentSummary['totals']]).map((part, index) => <span key={index} className={part.type === 'currency' ? styles.currency : undefined}>{part.value}</span>)}</dd></div>)}</dl>}
     <div className={styles.layout}>
       <div className={styles.lists}>
-        <article className={styles.card}><h2>Оплата по клубам</h2>
+        <article className={styles.card}>
+          <header className={styles.cardHeading}><h2>Оплата по клубам</h2>
+            <Button variant="ghost" size="sm" disabled={busy || !summary} title={busy ? disabledReason : !summary ? 'Сводка оплаты ещё не загружена' : undefined} onClick={() => { void run(() => downloadPaymentSummary(event.id, accessToken), 'registrations') }}>Экспорт XLSX</Button>
+          </header>
+          {!summary && <small className="fl-meta">Для экспорта дождитесь загрузки сводки.</small>}
+          {error && <Notice tone="danger">{error} <Button onClick={retry}>Повторить</Button></Notice>}
+          {loading && <div role="status"><p>Загружаем сводку оплаты…</p><div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div></div>}
           {summary && (summary.byClub.length ? <div className={`${styles.rowcards} ${styles.clubCards}`}><DataTable caption="Взносы и долги по клубам" columns={clubColumns} rows={summary.byClub} rowKey={c => c.club} minWidth={760} /></div> : <EmptyState title="Платежей пока нет" action={<Button as={Link} to={`/organizer/events/${event.id}/entries`}>Открыть заявки</Button>}><p>Подтверждённые заявки с взносами появятся здесь.</p></EmptyState>)}
           {!summary && !loading && !error && <EmptyState title="Сводка пока недоступна" action={<Button onClick={retry}>Повторить</Button>} />}
         </article>
