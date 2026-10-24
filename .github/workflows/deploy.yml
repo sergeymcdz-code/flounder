@@ -41,7 +41,15 @@ jobs:
           umask 077
           [[ "$SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || exit 2
           if [[ -n "${SSH_KEY_B64:-}" ]]; then
-            SSH_KEY="$(printf '%s' "$SSH_KEY_B64" | tr -d ' \r\n' | base64 -d)" || { echo 'SSH_KEY_B64 не декодируется.' >&2; exit 2; }
+            clean="$(printf '%s' "$SSH_KEY_B64" | tr -d ' \r\n')"
+            printf '%s' "$clean" | base64 -d >/dev/null 2>&1 || { echo 'SSH_KEY_B64 не декодируется.' >&2; exit 2; }
+            if printf '%s' "$clean" | base64 -d 2>/dev/null | grep -aq 'PRIVATE KEY-----'; then
+              # Whole PEM file encoded with `base64 -w0`.
+              SSH_KEY="$(printf '%s' "$clean" | base64 -d | tr -d '\0')"
+            else
+              # Only the PEM body was pasted (lines between BEGIN/END): restore the armour.
+              SSH_KEY="$(printf -- '-----BEGIN OPENSSH PRIVATE KEY-----\n%s\n-----END OPENSSH PRIVATE KEY-----' "$(printf '%s' "$clean" | fold -w 70)")"
+            fi
           fi
           [[ -n "$SSH_KEY" && -n "$SSH_HOST_KEY_FINGERPRINT" ]] || exit 2
           [[ "$SSH_KEY" == *"PRIVATE KEY-----"* ]] || { echo 'SSH_KEY не похож на приватный ключ OpenSSH.' >&2; exit 2; }
