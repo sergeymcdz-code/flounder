@@ -1,8 +1,15 @@
+.card { min-width: 0; padding: var(--space-4); }
+.card h2 { margin: 0 0 var(--space-4); font-size: var(--text-lg); }
 .list { list-style: none; padding: 0; margin: 0; }
-.row { display: flex; align-items: center; gap: 12px; min-height: 64px; border-bottom: 1px solid var(--border-subtle); padding: 8px 0; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); min-height: var(--control-h-lg); border-bottom: 1px solid var(--border-subtle); padding: var(--space-2) 0; }
 .row:last-child { border-bottom: 0; }
-.row[aria-current] { font-weight: 600; }
-.stepLink { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-.stepLink small { display: block; margin-top: 4px; font: 400 12px var(--font-body); color: var(--color-text-muted); }
-.number { font: 600 18px var(--font-heading); }
-@media(max-width: 600px) { .row { flex-wrap: wrap; } .stepLink { flex-basis: calc(100% - 40px); } .row > a:last-child, .row > button { margin-left: 32px; } }
+.row[aria-current] { background: var(--surface-3); border-radius: var(--radius-md); padding: var(--space-3); font-weight: var(--font-weight-medium); }
+.stepLink { display: flex; align-items: center; gap: var(--space-2); min-width: var(--tap-target); min-height: var(--tap-target); color: var(--color-text); font-weight: var(--font-weight-medium); text-decoration: none; overflow-wrap: anywhere; }
+.stepLink small, .action small { display: block; margin-top: var(--space-1); font: 400 var(--text-xs)/var(--line-height-body) var(--font-body); color: var(--color-text-muted); }
+.number { flex-shrink: 0; white-space: nowrap; font: var(--font-weight-medium) var(--text-lg) var(--font-heading); font-variant-numeric: var(--numeric-variant); }
+.action { grid-column: 2 / -1; min-width: 0; }
+.action > button { width: 100%; }
+.open { min-height: var(--tap-target); }
+.completed { margin-top: var(--space-2); }
+.completed > summary { width: 100%; }
+@media (min-width: 768px) { .card { padding: var(--space-6); } .row { min-height: var(--space-12); } }
