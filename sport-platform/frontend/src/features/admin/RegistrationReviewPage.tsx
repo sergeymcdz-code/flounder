@@ -128,7 +128,15 @@ export function RegistrationReviewPage() {
         'Обработана'
 
       setSuccessMessage(`Заявка успешно обработана: ${label}.`)
-      setRegistrations(rows => rows.map(row => row.id === reviewedRegistration.id ? { ...row, status: reviewedRegistration.status, reviewNote: reviewedRegistration.reviewNote } : row))
+      setRegistrations(rows => rows.map(row => row.id === reviewedRegistration.id ? {
+        ...row,
+        ...reviewedRegistration,
+        eventTitle: reviewedRegistration.eventTitle ?? row.eventTitle,
+        eventStartAt: reviewedRegistration.eventStartAt ?? row.eventStartAt,
+        disciplineName: reviewedRegistration.disciplineName ?? row.disciplineName,
+        venueTimezone: reviewedRegistration.venueTimezone ?? row.venueTimezone,
+        publicSlug: reviewedRegistration.publicSlug ?? row.publicSlug,
+      } : row))
       setSelected(null)
       setReviewNote('')
     } catch (error) {
