@@ -58,7 +58,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://sportgate.pro/api/v1/au
 
 ## Блок 3 — пароли (после деплоя)
 
-1. `org@`, `sec@`, `judge@`, `parent@flounder.demo` — задаются новым `DEMO_PASSWORD` при повторном сиде: `cd ~/flounder/scripts/demo && npm run seed` (или через контейнер node:22-alpine, см. `docs/qa/demo-calendar.md`).
+1. `org@`, `sec@`, `judge@`, `parent@flounder.demo` и аккаунт `DEMO_OWNER_EMAIL` — пароль меняет администратор на сайте: «Администрирование → Пользователи → Сменить пароль», значение = `DEMO_PASSWORD` из `scripts/demo/.env` (≥ 12 символов). Сид пароли существующих учёток **не меняет** (правило SEC01) и останавливается, если пароль не подходит; после смены — контрольный прогон `npm run seed` должен вывести «Пользователь готов: …» и «создано 0». Все переменные `*_PASSWORD` в `.env` должны быть ≥ 12 символов, включая `ADMIN_PASSWORD`.
 2. `infra/.env.prod`: новый `APP_ADMIN_PASSWORD`; новый `JWT_SECRET` (`openssl rand -base64 48`) — все сессии сбросятся. Затем `cd ~/flounder && ./infra/deploy.sh --no-pull`.
 3. `passwd` под root. Вход только по ключу — отдельно по `docs/infra-hardening.md` (SEC06), после проверки ключа.
 4. `APP_FILES_ENCRYPTION_KEY` — не ротируется (бэклог).
