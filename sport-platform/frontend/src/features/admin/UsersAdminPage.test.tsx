@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
@@ -22,14 +23,14 @@ it('searches by name after the debounce and shows the empty state', async () => 
     queries.push(query)
     return HttpResponse.json({ items: [], page: 0, size: 20, total: 0 })
   }))
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   await screen.findByText(/Пользователи не найдены — измените запрос/)
   await userEvent.type(screen.getByLabelText('Поиск пользователей'), 'Иванова')
   expect(queries).toEqual([''])
   await waitFor(() => expect(queries).toEqual(['', 'Иванова']))
 })
 it('assigns a role and refreshes the user badges', async () => {
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('user@flounder.demo')).closest('tr')!
   await userEvent.click(within(row).getByRole('button', { name: 'Роли' }))
   const dialog = screen.getByRole('dialog', { name: 'Роли пользователя' })
@@ -40,7 +41,7 @@ it('assigns a role and refreshes the user badges', async () => {
 })
 it('keeps an API 403 message under the role form', async () => {
   server.use(http.post('*/api/v1/users/:id/roles', () => HttpResponse.json({ code: 'identity.access_denied', message: 'Доступ к назначению ролей запрещён' }, { status: 403 })))
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('user@flounder.demo')).closest('tr')!
   await userEvent.click(within(row).getByRole('button', { name: 'Роли' }))
   await userEvent.click(screen.getByLabelText('Судья'))
@@ -50,11 +51,11 @@ it('keeps an API 403 message under the role form', async () => {
 })
 it('shows 403 when the user list is forbidden', async () => {
   server.use(http.get('*/api/v1/users', () => HttpResponse.json({ message: 'Доступ запрещён' }, { status: 403 })))
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   expect(await screen.findByRole('alert')).toHaveTextContent('Доступ запрещён')
 })
 it('requires explicit confirmation before removing platform_admin', async () => {
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('admin@flounder.demo')).closest('tr')!
   await userEvent.click(within(row).getByRole('button', { name: 'Роли' }))
   await userEvent.click(screen.getByLabelText('Администратор платформы'))
@@ -65,9 +66,10 @@ it('requires explicit confirmation before removing platform_admin', async () => 
   expect(await screen.findByRole('alert')).toHaveTextContent('Нельзя снять у себя')
 })
 it('checks matching passwords and supports revealing them', async () => {
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('user@flounder.demo')).closest('tr')!
-  await userEvent.click(within(row).getByRole('button', { name: 'Сменить пароль' }))
+  await userEvent.click(within(row).getByRole('button', { name: 'Действия пользователя user@flounder.demo' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Сменить пароль' }))
   await userEvent.type(screen.getByLabelText('Новый пароль'), 'NewPass2026!')
   await userEvent.type(screen.getByLabelText('Повторите пароль'), 'Different2026!')
   await userEvent.click(screen.getByLabelText('Показать пароль'))
@@ -80,7 +82,7 @@ it('keeps scoped assignments separate from editable global roles', async () => {
     { code: 'participant', name: 'Участник' },
     { code: 'judge', name: 'Судья', organizationId: 'organization-demo' },
   ] })))
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('user@flounder.demo')).closest('tr')!
   await userEvent.click(within(row).getByRole('button', { name: 'Роли' }))
   const dialog = screen.getByRole('dialog')
@@ -93,9 +95,31 @@ it('shows deleted users without an unblock action', async () => {
     id: 'deleted', email: 'deleted@test.example', firstName: 'Удалённый', lastName: 'Пользователь',
     status: 'INACTIVE', roles: ['participant'], createdAt: '2026-10-13T10:00:00Z',
   }], page: 0, size: 20, total: 1 })))
-  render(<UsersAdminPage />)
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
   const row = (await screen.findByText('deleted@test.example')).closest('tr')!
-  expect(within(row).getByRole('cell', { name: /^Удалён/ })).toBeInTheDocument()
+  expect(within(row).getByRole('cell', { name: /^Удалён$/ })).toBeInTheDocument()
   expect(within(row).queryByRole('button', { name: 'Разблокировать' })).not.toBeInTheDocument()
   expect(within(row).queryByRole('button', { name: 'Заблокировать' })).not.toBeInTheDocument()
+})
+
+it('closes the overflow menu on Escape and returns focus to its trigger', async () => {
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
+  const trigger = await screen.findByRole('button', { name: 'Действия пользователя user@flounder.demo' })
+  await userEvent.click(trigger)
+  expect(screen.getByRole('dialog', { name: 'Действия пользователя user@flounder.demo' })).toBeInTheDocument()
+  await userEvent.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(trigger).toHaveFocus()
+})
+it('keeps existing users visible on a failed search and allows retry', async () => {
+  render(<MemoryRouter initialEntries={['/admin/users']}><UsersAdminPage /></MemoryRouter>)
+  await screen.findByText('user@flounder.demo')
+  server.use(http.get('*/api/v1/users', () => HttpResponse.json({ message: 'Сервис временно недоступен' }, { status: 503 })))
+  await userEvent.type(screen.getByLabelText('Поиск пользователей'), 'Анна')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Сервис временно недоступен')
+  expect(screen.getByText('user@flounder.demo')).toBeInTheDocument()
+  server.use(...adminHandlers)
+  await userEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+  expect(screen.getByText('user@flounder.demo')).toBeInTheDocument()
 })
