@@ -1,3 +1,4 @@
+import { Button } from '../../components/ui/Button'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -111,15 +112,15 @@ export function RegistrationPage() {
 
   return (
     <section className={styles.page}>
-      <Link
-        className={styles.backLink}
+      <Button as={Link} variant="ghost" size="sm"
+        className="fl-back-link"
         to={eventCode ? `/events/${eventCode}` : '/'}
       >
         ← К соревнованию
-      </Link>
+      </Button>
 
       <div className={styles.card}>
-        <p className={styles.eyebrow}>Подача заявки</p>
+        <p className={`${styles.eyebrow} fl-eyebrow`}>Подача заявки</p>
 
         <h1 className={styles.title}>Регистрация на дисциплину</h1>
 

@@ -1,7 +1,7 @@
 /* B2 fixes public content at 960px; explicit size approved in the D04-2c review. */
 .page { width: 100%; max-width: 960px; margin-inline: auto; display: grid; gap: var(--space-4); min-width: 0; }
 .hero { display: grid; gap: var(--space-4); }
-.eyebrow { margin: 0 0 var(--space-2); color: var(--color-text); font-size: var(--text-xs); font-weight: var(--font-weight-medium); text-transform: uppercase; letter-spacing: .05em; }
+.eyebrow { margin: 0 0 var(--space-2);  font-size: var(--text-xs); font-weight: var(--font-weight-medium); text-transform: uppercase; letter-spacing: .05em; }
 .page :global(.fl-page-title) h1 { font-size: var(--text-xl); margin: 0; }
 .page .title { margin: 0 0 var(--space-3); font-family: var(--font-heading); font-size: var(--text-xl); font-weight: var(--font-weight-medium); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
 .facts { margin: var(--space-3) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); font-variant-numeric: var(--numeric-variant); }

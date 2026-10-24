@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from './ui/Button'
 import { downloadProtocol } from '../api/protocols.api'
 import styles from './PdfDownloadButton.module.css'
 
@@ -8,12 +9,16 @@ export function PdfDownloadButton({
   accessToken,
   disabled = false,
   label = 'Скачать PDF',
+  variant = 'ghost',
+  size = 'md',
 }: {
   path: string
   filename: string
   accessToken?: string
   disabled?: boolean
   label?: string
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  size?: 'sm' | 'md' | 'lg'
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -30,9 +35,9 @@ export function PdfDownloadButton({
   }
   return (
     <span className={styles.control}>
-      <button className="fl-btn fl-btn-ghost" type="button" disabled={disabled || busy} onClick={() => void download()}>
+      <Button variant={variant} size={size} disabled={disabled || busy} onClick={() => void download()}>
         {busy ? 'Формируем PDF…' : label}
-      </button>
+      </Button>
       {error && <span role="alert">{error}</span>}
     </span>
   )

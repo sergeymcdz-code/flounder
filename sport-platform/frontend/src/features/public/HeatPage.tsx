@@ -9,7 +9,6 @@ import { findHeat, time } from './format'
 import { HeatProtocol, ProtocolState } from './Protocol'
 import { usePublicEvent } from './publicContext'
 import { usePublicData } from './usePublicData'
-import legacyStyles from './HeatPage.module.css'
 import printStyles from './Public.module.css'
 import styles from './StartList.module.css'
 
@@ -26,7 +25,7 @@ export function HeatPage() {
   return (
     <div className={styles.page}>
       <div className={`${styles.pageHeader} ${printStyles.noPrint}`}>
-        <Button as={Link} to={`${base}/start-list`} variant="ghost" size="sm" className={styles.back}>
+        <Button as={Link} to={`${base}/start-list`} variant="ghost" size="sm" className="fl-back-link">
           ← Стартовый протокол
         </Button>
         <PageHeader title={`Заплыв ${found?.heat.number ?? ''}`.trim()} meta={found &&
@@ -34,7 +33,7 @@ export function HeatPage() {
         } />
       </div>
       <div className={styles.printOnly} aria-hidden="true">
-        <Link className={legacyStyles.backLink} to={`${base}/start-list`}>← Стартовый протокол</Link>
+        <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to={`${base}/start-list`}>← Стартовый протокол</Button>
         <h1>Заплыв {found?.heat.number ?? ''}</h1>
         {found && <>
           <h2>Вид № {found.discipline.number}. {found.discipline.name}</h2>

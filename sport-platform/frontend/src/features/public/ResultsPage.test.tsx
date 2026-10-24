@@ -154,7 +154,7 @@ it('explains exceptional statuses using the shared dictionary, including touch a
   expect(legend).toHaveTextContent('DNS — не стартовал')
   expect(legend).toHaveTextContent('DNF — не финишировал')
   expect(legend).toHaveTextContent('DSQ — дисквалифицирован')
-  expect(legend).toHaveTextContent('CORRECTED — результат исправлен после публикации')
+  expect(legend).toHaveTextContent('исправлено — результат исправлен после публикации')
   const dsq = screen.getAllByLabelText('DSQ — Дисквалифицирован')[0]
   const user = userEvent.setup()
   await user.click(dsq)

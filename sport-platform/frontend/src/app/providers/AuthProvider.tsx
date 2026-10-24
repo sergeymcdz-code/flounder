@@ -13,6 +13,7 @@ import type {
 
 import { getAuthState, setAuthSession, subscribeAuth } from '../../api/auth-session'
 import { apiFetch } from '../../api/http'
+import { clearRegistrationDrafts } from '../../features/public/registrationFields'
 
 export const ROLE_PLATFORM_ADMIN = 'platform_admin'
 export const ROLE_ORGANIZER = 'organizer'
@@ -135,6 +136,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const logout = useCallback(async () => {
     const current = getAuthState().session
     setAuthSession(null)
+    clearRegistrationDrafts()
     if (current?.refreshToken) {
       await apiFetch('/api/v1/auth/logout', {
         method: 'POST', body: JSON.stringify({ refreshToken: current.refreshToken }), skipRefresh: true,

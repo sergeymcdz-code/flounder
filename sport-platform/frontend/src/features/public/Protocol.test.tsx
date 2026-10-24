@@ -2,7 +2,8 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
-import { HeatProtocol, PrintButton, ResultsTable } from './Protocol'
+import { HeatProtocol, PrintButton } from './Protocol'
+import { ResultsTable } from './ResultsTable'
 import type { ResultRow } from './public.types'
 import { demoEvent, demoStartList } from '../../mocks/demo-data'
 import { publicApi, PublicApiError } from '../../api/public.api'
@@ -72,7 +73,7 @@ describe('Public protocols', () => {
       base,
       { ...base, lastName: 'Петров', status: 'OK' },
     ]
-    const { rerender } = render(<ResultsTable rows={rows} />)
+    const { rerender } = render(<ResultsTable rows={rows} caption="Итоговый протокол" />)
     expect(screen.getAllByRole('row').at(-1)).toHaveTextContent('DNS')
     expect(
       screen.getAllByRole('rowheader').map((row) => row.textContent),
@@ -83,7 +84,7 @@ describe('Public protocols', () => {
           ...row,
           place: row.status === 'VALID' || row.status === 'OK' ? 2 : null,
         }))}
-        grouped
+        caption="Итоговый протокол по возрастной группе"
       />,
     )
     expect(
@@ -136,7 +137,7 @@ describe('Public protocols', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Загружаем стартовый протокол…')
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Скачать PDF' })).toBeDisabled()
-    expect(screen.getByText('Печать и PDF доступны после публикации заплывов.')).toBeInTheDocument()
+    expect(screen.queryByText('Печать и PDF доступны после публикации заплывов.')).not.toBeInTheDocument()
   })
 
   it.each([

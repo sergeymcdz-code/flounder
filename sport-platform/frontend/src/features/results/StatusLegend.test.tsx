@@ -24,7 +24,7 @@ describe('Result status explanations', () => {
   it('shows only present statuses once and updates when the table changes', () => {
     const { rerender } = render(<StatusLegend statuses={['VALID', 'DNS', 'DID_NOT_START', 'CORRECTED', null]} />)
     expect(screen.getByLabelText('Обозначения статусов результатов')).toHaveTextContent(
-      /^DNS — не стартовал · CORRECTED — результат исправлен после публикации$/,
+      /^DNS — не стартовал · исправлено — результат исправлен после публикации$/,
     )
     rerender(<StatusLegend statuses={['DSQ', 'NT', 'DNF']} />)
     expect(screen.getByLabelText('Обозначения статусов результатов')).toHaveTextContent(

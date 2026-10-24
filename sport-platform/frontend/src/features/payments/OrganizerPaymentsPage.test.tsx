@@ -9,7 +9,10 @@ import type { EventContext } from '../organizer/organizer-event-context'
 import { paymentSummary, bulkPayment, paymentAction } from '../../api/registration-payments.api'
 
 const state = vi.hoisted(() => ({ context: undefined as EventContext | undefined }))
-vi.mock('../organizer/organizer-event-context', () => ({ useOrganizerEvent: () => state.context }))
+vi.mock('../organizer/organizer-event-context', async original => ({
+  ...await original<typeof import('../organizer/organizer-event-context')>(),
+  useOrganizerEvent: () => state.context,
+}))
 vi.mock('../../api/registration-payments.api', async original => ({
   ...await original<typeof import('../../api/registration-payments.api')>(),
   paymentSummary: vi.fn(), bulkPayment: vi.fn(), paymentAction: vi.fn(),

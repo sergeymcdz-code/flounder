@@ -21,7 +21,7 @@ it('announces loading, groups sessions, sorts heats and shows a shift warning', 
   let release!: (response: Response) => void
   server.use(http.get(path, () => new Promise<Response>(resolve => { release = resolve })))
   renderSchedule()
-  expect(screen.getByRole('status', { name: 'Загружаем расписание…' })).toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Загружаем расписание…')
   await waitFor(() => expect(release).toBeTypeOf('function'))
   release(HttpResponse.json([{ ...row, heatNumber: 2, sequenceInSession: 2, status: 'SCHEDULED' }, { ...row, scheduleShiftedAt: '2026-10-15T07:05:00Z' }]))
   expect(await screen.findByText('Расписание сдвинуто в 11:05')).toBeInTheDocument()

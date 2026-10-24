@@ -240,10 +240,10 @@ export function JudgePanelPage() {
       </JudgeActionBar>) : null
 
   return <section className={styles.page}>
-    <Link className={`${styles.backLink} fl-btn fl-btn-ghost fl-btn-sm`} to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Link>
+    <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to={eventId ? `/organizer/events/${eventId}/results` : "/operator/results"}>{eventId ? '← К соревнованию' : '← Судейство'}</Button>
     <PageHeader title={context.sequence ? `Заплыв ${context.sequence} из ${context.total}` : unit?.label ?? 'Заплыв'}
       badge={unit && <StatusBadge kind="heat" code={unit.status} />}
-      meta={<><span className={styles.eyebrow}>Судейская панель{context.name && <> · <span>Вид № {context.number} · {context.name}</span></>}</span>{(context.time || context.session) && <span className={styles.context}>{[context.time, context.session].filter(Boolean).join(' · ')}</span>}</>}
+      meta={<><span className={`${styles.eyebrow} fl-eyebrow`}>Судейская панель{context.name && <> · <span>Вид № {context.number} · {context.name}</span></>}</span>{(context.time || context.session) && <span className={styles.context}>{[context.time, context.session].filter(Boolean).join(' · ')}</span>}</>}
       actions={controls} />
     <details className={styles.help}><summary className="fl-btn fl-btn-ghost fl-btn-sm">Как вводить</summary><p className={styles.description}>Введите цифры ммсссс или время 32.15. Enter / Tab — следующая дорожка, Esc — очистить. Допускается ч:мм:сс.сс и 32.1. Alt+D — <ResultStatus status="DNS" />, Alt+N — <ResultStatus status="DNF" />, Alt+Q — <ResultStatus status="DSQ" /> из поля времени. Пустые дорожки можно сохранить позже.</p></details>
     {loading && <div className={styles.loading} role="status" aria-label="Загружаем заплыв…"><span>Загружаем заплыв…</span>{Array.from({ length: 8 }, (_, index) => <div className={styles.skeleton} aria-hidden="true" key={index} />)}</div>}
@@ -261,7 +261,7 @@ export function JudgePanelPage() {
         {!mobile && <><caption className="fl-sr-only">Дорожки заплыва</caption><thead><tr>{['Дорожка', 'Участник', 'Заявочное время', 'Время', 'Статус', 'Место', 'В группе'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead></>}
         <Rows>{entries.map((entry, index) => {
           const draft = drafts[entry.entryId] ?? { time: '', status: 'VALID' }
-          return <Row className={mobile ? styles.laneCard : undefined} aria-label={mobile ? `Дорожка ${entry.laneOrPosition}` : undefined} key={entry.entryId}>
+          return <Row data-lane={entry.laneOrPosition} className={mobile ? styles.laneCard : undefined} aria-label={mobile ? `Дорожка ${entry.laneOrPosition}` : undefined} key={entry.entryId}>
             <Cell className={styles.laneCell}>{mobile && 'Дорожка '}{entry.laneOrPosition ?? '—'}</Cell>
             <Cell><span className={styles.participantName}>{entry.participantName}</span>{mobile && clubs[entry.registrationId] && <span className={styles.clubName}>{clubs[entry.registrationId]}</span>}</Cell>{!mobile && <Cell className={styles.entryTime}>{entry.entryTime ?? '—'}</Cell>}
             <Cell className={styles.timeCell}>{mobile && <label htmlFor={`time-${entry.entryId}`}>Время</label>}<input id={`time-${entry.entryId}`} className={styles.resultInput} aria-label={`Время, дорожка ${entry.laneOrPosition}`} aria-invalid={Boolean(errors[entry.entryId])}
