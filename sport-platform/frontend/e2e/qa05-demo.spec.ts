@@ -144,11 +144,13 @@ test('QA05: seven-step demo with a real backend and demo seed', async ({ browser
       await parent.getByLabel('Дата рождения').fill('2014-04-18')
       await parent.getByRole('combobox', { name: /^Пол/ }).selectOption('M')
       await parent.getByLabel('Клуб / город').fill('Дельфин')
+      await parent.getByRole('button', { name: 'Далее: Виды и время', exact: true }).click()
       for (const [distance, time] of [[50, '00:47.20'], [100, '01:49.50']] as const) {
-        const choice = parent.getByRole('checkbox', { name: new RegExp(`^${distance} м.*юноши`) })
-        await choice.check()
-        await choice.locator('..').locator('..').getByRole('textbox').fill(time)
+        const choice = parent.getByRole('button', { name: new RegExp(`^${distance} м.*юноши`) })
+        await choice.click()
+        await parent.getByLabel(new RegExp(`^Заявочное время · ${distance} м`)).fill(time)
       }
+      await parent.getByRole('button', { name: 'Далее: Проверка', exact: true }).click()
       await parent.getByRole('checkbox', { name: /Я даю согласие/ }).check()
       await screenshots(parent, '03-parent-form')
       const responsePromise = parent.waitForResponse(r => r.url().endsWith('/registrations') && r.request().method() === 'POST')
