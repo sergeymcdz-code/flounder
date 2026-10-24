@@ -26,7 +26,7 @@ export function CalendarPage() {
     setSearch(titleQuery)
   }
   const [cities, setCities] = useState<string[]>([])
-  useEffect(() => { document.title = 'Соревнования по плаванию · SportGate' }, [])
+  useEffect(() => { document.title = 'Соревнования · SportGate' }, [])
   useEffect(() => {
     if (search.trim() === titleQuery) return
     const timer = window.setTimeout(() => {
@@ -53,14 +53,15 @@ export function CalendarPage() {
     <Button variant="ghost" size="sm" aria-pressed={status === 'past'} onClick={() => change('status', 'past')}>Прошедшие</Button>
   </div>
   return <div className={styles.page}>
-    <div><p className={styles.eyebrow}>Календарь стартов</p><PageHeader title="Соревнования по плаванию" actions={segments} /></div>
+    <div><p className={styles.eyebrow}>Календарь стартов</p><PageHeader title="Соревнования" actions={segments} /></div>
     <div className={styles.filters}>
       <label className={`fl-field ${styles.citySelect}`}>Город<select aria-label="Город" value={city} onChange={e => change('city', e.target.value)}>
         <option value="">Все города</option>
         {[...new Set([...cities, ...(city ? [city] : [])])].map(name => <option key={name}>{name}</option>)}
       </select></label>
       <label className={`fl-field ${styles.search}`}>Поиск<input type="search" aria-label="Поиск по названию" placeholder="Название соревнования" value={search} onChange={e => setSearch(e.target.value)} maxLength={200} /></label>
-      <div className={styles.cities} role="group" aria-label="Город">
+      {/* Append sport chips beside cities once the API provides sports; render no placeholder. */}
+      <div className={styles.filterChips} role="group" aria-label="Город">
         <Button variant="ghost" size="sm" aria-pressed={!city} onClick={() => change('city', '')}>Все города</Button>
         {[...new Set([...cities, ...(city ? [city] : [])])].map(name => <Button key={name} variant="ghost" size="sm" aria-pressed={city === name} onClick={() => change('city', name)}>{name}</Button>)}
       </div>
