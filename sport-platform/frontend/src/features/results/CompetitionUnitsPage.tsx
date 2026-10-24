@@ -85,13 +85,14 @@ export function CompetitionUnitsPage() {
       <label className="fl-field">Соревнование<select value={eventId} disabled={loading} onChange={e => {
         setEventId(e.target.value); localStorage.setItem('sportgate.judge.eventId', e.target.value); localStorage.removeItem('sportgate.judge.disciplineId'); setDisciplineId(''); setUnitId(''); setDisciplines([]); setUnits([])
       }}><option value="">Выберите соревнование</option>{events.map(event => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label>
-      <label className="fl-field">Вид программы<select value={disciplineId} disabled={!eventId || loading} onChange={e => {
+      <label className="fl-field">Вид программы<select value={disciplineId} disabled={!eventId || loading} aria-describedby="judge-selection-hint" onChange={e => {
         setDisciplineId(e.target.value); localStorage.setItem('sportgate.judge.disciplineId', e.target.value); setUnitId(''); setUnits([])
       }}><option value="">Выберите вид</option>{disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-      <label className="fl-field">Заплыв<select value={unitId} disabled={!disciplineId || loading} onChange={e => setUnitId(e.target.value)}>
+      <label className="fl-field">Заплыв<select value={unitId} disabled={!disciplineId || loading} aria-describedby="judge-selection-hint" onChange={e => setUnitId(e.target.value)}>
         <option value="">Выберите заплыв</option>{units.map(unit => <option key={unit.id} value={unit.id}>{unit.label} — {heatStatusLabel(unit.status)}</option>)}
       </select></label>
-      <button className="fl-btn fl-btn-primary" disabled={!unitId || loading}>Открыть</button>
+      <button className="fl-btn fl-btn-secondary" disabled={!unitId || loading} aria-describedby="judge-selection-hint">Открыть выбранный заплыв</button>
+      <p id="judge-selection-hint" role="status">{loading ? 'Загружаем данные…' : !eventId ? 'Выберите соревнование, затем вид программы и заплыв.' : !disciplineId ? 'Выберите вид программы, затем заплыв.' : !unitId ? 'Выберите заплыв.' : 'Откроется выбранный заплыв.'}</p>
     </form></details>
     {units.length > 0 && (!list || list.eventId !== eventId) && <div style={{ overflowX: 'auto', maxWidth: '100%' }}><table className="fl-table"><thead><tr><th>№</th><th>Время</th><th>Статус</th><th>Действия</th></tr></thead><tbody>{units.map(unit => <tr key={unit.id}><td>{unit.sequenceNumber ?? unit.label}</td><td>{formatDateTime(unit.scheduledAt, events.find(event => event.id === eventId)?.venue?.timezone)}</td><td><StatusBadge kind="heat" code={unit.status} /></td><td><button className="fl-btn fl-btn-secondary" onClick={() => navigate(`/operator/competition-units/${unit.id}?eventId=${encodeURIComponent(eventId)}`)}>Открыть →</button></td></tr>)}</tbody></table></div>}
     {loading && <p role="status">Загрузка…</p>}
