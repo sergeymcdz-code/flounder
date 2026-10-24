@@ -120,7 +120,9 @@ it('renders lane cards at 375px and reserves the measured action bar height', as
     const card = await screen.findByRole('article', { name: 'Дорожка 4' })
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(card).toContainElement(screen.getByRole('textbox', { name: 'Время, дорожка 4' }))
-    expect(screen.getByText('Заявочное время: —')).toBeInTheDocument()
+    expect(screen.queryByText(/Заявочное время/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Клуб не указан')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Место:|В группе:/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'DNS' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('group', { name: 'Действия заплыва' }).closest('section')).toHaveStyle({ '--judge-actions-height': '184px' })
     await userEvent.click(screen.getByRole('button', { name: 'DNS' }))
@@ -151,4 +153,60 @@ it.each([false, true])('keeps arrow and Enter navigation between editable lanes 
     await userEvent.keyboard('{Enter}')
     expect(screen.getByRole('button', { name: 'Сохранить и пересчитать' })).toHaveFocus()
   } finally { window.matchMedia = originalMatchMedia }
+})
+
+it.each([false, true])('masks six digits, submits once and reports saving/saved (mobile: %s)', async mobile => {
+  const originalMatchMedia = window.matchMedia
+  window.matchMedia = vi.fn().mockReturnValue({ matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  try {
+    mount('IN_PROGRESS', 'judge')
+    const input = await screen.findByRole('textbox')
+    await userEvent.clear(input)
+    await userEvent.type(input, '003215')
+    expect(input).toHaveValue('00:32.15')
+    let finish!: (data: CompetitionUnitDetailsResponse) => void
+    vi.mocked(api.saveHeatResults).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const save = screen.getByRole('button', { name: 'Сохранить и пересчитать' })
+    await userEvent.click(save)
+    expect(screen.getByText('Сохраняем…')).toHaveAttribute('role', 'status')
+    expect(save).toBeDisabled()
+    expect(api.saveHeatResults).toHaveBeenCalledExactlyOnceWith('heat', [{ competitionUnitEntryId: 'entry', status: 'VALID', time: '00:32.15' }], expect.any(String))
+    finish({ ...unit, entries: [{ ...unit.entries[0], display: '00:32.15' }] })
+    expect(await screen.findByText(/Сохранено \d{2}:\d{2}/)).toBeVisible()
+    expect(document.querySelectorAll('.fl-btn-primary')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Опубликовать результаты' })).toHaveClass('fl-btn-primary')
+  } finally { window.matchMedia = originalMatchMedia }
+})
+
+it('preserves the draft after a failed save and retries the same heat', async () => {
+  mount('IN_PROGRESS')
+  const input = await screen.findByRole('textbox')
+  await userEvent.clear(input)
+  await userEvent.type(input, '003215')
+  vi.mocked(api.saveHeatResults).mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce({ ...unit, entries: [{ ...unit.entries[0], display: '00:32.15' }] })
+  await userEvent.click(screen.getByRole('button', { name: 'Сохранить и пересчитать' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить — повторить')
+  expect(input).toHaveValue('00:32.15')
+  await userEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  expect(await screen.findByText(/Сохранено \d{2}:\d{2}/)).toBeInTheDocument()
+  expect(api.saveHeatResults).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+it.each([['KeyD', 'DNS'], ['KeyN', 'DNF'], ['KeyQ', 'DSQ']])('keeps the Alt shortcut %s', async (code, status) => {
+  mount('IN_PROGRESS', 'judge')
+  const input = await screen.findByRole('textbox')
+  input.focus()
+  await userEvent.keyboard(`{Alt>}[${code}]{/Alt}`)
+  expect(screen.getByRole('button', { name: status })).toHaveAttribute('aria-pressed', 'true')
+  expect(input).toBeDisabled()
+})
+
+it('retries loading and offers a next step for an empty heat', async () => {
+  mount('IN_PROGRESS')
+  vi.mocked(api.getCompetitionUnitDetails).mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce({ ...unit, entries: [] })
+  expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить заплыв')
+  await userEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  expect(await screen.findByText('В заплыве пока нет участников.')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'К списку заплывов' })).toHaveAttribute('href', '/operator/results')
 })
