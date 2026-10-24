@@ -260,7 +260,7 @@ export function OrganizerEntriesPage() {
         {visible.length > 0 && <label className={styles.selection}><input type="checkbox" aria-label="Выбрать все видимые заявки" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} title={disabledReason || (bulkBusy ? 'Дождитесь завершения обработки заявок' : undefined)} checked={visible.length > 0 && visible.every(r => selected.includes(r.id))} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...visible.map(r => r.id)])] : selected.filter(id => !visible.some(r => r.id === id)))} /><span className={styles.selectAllLabel}>Выбрать все</span></label>}
       </div>
       {visible.length > 0 && <div className={styles.tableFrame}>
-        <div className={styles.table}>
+        <div className={styles.table} ref={node => { node?.firstElementChild?.classList.add('fl-table-scroll') }}>
           <DataTable caption="Заявки участников" cards minWidth="var(--content-max)" maxHeight="min(60vh, calc(var(--space-16) * 10))"
             rows={visible.map((r, index) => ({ ...r, rowNumber: index + 1,
               name: `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''}`.trim(),
