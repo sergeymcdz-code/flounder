@@ -8,7 +8,7 @@ import resultsStyles from './ResultsTab.module.css'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { assignBibs } from '../../api/print-forms.api'
 import { OrganizerDialog } from './OrganizerDialog'
-import { useOrganizerEvent } from './organizer-event-context'
+import { disabledReason, useOrganizerEvent } from './organizer-event-context'
 import styles from './OrganizerEventPage.module.css'
 
 export function HeatPrintControls() {
@@ -20,7 +20,7 @@ export function HeatPrintControls() {
   const [message, setMessage] = useState('')
   const archived = event.status === 'ARCHIVED'
   return <div className={styles.toolbar}>
-    <button title={archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-secondary" disabled={busy || archived} onClick={() => setOpen(true)}>Стартовые номера…</button>
+    <button title={disabledReason({ busy, archived }) || undefined} className="fl-btn fl-btn-secondary" disabled={busy || archived} onClick={() => setOpen(true)}>Стартовые номера…</button>
     {message && <span role="status">{message}</span>}
     {open && <OrganizerDialog title="Стартовые номера" onClose={() => setOpen(false)}><form className={styles.stack} onSubmit={e => {
       e.preventDefault()
@@ -30,7 +30,7 @@ export function HeatPrintControls() {
       <label>Начать с<input type="number" min="1" max="2147483647" required value={startFrom} onChange={e => setStartFrom(Number(e.target.value))} /></label>
       <label><input type="checkbox" checked={reassign} onChange={e => setReassign(e.target.checked)} />Перенумеровать всех</label>
       <p>После начала стартов перенумерация недоступна.</p>
-      <button title={archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : undefined} className="fl-btn fl-btn-primary" type="submit" disabled={busy || archived}>Назначить номера</button>
+      <button title={disabledReason({ busy, archived }) || undefined} className="fl-btn fl-btn-primary" type="submit" disabled={busy || archived}>Назначить номера</button>
     </form></OrganizerDialog>}
   </div>
 }

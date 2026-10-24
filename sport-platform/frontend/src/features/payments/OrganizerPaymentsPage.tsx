@@ -1,7 +1,7 @@
 import { Component, useEffect, useState, type ReactNode } from 'react'
 import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { Link } from 'react-router'
-import { useOrganizerEvent, type EventContext } from '../organizer/organizer-event-context'
+import { disabledReason as getDisabledReason, useOrganizerEvent, type EventContext } from '../organizer/organizer-event-context'
 import { PaymentMutationDialog } from './PaymentMutationDialog'
 import { PaymentHistoryDialog } from './PaymentHistoryDialog'
 import { ActionBar } from '../../components/ui/ActionBar'
@@ -50,7 +50,7 @@ function PaymentsContent({ context }: { context: EventContext }) {
   const [recalculated, setRecalculated] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
   const disabled = busy || event.status === 'ARCHIVED'
-  const disabledReason = busy ? 'Дождитесь завершения текущего действия' : event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : undefined
+  const disabledReason = getDisabledReason({ busy, archived: event.status === 'ARCHIVED' }) || undefined
   useEffect(() => {
     let active = true
     setLoading(true); setError('')

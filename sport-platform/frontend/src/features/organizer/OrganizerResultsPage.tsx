@@ -13,7 +13,7 @@ import { publicApi } from '../../api/public.api'
 import { changeCompetitionUnitPublication } from '../../api/results.api'
 import { publishDisciplineResults } from '../../api/scheduling.api'
 import { LIVE_POLL_MS, usePublicData } from '../public/usePublicData'
-import { formatDate, useOrganizerEvent } from './organizer-event-context'
+import { disabledReason, formatDate, useOrganizerEvent } from './organizer-event-context'
 import type { Heat, SwimDiscipline } from '../../api/organizer.types'
 import styles from './ResultsTab.module.css'
 
@@ -108,7 +108,7 @@ export function OrganizerResultsPage() {
         {event.disciplines.map((d, index) => {
           const units = heats.filter(h => h.eventDisciplineId === d.id)
           const allPublished = units.length > 0 && units.every(published)
-          const reason = archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : allPublished && units.some(h => h.status === 'COMPLETED') ? 'Результаты завершённого соревнования нельзя снять с публикации' : !units.length ? 'Сначала сформируйте заплывы' : !units.every(complete) ? 'Не все заплывы завершены' : undefined
+          const reason = disabledReason({ busy, archived, reason: allPublished && units.some(h => h.status === 'COMPLETED') ? 'Результаты завершённого соревнования нельзя снять с публикации' : !units.length ? 'Сначала сформируйте заплывы' : !units.every(complete) ? 'Не все заплывы завершены' : undefined }) || undefined
           return <article className={styles.publicationRow} key={d.id}>
             <h3>Вид № {disciplineNumber(d, index)} · {d.name}</h3>
             <p className={styles.muted}><span className={styles.numeric}>{units.filter(complete).length} из {units.length}</span> заплывов завершено</p>

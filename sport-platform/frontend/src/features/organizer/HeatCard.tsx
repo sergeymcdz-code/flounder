@@ -41,7 +41,7 @@ export function HeatCard({ heat, discipline, registrations, lanes, timeZone, dis
     {group && <p className={styles.muted}>Группа {group}</p>}
     {heat.entries.length === 0 ? <EmptyState title="В заплыве нет участников" action={null}>Пересоберите вид после проверки заявок.</EmptyState> : <details className={styles.lanes} open={expanded} onToggle={e => setExpanded(e.currentTarget.open)}>
       <summary>Дорожки · {heat.entries.length}</summary>
-      <div className="fl-table-scroll fl-scroll-x">
+      <div className="fl-table-scroll fl-data-table-scroll fl-scroll-x">
         <table className={`fl-table fl-table-compact ${styles.laneTable}`}>
           <caption className="fl-sr-only">{title} — дорожки и заявочное время</caption>
           <thead><tr><th scope="col">Дор.</th><th scope="col">Участник</th><th scope="col" className={styles.extra} data-numeric>Год</th><th scope="col" className={styles.extra}>Клуб</th><th scope="col" data-numeric>Заяв. время</th></tr></thead>
