@@ -103,6 +103,8 @@ for (const width of [375, 768, 1366]) {
     }
     for (const mode of ['loading', 'empty', 'error']) {
       await navigate(page, '/operator/results')
+      // Wait for the panel to unmount; consecutive history updates can otherwise be batched.
+      await expect(page.getByRole('heading', { name: 'Судейство', exact: true })).toBeVisible()
       const fixture = await page.evaluate('(async () => { const { createFixtures } = await import("/src/mocks/fixtures.ts"); return createFixtures() })()')
       await scenario(page, `competition-units/${unitId}`, mode === 'empty' ? { ...fixture.heats[0], eventId, entries: [] } : { message: 'Сервис временно недоступен. Повторите попытку.' }, mode === 'loading' ? 'loading' : mode === 'error' ? '500' : 'json')
       // navigate() waits for a table for this URL, so use the router directly for state checks.
