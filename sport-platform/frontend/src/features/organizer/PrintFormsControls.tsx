@@ -1,4 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Button } from '../../components/ui/Button'
+import { ActionBar } from '../../components/ui/ActionBar'
+import { Notice } from '../../components/ui/Notice'
+import { downloadProtocol } from '../../api/protocols.api'
+import resultsStyles from './ResultsTab.module.css'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { assignBibs } from '../../api/print-forms.api'
 import { OrganizerDialog } from './OrganizerDialog'
@@ -59,13 +64,65 @@ export function AwardsPrintControls() {
   const groups = event.disciplines.filter(d => !discipline || d.id === discipline).flatMap(d => d.ageGroups ?? []).filter((g, i, all) => all.findIndex(x => x.code === g.code) === i)
   const diplomaQuery = new URLSearchParams(query)
   if (group && scope === 'AGE_GROUP') diplomaQuery.set('ageGroupCode', group)
-  return <div className={styles.toolbar}>
-    <label>Область награждения<select value={scope} onChange={e => setScope(e.target.value)}><option value="AGE_GROUP">По возрастным группам</option><option value="ABSOLUTE">Абсолют</option></select></label>
-    <label>Число мест<input type="number" min="1" max="500" value={places} onChange={e => setPlaces(e.target.value)} /></label>
-    <label>Вид награждения<select value={discipline} onChange={e => { setDiscipline(e.target.value); setGroup('') }}><option value="">Все виды</option>{event.disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-    <label>Группа для грамот<select disabled={scope === 'ABSOLUTE'} value={group} onChange={e => setGroup(e.target.value)}><option value="">Все группы</option>{groups.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}</select></label>
-    <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/awards.pdf?${query}`} filename="Лист-награждения.pdf" disabled={!validPlaces} accessToken={accessToken} label="Лист награждения (PDF)" />
-    <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?${diplomaQuery}`} filename="Грамоты.pdf" disabled={!validPlaces} accessToken={accessToken} label="Грамоты (PDF)" />
-    <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?sample=true`} filename="Пробная-грамота.pdf" accessToken={accessToken} label="Пробная грамота" />
+  return <div className={resultsStyles.awards}>
+    <label className="fl-field">Область награждения<select value={scope} onChange={e => setScope(e.target.value)}><option value="AGE_GROUP">По возрастным группам</option><option value="ABSOLUTE">Абсолют</option></select></label>
+    <label className="fl-field">Число мест<input type="number" min="1" max="500" value={places} onChange={e => setPlaces(e.target.value)} /></label>
+    <label className="fl-field">Вид награждения<select value={discipline} onChange={e => { setDiscipline(e.target.value); setGroup('') }}><option value="">Все виды</option>{event.disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+    <label className="fl-field">Группа для грамот<select title={scope === 'ABSOLUTE' ? 'В абсолютном зачёте возрастные группы не используются' : undefined} disabled={scope === 'ABSOLUTE'} value={group} onChange={e => setGroup(e.target.value)}><option value="">Все группы</option>{groups.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}</select>{scope === 'ABSOLUTE' && <small>В абсолютном зачёте возрастные группы не используются</small>}</label>
+    <ResultPdfButton path={`/api/v1/events/${event.id}/documents/awards.pdf?${query}`} filename="Лист-награждения.pdf" disabledReason={!validPlaces ? 'Введите число мест от 1 до 500' : undefined} accessToken={accessToken} label="Лист награждения (PDF)" />
+    <ResultPdfButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?${diplomaQuery}`} filename="Грамоты.pdf" disabledReason={!validPlaces ? 'Введите число мест от 1 до 500' : undefined} accessToken={accessToken} label="Грамоты (PDF)" />
+    <ResultPdfButton path={`/api/v1/events/${event.id}/documents/diplomas.pdf?sample=true`} filename="Пробная-грамота.pdf" accessToken={accessToken} label="Пробная грамота" />
+  </div>
+}
+
+// Local overflow sheet until the shared D04-2a OverflowMenu reaches main.
+export function ResultsPrintControls() {
+  const { event, heats, accessToken, busy } = useOrganizerEvent()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDialogElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    if (!open) return
+    const dialog = ref.current
+    const button = trigger.current
+    dialog?.showModal()
+    return () => { dialog?.close(); button?.focus() }
+  }, [open])
+  const reason = busy ? 'Дождитесь завершения текущего действия' : !heats.some(h => h.entries.some(e => e.rawValue != null || (e.resultStatus != null && e.resultStatus !== 'PENDING'))) ? 'Сначала введите результаты заплывов' : undefined
+  return <>
+    <button ref={trigger} className="fl-btn fl-btn-secondary" type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>Печать ▾</button>
+    <dialog ref={ref} className={resultsStyles.printSheet} aria-labelledby={titleId} onCancel={e => { e.preventDefault(); setOpen(false) }} onClick={e => { if (e.target === e.currentTarget) { const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setOpen(false) } }}>
+      <header className={resultsStyles.sheetHeading}><h2 id={titleId}>Печать результатов</h2><Button onClick={() => setOpen(false)}>Закрыть</Button></header>
+      <ActionBar className={resultsStyles.printActions}>
+        <Button as="a" variant="ghost" href={`/e/${encodeURIComponent(event.publicSlug)}/results?print=1`} target="_blank" rel="noreferrer">Печать итогового протокола</Button>
+        <ResultPdfButton path={`/api/v1/events/${event.id}/documents/results.pdf`} filename="Итоговый-протокол.pdf" accessToken={accessToken} disabledReason={reason} label="Скачать PDF" />
+      </ActionBar>
+      <details className={resultsStyles.awardDetails} open={window.matchMedia?.('(min-width: 768px)')?.matches}>
+        <summary>Параметры награждения</summary>
+        <AwardsPrintControls />
+      </details>
+    </dialog>
+  </>
+}
+
+function ResultPdfButton({ path, filename, accessToken, label, disabledReason }: {
+  path: string; filename: string; accessToken: string; label: string; disabledReason?: string
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const id = useId()
+  const reason = busy ? 'Формируем PDF. Дождитесь завершения загрузки' : disabledReason
+  async function download() {
+    setBusy(true)
+    setError('')
+    try { await downloadProtocol(path, filename, accessToken) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось скачать PDF. Повторите попытку.') }
+    finally { setBusy(false) }
+  }
+  return <div className={resultsStyles.pdfControl}>
+    <Button variant="ghost" disabled={!!reason} loading={busy} title={reason} aria-describedby={reason ? id : undefined} onClick={() => void download()}>{label}</Button>
+    {reason && <small id={id} className={resultsStyles.muted}>{reason}</small>}
+    {error && <Notice tone="danger">{error} <Button onClick={() => void download()}>Повторить</Button></Notice>}
   </div>
 }
