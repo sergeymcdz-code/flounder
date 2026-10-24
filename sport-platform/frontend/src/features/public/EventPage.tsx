@@ -43,7 +43,7 @@ export function PublicEventPage() {
   return <div className={styles.page}>
     <header className={styles.hero}>
       <div>
-        <p className={styles.eyebrow}>Соревнования по плаванию</p>
+        <p className={styles.eyebrow}>Соревнования</p>
         <h1 className={styles.title}>{event.title}</h1>
         <StatusBadge kind="event" code={event.status === 'FINISHED' ? 'COMPLETED' : event.status} />
         <p className={styles.facts}>{startDate}{endDate !== startDate ? ` — ${endDate}` : ''}{event.venue && <> · {event.venue.name}, {event.venue.city} · <span>{event.venue.lanes} дорожек · {event.venue.courseLength != null ? `${event.venue.courseLength} м` : 'длина бассейна не указана'}</span></>}</p>
@@ -51,7 +51,7 @@ export function PublicEventPage() {
       <div className={styles.action}>
         <Button as={Link} to={`${base}/${action[0]}`} variant="primary" size="lg">{action[1]}</Button>
         {action[0] === 'register' && <p className={styles.hint}>{event.payment?.enabled && <>Взнос {feeCopy} · </>}{event.registrationCloseAt && <>до {formatDateTime(event.registrationCloseAt, event.venue?.timezone)}</>}</p>}
-        {!event.registrationOpen && <Notice tone="warning">Регистрация закрыта{event.registrationCloseAt && <> · {formatDateTime(event.registrationCloseAt, event.venue?.timezone)}</>}.</Notice>}
+        {action[0] === 'start-list' && <Notice tone="warning">Регистрация закрыта{event.registrationCloseAt && <> · {formatDateTime(event.registrationCloseAt, event.venue?.timezone)}</>}.</Notice>}
         {event.registrationOpen && full && <Notice tone="warning">Мест нет, запись в лист ожидания.</Notice>}
       </div>
     </header>
@@ -67,11 +67,10 @@ export function PublicEventPage() {
         {event.description && <p>{event.description}</p>}
         <dl className={styles.details}>
           <KeyValue label="Площадка">{event.venue ? `${event.venue.name}, ${event.venue.city}` : 'Площадка не указана'}</KeyValue>
-          <KeyValue label="Организатор:">{organizationPath ? <Link className={styles.textLink} to={organizationPath}>{event.organization!.name}</Link> : event.organization?.name ?? 'Не указан'}</KeyValue>
+          {event.organization && <KeyValue label="Организатор">{organizationPath ? <Link className={styles.textLink} to={organizationPath}>{event.organization.name}</Link> : event.organization.name}</KeyValue>}
           {event.payment?.enabled && <KeyValue label="Взнос"><span className="fl-numeric">{feeCopy}</span> {event.payment.feeMode === 'PER_EVENT' ? 'за соревнование' : 'за дистанцию'}</KeyValue>}
           {event.maxParticipants != null && <KeyValue label="Участники"><span className="fl-numeric">{event.participantsCount ?? 0} из {event.maxParticipants}</span> · {full ? 'мест нет' : 'есть места'}</KeyValue>}
-          <KeyValue label="Регламент PDF">Уточните у организатора</KeyValue>
-          <KeyValue label="Контакты">{organizationPath ? <Link className={styles.textLink} to={organizationPath}>На странице организации →</Link> : 'Уточните у организатора'}</KeyValue>
+          {organizationPath && <KeyValue label="Контакты"><Link className={styles.textLink} to={organizationPath}>На странице организации →</Link></KeyValue>}
         </dl>
         <Button as={Link} to={`${base}/poster`} variant="secondary" className={styles.poster}>QR-плакат A4</Button>
       </section>
@@ -79,7 +78,6 @@ export function PublicEventPage() {
         <h2 id="event-program">Программа</h2>
         <p className={styles.hint}>{localTimeLabel(event.eventStartAt, event.venue?.timezone)}</p>
         {sessions.length ? <SessionTimeline sessions={sessions} timezone={event.venue?.timezone} /> : <EmptyState title="Программа пока не опубликована" action={<Button as={Link} to={`${base}/schedule`}>Открыть расписание</Button>}><p>Сессии и виды программы появятся после публикации организатором.</p></EmptyState>}
-        {event.disciplines.length > 0 && <p className={styles.hint}>Возрастные группы уточняйте у организатора.</p>}
       </section>
     </div>
   </div>

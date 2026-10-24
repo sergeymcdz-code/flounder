@@ -129,7 +129,7 @@ function directory(roles?: string[]) {
 it('public event has exactly one organizer row linking to its public page', () => {
   const event = { ...demoEvent, organization: { name: 'Клуб Волна', publicSlug: 'volna', hasLogo: false } }
   render(<MemoryRouter><Routes><Route element={<Outlet context={{ event }} />}><Route index element={<PublicEventPage />} /></Route></Routes></MemoryRouter>)
-  expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
+  expect(screen.getAllByText('Организатор', { exact: true })).toHaveLength(1)
   expect(screen.getByRole('link', { name: 'Клуб Волна' })).toHaveAttribute('href', '/o/volna')
 })
 
@@ -141,6 +141,6 @@ it('public event layout preserves role home and links to the calendar and organi
   const nav = within(screen.getByRole('navigation', { name: 'Основная навигация' }))
   expect(nav.getByRole('link', { name: 'Календарь' })).toHaveAttribute('href', '/')
   expect(await nav.findByRole('link', { name: 'Страница организации' })).toHaveAttribute('href', '/o/volna')
-  expect(screen.getAllByText(/Организатор:/)).toHaveLength(1)
+  expect(screen.getAllByText('Организатор', { exact: true })).toHaveLength(1)
   expect(screen.getByRole('navigation', { name: 'Разделы соревнования' })).toBeInTheDocument()
 })

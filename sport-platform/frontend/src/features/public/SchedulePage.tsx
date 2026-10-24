@@ -1,11 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useContext } from 'react'
 import { Link } from 'react-router'
 import { publicApi } from '../../api/public.api'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Notice } from '../../components/ui/Notice'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { usePublicEvent } from './publicContext'
+import { PublicConnectionContext, usePublicEvent } from './publicContext'
 import { localTimeLabel, time } from './format'
 import { SessionTimeline } from './SessionTimeline'
 import { SCHEDULE_POLL_MS, usePublicData } from './usePublicData'
@@ -13,6 +13,7 @@ import styles from './EventPage.module.css'
 
 export function SchedulePage() {
   const event = usePublicEvent()
+  const disconnected = useContext(PublicConnectionContext)
   const load = useCallback(
     (signal: AbortSignal) => publicApi.schedule(event.publicSlug, signal),
     [event.publicSlug],
@@ -37,7 +38,7 @@ export function SchedulePage() {
       <p>Загружаем расписание…</p>
       {[0, 1, 2].map(key => <div key={key} className={styles.skeleton} aria-hidden="true" />)}
     </div>}
-    {state.error && <Notice tone="danger">
+    {state.error && !(disconnected && state.data !== undefined) && <Notice tone="danger">
       <p>{state.errorStatus ? `Сервер ответил ошибкой (${state.errorStatus}). ${state.error}` : state.error}</p>
       {state.data !== undefined && <p>Показано последнее расписание. Повторите обновление.</p>}
       <Button onClick={state.retry}>Повторить</Button>

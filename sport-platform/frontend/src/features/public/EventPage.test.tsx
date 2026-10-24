@@ -59,3 +59,24 @@ it('shows an empty program and missing venue without inventing data', () => {
   expect(screen.getByText('Регистрация закрыта.')).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Подать заявку' })).not.toBeInTheDocument()
 })
+
+
+it('uses a sport-neutral eyebrow and omits unavailable public details', () => {
+  renderEvent({ organization: null })
+  expect(screen.getByText('Соревнования', { exact: true })).toBeInTheDocument()
+  expect(screen.queryByText('Регламент PDF')).not.toBeInTheDocument()
+  expect(screen.queryByText('Контакты')).not.toBeInTheDocument()
+  expect(screen.queryByText(/уточняйте у организатора|Уточните у организатора/)).not.toBeInTheDocument()
+})
+
+it('shows an organization without a public slug as text and omits its contacts link', () => {
+  renderEvent({ organization: { name: 'Клуб Волна', publicSlug: null, hasLogo: false } })
+  expect(screen.getByText('Организатор', { exact: true })).toBeInTheDocument()
+  expect(screen.getByText('Клуб Волна', { exact: true })).toBeInTheDocument()
+  expect(screen.queryByText('Контакты')).not.toBeInTheDocument()
+})
+
+it.each(['LIVE', 'COMPLETED', 'FINISHED', 'ARCHIVED'] as const)('omits the registration warning when %s has a viewing action', status => {
+  renderEvent({ status, registrationOpen: false })
+  expect(screen.queryByText(/Регистрация закрыта/)).not.toBeInTheDocument()
+})

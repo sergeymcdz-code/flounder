@@ -6,9 +6,13 @@ import { server } from '../../test/setup'
 import { demoEvent } from '../../mocks/demo-data'
 import { SchedulePage } from './SchedulePage'
 import type { ScheduleItem } from './public.types'
+import { PublicConnectionContext } from './publicContext'
 
-function renderSchedule() {
-  return render(<MemoryRouter><Routes><Route element={<Outlet context={{ event: demoEvent }} />}><Route index element={<SchedulePage />} /></Route></Routes></MemoryRouter>)
+function scheduleTree(disconnected = false) {
+  return <PublicConnectionContext value={disconnected}><MemoryRouter><Routes><Route element={<Outlet context={{ event: demoEvent }} />}><Route index element={<SchedulePage />} /></Route></Routes></MemoryRouter></PublicConnectionContext>
+}
+function renderSchedule(disconnected = false) {
+  return render(scheduleTree(disconnected))
 }
 const path = '*/api/v1/public/events/demo/schedule'
 const row: ScheduleItem = { sessionName: 'Утро', disciplineName: '50 м вольный стиль', heatNumber: 1, sequenceInSession: 1, scheduledAt: '2026-10-15T07:00:00Z', status: 'IN_PROGRESS' }
@@ -45,9 +49,24 @@ it('distinguishes HTTP errors, retries and keeps data after a failed refresh', a
   expect(screen.getByText('11:00 · Заплыв 1')).toBeInTheDocument()
 })
 
-it('explains a network error and allows retry', async () => {
+it.each([false, true])('explains an initial network error with disconnected=%s and allows retry', async disconnected => {
   server.use(http.get(path, () => HttpResponse.error()))
-  renderSchedule()
+  renderSchedule(disconnected)
   expect(await screen.findByRole('alert')).toHaveTextContent('Нет связи')
   expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+})
+
+
+it('suppresses a stale-data error only while the layout reports a connection problem', async () => {
+  let calls = 0
+  server.use(http.get(path, () => ++calls === 1 ? HttpResponse.json([row]) : HttpResponse.error()))
+  const view = renderSchedule()
+  expect(await screen.findByText('11:00 · Заплыв 1')).toBeInTheDocument()
+  fireEvent(window, new Event('online'))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Показано последнее расписание')
+  view.rerender(scheduleTree(true))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByText('11:00 · Заплыв 1')).toBeInTheDocument()
+  view.rerender(scheduleTree(false))
+  expect(screen.getByRole('alert')).toHaveTextContent('Показано последнее расписание')
 })
