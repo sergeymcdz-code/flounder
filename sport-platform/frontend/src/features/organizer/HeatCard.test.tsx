@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 it('collapses lanes on mobile and changes a lane only in explicit edit mode', async () => {
   const onChangeLane = vi.fn()
-  render(<HeatCard heat={heat} discipline={discipline} registrations={[]} lanes={8} timeZone="Europe/Samara" highlighted={false} onChangeLane={onChangeLane} />)
+  render(<HeatCard heat={heat} discipline={discipline} registrations={[]} lanes={8} timeZone="Europe/Samara" laneHint="Число дорожек площадки не указано" highlighted={false} onChangeLane={onChangeLane} />)
   expect(screen.getByText('10:00')).toBeVisible()
   const summary = screen.getByText('Дорожки · 2')
   expect(summary.closest('details')).not.toHaveAttribute('open')
@@ -23,6 +23,7 @@ it('collapses lanes on mobile and changes a lane only in explicit edit mode', as
   expect(edit).toHaveAttribute('aria-pressed', 'false')
   await userEvent.click(edit)
   const lane = screen.getByLabelText('Дорожка Петров Пётр')
+  expect(lane).toHaveAttribute('title', 'Число дорожек площадки не указано')
   await userEvent.selectOptions(lane, '3')
   expect(onChangeLane).toHaveBeenCalledExactlyOnceWith('one', 3)
   const table = screen.getByRole('table')

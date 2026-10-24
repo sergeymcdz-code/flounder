@@ -7,13 +7,14 @@ import { formatSeed } from './organizer-event-context'
 import { time } from '../public/format'
 import styles from './Heats.module.css'
 
-export function HeatCard({ heat, discipline, registrations, lanes, timeZone, disabledReason, highlighted, onChangeLane }: {
+export function HeatCard({ heat, discipline, registrations, lanes, timeZone, disabledReason, laneHint, highlighted, onChangeLane }: {
   heat: Heat
   discipline: SwimDiscipline
   registrations: OrganizerRegistration[]
   lanes: number
   timeZone?: string
   disabledReason?: string
+  laneHint?: string
   highlighted: boolean
   onChangeLane: (entryId: string, lane: number) => void
 }) {
@@ -50,7 +51,7 @@ export function HeatCard({ heat, discipline, registrations, lanes, timeZone, dis
             return <tr key={entry.entryId}>
               <td className={styles.numeric}>
                 <span className={editing ? styles.hidden : styles.readLane}>{entry.laneOrPosition ?? '—'}</span>
-                <select className={editing ? styles.editLane : styles.desktopLane} aria-label={`Дорожка ${entry.participantName}`} value={entry.laneOrPosition ?? ''} disabled={!!disabledReason} title={disabledReason} onChange={e => onChangeLane(entry.entryId, Number(e.target.value))}>
+                <select className={editing ? styles.editLane : styles.desktopLane} aria-label={`Дорожка ${entry.participantName}`} value={entry.laneOrPosition ?? ''} disabled={!!disabledReason} title={disabledReason ?? laneHint} onChange={e => onChangeLane(entry.entryId, Number(e.target.value))}>
                   <option value="" disabled>—</option>{Array.from({ length: lanes }, (_, i) => <option value={i + 1} key={i}>{i + 1}</option>)}
                 </select>
               </td>

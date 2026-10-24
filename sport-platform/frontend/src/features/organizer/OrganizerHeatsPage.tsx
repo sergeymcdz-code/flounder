@@ -154,7 +154,7 @@ export function OrganizerHeatsPage() {
           <header className={styles.disciplineHeader}><div><h2>Вид № {d.number ?? index + 1} · {d.name}</h2><span className={styles.numeric}>{units.length} {plural(units.length, ['заплыв', 'заплыва', 'заплывов'])}</span> · <StatusBadge kind="heat" code={units.length && units.every(h => isHeatPublished(h.status)) ? 'PUBLISHED' : 'DRAFT'} /></div>
             <ActionMenu label="⋯" accessibleLabel={`Действия вида ${d.name}`}><ExplainedButton reason={reason} onClick={() => requestGenerate(d.id)}>Пересобрать</ExplainedButton></ActionMenu>
           </header>
-          <div className={styles.grid}>{units.map(h => <HeatCard key={h.id} heat={h} discipline={d} registrations={registrations} lanes={lanes} timeZone={event.venue?.timezone} disabledReason={reason} highlighted={highlight === h.id} onChangeLane={(id, lane) => { void run(async () => { await changeLane(id, lane, accessToken); setViolations(null) }, { heatId: h.id }) }} />)}</div>
+          <div className={styles.grid}>{units.map(h => <HeatCard key={h.id} heat={h} discipline={d} registrations={registrations} lanes={lanes} timeZone={event.venue?.timezone} disabledReason={reason} laneHint={!event.venue?.lanes ? 'Число дорожек площадки не указано' : undefined} highlighted={highlight === h.id} onChangeLane={(id, lane) => { void run(async () => { await changeLane(id, lane, accessToken); setViolations(null) }, { heatId: h.id }) }} />)}</div>
           {!units.length && <p className={styles.muted}>Заплывы этого вида ещё не сформированы. Используйте меню «⋯».</p>}
         </section>
       })}</div>
