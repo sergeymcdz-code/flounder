@@ -192,6 +192,11 @@ test('organizer acceptance flow and conflict recovery', async ({ page }) => {
     .getByRole('status')
     .filter({ hasText: 'Выполняем действие' })
     .waitFor({ state: 'hidden' })
+  const validation = page.getByRole('dialog', { name: 'Проверка заплывов' })
+  await expect(validation).toBeVisible()
+  await expect(validation.getByRole('status')).toHaveText('Нарушений не найдено.')
+  await validation.getByRole('button', { name: 'Закрыть', exact: true }).click()
+  await expect(validation).toHaveCount(0)
   await page
     .getByRole('button', {
       name: 'Опубликовать протокол',
