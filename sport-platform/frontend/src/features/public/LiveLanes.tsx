@@ -12,7 +12,11 @@ export function LiveLanes({ heat, lanes }: { heat: Heat; lanes: number }) {
   return (
     <>
       <div className={styles.lanesContainer}>
-        <table className={`${styles.lanes} fl-table fl-protocol fl-lanes`} role="table" tabIndex={0}>
+        <table
+          className={`${styles.lanes} fl-table fl-protocol fl-lanes`}
+          role="table"
+          tabIndex={0}
+        >
           <caption className="fl-sr-only">
             Дорожки заплыва №{heat.number}. Заявочное время
           </caption>
