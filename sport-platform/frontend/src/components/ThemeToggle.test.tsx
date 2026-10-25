@@ -25,6 +25,9 @@ describe('initial theme before React and CSS load', () => {
     ['/e/demo/live', 'light', true, 'light'],
     ['/e/demo', 'dark', false, 'dark'],
     ['/e/demo', 'invalid', false, 'light'],
+    ['/events/demo/disciplines/M-50-FREE/results', 'light', true, 'light'],
+    ['/events/demo/disciplines/M-50-FREE/results', null, false, 'dark'],
+    ['/events/demo/disciplines/M-50-FREE/register', 'dark', true, 'light'],
     ['/login', 'dark', true, 'light'],
     ['/organizer/events', 'dark', true, 'light'],
   ])('%s / saved %s / system dark %s → %s', (path, saved, systemDark, expected) => {

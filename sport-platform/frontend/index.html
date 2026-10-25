@@ -8,7 +8,7 @@
         try { saved = localStorage.getItem('flounder.theme'); } catch {}
         if (saved !== 'light' && saved !== 'dark') saved = null;
         const path = location.pathname;
-        const publicPage = path === '/' || /^\/(e|o)\/[^/]+(?:\/|$)/.test(path);
+        const publicPage = path === '/' || /^\/(e|o)\/[^/]+(?:\/|$)/.test(path) || /^\/events\/[^/]+\/disciplines\/[^/]+\/results\/?$/.test(path);
         const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
         document.documentElement.dataset.theme = publicPage
           ? saved ?? (systemDark || /\/(live|results)\/?$/.test(path) ? 'dark' : 'light')

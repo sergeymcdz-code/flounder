@@ -15,6 +15,7 @@ import { LivePage } from '../features/public/LivePage'
 import { ResultsPage } from '../features/public/ResultsPage'
 import { PublicRegistrationPage } from '../features/public/RegistrationPage'
 import { HeatPage } from '../features/public/HeatPage'
+import { NotFoundPage } from '../features/public/NotFoundPage'
 
 const OrganizerDiplomaPage = lazy(() => import('../features/organizer/OrganizerDiplomaPage').then(module => ({ default: module.OrganizerDiplomaPage })))
 
@@ -130,6 +131,7 @@ export default function App() {
       <Route element={<PublicLayout />}>
         <Route index element={<CalendarPage />} />
         <Route path="o/:slug" element={<PublicOrganizationPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="e/:slug" element={<PublicLayout />}>
         <Route index element={<PublicEventPage />} />
@@ -141,16 +143,16 @@ export default function App() {
         <Route path="standings" element={<StandingsPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+      {/* UX-24: the legacy per-discipline results URL is kept and rendered inside the event shell. */}
+      <Route path="events/:publicSlug/disciplines/:disciplineId/results" element={<PublicLayout />}>
+        <Route index element={<PublicDisciplineResultsPage />} />
       </Route>
       <Route element={<AppLayout />}>
         <Route
           path="events/:eventCode"
           element={<LegacyEventRedirect />}
-        />
-
-        <Route
-          path="events/:publicSlug/disciplines/:disciplineId/results"
-          element={<PublicDisciplineResultsPage />}
         />
 
         <Route path="invitations/:token" element={<InvitationPage />} />
@@ -298,10 +300,6 @@ export default function App() {
           />
         </Route>
 
-        <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
       </Route>
     </Routes>
   )
