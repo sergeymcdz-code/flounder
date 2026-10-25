@@ -10,6 +10,10 @@ public record CreateRegulationTemplateRequest(
         @NotNull UUID sportId,
         @NotBlank @Size(max = 64) String code,
         @NotBlank @Size(max = 255) String name,
-        String description
+        String description,
+        UUID organizationId
 ) {
+    public CreateRegulationTemplateRequest(UUID sportId, String code, String name, String description) {
+        this(sportId, code, name, description, null);
+    }
 }

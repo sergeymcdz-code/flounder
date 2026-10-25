@@ -42,7 +42,7 @@ class EmailNormalizationIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(details.loadUserByUsername(" " + email.toUpperCase(java.util.Locale.ROOT))).isNotNull();
         assertThat(lookup.findByEmail(" " + email.toUpperCase(java.util.Locale.ROOT)).orElseThrow().id()).isEqualTo(user.id());
         passwords.requestReset(email);
-        verify(mail).send(eq(email), anyString(), contains("reset-password?token="));
+        verify(mail).sendPasswordReset(eq(email), any(java.util.UUID.class));
     }
 
     @Test

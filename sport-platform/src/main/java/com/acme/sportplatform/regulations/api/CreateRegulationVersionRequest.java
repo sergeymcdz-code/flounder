@@ -10,6 +10,10 @@ public record CreateRegulationVersionRequest(
         @Positive int versionNo,
         @NotNull @Valid RegulationRules rulesJson,
         String notes,
-        LocalDate effectiveFrom
+        LocalDate effectiveFrom,
+        java.util.UUID organizationId
 ) {
+    public CreateRegulationVersionRequest(int versionNo, RegulationRules rulesJson, String notes, LocalDate effectiveFrom) {
+        this(versionNo, rulesJson, notes, effectiveFrom, null);
+    }
 }

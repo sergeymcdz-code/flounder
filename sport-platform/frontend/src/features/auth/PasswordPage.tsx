@@ -1,14 +1,14 @@
 import { Button } from '../../components/ui/Button'
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router'
+import { Link, Navigate, useLocation } from 'react-router'
 import { apiFetch, ApiError } from '../../api/http'
 import { useAuth } from '../../app/providers/AuthProvider'
 import styles from './LoginPage.module.css'
 
 export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) {
   const { session, logout } = useAuth()
-  const [params] = useSearchParams()
-  const token = params.get('token')
+  const { hash } = useLocation()
+  const token = new URLSearchParams(hash.slice(1)).get('token')
   const [email, setEmail] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [password, setPassword] = useState('')

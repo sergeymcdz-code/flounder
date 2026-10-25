@@ -1,11 +1,16 @@
 package com.acme.sportplatform.common.web;
 
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -280,11 +285,50 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethod(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        var response = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (ex.getSupportedHttpMethods() != null) response.allow(ex.getSupportedHttpMethods().toArray(org.springframework.http.HttpMethod[]::new));
+        return response.body(error("method_not_allowed", "Метод запроса не поддерживается"));
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMediaType(org.springframework.web.HttpMediaTypeNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(error("unsupported_media_type", "Тип содержимого запроса не поддерживается"));
+    }
+
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.bind.ServletRequestBindingException.class})
+    public ResponseEntity<ApiErrorResponse> handleMissingParameter(Exception ex) {
+        return ResponseEntity.badRequest().body(error("validation_error", "Не передан обязательный параметр запроса"));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
+        // Exception messages and cause chains can contain SQL, constraint names and submitted values.
+        var database = databaseError(ex);
+        log.warn("Database integrity conflict ({}, SQLState {})", database.exceptionClass(), database.sqlState());
+        log.debug("Database integrity conflict details", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(error("data_conflict", "Данные уже существуют или связаны с другими записями"));
+    }
+
+    private ApiErrorResponse error(String code, String message) {
+        return new ApiErrorResponse(code, message, OffsetDateTime.now(), List.of());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpected(
             Exception ex
     ) {
-        log.error("Unexpected internal server error", ex);
+        var database = databaseError(ex);
+        if (database == null) {
+            log.error("Unexpected internal server error", ex);
+        } else {
+            log.error("Unexpected database error ({}, SQLState {})", database.exceptionClass(), database.sqlState());
+            log.debug("Unexpected database error details", ex);
+        }
 
         return ResponseEntity.status(
                 HttpStatus.INTERNAL_SERVER_ERROR
@@ -296,6 +340,19 @@ public class GlobalExceptionHandler {
                         List.of()
                 )
         );
+    }
+
+    private record DatabaseError(String exceptionClass, String sqlState) {}
+
+    private DatabaseError databaseError(Throwable exception) {
+        Throwable database = null;
+        String sqlState = null;
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = exception; cause != null && visited.add(cause); cause = cause.getCause()) {
+            if (database == null && (cause instanceof DataAccessException || cause instanceof SQLException)) database = cause;
+            if (sqlState == null && cause instanceof SQLException sql) sqlState = sql.getSQLState();
+        }
+        return database == null ? null : new DatabaseError(database.getClass().getSimpleName(), sqlState == null ? "unknown" : sqlState);
     }
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)

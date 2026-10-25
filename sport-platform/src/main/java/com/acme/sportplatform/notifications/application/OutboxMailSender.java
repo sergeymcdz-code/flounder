@@ -20,8 +20,8 @@ public class OutboxMailSender implements MailSender {
     }
     @Override
     @Transactional
-    public void send(String recipient, String subject, String body) {
-        outbox.enqueue(null, recipient, "password_reset", Map.of("subject", subject, "body", body),
+    public void sendPasswordReset(String recipient, UUID requestId) {
+        outbox.enqueue(null, recipient, "password_reset", Map.of("requestId", requestId.toString()),
                 UUID.randomUUID().toString(), clock.instant());
     }
 }

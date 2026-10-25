@@ -15,6 +15,12 @@ import jakarta.persistence.Table;
 @Table(name = "venues")
 public class VenueEntity {
 
+    @Column(name = "organization_id")
+    private UUID organizationId;
+
+    public UUID getOrganizationId() { return organizationId; }
+    public void setOrganizationId(UUID value) { organizationId = value; }
+
     @Id
     @UuidGenerator
     private UUID id;

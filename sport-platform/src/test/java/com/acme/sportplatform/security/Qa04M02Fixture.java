@@ -24,7 +24,9 @@ abstract class Qa04M02Fixture extends Qa04SecurityFixture {
     }
     ResultActions call(String suffix, Object body, String actor) throws Exception {
         var request = post("/api/v1/auth" + suffix).with(r -> { r.setRemoteAddr(remoteIp); return r; });
-        if (body != null) request.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body));
+        if ((suffix.equals("/refresh") || suffix.equals("/logout")) && body instanceof Map<?, ?> map) {
+            request.cookie(new jakarta.servlet.http.Cookie("sportgate_refresh", (String) map.get("refreshToken")));
+        } else if (body != null) request.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body));
         if (actor != null && !actor.equals("anonymous")) request.with(authentication(auth(actor)));
         // Separate HTTP requests must not reuse the test transaction's managed token snapshots.
         em.flush(); em.clear();
@@ -35,7 +37,10 @@ abstract class Qa04M02Fixture extends Qa04SecurityFixture {
     JsonNode login(String actor) throws Exception {
         var response = call("/login", Map.of("email", principal(actor).getUsername(), "password", PASSWORD), null)
                 .andExpect(status().isOk()).andReturn().getResponse();
-        return json.readTree(response.getContentAsByteArray());
+        var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(response.getContentAsByteArray());
+        org.assertj.core.api.Assertions.assertThat(body.has("refreshToken")).isFalse();
+        body.put("refreshToken", response.getCookie("sportgate_refresh").getValue());
+        return body;
     }
     static String randomToken() {
         byte[] bytes = new byte[32]; new SecureRandom().nextBytes(bytes);

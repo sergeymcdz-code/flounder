@@ -40,7 +40,7 @@ export const adminHandlers = [
     if (body.email.toLowerCase() !== adminFixture.email) return
     if (body.password !== mockPassword(body.email)) return failure(401, 'identity.invalid_credentials', 'Неверный email или пароль')
     const accessToken = `demo.${btoa(JSON.stringify({ uid: adminFixture.id, roles: ['platform_admin'] }))}.demo`
-    return HttpResponse.json(mockAuthSession(accessToken, body.email))
+    return mockAuthSession(accessToken, body.email)
   }),
   http.get('*/api/v1/roles', ({ request }) => guard(request) ?? HttpResponse.json(adminRoles)),
   http.get('*/api/v1/users', ({ request }) => {

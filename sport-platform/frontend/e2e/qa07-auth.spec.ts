@@ -2,7 +2,7 @@ import { requiredCredential } from './credentials'
 import { test, expect, type Page, type Route } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { request as httpRequest } from 'node:http'
-import { api, apiUrl, login, password, request } from './qa07-support'
+import { api, apiUrl, login, password, request, token } from './qa07-support'
 
 async function createUser(page: Page) {
   const email = `qa07-auth-${randomUUID()}@test.example`
@@ -24,7 +24,7 @@ test('M02: user changes their own password through the password page', async ({ 
   const change = page.waitForResponse(response => response.url().endsWith('/auth/change-password'))
   await page.getByRole('button', { name: 'Сохранить пароль', exact: true }).click()
   expect((await change).status()).toBe(204)
-  await expect(page.getByRole('status')).toContainText('Пароль изменён. Войдите заново')
+  await expect(page.getByRole('status').filter({ hasText: 'Пароль изменён. Войдите заново' })).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('flounder.auth-session') === null)).toBe(true)
   const old = await request(page.request, '/auth/login', 'POST', { email, password })
   expect(old.status()).toBe(401)
@@ -36,6 +36,8 @@ test('M02: user changes their own password through the password page', async ({ 
 test('M02: a real access 401 transparently refreshes and rotates the session', async ({ page }) => {
   const email = await createUser(page)
   await login(page, email, '/my/registrations')
+  const originalCookie = (await page.context().cookies(`${apiUrl}/api/v1/auth/refresh`)).find(cookie => cookie.name === 'sportgate_refresh')
+  expect(Boolean(originalCookie?.httpOnly && originalCookie.secure && originalCookie.sameSite === 'Lax' && originalCookie.path === '/api/v1/auth')).toBe(true)
   // Preserve the JWT role payload so the protected route remains accessible,
   // but invalidate the signature. The real server, not a mock, returns 401.
   await page.evaluate(() => {
@@ -45,7 +47,7 @@ test('M02: a real access 401 transparently refreshes and rotates the session', a
   })
   let loginRedirect = false
   page.on('framenavigated', frame => { if (frame === page.mainFrame() && new URL(frame.url()).pathname === '/login') loginRedirect = true })
-  const rejected = page.waitForResponse(response => response.url().endsWith('/registrations/me') && response.status() === 401)
+  const rejected = page.waitForResponse(response => (response.url().endsWith('/registrations/me') || response.url().endsWith('/auth/me')) && response.status() === 401)
   const refreshed = page.waitForResponse(response => response.url().endsWith('/auth/refresh'))
   const recovered = page.waitForResponse(response => response.url().endsWith('/registrations/me') && response.status() === 200)
   await page.reload()
@@ -53,19 +55,85 @@ test('M02: a real access 401 transparently refreshes and rotates the session', a
   const response = await refreshed
   expect(response.status()).toBe(200)
   // Compare inside the test without placing credentials in an assertion failure.
-  const refreshRequest = response.request().postDataJSON() as { refreshToken: string }
-  const issued = await response.json() as { accessToken: string; refreshToken: string }
-  expect(Boolean(issued.refreshToken) && issued.refreshToken !== refreshRequest.refreshToken).toBe(true)
+  expect(response.request().postData()).toBeNull()
+  const issued = await response.json() as { accessToken: string }
+  expect('refreshToken' in issued).toBe(false)
+  const rotatedCookie = (await page.context().cookies(`${apiUrl}/api/v1/auth/refresh`)).find(cookie => cookie.name === 'sportgate_refresh')
+  expect(Boolean(rotatedCookie?.httpOnly && rotatedCookie.secure && rotatedCookie.sameSite === 'Lax'
+    && rotatedCookie.value !== originalCookie?.value)).toBe(true)
   expect((await recovered).status()).toBe(200)
-  const storedMatches = await page.evaluate(({ accessToken, refreshToken }) => {
+  const storedMatches = await page.evaluate(({ accessToken }) => {
     const session = JSON.parse(sessionStorage.getItem('flounder.auth-session')!)
-    return session.accessToken === accessToken && session.refreshToken === refreshToken
+    return session.accessToken === accessToken && !('refreshToken' in session)
   }, issued)
   expect(storedMatches).toBe(true)
   expect(loginRedirect).toBe(false)
   await expect(page).toHaveURL(/\/my\/registrations$/)
   await expect(page.getByRole('heading', { name: 'Мои заявки', exact: true })).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('M02: cookie refresh rejects missing, forged, legacy-body and replayed credentials', async ({ page, browser }) => {
+  const email = await createUser(page)
+  await login(page, email, '/my/registrations')
+  const refreshUrl = `${apiUrl}/api/v1/auth/refresh`
+  const originalCookie = (await page.context().cookies(refreshUrl)).find(cookie => cookie.name === 'sportgate_refresh')
+  expect(Boolean(originalCookie)).toBe(true)
+  const accessToken = await token(page)
+  const anonymous = await browser.newContext()
+  try {
+    // A valid token in JSON must not provide a fallback around the cookie contract.
+    for (const body of [undefined, { refreshToken: originalCookie!.value }]) {
+      const denied = await request(anonymous.request, '/auth/refresh', 'POST', body)
+      expect(denied.status()).toBe(401)
+      expect((await denied.json()).code).toBe('identity.refresh_token_invalid')
+    }
+    await anonymous.addCookies([{ ...originalCookie!, value: 'forged-test-refresh' }])
+    const forged = await request(anonymous.request, '/auth/refresh', 'POST')
+    expect(forged.status()).toBe(401)
+    expect((await forged.json()).code).toBe('identity.refresh_token_invalid')
+  } finally { await anonymous.close() }
+
+  const crossOrigin = await page.request.post(refreshUrl, { headers: { Origin: 'https://untrusted.example' } })
+  expect(crossOrigin.status()).toBe(403)
+  expect(crossOrigin.headers()['set-cookie'] === undefined).toBe(true)
+  const unchanged = (await page.context().cookies(refreshUrl)).find(cookie => cookie.name === 'sportgate_refresh')
+  expect(unchanged?.value === originalCookie!.value).toBe(true)
+  const rotated = await request(page.request, '/auth/refresh', 'POST')
+  expect(rotated.status()).toBe(200)
+  expect('refreshToken' in await rotated.json()).toBe(false)
+  const replacement = (await page.context().cookies(refreshUrl)).find(cookie => cookie.name === 'sportgate_refresh')
+  expect(Boolean(replacement?.value && replacement.value !== originalCookie!.value)).toBe(true)
+
+  // Reuse revokes the replacement too, including the previously issued access token.
+  for (const cookie of [originalCookie!, replacement!]) {
+    await page.context().addCookies([cookie])
+    const replay = await request(page.request, '/auth/refresh', 'POST')
+    expect(replay.status()).toBe(401)
+    expect((await replay.json()).code).toBe('identity.refresh_token_invalid')
+  }
+  expect((await request(page.request, '/auth/me', 'GET', undefined, accessToken)).status()).toBe(401)
+})
+
+test('M02: logout clears the HttpOnly cookie and its revoked refresh cannot restore a session', async ({ page }) => {
+  const email = await createUser(page)
+  await login(page, email, '/my/registrations')
+  const refreshUrl = `${apiUrl}/api/v1/auth/refresh`
+  const originalCookie = (await page.context().cookies(refreshUrl)).find(cookie => cookie.name === 'sportgate_refresh')
+  expect(Boolean(originalCookie?.httpOnly)).toBe(true)
+  expect(await page.evaluate(() => document.cookie.includes('sportgate_refresh='))).toBe(false)
+  const loggedOut = page.waitForResponse(response => response.url().endsWith('/auth/logout'))
+  await page.getByRole('banner').locator('summary').click()
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+  expect((await loggedOut).status()).toBe(204)
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('flounder.auth-session') === null)).toBe(true)
+  expect((await page.context().cookies(refreshUrl)).some(cookie => cookie.name === 'sportgate_refresh')).toBe(false)
+  await page.context().addCookies([originalCookie!])
+  const revoked = await request(page.request, '/auth/refresh', 'POST')
+  expect(revoked.status()).toBe(401)
+  expect((await revoked.json()).code).toBe('identity.refresh_token_invalid')
+  expect((await request(page.request, '/auth/logout', 'POST')).status()).toBe(204)
+  expect((await page.context().cookies(refreshUrl)).some(cookie => cookie.name === 'sportgate_refresh')).toBe(false)
 })
 
 test('M02: login returns 429 and Retry-After after N failures @rate-limit', async ({ page }, info) => {

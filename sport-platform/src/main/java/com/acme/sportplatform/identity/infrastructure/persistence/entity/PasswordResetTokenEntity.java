@@ -20,6 +20,7 @@ public class PasswordResetTokenEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
     public void setUserId(UUID value) { userId = value; }
     public void setTokenHash(String value) { tokenHash = value; }

@@ -47,6 +47,14 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
 
     record Fixture(UUID user, UUID organization, UUID venue, UUID regulation, UUID template) {}
 
+    UUID catalogUser() {
+        UUID user = UUID.randomUUID(), organization = UUID.randomUUID();
+        jdbc.update("insert into users(id,email,password_hash,status) values (?,?,'test-unused','active')", user, user + "@example.test");
+        jdbc.update("insert into organizations(id,type,name,created_at,updated_at) values (?,'organizer','QA01',now(),now())", organization);
+        jdbc.update("insert into organization_members(id,organization_id,user_id,member_role,created_at) values (?,?,?,'owner',now())", UUID.randomUUID(), organization, user);
+        return user;
+    }
+
     Fixture fixture() throws Exception {
         UUID user = UUID.randomUUID();
         jdbc.update("insert into users(id,email,password_hash,status) values(?,?,'test-unused','active')", user, user + "@example.test");
@@ -101,7 +109,7 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
     @ParameterizedTest
     @CsvSource({"6,25", "6,50", "8,25", "8,50", "10,25", "10,50"})
     void supportedPoolMetadataRoundTrips(int lanes, int length) throws Exception {
-        UUID user = UUID.randomUUID();
+        UUID user = catalogUser();
         var venue = call(post("/api/v1/venues"), user, "ORGANIZER",
                 Map.of("name", "Бассейн", "timezone", "Europe/Moscow", "venueMeta", Map.of("lanes", lanes, "courseLength", length)), 201);
         var loaded = call(get("/api/v1/venues/{id}", venue.path("id").asText()), user, "ORGANIZER", null, 200);
@@ -126,7 +134,7 @@ class Qa01OrganizerCoreIntegrationTest extends AbstractPostgresIntegrationTest {
     @ValueSource(strings = {"{\"lanes\":null}", "{\"courseLength\":null}",
             "{\"lanes\":null,\"courseLength\":50}", "{\"lanes\":8,\"courseLength\":null}"})
     void nullPoolMetadataIsTreatedAsUnspecified(String meta) throws Exception {
-        UUID user = UUID.randomUUID();
+        UUID user = catalogUser();
         var venue = call(post("/api/v1/venues"), user, "ORGANIZER",
                 Map.of("name", "Бассейн", "timezone", "Europe/Moscow", "venueMeta", json.readTree(meta)), 201);
         var loaded = call(get("/api/v1/venues/{id}", venue.path("id").asText()), user, "ORGANIZER", null, 200);

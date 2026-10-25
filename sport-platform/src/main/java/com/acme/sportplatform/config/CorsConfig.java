@@ -35,10 +35,11 @@ public class CorsConfig {
 
         configuration.setExposedHeaders(List.of(
                 "Location",
-                "X-Request-Id"
+                "X-Request-Id",
+                "Retry-After"
         ));
 
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
