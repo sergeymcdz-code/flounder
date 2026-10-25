@@ -1,6 +1,14 @@
-import { statusLabel } from '../../components/ui/status-dictionary'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { Button } from '../../components/ui/Button'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Notice } from '../../components/ui/Notice'
+import { LoadingState } from '../../components/LoadingState'
+import { ErrorState } from '../../components/ErrorState'
+import { participantName, eventLabel } from '../registrations/registration-display'
+import { money } from '../../api/registration-payments.api'
 import { useEffect, useState } from 'react'
-import { NavLink, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { ApiError } from '../../api/http'
 import {
   getRegistration,
@@ -10,7 +18,6 @@ import {
 import { useAuth } from '../../app/providers/AuthProvider'
 import type {
   Registration,
-  RegistrationStatus,
 } from '../../features/registrations/registration.types'
 import {
   confirmPayment,
@@ -49,39 +56,6 @@ function paymentStatusLabel(status: string) {
   return labels[status] ?? status
 }
 
-const registrationStatusLabel = (status: RegistrationStatus) => statusLabel('registration', status)
-
-function registrationStatusClassName(status: RegistrationStatus) {
-  const classes: Partial<Record<RegistrationStatus, string>> = {
-    WAITLISTED: styles.statusCorrection,
-    SUBMITTED: styles.statusSubmitted,
-    CONFIRMED: styles.statusConfirmed,
-    PAID: styles.statusConfirmed,
-    ADMITTED: styles.statusConfirmed,
-    NEEDS_CORRECTION: styles.statusCorrection,
-    REJECTED: styles.statusRejected,
-    CANCELLED: styles.statusCancelled,
-  }
-
-  return `${styles.statusBadge} ${classes[status]}`
-}
-
-function paymentStatusClassName(status: string) {
-  const classes: Record<string, string> = {
-    CREATED: styles.paymentPending,
-    PENDING: styles.paymentPending,
-    WAITING_FOR_CAPTURE: styles.paymentWaiting,
-    SUCCEEDED: styles.paymentSucceeded,
-    CANCELED: styles.paymentCancelled,
-    FAILED: styles.paymentFailed,
-    REFUNDED: styles.statusNeutral,
-  }
-
-  return `${styles.statusBadge} ${
-    classes[status] ?? styles.statusNeutral
-  }`
-}
-
 export function OperatorRegistrationPage() {
   const { registrationId } = useParams<{ registrationId: string }>()
   const { session, hasRole } = useAuth()
@@ -97,6 +71,8 @@ export function OperatorRegistrationPage() {
     null,
   )
   const [reviewNote, setReviewNote] = useState('')
+  const [reload, setReload] = useState(0)
+  useEffect(() => { document.title = 'Заявка участника · SportGate' }, [])
 
   const canReviewRegistration =
     hasRole('platform_admin') || hasRole('organizer')
@@ -105,7 +81,7 @@ export function OperatorRegistrationPage() {
     hasRole('platform_admin') || hasRole('operator')
 
   const canManuallyConfirmPayment =
-    canConfirmPayment &&
+    canConfirmPayment && !isLoading && !errorMessage && payment?.registrationId === registrationId &&
     payment?.provider === 'MANUAL' &&
     (payment.status === 'CREATED' || payment.status === 'PENDING')
 
@@ -177,10 +153,10 @@ export function OperatorRegistrationPage() {
     return () => {
       isMounted = false
     }
-  }, [accessToken, registrationId])
+  }, [accessToken, registrationId, reload])
 
   async function handleReview(decision: RegistrationReviewDecision) {
-    if (!registration || !accessToken) {
+    if (!registration || registration.id !== registrationId || !accessToken || isLoading || isSaving) {
       return
     }
 
@@ -211,7 +187,7 @@ export function OperatorRegistrationPage() {
   }
 
   async function handleConfirmPayment() {
-    if (!payment || !accessToken) {
+    if (!payment || payment.registrationId !== registrationId || !accessToken || isLoading || isSaving) {
       return
     }
 
@@ -234,222 +210,47 @@ export function OperatorRegistrationPage() {
     }
   }
 
-  if (!registrationId || !accessToken) {
-    return null
-  }
-
-  if (isLoading) {
-    return (
-      <section className={styles.page}>
-        <div className={styles.stateCard}>
-          Загружаем заявку и данные платежа…
-        </div>
-      </section>
-    )
-  }
-
-  if (errorMessage && !registration) {
-    return (
-      <section className={styles.page}>
-        <p className={styles.errorMessage} role="alert">
-          {errorMessage}
-        </p>
-
-        <NavLink className={styles.backLink} to="/operator/payments">
-          ← К списку заявок
-        </NavLink>
-      </section>
-    )
-  }
-
-  if (!registration) {
-    return null
-  }
-
-  return (
-    <section className={styles.page}>
-      <NavLink className={styles.backLink} to="/operator/payments">
-        ← К списку заявок
-      </NavLink>
-
-      <p className={styles.eyebrow}>Проверка заявки</p>
-
-      <div className={styles.titleRow}>
-        <h1 className={styles.title}>Заявка участника</h1>
-
-        <span
-          className={registrationStatusClassName(registration.status)}
-        >
-          {registrationStatusLabel(registration.status)}
-        </span>
-      </div>
-
-      <div className={styles.content}>
-        <article className={styles.card}>
-          <h2 className={styles.cardTitle}>Данные заявки</h2>
-
-          <dl className={styles.detailList}>
-            <div>
-              <dt>ID заявки</dt>
-              <dd className={styles.technicalValue}>{registration.id}</dd>
-            </div>
-
-            <div>
-              <dt>ID соревнования</dt>
-              <dd className={styles.technicalValue}>
-                {registration.eventId}
-              </dd>
-            </div>
-
-            <div>
-              <dt>ID дисциплины</dt>
-              <dd className={styles.technicalValue}>
-                {registration.eventDisciplineId}
-              </dd>
-            </div>
-
-            <div>
-              <dt>Статус</dt>
-              <dd>{registrationStatusLabel(registration.status)}</dd>
-            </div>
-
-            {registration.reviewNote ? (
-              <div className={styles.reviewNote}>
-                <dt>Комментарий организатора</dt>
-                <dd>{registration.reviewNote}</dd>
-              </div>
-            ) : null}
+  const paymentCode = payment?.status === 'SUCCEEDED' ? 'PAID' : payment?.status === 'REFUNDED' ? 'REFUNDED' : ['CREATED', 'PENDING'].includes(payment?.status ?? '') ? 'PENDING' : paymentStatusLabel(payment?.status ?? '')
+  return <section className={styles.page}>
+    <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to="/operator/payments">← К списку заявок</Button>
+    <p className="fl-eyebrow">Проверка заявки</p>
+    <PageHeader title="Заявка участника" badge={registration && registration.id === registrationId && <StatusBadge kind="registration" code={registration.status} />} meta={registration && registration.id === registrationId ? `${participantName(registration)} · ${eventLabel(registration)}` : 'Данные участника и оплата'} />
+    {isLoading && <LoadingState message="Загружаем заявку и данные платежа…" />}
+    {errorMessage && <ErrorState message={errorMessage} onRetry={() => setReload(value => value + 1)} />}
+    {!isLoading && !errorMessage && !registration && <EmptyState title="Заявка не найдена" action={<Button as={Link} to="/operator/payments">К списку заявок</Button>}><p>Откройте другую заявку из списка.</p></EmptyState>}
+    {registration && registration.id === registrationId && <div className={styles.content}>
+      <article className={styles.card}>
+        <h2>Данные заявки</h2>
+        <dl className={styles.details}>
+          <div><dt>Участник</dt><dd>{participantName(registration)}</dd></div>
+          <div><dt>Соревнование</dt><dd>{eventLabel(registration)}</dd></div>
+          <div><dt>Вид программы</dt><dd>{registration.disciplineName || 'Вид программы не указан'}</dd></div>
+          <div><dt>Клуб</dt><dd>{registration.participantClubName || registration.participantSnapshot.clubName || 'Не указан'}</dd></div>
+          {registration.reviewNote && <div><dt>Комментарий организатора</dt><dd>{registration.reviewNote}</dd></div>}
+        </dl>
+      </article>
+      <article className={styles.card}>
+        <div className={styles.cardHeader}><h2>Оплата</h2>{payment && payment.registrationId === registrationId && <StatusBadge kind="payment" code={paymentCode} />}</div>
+        {payment && payment.registrationId === registrationId ? <>
+          <dl className={styles.details}>
+            <div><dt>Сумма</dt><dd className={styles.amount}>{money(payment.amount, payment.currency)}</dd></div>
+            <div><dt>Способ оплаты</dt><dd>{payment.provider === 'MANUAL' ? 'Ручная оплата' : payment.provider === 'YOOKASSA' ? 'ЮKassa' : 'Другой способ'}</dd></div>
           </dl>
-        </article>
-
-        <article className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Оплата</h2>
-
-            {payment ? (
-              <span className={paymentStatusClassName(payment.status)}>
-                {paymentStatusLabel(payment.status)}
-              </span>
-            ) : null}
-          </div>
-
-          {payment ? (
-            <>
-              <dl className={styles.detailList}>
-                <div>
-                  <dt>ID платежа</dt>
-                  <dd className={styles.technicalValue}>{payment.id}</dd>
-                </div>
-
-                <div>
-                  <dt>Сумма</dt>
-                  <dd className={styles.amount}>
-                    {payment.amount} {payment.currency}
-                  </dd>
-                </div>
-
-                <div>
-                  <dt>Способ оплаты</dt>
-                  <dd>{payment.provider === 'MANUAL' ? 'Ручная оплата' : payment.provider === 'YOOKASSA' ? 'ЮKassa' : payment.provider}</dd>
-                </div>
-
-                <div>
-                  <dt>Статус платежа</dt>
-                  <dd>{paymentStatusLabel(payment.status)}</dd>
-                </div>
-              </dl>
-
-              {canManuallyConfirmPayment ? (
-                <button
-                  className={styles.primaryButton}
-                  disabled={isSaving}
-                  onClick={handleConfirmPayment}
-                  type="button"
-                >
-                  {isSaving
-                    ? 'Подтверждаем оплату…'
-                    : 'Подтвердить ручную оплату'}
-                </button>
-              ) : null}
-
-              {payment.provider === 'YOOKASSA' ? (
-                <p className={styles.emptyText}>
-                  Оплата через ЮKassa подтверждается автоматически
-                  после уведомления от платёжного сервиса.
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className={styles.emptyText}>
-              Платёж для этой заявки ещё не создан.
-            </p>
-          )}
-        </article>
-
-        {canReviewRegistration ? (
-          <article className={styles.card}>
-            <h2 className={styles.cardTitle}>Решение по заявке</h2>
-
-            <label className={styles.noteField}>
-              <span>Комментарий для участника</span>
-
-              <textarea
-                disabled={isSaving}
-                onChange={(event) => setReviewNote(event.target.value)}
-                rows={4}
-                value={reviewNote}
-              />
-            </label>
-
-            <div className={styles.actionRow}>
-              <button
-                className={styles.primaryButton}
-                disabled={isSaving}
-                onClick={() => void handleReview('CONFIRMED')}
-                type="button"
-              >
-                Подтвердить заявку
-              </button>
-
-              <button
-                className={styles.secondaryButton}
-                disabled={isSaving}
-                onClick={() => void handleReview('NEEDS_CORRECTION')}
-                type="button"
-              >
-                Запросить уточнение
-              </button>
-
-              <button
-                className={styles.dangerButton}
-                disabled={isSaving}
-                onClick={() => void handleReview('REJECTED')}
-                type="button"
-              >
-                Отклонить заявку
-              </button>
-            </div>
-          </article>
-        ) : (
-          <div className={styles.readOnlyNotice}>
-            Оператор может просматривать заявку и подтверждать ручную
-            оплату. Решение по заявке принимает организатор или
-            администратор.
-          </div>
-        )}
-
-        {errorMessage ? (
-          <p className={styles.errorMessage} role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-
-        {successMessage ? (
-          <p className={styles.successMessage} role="status">
-            {successMessage}
-          </p>
-        ) : null}
-      </div>
-    </section>
-  )
+          {canManuallyConfirmPayment && <Button variant="primary" loading={isSaving} loadingLabel="Подтверждаем оплату…" title={isSaving ? 'Дождитесь сохранения' : undefined} onClick={() => void handleConfirmPayment()}>Подтвердить ручную оплату</Button>}
+          {payment.provider === 'YOOKASSA' && <Notice>Оплата через ЮKassa подтверждается автоматически после уведомления от платёжного сервиса.</Notice>}
+        </> : <Notice>{isLoading ? 'Загружаем данные платежа…' : errorMessage ? 'Данные платежа недоступны. Повторите загрузку.' : 'Платёж для этой заявки ещё не создан.'}</Notice>}
+      </article>
+      {canReviewRegistration ? <article className={styles.card}>
+        <h2>Решение по заявке</h2>
+        <label className="fl-field">Комментарий для участника<textarea disabled={isSaving || isLoading} title={isSaving || isLoading ? 'Дождитесь сохранения' : undefined} onChange={event => setReviewNote(event.target.value)} rows={4} value={reviewNote} /></label>
+        <div className={styles.actions}>
+          <Button variant="primary" disabled={isSaving || isLoading} title={isSaving || isLoading ? 'Дождитесь сохранения' : undefined} onClick={() => void handleReview('CONFIRMED')}>Подтвердить заявку</Button>
+          <Button disabled={isSaving || isLoading} title={isSaving || isLoading ? 'Дождитесь сохранения' : undefined} onClick={() => void handleReview('NEEDS_CORRECTION')}>Запросить уточнение</Button>
+          <Button variant="danger" disabled={isSaving || isLoading} title={isSaving || isLoading ? 'Дождитесь сохранения' : undefined} onClick={() => void handleReview('REJECTED')}>Отклонить заявку</Button>
+        </div>
+      </article> : <Notice>Оператор может просматривать заявку и подтверждать ручную оплату. Решение по заявке принимает организатор или администратор.</Notice>}
+      {isSaving && <p role="status">Дождитесь сохранения.</p>}
+      {successMessage && <Notice tone="info"><span role="status">{successMessage}</span></Notice>}
+    </div>}
+  </section>
 }

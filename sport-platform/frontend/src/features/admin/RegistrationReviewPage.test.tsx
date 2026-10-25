@@ -27,7 +27,7 @@ it('selects by name, submits the internal ID, and retains event details after re
   expect(await screen.findByText(/Заявка успешно обработана/)).toBeInTheDocument()
   expect(screen.getByText('На исправлении')).toBeInTheDocument()
   expect(screen.getByText(/900,00/)).toBeInTheDocument()
-  expect(screen.getByText('Ожидает')).toBeInTheDocument()
+  expect(screen.getByText('Ожидает оплаты', { selector: '.fl-status' })).toBeInTheDocument()
   expect(screen.getAllByText('Кубок Москвы · 24.10.2026')).toHaveLength(2)
   expect(container.textContent).not.toMatch(/[a-f0-9]{8}-[a-f0-9-]{27}/i)
 })

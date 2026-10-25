@@ -11,8 +11,16 @@ import {
   getRegistrations,
 } from '../../api/registrations.api'
 import { useAuth } from '../../app/providers/AuthProvider'
-import './AdminPages.css'
-import { RegistrationDirectory } from '../registrations/RegistrationDirectory'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { DataTable } from '../../components/ui/DataTable'
+import { Button } from '../../components/ui/Button'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Notice } from '../../components/ui/Notice'
+import { LoadingState } from '../../components/LoadingState'
+import { ErrorState } from '../../components/ErrorState'
+import { money } from '../../api/registration-payments.api'
 import { participantName, eventLabel } from '../registrations/registration-display'
 import type { Registration } from '../registrations/registration.types'
 import reviewStyles from './RegistrationReviewPage.module.css'
@@ -43,7 +51,7 @@ const DECISIONS: DecisionOption[] = [
 
 function getErrorMessage(error: unknown) {
   if (!(error instanceof ApiError)) {
-    return 'Не удалось обработать заявку. Попробуйте ещё раз.'
+    return error instanceof TypeError ? 'Нет связи. Проверьте подключение и повторите попытку.' : 'Не удалось обработать заявку. Попробуйте ещё раз.'
   }
 
   if (error.status === 403) {
@@ -59,7 +67,10 @@ function getErrorMessage(error: unknown) {
 
 export function RegistrationReviewPage() {
   const { session } = useAuth()
+  useEffect(() => { document.title = 'Рассмотрение заявки · SportGate' }, [])
 
+  const [query, setQuery] = useState('')
+  const [eventId, setEventId] = useState('')
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [selected, setSelected] = useState<Registration | null>(null)
@@ -146,31 +157,42 @@ export function RegistrationReviewPage() {
     }
   }
 
+  const events = [...new Map(registrations.map(row => [row.eventId, row])).values()]
+  const visible = registrations.filter(row => (!eventId || row.eventId === eventId) && `${participantName(row)} ${row.eventTitle || ''}`.toLocaleLowerCase('ru-RU').includes(query.trim().toLocaleLowerCase('ru-RU')))
+  function select(row: Registration, nextDecision: RegistrationReviewDecision = 'CONFIRMED') {
+    setSelected(row); setReviewNote(''); setDecision(nextDecision); setErrorMessage(null); setSuccessMessage(null)
+  }
   return (
     <section className={reviewStyles.page}>
-      <p className="eyebrow">Панель администратора</p>
-
-      <h1>Рассмотрение заявки</h1>
-
-      <p className="page-description">
-        Найдите участника, выберите заявку и оставьте понятный комментарий.
-      </p>
-
-      <div className="admin-warning">
-        Не меняйте подтверждённые заявки на рабочем стенде без необходимости.
-        Для тестов используйте отдельную заявку в статусе «На рассмотрении».
-      </div>
-
-      {isLoading && <p role="status">Загружаем заявки…</p>}
-      {loadError && <p role="alert">{loadError} <button className="fl-btn" onClick={() => setReload(value => value + 1)}>Повторить</button></p>}
-      {!isLoading && !loadError && <RegistrationDirectory registrations={registrations} selectedId={selected?.id} disabled={isSubmitting} onSelect={row => {
-        setSelected(row); setReviewNote(''); setDecision('CONFIRMED'); setErrorMessage(null); setSuccessMessage(null)
-      }} />}
-      {successMessage && <p className="form-success" role="status">{successMessage}</p>}
-      {selected && <form className={`fl-form ${reviewStyles.form}`} onSubmit={handleSubmit}>
+      <p className="fl-eyebrow">Панель администратора</p>
+      <PageHeader title="Рассмотрение заявки" meta="Найдите участника, выберите заявку и оставьте понятный комментарий." />
+      {isLoading && <LoadingState message="Загружаем заявки…" />}
+      {loadError && <ErrorState message={loadError} onRetry={() => setReload(value => value + 1)} />}
+      {(!isLoading || registrations.length > 0) && <>
+        <form className={reviewStyles.filters} onSubmit={event => event.preventDefault()} role="search">
+          <label className="fl-field">Поиск по ФИО или соревнованию<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
+          <label className="fl-field">Соревнование<select value={eventId} onChange={event => setEventId(event.target.value)}><option value="">Все соревнования</option>{events.map(row => <option key={row.eventId} value={row.eventId}>{eventLabel(row)}</option>)}</select></label>
+        </form>
+        <p role="status">Найдено заявок: {visible.length}</p>
+        {!visible.length && !loadError ? <EmptyState title={registrations.length ? 'Ничего не найдено' : 'Заявок пока нет'} action={<Button onClick={() => { setQuery(''); setEventId(''); setReload(value => value + 1) }}>{registrations.length ? 'Сбросить фильтры' : 'Обновить список'}</Button>}><p>{registrations.length ? 'Измените поиск или соревнование.' : 'Новые заявки появятся здесь после отправки участниками.'}</p></EmptyState> : visible.length > 0 && <div className={reviewStyles.tableWrap}>
+          <DataTable cards minWidth="calc(var(--space-16) * 12)" caption="Заявки участников" rows={visible} rowKey={row => row.id} columns={[
+            { key: 'name', header: 'Участник', rowHeader: true, render: row => <div><strong>{participantName(row)}</strong><span className={reviewStyles.meta}>{[row.participantBirthYear ?? row.participantSnapshot.birthDate?.slice(0, 4), row.participantClubName || row.participantSnapshot.clubName].filter(Boolean).join(' · ')}</span></div> },
+            { key: 'status', header: 'Статус', render: row => <StatusBadge kind="registration" code={row.status} /> },
+            { key: 'event', header: 'Соревнование', render: row => <div>{eventLabel(row)}<span className={reviewStyles.meta}>{row.disciplineName || 'Вид программы'}</span></div> },
+            { key: 'payment', header: 'Оплата', render: row => <div><StatusBadge kind="payment" code={row.paymentStatus || 'NOT_REQUIRED'} /><span className={`${reviewStyles.meta} fl-numeric`}>{money(row.feeAmount, row.feeCurrency || 'RUB')}</span></div> },
+            { key: 'actions', header: 'Действия', render: row => <div className={reviewStyles.actions}>
+              <Button disabled={isSubmitting} title={isSubmitting ? 'Дождитесь сохранения решения' : undefined} onClick={() => select(row)} aria-label={`Выбрать заявку: ${participantName(row)}, ${eventLabel(row)}`}>{selected?.id === row.id ? 'Выбрана' : 'Выбрать'}</Button>
+              <OverflowMenu label={`Действия заявки: ${participantName(row)}`} items={DECISIONS.map(option => ({ label: option.label, onSelect: () => select(row, option.value), disabled: isSubmitting, disabledReason: isSubmitting ? 'Дождитесь сохранения решения' : undefined }))} />
+            </div> },
+          ]} />
+        </div>}
+      </>}
+      {successMessage && <Notice tone="info"><span role="status">{successMessage}</span></Notice>}
+      {isSubmitting && <p role="status">Дождитесь сохранения решения.</p>}
+      {selected && <form className={reviewStyles.form} onSubmit={handleSubmit}>
         <h2 ref={headingRef} tabIndex={-1}>Решение по заявке</h2>
         <p>{participantName(selected)} · {eventLabel(selected)}</p>
-        <fieldset className="fl-fieldset" disabled={isSubmitting}>
+        <fieldset className="fl-fieldset" disabled={isSubmitting} title={isSubmitting ? 'Дождитесь сохранения решения' : undefined}>
           <legend>Решение</legend>
 
           <div className={reviewStyles.decisions}>
@@ -200,6 +222,7 @@ export function RegistrationReviewPage() {
           <span>Комментарий для участника</span>
           <textarea
             disabled={isSubmitting}
+            title={isSubmitting ? 'Дождитесь сохранения решения' : undefined}
             maxLength={2000}
             onChange={(event) => setReviewNote(event.target.value)}
             placeholder="Например: Заявка подтверждена. Ожидайте информацию об оплате."
@@ -215,14 +238,10 @@ export function RegistrationReviewPage() {
           </p>
         ) : null}
 
-        <button title={isSubmitting ? 'Дождитесь сохранения' : undefined}
-          className="fl-btn fl-btn-primary"
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? 'Сохраняем…' : 'Сохранить решение'}
-        </button>
-        <button className="fl-btn fl-btn-secondary" type="button" disabled={isSubmitting} onClick={() => setSelected(null)}>Отменить выбор</button>
+        <div className={reviewStyles.actions}>
+          <Button type="submit" variant="primary" loading={isSubmitting} loadingLabel="Сохраняем…" title={isSubmitting ? 'Дождитесь сохранения решения' : undefined}>Сохранить решение</Button>
+          <Button disabled={isSubmitting} title={isSubmitting ? 'Дождитесь сохранения решения' : undefined} onClick={() => setSelected(null)}>Отменить выбор</Button>
+        </div>
       </form>}
     </section>
   )
@@ -257,13 +276,14 @@ export function OrganizationRegistrationReviewPage() {
       setSelected(null); setReload(value => value + 1)
     } catch (err) { setFormError(adminError(err)) } finally { setBusy(false) }
   }
-  return <section className={adminStyles.page}><h1>Заявки организаций</h1>
-    {loading ? <p role="status">Загружаем заявки…</p> : error ? <p className={adminStyles.error} role="alert">{error} <button className="fl-btn fl-btn-secondary" onClick={() => setReload(value => value + 1)}>Повторить</button></p>
-      : !requests.length ? <p className="fl-empty">Заявок организаций на рассмотрении нет.</p> : <div className={adminStyles.queue}>
-        {requests.map(request => <article key={request.id} className={adminStyles.card}>
+  return <section className={reviewStyles.page}><p className="fl-eyebrow">Панель администратора</p><PageHeader title="Заявки организаций" meta="Проверьте сведения об организации перед одобрением." />
+    {loading && <LoadingState message="Загружаем заявки…" />}{error && <ErrorState message={error} onRetry={() => setReload(value => value + 1)} />}
+      {!loading && !error && !requests.length && <EmptyState title="Заявок организаций на рассмотрении нет" action={<Button onClick={() => setReload(value => value + 1)}>Обновить список</Button>}><p>Новые обращения появятся здесь.</p></EmptyState>}
+      {requests.length > 0 && <div className={reviewStyles.queue}>
+        {requests.map(request => <article key={request.id} className={reviewStyles.card}>
           <h2>{request.organizationName}</h2><p>{request.legalName || request.organizationType} · ИНН: {request.inn || '—'}</p>
           <p>{request.contactEmail} {request.contactPhone}</p><p>Подана: {new Date(request.createdAt).toLocaleDateString('ru-RU')}</p>
-          <div className={adminStyles.actions}>{[true, false].map(approve => <button className="fl-btn fl-btn-secondary" key={String(approve)} onClick={() => {
+          <div className={reviewStyles.actions}>{[true, false].map(approve => <button className="fl-btn fl-btn-secondary" key={String(approve)} onClick={() => {
             setSelected({ id: request.id, name: request.organizationName, approve }); setReason(''); setFormError('')
           }}>{approve ? 'Одобрить' : 'Отклонить'}</button>)}</div>
         </article>)}

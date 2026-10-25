@@ -1,6 +1,25 @@
-.page { max-width: 1120px; min-width: 0; }
-.eyebrow { color: var(--color-primary); font-size: var(--text-sm); }
-.title { margin: 0; color: var(--color-text); }
-.description { color: var(--color-text-muted); line-height: 1.6; }
-.stateCard { padding: var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }
-.errorMessage { padding: var(--space-4); background: var(--color-danger-soft); color: var(--color-danger); }
+.page { min-width: 0; display: grid; gap: var(--space-6); }
+.page > p { margin: 0; }
+.filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.filters label, .filters :is(input, select) { min-width: 0; max-width: 100%; }
+.tableWrap { min-width: 0; }
+.meta { display: block; color: var(--color-text-muted); font-size: var(--text-sm); font-weight: normal; margin-top: var(--space-1); }
+.identity { display: flex; align-items: center; gap: var(--space-2); }
+.check { display: flex; justify-content: center; align-items: center; min-width: var(--tap-target); min-height: var(--tap-target); cursor: pointer; }
+.bulk { position: sticky; bottom: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-sticky); z-index: var(--z-sticky); }
+.bulk > div { flex: 1; }
+.bulk small { display: block; color: var(--color-text-muted); margin-top: var(--space-1); }
+@media (max-width: 1023px) { .filters { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) {
+  .page { gap: var(--space-4); }
+  .tableWrap :global(.fl-rowcards) tbody [data-primary] { grid-column: 1; }
+  .tableWrap :global(.fl-rowcards) tbody td:nth-child(2) { grid-column: 2; grid-row: 1; justify-content: end; }
+  .tableWrap :global(.fl-rowcards) tbody td:nth-child(3) { grid-column: 1 / -1; }
+  .tableWrap :global(.fl-rowcards) tbody :is(td:nth-child(2), td:nth-child(3), td:nth-child(4), td:last-child)::before { display: none; }
+  .tableWrap :global(.fl-rowcards) tbody td:nth-child(4) { grid-column: 1; }
+  .tableWrap :global(.fl-rowcards) tbody td:nth-child(5) { grid-column: 2; }
+  .tableWrap :global(.fl-rowcards) tbody td:last-child > :global(.fl-btn) { width: 100%; }
+  .bulk { padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); }
+  .bulk > div { flex-basis: 100%; }
+  .bulk > :global(.fl-btn) { flex: 1; white-space: normal; }
+}
