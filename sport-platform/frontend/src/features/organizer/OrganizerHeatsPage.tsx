@@ -92,7 +92,7 @@ export function OrganizerHeatsPage() {
   return <div className={styles.page}>
     <ActionBar className={styles.actions}>
       {!published && <div className={styles.action}><Button variant="primary" disabled={!!(heats.length ? publishReason : generateReason)} title={heats.length ? publishReason : generateReason} loading={busy} loadingLabel={heats.length ? 'Проверяем…' : 'Формируем…'} onClick={() => heats.length ? void validate(true) : requestGenerate()}>{heats.length ? 'Опубликовать протокол' : 'Сформировать заплывы'}</Button>{(heats.length ? publishReason : generateReason) && <small>{heats.length ? publishReason : generateReason}</small>}</div>}
-      {heats.length > 0 && <Button variant={published ? 'primary' : 'secondary'} disabled={!!generateReason} title={generateReason} onClick={() => requestGenerate()}>Сформировать заплывы</Button>}
+      {heats.length > 0 && <div className={styles.action}><Button variant="secondary" disabled={!!generateReason} title={generateReason} onClick={() => requestGenerate()}>Сформировать заплывы</Button>{generateReason && <small>{generateReason}</small>}</div>}
       <OverflowMenu label="По виду" trigger="По виду ▾" items={event.disciplines.map(d => ({ label: d.name, disabled: !!reason, disabledReason: reason, onSelect: () => requestGenerate(d.id) }))} />
       <OverflowMenu label="Расписание" trigger="Расписание ▾" items={[
         { label: 'Пересчитать время стартов', disabled: !!(reason ?? noHeats), disabledReason: reason ?? noHeats, onSelect: () => void run(() => recalculateSchedule(event.id, accessToken)) },

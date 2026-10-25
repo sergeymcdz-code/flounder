@@ -36,7 +36,6 @@ export function HeatCard({ heat, discipline, registrations, lanes, timeZone, dis
         <Button variant="ghost" size="sm" disabled={!!disabledReason} title={disabledReason} aria-pressed={editing} onClick={() => setEditing(!editing)}>{editing ? 'Завершить редактирование' : 'Редактировать дорожки'}</Button>
         {disabledReason && <small>{disabledReason}</small>}
       </div>
-
     </header>
     {group && <p className={styles.muted}>Группа {group}</p>}
     {heat.entries.length === 0 ? <EmptyState title="В заплыве нет участников" action={null}>Пересоберите вид после проверки заявок.</EmptyState> : <details className={styles.lanes} open={expanded} onToggle={e => setExpanded(e.currentTarget.open)}>

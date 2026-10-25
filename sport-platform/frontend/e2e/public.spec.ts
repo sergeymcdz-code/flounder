@@ -247,7 +247,7 @@ test('production PWA caches shell and live API and reloads offline', async ({
   ).toBeVisible()
   // Cached fallback may still be completing when connectivity returns. Wait for
   // actual fresh live data before asserting that its stale-data notice disappears.
-  const freshLive = page.waitForResponse(response => response.url().endsWith('/api/v1/public/events/demo/live') && response.ok() && response.headers()['x-flounder-cached'] !== 'true')
+  const freshLive = page.waitForResponse(response => response.url().endsWith('/api/v1/public/events/demo/live') && response.ok() && response.headers()['x-flounder-cached'] !== 'true', { timeout: 8_000 })
   await context.setOffline(false)
   await freshLive
   await expect(

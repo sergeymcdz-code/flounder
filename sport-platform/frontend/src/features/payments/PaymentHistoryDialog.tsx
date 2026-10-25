@@ -23,7 +23,7 @@ export function PaymentHistoryDialog({ id, token, onClose }: { id: string; token
   const labels: Record<string, string> = { MARK_PAID: 'Оплата', WAIVE: 'Освобождение', REFUND: 'Возврат', RESET: 'Сброс' }
   return <OrganizerDialog title="История оплаты" onClose={onClose}>
     {error && <Notice tone="danger">{error} <Button onClick={() => setReload(value => value + 1)}>Повторить</Button></Notice>}
-    {loading && <div role="status"><p>Загружаем историю оплаты…</p><div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div></div>}
+    {loading && <div role="status"><p>Загружаем историю оплаты…</p><div className="fl-skeleton" aria-hidden="true"><div /><div /><div /></div></div>}
     {!loading && !rows.length && !error && <EmptyState title="Операций пока нет" action={<Button onClick={onClose}>Закрыть</Button>}><p>Здесь появятся отметки оплаты, возвраты и освобождения от взноса.</p></EmptyState>}
     {!!rows.length && <ol className={styles.history}>{rows.map(row => <li key={row.id}>
       <strong>{labels[row.action] || 'Операция оплаты'}</strong> · <span className="fl-numeric">{money(row.amount, row.currency || 'RUB')}</span>

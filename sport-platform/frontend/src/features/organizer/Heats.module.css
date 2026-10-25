@@ -19,7 +19,7 @@
 .heatHeader .numeric { text-align: left; }
 .highlight { outline: var(--border-width-rule) solid var(--color-focus); outline-offset: var(--space-1); }
 .lanes { margin-top: var(--space-3); }
-.editAction { display: grid; gap: var(--space-1); }
+.editAction { display: none; }
 .laneTable { width: 100%; font-variant-numeric: var(--numeric-variant); }
 .laneTable :is(th, td) { padding-inline: var(--space-2); }
 .laneTable th[scope='row'] { font-weight: var(--font-weight-medium); white-space: normal; overflow-wrap: anywhere; }
