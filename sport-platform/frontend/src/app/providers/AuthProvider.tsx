@@ -145,8 +145,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const logout = useCallback(async () => {
     setAuthSession(null)
     clearRegistrationDrafts()
-    await settleRefresh()
-    await apiFetch('/api/v1/auth/logout', { method: 'POST', skipRefresh: true })
+    try {
+      await settleRefresh()
+      await apiFetch('/api/v1/auth/logout', { method: 'POST', skipRefresh: true })
+    } catch {
+      // Локальная сессия уже сброшена; cookie погаснет по сроку, сеть не должна блокировать выход.
+    }
   }, [])
 
   const roles = useMemo(() => currentProfile?.effectiveRoles ?? getRoles(token || null), [currentProfile?.effectiveRoles, token])
