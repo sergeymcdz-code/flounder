@@ -143,6 +143,7 @@ export default function App() {
         <Route path="standings" element={<StandingsPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       {/* UX-24: the legacy per-discipline results URL is kept and rendered inside the event shell. */}
       <Route path="events/:publicSlug/disciplines/:disciplineId/results" element={<PublicLayout />}>

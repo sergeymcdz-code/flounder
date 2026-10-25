@@ -18,6 +18,7 @@ const finalStatuses = new Set(['COMPLETED', 'FINISHED', 'ARCHIVED'])
 /** End of the event as a timestamp; a bare date (calendar cards) counts until the end of that day. */
 function endTime(value: string | null | undefined) {
   if (!value) return null
+  // UTC end-of-day intentionally leaves a grace period for venues east of UTC.
   const time = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T23:59:59Z` : value)
   return Number.isNaN(time) ? null : time
 }
@@ -28,7 +29,8 @@ function endTime(value: string | null | undefined) {
  */
 export function endedByDate(status: string | null | undefined, endAt: string | null | undefined, now = clock()) {
   const code = normalizeStatus(String(status ?? ''))
-  if (finalStatuses.has(code) || code === 'CANCELLED') return false
+  // LIVE from the server takes precedence over the planned end time (status recovery is OPS-1).
+  if (finalStatuses.has(code) || code === 'CANCELLED' || code === 'LIVE') return false
   const end = endTime(endAt)
   return end !== null && end < now
 }

@@ -12,6 +12,7 @@ beforeEach(() => setEventPhaseClock(() => DEMO_TODAY))
 afterEach(() => {
   cleanup()
   server.resetHandlers()
+  setEventPhaseClock(null)
 })
 afterAll(() => server.close())
 

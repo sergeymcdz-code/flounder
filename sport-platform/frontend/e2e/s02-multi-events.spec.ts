@@ -7,7 +7,7 @@ import type { CompetitionUnitDetailsResponse } from '../src/api/results.api'
 test('S02: three event lifecycles, shared profiles, published medals and waitlist documents', async ({ page, request }) => {
   const events = JSON.parse(readFileSync('work/qa05/s02-seed.json', 'utf8')) as Record<string, { eventId: string; slug: string }>
   const apiBase = `${process.env.QA05_API_URL ?? 'http://localhost:8080'}/api/v1`
-  const demoDate = process.env.DEMO_DATE ?? '2026-10-19'
+  const demoDate = process.env.DEMO_DATE ?? new Date().toISOString().slice(0, 10)
   const date = (offset: number) => new Date(Date.parse(`${demoDate}T12:00:00Z`) + offset * 86400_000).toISOString().slice(0, 10)
   const specifications = [
     ['A', 'Кубок SportGate — осень', 'COMPLETED', -8, 160],

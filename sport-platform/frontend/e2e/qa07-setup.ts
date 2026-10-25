@@ -19,7 +19,7 @@ export default function setup() {
       ADMIN_PASSWORD: requiredCredential('ADMIN_PASSWORD'),
       DEMO_PASSWORD: requiredCredential('QA07_PASSWORD', 'DEMO_PASSWORD'),
       DEMO_SEED_ENABLED: 'true', REQUIRE_VENUE_META: 'true',
-      DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-24', EVENT_TITLE_SUFFIX: suffix,
+      DEMO_DATE: process.env.DEMO_DATE ?? new Date().toISOString().slice(0, 10), EVENT_TITLE_SUFFIX: suffix,
     },
   })
   const match = /eventId=([^,]+), дата=([^,]+), публичная страница \/e\/([^ .]+)\./.exec(output)

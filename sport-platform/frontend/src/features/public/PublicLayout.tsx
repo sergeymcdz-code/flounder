@@ -6,7 +6,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router'
-import { publicApi, PublicApiError } from '../../api/public.api'
+import { publicApi } from '../../api/public.api'
 import { usePublicData } from './usePublicData'
 import { date } from './format'
 import styles from './Public.module.css'
@@ -57,7 +57,9 @@ const disciplineResultsPath = /^\/events\/[^/]+\/disciplines\/[^/]+\/results\/?$
 
 export function PublicLayout() {
   const { pathname } = useLocation()
-  return pathname.startsWith('/e/') || disciplineResultsPath.test(pathname) ? <EventPublicLayout /> : <DirectoryLayout />
+  const params = useParams()
+  const slug = params.slug ?? params.publicSlug
+  return slug && (pathname.startsWith('/e/') || disciplineResultsPath.test(pathname)) ? <EventPublicLayout /> : <DirectoryLayout />
 }
 
 function EventPublicLayout() {
@@ -65,20 +67,20 @@ function EventPublicLayout() {
   const slug = params.slug ?? params.publicSlug ?? ''
   const { pathname } = useLocation()
   // Pages with their own document.title set it after the layout (child effects run first).
-  const pageTitle = disciplineResultsPath.test(pathname)
+  const pageTitle = disciplineResultsPath.test(pathname) || params['*'] !== undefined
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),
     [slug],
   )
   const eventState = usePublicData(load)
   // Standings only add a navigation tab: requested in parallel, never awaited by the page.
-  // The print-only poster does not need them, so it skips the request on a cold backend.
-  const poster = /\/poster\/?$/.test(pathname)
+  // The poster and discipline results do not need this optional tab on a cold backend.
+  const needsStandings = !/\/poster\/?$/.test(pathname) && !disciplineResultsPath.test(pathname)
   const loadStandings = useCallback(
-    (signal: AbortSignal) => poster ? Promise.reject(new PublicApiError(404, 'Зачёт не нужен плакату')) : publicApi.standings(slug, signal),
-    [slug, poster],
+    (signal: AbortSignal) => publicApi.standings(slug, signal),
+    [slug],
   )
-  const standingsState = usePublicData(loadStandings)
+  const standingsState = usePublicData(loadStandings, undefined, needsStandings)
   const [offline, setOffline] = useState(() => !navigator.onLine)
   const [cached, setCached] = useState(false)
   useEffect(() => {

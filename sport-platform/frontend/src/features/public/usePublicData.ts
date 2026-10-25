@@ -8,6 +8,7 @@ export const RESULTS_POLL_MS = 5_000
 export function usePublicData<T>(
   loader: (signal: AbortSignal) => Promise<T>,
   pollMs?: number,
+  enabled = true,
 ) {
   const [state, setState] = useState<{
     owner: typeof loader
@@ -18,6 +19,7 @@ export function usePublicData<T>(
   }>({ owner: loader, loading: true })
   const [retryKey, setRetryKey] = useState(0)
   useEffect(() => {
+    if (!enabled) return
     let disposed = false
     let running = false
     let controller: AbortController | undefined
@@ -67,13 +69,13 @@ export function usePublicData<T>(
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('online', onVisibility)
     }
-  }, [loader, pollMs, retryKey])
+  }, [loader, pollMs, retryKey, enabled])
   const retry = useCallback(() => setRetryKey((key) => key + 1), [])
   return {
-    data: state.owner === loader ? state.data : undefined,
-    error: state.owner === loader ? state.error : undefined,
-    errorStatus: state.owner === loader ? state.errorStatus : undefined,
-    loading: state.owner !== loader || state.loading,
+    data: enabled && state.owner === loader ? state.data : undefined,
+    error: enabled && state.owner === loader ? state.error : undefined,
+    errorStatus: enabled && state.owner === loader ? state.errorStatus : undefined,
+    loading: enabled && (state.owner !== loader || state.loading),
     retry,
   }
 }

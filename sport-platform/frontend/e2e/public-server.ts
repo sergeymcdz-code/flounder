@@ -12,6 +12,9 @@ import {
   demoStartList,
 } from '../src/mocks/demo-data.ts'
 
+// This fixture serves an active heat, so its event must explicitly be LIVE even after its planned end.
+const liveEvent = { ...demoEvent, status: 'LIVE' }
+
 const units = demoStartList.sessions.flatMap((session) =>
   session.disciplines.flatMap((discipline) =>
     discipline.heats.map((heat) => ({
@@ -46,13 +49,13 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === '/api/v1/public/events') {
     response.writeHead(200, { 'Content-Type': 'application/json' })
-    response.end(JSON.stringify([demoEvent]))
+    response.end(JSON.stringify([liveEvent]))
     return
   }
   if (url.pathname.startsWith('/api/v1/public/events/')) {
     const resource = url.pathname.split('/').slice(6).join('/')
     const data: Record<string, unknown> = {
-      '': demoEvent,
+      '': liveEvent,
       'start-list': demoStartList,
       live: {
         currentUnit: { ...units[0], status: 'IN_PROGRESS' },

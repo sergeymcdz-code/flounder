@@ -55,6 +55,8 @@ it('shows canonical result codes matching the legend and keeps ordinary status l
 })
 
 it('renders inside the event shell with plain Russian copy, lanes and agreeing counts', async () => {
+  const standings = vi.fn()
+  server.use(http.get('*/api/v1/public/events/demo/standings', () => { standings(); return HttpResponse.json({}) }))
   server.use(http.get(resultsUrl, () => HttpResponse.json({
     eventId: 'event', eventDisciplineId: 'discipline', units: [
       { id: 'h1', label: 'Заплыв 1', sequenceNumber: 1, entries: [0, 1, 2].map(i => entry('VALID', i, { place: i + 1, laneOrPosition: i + 3, rawValue: '00:3' + i + '.15', clubName: 'Дельфин' })) },
@@ -75,6 +77,7 @@ it('renders inside the event shell with plain Russian copy, lanes and agreeing c
   expect(within(screen.getByRole('region', { name: 'Заплыв 2' })).queryByText(/Дорожка/)).not.toBeInTheDocument()
   expect(screen.getAllByRole('region', { name: /прокручивается по горизонтали/ })[0]).toHaveClass('fl-scroll-x')
   expect(document.title).toBe('Результаты: 50 м вольный стиль · Кубок Самары · SportGate')
+  expect(standings).not.toHaveBeenCalled()
 })
 
 it('shows loading first, then an empty state with the next step', async () => {
