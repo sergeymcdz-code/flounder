@@ -34,7 +34,7 @@ export function SchedulePage() {
   return <div className={styles.page}>
     <PageHeader title="Расписание" meta={`${localTimeLabel(event.eventStartAt, event.venue?.timezone)}. Время старта ориентировочное. Текущий заплыв выделен.`} />
     {shiftedAt && <Notice tone="warning"><span role="status">Расписание сдвинуто в {time(shiftedAt, event.venue?.timezone)}</span></Notice>}
-    {state.loading && <div className={styles.card} role="status" aria-label="Загружаем расписание…">
+    {state.loading && <div className={styles.card} role="status">
       <p>Загружаем расписание…</p>
       {[0, 1, 2].map(key => <div key={key} className={styles.skeleton} aria-hidden="true" />)}
     </div>}

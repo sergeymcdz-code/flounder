@@ -1,3 +1,4 @@
+import { Button } from '../../components/ui/Button'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
@@ -114,12 +115,12 @@ export function RegisterPage() {
 
   return (
     <section className={styles.page}>
-      <Link className={styles.backLink} to="/">
+      <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to="/">
         ← К соревнованиям
-      </Link>
+      </Button>
 
       <div className={styles.card}>
-        <p className={styles.eyebrow}>Личный кабинет</p>
+        <p className={`${styles.eyebrow} fl-eyebrow`}>Личный кабинет</p>
 
         <h1 className={styles.title}>Создать аккаунт</h1>
 

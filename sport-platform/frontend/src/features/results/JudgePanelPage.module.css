@@ -1,9 +1,8 @@
 .page { min-width: 0; max-width: var(--content-max); display: grid; gap: var(--space-4); }
-.backLink { justify-self: start; }
 .page > :global(.fl-page-header) { align-items: start; flex-wrap: wrap; }
 .page :global(.fl-page-title) h1 { font-size: var(--text-xl); text-transform: uppercase; }
 .page :global(.fl-page-actions) { flex: 1 1 50%; justify-content: end; }
-.eyebrow { display: block; color: var(--color-text); font-size: var(--text-xs); font-weight: var(--font-weight-medium); }
+.eyebrow { display: block;  font-size: var(--text-xs); font-weight: var(--font-weight-medium); }
 .context { display: block; margin-top: var(--space-2); font-variant-numeric: var(--numeric-variant); }
 .help summary { justify-content: start; width: fit-content; cursor: pointer; }
 .description { margin-block: var(--space-3); color: var(--color-text-muted); line-height: var(--line-height-body); }
@@ -44,3 +43,10 @@
   .statusButtons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   .laneCard .statusButtons :global(.fl-btn) { min-height: var(--space-12); min-width: 0; }
 }
+
+@media (max-width: 767px) {
+  .laneCard:is([data-lane='4'], [data-lane='5']) { border-inline-start: 4px solid var(--color-text); }
+}
+
+/* Keep the disabled-ghost correction inside judging while D04-2n owns the other screens. */
+.page :global(.fl-btn-ghost:disabled) { background: transparent; }

@@ -1,40 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { useCallback, useState } from 'react'
+import { Link } from 'react-router'
 import { publicApi } from '../../api/public.api'
 import { PdfDownloadButton } from '../../components/PdfDownloadButton'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Notice } from '../../components/ui/Notice'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { PrintHeader } from './Protocol'
+import { PrintButton, PrintHeader } from './Protocol'
 import { ResultsTable } from './ResultsTable'
 import { usePublicEvent } from './publicContext'
 import { RESULTS_POLL_MS, usePublicData } from './usePublicData'
 import styles from './ResultsPage.module.css'
-
-function ResultsPrintButton({ ready }: { ready: boolean }) {
-  const { search } = useLocation()
-  const printed = useRef(false)
-  useEffect(() => {
-    if (!ready || printed.current || new URLSearchParams(search).get('print') !== '1') return
-    let disposed = false
-    let frame: number | undefined
-    void document.fonts?.ready.then(() => {
-      if (disposed) return
-      frame = requestAnimationFrame(() => {
-        printed.current = true
-        window.print()
-      })
-    })
-    return () => {
-      disposed = true
-      if (frame !== undefined) cancelAnimationFrame(frame)
-    }
-  }, [ready, search])
-  return <Button variant="ghost" disabled={!ready}
-    title={ready ? 'Распечатать итоговый протокол' : 'Дождитесь загрузки результатов'}
-    onClick={() => window.print()}>Печать</Button>
-}
 
 export function ResultsPage() {
   const event = usePublicEvent()
@@ -76,22 +52,21 @@ export function ResultsPage() {
       <div className={`${styles.printWarning} fl-unofficial`}>
         Неофициальные результаты — публикуются сразу после заплыва и могут быть исправлены до утверждения судейской коллегией
       </div>
-      <div className={styles.heading}>
-        <PageHeader title="Результаты" />
-        <div className={`${styles.actions} fl-actionbar fl-print-actions`}>
-          <ResultsPrintButton ready={!!state.data} />
+      <PageHeader title="Результаты" actions={
+        <div className={`${styles.actions} fl-actionbar fl-print-actions fl-scroll-x`}>
+          <PrintButton ready={!!state.data} disabledReason="Дождитесь загрузки результатов" />
           <span className={styles.pdf} title={!state.data?.disciplines.length ? unavailable : 'Скачать итоговый протокол'}>
-            <PdfDownloadButton
+            <PdfDownloadButton size="sm" variant="secondary"
               path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/results.pdf`}
               filename="Итоговый-протокол.pdf" disabled={!state.data?.disciplines.length} />
           </span>
           {hasResults && <span className={styles.pdf}>
-            <PdfDownloadButton path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/awards.pdf`}
+            <PdfDownloadButton size="sm" variant="secondary" path={`/api/v1/public/events/${encodeURIComponent(event.publicSlug)}/awards.pdf`}
               filename="Лист-награждения.pdf" label="Лист награждения (PDF)" />
           </span>}
           {(!state.data || !state.data.disciplines.length) && <small className={styles.actionReason}>{unavailable}</small>}
         </div>
-      </div>
+      } />
       <div className={styles.publication}>
         {/* The current public contract has no approval flag; keep the existing preliminary condition. */}
         <span className={`${styles.publicationBadge} fl-badge fl-badge-warning`} title="Результаты могут быть исправлены до утверждения судейской коллегией">
@@ -116,7 +91,7 @@ export function ResultsPage() {
               placeholder="Найти участника" autoComplete="off" />
           </label>
         </div>
-        <div className={styles.disciplines} role="group" aria-label="Виды программы">
+        <div className={`${styles.disciplines} fl-scroll-x`} role="group" aria-label="Виды программы">
           <Button variant="ghost" size="sm" aria-pressed={selectedId === null} onClick={() => setDisciplineId(null)}>Все виды</Button>
           {state.data?.disciplines.map(discipline =>
             <Button key={discipline.id} variant="ghost" size="sm" aria-pressed={selectedId === discipline.id}

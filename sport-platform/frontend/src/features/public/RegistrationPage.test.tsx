@@ -2,6 +2,7 @@ import { configure, fireEvent, render, screen, waitFor, within } from '@testing-
 import { MemoryRouter } from 'react-router'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PublicRegistrationPage } from './RegistrationPage'
+import * as registrationApi from '../../api/registrations.api'
 import { publicApi, PublicApiError } from '../../api/public.api'
 import type { RegistrationForm } from './public.types'
 import { emptyRegistrationDraft, readRegistrationDraft } from './registrationFields'
@@ -63,6 +64,15 @@ describe('QA03 public registration submission', () => {
     form.participantsCount = 0
     form.disciplines.forEach(item => { item.ageGroups = []; item.limitsByAgeGroup = null; item.participantsByAgeGroup = {} })
     vi.spyOn(publicApi, 'register').mockResolvedValue([])
+  })
+
+  it('explains an empty own profile without offering a fill action or a validation alert', async () => {
+    vi.spyOn(registrationApi, 'getMyRegistrations').mockResolvedValue([])
+    render(<MemoryRouter><PublicRegistrationPage /></MemoryRouter>)
+    expect(await screen.findByText('В профиле пока нет данных спортсмена. Заполните их ниже.')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Это я' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Фамилия')).toBeEnabled()
   })
 
   it('QA03-01 blocks an empty time when the API requires seed times', async () => {

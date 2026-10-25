@@ -64,7 +64,7 @@ for (const route of ['start-list', 'results']) {
     await openAuditPage(page, `/e/demo/${route}`)
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme)
-        await page.locator('header button').click()
+        await page.getByRole('banner').getByRole('button', { name: /^(Светлая|Тёмная) тема$/ }).click()
       await expect(page.getByRole('button', { name: 'Скачать PDF', exact: true })).toBeEnabled()
       await expect(page.getByRole('button', { name: 'Печать', exact: true })).toHaveClass(/fl-btn-ghost/)
       expect(await page.locator('html').evaluate(el => getComputedStyle(el).colorScheme)).toBe(theme)
@@ -73,7 +73,7 @@ for (const route of ['start-list', 'results']) {
   })
 }
 
-test('D04: live lanes keep table semantics and keyboard focus without horizontal overflow', async ({ page }) => {
+test('D04: live lanes keep table semantics and focus on actions without horizontal overflow', async ({ page }) => {
   await openAuditPage(page, '/e/demo/live')
   const table = page.locator('.fl-lanes').first()
   for (const width of [375, 768, 1366]) {
@@ -82,11 +82,13 @@ test('D04: live lanes keep table semantics and keyboard focus without horizontal
     await expect(table).toHaveAccessibleName(/Дорожки заплыва/)
     await expect(table.locator('tbody tr')).toHaveCount(8)
     await expect(table.getByRole('columnheader')).toHaveCount(width < 768 ? 3 : 5)
-    await table.focus()
-    await expect(table).toBeFocused()
+    await expect(table).not.toHaveAttribute('tabindex')
+    const openHeat = page.getByRole('link', { name: 'Открыть заплыв', exact: true })
+    await openHeat.focus()
+    await expect(openHeat).toBeFocused()
     for (const key of ['ArrowRight', 'ArrowLeft']) {
-      await table.press(key)
-      await expect(table).toBeFocused()
+      await openHeat.press(key)
+      await expect(openHeat).toBeFocused()
       const dimensions = await table.evaluate(el => ({
         tableWidth: el.clientWidth,
         tableScrollWidth: el.scrollWidth,

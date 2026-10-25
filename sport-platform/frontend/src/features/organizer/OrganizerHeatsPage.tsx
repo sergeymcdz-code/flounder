@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
 import { HeatCardPrintOptions, HeatPrintControls } from './PrintFormsControls'
 import { plural } from '../../utils/plural'
 import { ActionBar } from '../../components/ui/ActionBar'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Notice } from '../../components/ui/Notice'
@@ -16,41 +17,14 @@ import { ScheduleShiftForm } from './ScheduleShiftForm'
 import { generateHeats, recalculateSchedule, publishStartList, validateHeats, changeLane, shiftSchedule } from '../../api/scheduling.api'
 import type { Violation } from '../../api/organizer.types'
 import { OrganizerDialog } from './OrganizerDialog'
-import { isHeatPublished, normalizeGeneration, useOrganizerEvent } from './organizer-event-context'
+import { disabledReason, isHeatPublished, normalizeGeneration, useOrganizerEvent } from './organizer-event-context'
 import { HeatCard } from './HeatCard'
 import styles from './Heats.module.css'
-
-// Local popover until the shared D04-2a OverflowMenu is available on main.
-function ActionMenu({ label, accessibleLabel = label, children }: { label: string; accessibleLabel?: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
-  const id = useId()
-  useEffect(() => {
-    if (!open) return
-    function outside(event: PointerEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false)
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !(event.target as Element).closest('dialog')) { setOpen(false); trigger.current?.focus(); event.stopPropagation() }
-    }
-    document.addEventListener('pointerdown', outside)
-    document.addEventListener('keydown', escape)
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape) }
-  }, [open])
-  return <div ref={ref} className={styles.menu}>
-    <button ref={trigger} type="button" className="fl-btn fl-btn-secondary" aria-label={accessibleLabel} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>{label}</button>
-    {open && <div id={id} className={styles.popover} role="region" aria-label={accessibleLabel}>{children}</div>}
-  </div>
-}
-
-function ExplainedButton({ reason, children, onClick, primary = false, loading = false }: { reason?: string; children: ReactNode; onClick: () => void; primary?: boolean; loading?: boolean }) {
-  return <div className={styles.action}><Button variant={primary ? 'primary' : 'secondary'} disabled={!!reason} title={reason} loading={loading} onClick={onClick}>{children}</Button>{reason && <small>{reason}</small>}</div>
-}
 
 export function OrganizerHeatsPage() {
   const { event, heats, sessions, registrations, accessToken, busy, error, clearError, run, lastGeneration: last, saveGeneration, refresh } = useOrganizerEvent()
   const toast = useToast()
+  const [printOpen, setPrintOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [showShift, setShowShift] = useState(false)
   const [showValidation, setShowValidation] = useState(false)
@@ -61,7 +35,7 @@ export function OrganizerHeatsPage() {
   const hasPublicLive = ['PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'LIVE', 'COMPLETED'].includes(event.status)
   const loadLive = useCallback((signal: AbortSignal) => hasPublicLive ? publicApi.live(event.publicSlug, signal) : Promise.resolve(null), [event.publicSlug, hasPublicLive])
   const live = usePublicData(loadLive, LIVE_POLL_MS)
-  const reason = event.status === 'ARCHIVED' ? 'Архивное событие доступно только для чтения' : busy ? 'Дождитесь завершения текущего действия' : undefined
+  const reason = disabledReason({ busy, archived: event.status === 'ARCHIVED' }) || undefined
   const noHeats = !heats.length ? 'Сначала сформируйте заплывы' : undefined
   const published = heats.length > 0 && heats.every(h => isHeatPublished(h.status))
   const issues = violations ?? last?.violations ?? []
@@ -117,21 +91,17 @@ export function OrganizerHeatsPage() {
   }
   return <div className={styles.page}>
     <ActionBar className={styles.actions}>
-      {!published && <ExplainedButton primary reason={heats.length ? publishReason : generateReason} loading={busy} onClick={() => heats.length ? void validate(true) : requestGenerate()}>{heats.length ? 'Опубликовать протокол' : 'Сформировать заплывы'}</ExplainedButton>}
-      <ActionMenu label="Сформировать заплывы ▾">
-        <ExplainedButton reason={generateReason} onClick={() => requestGenerate()}>Всё соревнование</ExplainedButton>
-        {event.disciplines.map(d => <ExplainedButton key={d.id} reason={reason} onClick={() => requestGenerate(d.id)}>{d.name}</ExplainedButton>)}
-      </ActionMenu>
-      <ActionMenu label="Расписание ▾">
-        <ExplainedButton reason={reason ?? noHeats} onClick={() => void run(() => recalculateSchedule(event.id, accessToken))}>Пересчитать время стартов</ExplainedButton>
-        <ExplainedButton reason={shiftReason} onClick={() => { clearError(); setShowShift(true) }}>Сдвинуть расписание…</ExplainedButton>
-      </ActionMenu>
-      <ActionMenu label="Печать ▾">
-        {published ? <Button as={Link} to={`/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`} target="_blank" rel="noreferrer">Печатная форма</Button> : <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
-        <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
-        {(busy || !heats.length) && <small>{busy ? reason : noHeats}</small>}
-        <HeatCardPrintOptions /><HeatPrintControls />
-      </ActionMenu>
+      {!published && <div className={styles.action}><Button variant="primary" disabled={!!(heats.length ? publishReason : generateReason)} title={heats.length ? publishReason : generateReason} loading={busy} loadingLabel={heats.length ? 'Проверяем…' : 'Формируем…'} onClick={() => heats.length ? void validate(true) : requestGenerate()}>{heats.length ? 'Опубликовать протокол' : 'Сформировать заплывы'}</Button>{(heats.length ? publishReason : generateReason) && <small>{heats.length ? publishReason : generateReason}</small>}</div>}
+      {heats.length > 0 && <div className={styles.action}><Button variant="secondary" disabled={!!generateReason} title={generateReason} onClick={() => requestGenerate()}>Сформировать заплывы</Button>{generateReason && <small>{generateReason}</small>}</div>}
+      <OverflowMenu label="По виду" trigger="По виду ▾" items={event.disciplines.map(d => ({ label: d.name, disabled: !!reason, disabledReason: reason, onSelect: () => requestGenerate(d.id) }))} />
+      <OverflowMenu label="Расписание" trigger="Расписание ▾" items={[
+        { label: 'Пересчитать время стартов', disabled: !!(reason ?? noHeats), disabledReason: reason ?? noHeats, onSelect: () => void run(() => recalculateSchedule(event.id, accessToken)) },
+        { label: 'Сдвинуть расписание…', disabled: !!shiftReason, disabledReason: shiftReason, onSelect: () => { clearError(); setShowShift(true) } },
+      ]} />
+      <OverflowMenu label="Печать" trigger="Печать ▾" items={[
+        ...(published ? [{ label: 'Печатная форма', to: `/e/${encodeURIComponent(event.publicSlug)}/start-list?print=1`, target: '_blank' as const }] : []),
+        { label: 'Протокол и карточки (PDF)', onSelect: () => setPrintOpen(true) },
+      ]} />
       <div className={styles.action}><Button aria-label="Проверить заплывы" variant="ghost" disabled={!!(reason ?? noHeats)} title={reason ?? noHeats} onClick={() => { clearError(); setShowValidation(true); void validate() }}>Проверка</Button>{(reason ?? noHeats) && <small>{reason ?? noHeats}</small>}</div>
     </ActionBar>
     <Notice tone={blocking ? 'danger' : published ? 'info' : 'neutral'} className={styles.notice}>
@@ -152,19 +122,25 @@ export function OrganizerHeatsPage() {
         const units = heats.filter(h => h.eventDisciplineId === d.id)
         return <section key={d.id} className={styles.discipline} aria-label={d.name}>
           <header className={styles.disciplineHeader}><div><h2>Вид № {d.number ?? index + 1} · {d.name}</h2><span className={styles.numeric}>{units.length} {plural(units.length, ['заплыв', 'заплыва', 'заплывов'])}</span> · <StatusBadge kind="heat" code={units.length && units.every(h => isHeatPublished(h.status)) ? 'PUBLISHED' : 'DRAFT'} /></div>
-            <ActionMenu label="⋯" accessibleLabel={`Действия вида ${d.name}`}><ExplainedButton reason={reason} onClick={() => requestGenerate(d.id)}>Пересобрать</ExplainedButton></ActionMenu>
+            <OverflowMenu label={`Действия вида ${d.name}`} items={[{ label: 'Пересобрать', disabled: !!reason, disabledReason: reason, onSelect: () => requestGenerate(d.id) }]} />
           </header>
           <div className={styles.grid}>{units.map(h => <HeatCard key={h.id} heat={h} discipline={d} registrations={registrations} lanes={lanes} timeZone={event.venue?.timezone} disabledReason={reason} laneHint={!event.venue?.lanes ? 'Число дорожек площадки не указано' : undefined} highlighted={highlight === h.id} onChangeLane={(id, lane) => { void run(async () => { await changeLane(id, lane, accessToken); setViolations(null) }, { heatId: h.id }) }} />)}</div>
           {!units.length && <p className={styles.muted}>Заплывы этого вида ещё не сформированы. Используйте меню «⋯».</p>}
         </section>
       })}</div>
     </details>)}
+    {printOpen && <OrganizerDialog title="Печать заплывов" onClose={() => setPrintOpen(false)}><div className={styles.stack}>
+      {!published && <p>Публичная печатная форма появится после публикации. Черновик доступен в PDF.</p>}
+      <PdfDownloadButton path={`/api/v1/events/${event.id}/documents/start-list.pdf`} filename="Стартовый-протокол.pdf" accessToken={accessToken} disabled={busy || !heats.length} />
+      {(busy || !heats.length) && <small>{busy ? reason : noHeats}</small>}
+      <HeatCardPrintOptions /><HeatPrintControls />
+    </div></OrganizerDialog>}
     {showValidation && <OrganizerDialog title="Проверка заплывов" onClose={() => setShowValidation(false)}><div className={styles.stack}>
       {busy ? <p role="status">Проверяем заплывы…</p> : violations === null ? <Notice>Проверка не завершена. Повторите попытку.</Notice> : <Notice tone={blocking ? 'danger' : violations.length ? 'warning' : 'info'} className={styles.notice}>
         <p role="status">{!violations.length ? 'Нарушений не найдено.' : blocking ? 'Ошибки блокируют публикацию.' : 'Предупреждения не блокируют публикацию.'}</p>
         {violations.map((v, i) => <div key={i}><p>{v.severity === 'ERROR' ? 'Ошибка' : 'Предупреждение'}: {v.message}</p>{(v.heatNumber != null || v.unitId || v.competitionUnitId) && <Button onClick={() => locate(v)}>{v.severity === 'ERROR' ? 'Ошибка' : 'Предупреждение'}: {v.message}</Button>}</div>)}
       </Notice>}
-      <ExplainedButton reason={reason} onClick={() => void validate()}>Повторить проверку</ExplainedButton>
+      <Button disabled={!!reason} title={reason} onClick={() => void validate()}>Повторить проверку</Button>{reason && <small>{reason}</small>}
     </div></OrganizerDialog>}
     {publishOpen && <ConfirmDialog title="Опубликовать стартовый протокол?" description={`Публичная страница /e/${event.publicSlug}/start-list и PDF покажут ${heats.length} ${plural(heats.length, ['заплыв', 'заплыва', 'заплывов'])}. Повторный посев потребует подтверждения.`} confirmLabel="Опубликовать" busy={busy} error={error} onClose={() => setPublishOpen(false)} onConfirm={() => {
       if (publishReason) return

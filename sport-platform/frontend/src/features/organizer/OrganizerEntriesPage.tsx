@@ -2,7 +2,7 @@ import { PaymentMutationDialog } from '../payments/PaymentMutationDialog'
 import { PaymentHistoryDialog } from '../payments/PaymentHistoryDialog'
 import { money, paymentLabels, type PaymentAction } from '../../api/registration-payments.api'
 import { useState, type FormEvent } from 'react'
-import { EntryRowMenu } from './EntryRowMenu'
+import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import { DataTable } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Notice } from '../../components/ui/Notice'
@@ -159,7 +159,7 @@ export function OrganizerEntriesPage() {
         <h2>Заявки · <span className={styles.numeric}>{registrations.length}</span></h2>
         <div className={styles.actions}>
           <button className={`${styles.importButton} fl-btn fl-btn-secondary`} disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setImportOpen(true)}>Импорт из Excel</button>
-          <EntryRowMenu label="Ещё действия" items={[{ label: 'Экспорт списка (CSV)', onSelect: exportEntries }]} />
+          <OverflowMenu label="Ещё действия" items={[{ label: 'Экспорт списка (CSV)', onSelect: exportEntries }]} />
         </div>
       </header>
       {disabledReason && <small className={styles.muted}>{disabledReason}</small>}
@@ -260,7 +260,7 @@ export function OrganizerEntriesPage() {
         {visible.length > 0 && <label className={styles.selection}><input type="checkbox" aria-label="Выбрать все видимые заявки" disabled={bulkBusy || busy || event.status === 'ARCHIVED'} title={disabledReason || (bulkBusy ? 'Дождитесь завершения обработки заявок' : undefined)} checked={visible.length > 0 && visible.every(r => selected.includes(r.id))} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...visible.map(r => r.id)])] : selected.filter(id => !visible.some(r => r.id === id)))} /><span className={styles.selectAllLabel}>Выбрать все</span></label>}
       </div>
       {visible.length > 0 && <div className={styles.tableFrame}>
-        <div className={styles.table} ref={node => { node?.firstElementChild?.classList.add('fl-table-scroll') }}>
+        <div className={styles.table}>
           <DataTable caption="Заявки участников" cards minWidth="var(--content-max)" maxHeight="min(60vh, calc(var(--space-16) * 10))"
             rows={visible.map((r, index) => ({ ...r, rowNumber: index + 1,
               name: `${r.participantSnapshot.lastName} ${r.participantSnapshot.firstName} ${r.participantSnapshot.middleName ?? ''}`.trim(),
@@ -287,19 +287,19 @@ export function OrganizerEntriesPage() {
             { key: 'rowActions', header: <span className={styles.rowActions}>Действия</span>, label: '', render: r => <div className={styles.rowActions}><div className={styles.actions}>
                   {r.canReview ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить</button>
                     : r.canPay ? <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setPaymentDialog({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату…</button> : null}
-                  <EntryRowMenu>
-                    {r.status === 'WAITLISTED' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'CONFIRMED')}>Подтвердить вне лимита</button>}
-                    {r.canReview && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'NEEDS_CORRECTION')}>Вернуть</button>}
-                    {['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED', 'NEEDS_CORRECTION'].includes(r.status) && <button className="fl-btn fl-btn-danger" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => openReview(r.id, 'REJECTED')}>Отклонить</button>}
-                    {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => { clearError(); setWithdraw(r) }}>Снять</button>}
-                    {r.canPay && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setPaymentDialog({ ids: [r.id], action: 'waive-payment' })}>Освободить от взноса</button>}
-                    {r.paymentStatus === 'PAID' && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount })}>Вернуть оплату</button>}
-                    {['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) && <button className="fl-btn fl-btn-secondary" disabled={busy || event.status === 'ARCHIVED'} title={disabledReason} onClick={() => setPaymentDialog({ ids: [r.id], action: 'reset-payment' })}>Сбросить оплату</button>}
-                    <button className="fl-btn fl-btn-ghost" onClick={() => setHistoryId(r.id)}>История оплаты</button>
-                    <button className="fl-btn fl-btn-ghost" onClick={() => setDocumentProfile(r)}>Документы</button>
-                    <p className={styles.muted}>Год: {r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'} · Клуб: {r.participantSnapshot.clubName || '—'} · Пол: {r.participantSnapshot.gender === 'MALE' ? 'Мужской' : r.participantSnapshot.gender === 'FEMALE' ? 'Женский' : '—'} · Источник: {r.source === 'IMPORT' ? 'Импорт' : 'Форма'}</p>
-                    <p className={styles.muted}>{admission(r).title}</p>
-                  </EntryRowMenu>
+                  <OverflowMenu label="Действия" items={[
+                    ...(r.status === 'WAITLISTED' ? [{ label: 'Подтвердить вне лимита', onSelect: () => openReview(r.id, 'CONFIRMED'), disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    ...(r.canReview ? [{ label: 'Вернуть', onSelect: () => openReview(r.id, 'NEEDS_CORRECTION'), disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    ...(['SUBMITTED', 'UNDER_REVIEW', 'WAITLISTED', 'CONFIRMED', 'NEEDS_CORRECTION'].includes(r.status) ? [{ label: 'Отклонить', onSelect: () => openReview(r.id, 'REJECTED'), disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    ...(!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(r.status) ? [{ label: 'Снять', onSelect: () => { clearError(); setWithdraw(r) }, disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    ...(r.canPay ? [{ label: 'Освободить от взноса', onSelect: () => setPaymentDialog({ ids: [r.id], action: 'waive-payment' }), disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    ...(r.paymentStatus === 'PAID' ? [{ label: 'Вернуть оплату', onSelect: () => setPaymentDialog({ ids: [r.id], action: 'refund-payment', amount: r.paidAmount }), disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    ...(['PAID', 'WAIVED', 'REFUNDED'].includes(r.paymentStatus) ? [{ label: 'Сбросить оплату', onSelect: () => setPaymentDialog({ ids: [r.id], action: 'reset-payment' }), disabled: busy || event.status === 'ARCHIVED', disabledReason }] : []),
+                    { label: 'История оплаты', onSelect: () => setHistoryId(r.id) },
+                    { label: 'Документы', onSelect: () => setDocumentProfile(r) },
+                    { label: `Год: ${r.participantSnapshot.birthDate?.slice(0, 4) ?? '—'} · Клуб: ${r.participantSnapshot.clubName || '—'} · Пол: ${r.participantSnapshot.gender === 'MALE' ? 'Мужской' : r.participantSnapshot.gender === 'FEMALE' ? 'Женский' : '—'} · Источник: ${r.source === 'IMPORT' ? 'Импорт' : 'Форма'}`, disabled: true },
+                    { label: admission(r).title, disabled: true },
+                  ] satisfies OverflowMenuItem[]} />
                 </div></div> }
           ]} />
         </div>

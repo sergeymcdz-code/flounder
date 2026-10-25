@@ -43,7 +43,7 @@ export function PublicEventPage() {
   return <div className={styles.page}>
     <header className={styles.hero}>
       <div>
-        <p className={styles.eyebrow}>Соревнования</p>
+        <p className={`${styles.eyebrow} fl-eyebrow`}>Соревнования</p>
         <h1 className={styles.title}>{event.title}</h1>
         <StatusBadge kind="event" code={event.status === 'FINISHED' ? 'COMPLETED' : event.status} />
         <p className={styles.facts}>{startDate}{endDate !== startDate ? ` — ${endDate}` : ''}{event.venue && <> · {event.venue.name}, {event.venue.city} · <span>{event.venue.lanes} дорожек · {event.venue.courseLength != null ? `${event.venue.courseLength} м` : 'длина бассейна не указана'}</span></>}</p>

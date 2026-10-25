@@ -35,6 +35,6 @@ it('shows canonical result codes matching the legend and keeps ordinary status l
   expect(table.getByText('Ожидает пересчёта')).toBeInTheDocument()
   expect(table.getByText('Вне зачёта')).toBeInTheDocument()
   expect(screen.getByLabelText('Обозначения статусов результатов')).toHaveTextContent(
-    'DNS — не стартовал · DNF — не финишировал · DSQ — дисквалифицирован · CORRECTED — результат исправлен после публикации',
+    'DNS — не стартовал · DNF — не финишировал · DSQ — дисквалифицирован · исправлено — результат исправлен после публикации',
   )
 })

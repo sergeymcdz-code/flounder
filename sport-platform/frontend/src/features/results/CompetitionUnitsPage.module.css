@@ -13,9 +13,6 @@
 .group { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); padding: var(--space-4); }
 .group summary { width: 100%; font-weight: var(--font-weight-medium); }
 .group h3 { font: var(--font-weight-medium) var(--text-lg) var(--font-heading); margin: var(--space-4) 0; overflow-wrap: anywhere; }
-.tableScroll { overflow-x: auto; scrollbar-width: thin; overscroll-behavior-inline: contain; max-height: 60vh; background: linear-gradient(to right, var(--surface-1), var(--surface-1)), linear-gradient(to right, var(--surface-1), var(--surface-1)), linear-gradient(to right, var(--border-subtle), transparent), linear-gradient(to left, var(--border-subtle), transparent); background-size: var(--space-8) 100%, var(--space-8) 100%, var(--space-4) 100%, var(--space-4) 100%; background-position: left, right, left, right; background-repeat: no-repeat; background-attachment: local, local, scroll, scroll; }
-.heatTable { width: 100%; }
-.heatTable td { font-variant-numeric: var(--numeric-variant); }
 .loading { display: grid; gap: var(--space-2); }
 .skeleton { min-height: var(--control-h); background: var(--surface-2); border-radius: var(--radius-sm); }
 
@@ -26,12 +23,4 @@
   .page { gap: var(--space-4); }
   .page :global(.fl-btn) { min-width: var(--control-h); max-width: 100%; white-space: normal; }
   .currentHeat { justify-items: stretch; }
-  .heatTable, .heatTable tbody { display: block; }
-  .heatTable thead { display: none; }
-  .heatTable tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: var(--space-2); }
-  .heatTable td { display: block; border: 0; padding: 0; white-space: normal; }
-  .heatTable td::before { content: attr(data-label); display: block; color: var(--color-text-muted); font-size: var(--text-xs); }
-  .heatTable td:last-child { grid-column: 1 / -1; }
-  .heatTable td:last-child::before { display: none; }
-  .tableScroll { max-height: none; }
 }

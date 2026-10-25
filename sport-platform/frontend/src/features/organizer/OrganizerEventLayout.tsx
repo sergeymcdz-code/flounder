@@ -49,8 +49,8 @@ function OrganizerEventContent() {
   const judgeOnly = hasRole('judge') && !isOrganizer && !isPlatformAdmin && !isOperator
   const navigate = useNavigate()
   const location = useLocation()
-  const [wide, setWide] = useState(() => window.matchMedia?.('(min-width: 1366px)').matches ?? false)
-  useEffect(() => { const media = window.matchMedia?.('(min-width: 1366px)'); const update = () => setWide(media?.matches ?? false); media?.addEventListener('change', update); return () => media?.removeEventListener('change', update) }, [])
+  const [wide, setWide] = useState(() => window.matchMedia?.('(min-width: 1440px)').matches ?? false)
+  useEffect(() => { const media = window.matchMedia?.('(min-width: 1440px)'); const update = () => setWide(media?.matches ?? false); media?.addEventListener('change', update); return () => media?.removeEventListener('change', update) }, [])
   const [data, setData] = useState<{
     event: OrganizerEventDetails
     registrations: OrganizerRegistration[]
