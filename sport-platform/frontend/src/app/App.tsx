@@ -15,6 +15,7 @@ import { LivePage } from '../features/public/LivePage'
 import { ResultsPage } from '../features/public/ResultsPage'
 import { PublicRegistrationPage } from '../features/public/RegistrationPage'
 import { HeatPage } from '../features/public/HeatPage'
+import { NotFoundPage } from '../features/public/NotFoundPage'
 
 const OrganizerDiplomaPage = lazy(() => import('../features/organizer/OrganizerDiplomaPage').then(module => ({ default: module.OrganizerDiplomaPage })))
 
@@ -130,6 +131,7 @@ export default function App() {
       <Route element={<PublicLayout />}>
         <Route index element={<CalendarPage />} />
         <Route path="o/:slug" element={<PublicOrganizationPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="e/:slug" element={<PublicLayout />}>
         <Route index element={<PublicEventPage />} />
@@ -298,10 +300,6 @@ export default function App() {
           />
         </Route>
 
-        <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
       </Route>
     </Routes>
   )
