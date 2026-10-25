@@ -20,6 +20,20 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
 import { LoadingState } from '../../components/LoadingState'
 
+export const SLOW_LOADING_MS = 3_000
+const slowLoadingMessage = 'Загружаем данные… Сервер отвечает дольше обычного, это займёт несколько секунд.'
+
+/** UX-24 (UI-104): a cold public API answers in 6–10 s; explain the wait instead of looking frozen. */
+function useSlowLoading(active: boolean) {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (!active) return
+    const timer = window.setTimeout(() => setSlow(true), SLOW_LOADING_MS)
+    return () => { window.clearTimeout(timer); setSlow(false) }
+  }, [active])
+  return active && slow
+}
+
 export function DataState({
   loading,
   error,
@@ -32,27 +46,41 @@ export function DataState({
   retry?: () => void
 }) {
   const disconnected = useContext(PublicConnectionContext)
+  const slow = useSlowLoading(Boolean(loading && data === undefined))
   if (data !== undefined && disconnected) return null
-  if (loading && data === undefined) return <LoadingState />
+  if (loading && data === undefined) return <LoadingState message={slow ? slowLoadingMessage : undefined} />
   if (!error) return null
   return <ErrorState message={`${error}${data !== undefined ? ' Показаны последние данные. Обновление продолжится при подключении.' : ''}`} onRetry={retry} />
 }
 
+const disciplineResultsPath = /^\/events\/[^/]+\/disciplines\/[^/]+\/results\/?$/
+
 export function PublicLayout() {
   const { pathname } = useLocation()
-  return pathname.startsWith('/e/') ? <EventPublicLayout /> : <DirectoryLayout />
+  const params = useParams()
+  const slug = params.slug ?? params.publicSlug
+  return slug && (pathname.startsWith('/e/') || disciplineResultsPath.test(pathname)) ? <EventPublicLayout /> : <DirectoryLayout />
 }
 
 function EventPublicLayout() {
-  const { slug = '' } = useParams()
+  const params = useParams()
+  const slug = params.slug ?? params.publicSlug ?? ''
   const { pathname } = useLocation()
+  // Pages with their own document.title set it after the layout (child effects run first).
+  const pageTitle = disciplineResultsPath.test(pathname) || params['*'] !== undefined
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),
     [slug],
   )
   const eventState = usePublicData(load)
-  const loadStandings = useCallback((signal: AbortSignal) => publicApi.standings(slug, signal), [slug])
-  const standingsState = usePublicData(loadStandings)
+  // Standings only add a navigation tab: requested in parallel, never awaited by the page.
+  // The poster and discipline results do not need this optional tab on a cold backend.
+  const needsStandings = !/\/poster\/?$/.test(pathname) && !disciplineResultsPath.test(pathname)
+  const loadStandings = useCallback(
+    (signal: AbortSignal) => publicApi.standings(slug, signal),
+    [slug],
+  )
+  const standingsState = usePublicData(loadStandings, undefined, needsStandings)
   const [offline, setOffline] = useState(() => !navigator.onLine)
   const [cached, setCached] = useState(false)
   useEffect(() => {
@@ -77,9 +105,9 @@ function EventPublicLayout() {
   useEffect(() => {
     if (eventState.errorStatus === 404)
       document.title = 'Соревнование не найдено · SportGate'
-    else if (eventState.data)
+    else if (eventState.data && !pageTitle)
       document.title = `${eventState.data?.title ?? 'Соревнование'} · SportGate`
-  }, [eventState.data, eventState.errorStatus])
+  }, [eventState.data, eventState.errorStatus, pageTitle])
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
     ['start-list', 'Протокол'],

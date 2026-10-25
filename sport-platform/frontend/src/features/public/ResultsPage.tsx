@@ -9,6 +9,8 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { PrintButton, PrintHeader } from './Protocol'
 import { ResultsTable } from './ResultsTable'
 import { usePublicEvent } from './publicContext'
+import { isEventOver } from './event-phase'
+import { StatusBadge } from '../../components/ui/StatusBadge'
 import { RESULTS_POLL_MS, usePublicData } from './usePublicData'
 import styles from './ResultsPage.module.css'
 
@@ -23,7 +25,9 @@ export function ResultsPage() {
     if (!signal.aborted) setUpdatedAt(new Date().toISOString())
     return results
   }, [event.publicSlug])
-  const state = usePublicData(load, RESULTS_POLL_MS)
+  // UX-24 (UI-103): results of a finished event are final for the viewer, polling stops.
+  const over = isEventOver(event.status, event.eventEndAt)
+  const state = usePublicData(load, over ? undefined : RESULTS_POLL_MS)
   const hasResults = state.data?.disciplines.some(discipline =>
     discipline.overall.length > 0 || discipline.byAgeGroup.some(group => group.rows.length > 0),
   ) ?? false
@@ -69,15 +73,15 @@ export function ResultsPage() {
       } />
       <div className={styles.publication}>
         {/* The current public contract has no approval flag; keep the existing preliminary condition. */}
-        <span className={`${styles.publicationBadge} fl-badge fl-badge-warning`} title="Результаты могут быть исправлены до утверждения судейской коллегией">
+        {over ? <StatusBadge kind="event" code="COMPLETED" /> : <span className={`${styles.publicationBadge} fl-badge fl-badge-warning`} title="Результаты могут быть исправлены до утверждения судейской коллегией">
           Предварительно
-        </span>
+        </span>}
         <span className={styles.updated} title="Время последней успешной загрузки результатов">
           {state.data && updatedAt ? <>Обновлено <time dateTime={updatedAt}>{
             new Intl.DateTimeFormat('ru-RU', {
               timeZone: event.venue?.timezone || undefined, hour: '2-digit', minute: '2-digit', second: '2-digit',
             }).format(new Date(updatedAt))
-          }</time> · каждые {RESULTS_POLL_MS / 1000} с</> : 'Ожидаем данные'}
+          }</time>{!over && <> · каждые {RESULTS_POLL_MS / 1000} с</>}</> : 'Ожидаем данные'}
         </span>
       </div>
       {hasResults && <>

@@ -239,6 +239,8 @@ test('production PWA caches shell and live API and reloads offline', async ({
   const cdp = await context.newCDPSession(page)
   const installability = await cdp.send('Page.getInstallabilityErrors')
   expect(installability.installabilityErrors).toEqual([])
+  // An attached CDP session can reset navigator.onLine on reload, hiding the later online event.
+  await cdp.detach()
   await context.setOffline(true)
   await page.reload()
   await expect(page.getByRole('heading', { name: /^Сейчас заплыв №1(?: из \d+)?$/ })).toBeVisible()

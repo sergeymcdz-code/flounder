@@ -12,6 +12,7 @@ export function validateApiUrl(apiUrl: string, allowRemote = process.env.QA05_AL
 
 export default function setup() {
   const apiUrl = validateApiUrl(process.env.QA05_API_URL ?? 'http://localhost:8080')
+  const demoDate = process.env.DEMO_DATE ?? new Date().toISOString().slice(0, 10)
   // A new isolated event per run avoids deleting or changing a previous demo.
   const directory = resolve('../../scripts/demo')
   // S02 fixtures are reused by title; the seven-step flow keeps its isolated B event.
@@ -19,7 +20,7 @@ export default function setup() {
     cwd: directory, timeout: 600_000, encoding: 'utf8',
     env: { ...process.env, API_URL: apiUrl, ADMIN_EMAIL: requiredCredential('ADMIN_EMAIL'),
       ADMIN_PASSWORD: requiredCredential('ADMIN_PASSWORD'), DEMO_PASSWORD: requiredCredential('QA05_PASSWORD', 'DEMO_PASSWORD'),
-      DEMO_SEED_ENABLED: 'true', REQUIRE_VENUE_META: 'true', DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-19',
+      DEMO_SEED_ENABLED: 'true', REQUIRE_VENUE_META: 'true', DEMO_DATE: demoDate,
       DEMO_EVENTS: 'A,B,C', EVENT_TITLE_SUFFIX: '' },
   })
   mkdirSync('work/qa05', { recursive: true })
@@ -43,7 +44,7 @@ export default function setup() {
       DEMO_PASSWORD: requiredCredential('QA05_PASSWORD', 'DEMO_PASSWORD'),
       DEMO_SEED_ENABLED: 'true',
       REQUIRE_VENUE_META: 'true',
-      DEMO_DATE: process.env.DEMO_DATE ?? '2026-10-19',
+      DEMO_DATE: demoDate,
       DEMO_EVENTS: 'B',
       EVENT_TITLE_SUFFIX: suffix,
     },

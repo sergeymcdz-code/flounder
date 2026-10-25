@@ -4,6 +4,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { plural } from '../../utils/plural'
 import type { CalendarCard } from './calendar.types'
+import { publicEventStatus } from './event-phase'
 import styles from './CalendarCards.module.css'
 
 const day = (value: string) => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(value))
@@ -17,7 +18,7 @@ export function CalendarCards({ items, grouped = false }: { items: CalendarCard[
   }
   return <>{[...groups].map(([month, cards]) => <section key={month} className={styles.month}>
     {grouped && <h2>{month ? new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01`)).replace(/^./, c => c.toUpperCase()).replace(' г.', '') : 'Дата уточняется'}</h2>}
-    <div className={styles.cards}>{cards.map(card => <article key={card.slug} className={styles.card}>
+    <div className={styles.cards}>{cards.map(card => ({ ...card, status: publicEventStatus(card.status, card.endDate) })).map(card => <article key={card.slug} className={styles.card}>
       <div className={styles.cardTop}>
         <p className={styles.date}>{card.startDate ? <time dateTime={card.startDate}>{day(card.startDate)}</time> : 'Дата уточняется'}{card.endDate && card.endDate !== card.startDate && <> — <time dateTime={card.endDate}>{day(card.endDate)}</time></>}{card.city && ` · ${card.city}`}</p>
         <StatusBadge kind="event" code={card.status} />
