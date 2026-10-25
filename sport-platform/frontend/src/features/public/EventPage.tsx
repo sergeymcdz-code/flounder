@@ -8,6 +8,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { usePublicEvent } from './publicContext'
 import { date, localTimeLabel } from './format'
+import { publicEventStatus } from './event-phase'
 import { SessionTimeline, type TimelineSession } from './SessionTimeline'
 import styles from './EventPage.module.css'
 
@@ -22,15 +23,16 @@ export function PublicEventPage() {
   const base = `/e/${encodeURIComponent(event.publicSlug)}`
   const organizationPath = event.organization?.publicSlug ? `/o/${encodeURIComponent(event.organization.publicSlug)}` : null
   const full = event.maxParticipants != null && (event.participantsCount ?? 0) >= event.maxParticipants
-  const action = event.status === 'LIVE' ? ['live', 'Открыть табло']
-    : event.status === 'COMPLETED' || event.status === 'FINISHED' || event.status === 'ARCHIVED' ? ['results', 'Результаты']
+  const status = publicEventStatus(event.status, event.eventEndAt)
+  const action = status === 'LIVE' ? ['live', 'Открыть табло']
+    : status === 'COMPLETED' || status === 'ARCHIVED' ? ['results', 'Результаты']
     : event.registrationOpen ? ['register', 'Подать заявку'] : ['start-list', 'Стартовый протокол']
   const navigation = [
     ['start-list', 'Стартовый протокол', 'Заплывы и дорожки'],
     ['schedule', 'Расписание', 'Старты по сессиям'],
-    ['live', 'Табло', 'Сейчас в бассейне'],
+    ['live', 'Табло', 'Текущий заплыв'],
     ['results', 'Результаты', 'Абсолют и группы'],
-  ].sort((a, b) => event.status === 'LIVE' ? Number(b[0] === 'live') - Number(a[0] === 'live') : 0)
+  ].sort((a, b) => status === 'LIVE' ? Number(b[0] === 'live') - Number(a[0] === 'live') : 0)
   const entries = (sessionId: string | null) => event.disciplines
     .filter(item => sessionId === null ? item.sessionId === null || !event.sessions.some(s => s.id === item.sessionId) : item.sessionId === sessionId)
     .sort((a, b) => (a.orderInSession ?? Infinity) - (b.orderInSession ?? Infinity) || a.number - b.number)
@@ -45,7 +47,7 @@ export function PublicEventPage() {
       <div>
         <p className={`${styles.eyebrow} fl-eyebrow`}>Соревнования</p>
         <h1 className={styles.title}>{event.title}</h1>
-        <StatusBadge kind="event" code={event.status === 'FINISHED' ? 'COMPLETED' : event.status} />
+        <StatusBadge kind="event" code={status} />
         <p className={styles.facts}>{startDate}{endDate !== startDate ? ` — ${endDate}` : ''}{event.venue && <> · {event.venue.name}, {event.venue.city} · <span>{event.venue.lanes} дорожек · {event.venue.courseLength != null ? `${event.venue.courseLength} м` : 'длина бассейна не указана'}</span></>}</p>
       </div>
       <div className={styles.action}>
@@ -58,7 +60,7 @@ export function PublicEventPage() {
     <nav className={styles.sections} aria-label="Подробнее о соревновании">
       {navigation.map(([path, title, description]) => <Link key={path} className={styles.cardLink} to={`${base}/${path}`}>
         <strong>{title} →</strong><span>{description}</span>
-        {path === 'live' && event.status === 'LIVE' && <StatusBadge kind="event" code="LIVE" />}
+        {path === 'live' && status === 'LIVE' && <StatusBadge kind="event" code="LIVE" />}
       </Link>)}
     </nav>
     <div className={styles.content}>

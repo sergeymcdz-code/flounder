@@ -18,6 +18,8 @@ async function bootstrap() {
   }
   if (import.meta.env.DEV && import.meta.env.VITE_API_MOCK === 'true') {
     const { worker } = await import('./mocks/browser')
+    const { DEMO_TODAY, setEventPhaseClock } = await import('./features/public/event-phase')
+    setEventPhaseClock(() => DEMO_TODAY)
     await worker.start({ onUnhandledFrame: 'bypass' })
   } else {
     registerSW({ immediate: true })

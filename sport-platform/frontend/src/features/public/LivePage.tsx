@@ -20,6 +20,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Notice } from '../../components/ui/Notice'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { usePublicEvent } from './publicContext'
+import { isEventOver } from './event-phase'
 import { LIVE_POLL_MS, SCHEDULE_POLL_MS, usePublicData } from './usePublicData'
 import styles from './LivePage.module.css'
 
@@ -107,7 +108,7 @@ export function LiveBoard({
                     ? 'Заплыв завершён'
                     : status === 'CANCELLED'
                       ? 'Заплыв отменён'
-                      : running ? '● Сейчас в бассейне' : 'Текущий заплыв'}
+                      : running ? '● Текущий заплыв' : 'Текущий заплыв'}
                 </p>
                 <span className={styles.startTime}>
                   Старт{' '}
@@ -401,9 +402,11 @@ export function LivePage() {
     (signal: AbortSignal) => publicApi.schedule(event.publicSlug, signal),
     [event.publicSlug],
   )
-  const schedule = usePublicData(loadSchedule, SCHEDULE_POLL_MS)
+  // UX-24 (UI-103): a finished event has no «now»; stop polling and point to the results.
+  const over = isEventOver(event.status, event.eventEndAt)
+  const schedule = usePublicData(loadSchedule, over ? undefined : SCHEDULE_POLL_MS)
   const list = usePublicData(loadList)
-  const live = usePublicData(loadLive, LIVE_POLL_MS)
+  const live = usePublicData(loadLive, over ? undefined : LIVE_POLL_MS)
   const search = (
     <AthleteSearch slug={event.publicSlug} timeZone={event.venue?.timezone} />
   )
@@ -470,7 +473,8 @@ export function LivePage() {
     <div className={styles.page} data-theme="dark">
       <div className={styles.pageHeading}>
         <h1 className="fl-live-page">Табло</h1>
-        {live.data && (
+        {over && <StatusBadge kind="event" code="COMPLETED" />}
+        {!over && live.data && (
           <p className={styles.updated}>
             обновлено {time(live.data.updatedAt, event.venue?.timezone)} ·
             каждые 15 с
@@ -500,7 +504,24 @@ export function LivePage() {
           </Button>
         </Notice>
       )}
-      {live.data && (
+      {over && !live.loading && (
+        <>
+          <section className={styles.card}>
+            <EmptyState
+              title="Соревнование завершено"
+              action={
+                <Button as={Link} variant="primary" to={`/e/${encodeURIComponent(event.publicSlug)}/results`}>
+                  Открыть результаты
+                </Button>
+              }
+            >
+              <p>Табло больше не обновляется. Места и время участников — в разделе «Результаты».</p>
+            </EmptyState>
+          </section>
+          {search}
+        </>
+      )}
+      {!over && live.data && (
         <LiveBoard
           live={live.data}
           list={list.data}
@@ -513,7 +534,7 @@ export function LivePage() {
           search={search}
         />
       )}
-      {!live.loading && !live.data && search}
+      {!over && !live.loading && !live.data && search}
     </div>
   )
 }
