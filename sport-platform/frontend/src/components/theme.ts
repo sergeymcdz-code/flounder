@@ -11,6 +11,6 @@ export function readTheme(): Theme | null {
 }
 
 export function resolveTheme(pathname: string, saved: Theme | null, systemDark: boolean): Theme {
-  if (!(pathname === '/' || /^\/dev\/ui(?:\/|$)/.test(pathname) || /^\/(e|o)\/[^/]+(?:\/|$)/.test(pathname))) return 'light'
+  if (!(pathname === '/' || /^\/dev\/ui(?:\/|$)/.test(pathname) || /^\/(e|o)\/[^/]+(?:\/|$)/.test(pathname) || /^\/events\/[^/]+\/disciplines\/[^/]+\/results\/?$/.test(pathname))) return 'light'
   return saved ?? (systemDark || /\/(live|results)\/?$/.test(pathname) ? 'dark' : 'light')
 }

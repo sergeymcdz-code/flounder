@@ -1,29 +1,22 @@
+import { useCallback, useEffect } from 'react'
+import { Link, useParams } from 'react-router'
+import { getPublicDisciplineResults, type PublicDisciplineResultEntry } from '../../api/results.api'
+import { LoadingState } from '../../components/LoadingState'
 import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Notice } from '../../components/ui/Notice'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { statusTone } from '../../components/ui/status-dictionary'
+import { usePublicEvent } from '../public/publicContext'
+import { usePublicData } from '../public/usePublicData'
+import { formatCount } from '../../utils/plural'
 import { ResultStatus } from './ResultStatus'
 import { StatusLegend } from './StatusLegend'
 import { resultStatusCode } from './results-ui'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { getPublicEventDetails } from '../../api/events.api'
-import { ApiError } from '../../api/http'
-import {
-  getPublicDisciplineResults,
-  type PublicDisciplineResultEntry,
-  type PublicDisciplineResultsResponse,
-} from '../../api/results.api'
 import styles from './PublicDisciplineResultsPage.module.css'
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof ApiError && error.status === 404) {
-    return 'Соревнование, дисциплина или опубликованные результаты не найдены.'
-  }
-
-  if (error instanceof ApiError) {
-    return error.message
-  }
-
-  return 'Не удалось загрузить результаты.'
-}
+const participants = ['участник', 'участника', 'участников'] as const
+const heats = ['заплыв', 'заплыва', 'заплывов'] as const
 
 function resultStatusLabel(status: string) {
   const labels: Record<string, string> = {
@@ -31,315 +24,118 @@ function resultStatusLabel(status: string) {
     VALID: 'Учтён',
     EXHIBITION: 'Вне зачёта',
   }
-
   return labels[status] ?? status
 }
 
-function resultStatusClassName(status: string) {
-  if (status === 'VALID') {
-    return `${styles.statusBadge} ${styles.statusValid}`
-  }
-
-  if (
-    status === 'DID_NOT_START' ||
-    status === 'DID_NOT_FINISH'
-  ) {
-    return `${styles.statusBadge} ${styles.statusWarning}`
-  }
-
-  if (status === 'DISQUALIFIED') {
-    return `${styles.statusBadge} ${styles.statusDanger}`
-  }
-
-  if (status === 'CORRECTED') {
-    return `${styles.statusBadge} ${styles.statusCorrected}`
-  }
-
-  if (status === 'EXHIBITION') {
-    return `${styles.statusBadge} ${styles.statusNeutral}`
-  }
-
-  return `${styles.statusBadge} ${styles.statusPending}`
-}
-
-function placeClassName(place: number | null) {
-  if (place === 1) {
-    return `${styles.place} ${styles.placeGold}`
-  }
-
-  if (place === 2) {
-    return `${styles.place} ${styles.placeSilver}`
-  }
-
-  if (place === 3) {
-    return `${styles.place} ${styles.placeBronze}`
-  }
-
-  return styles.place
-}
-
 function displayResult(rawValue: string | null, status: string) {
-  if (
-    status === 'DID_NOT_START' ||
-    status === 'DID_NOT_FINISH' ||
-    status === 'DISQUALIFIED'
-  ) {
-    return '—'
-  }
-
+  if (status === 'DID_NOT_START' || status === 'DID_NOT_FINISH' || status === 'DISQUALIFIED') return '—'
   return rawValue?.trim() || '—'
 }
 
 function sortEntries(entries: PublicDisciplineResultEntry[]) {
-  return [...entries].sort((left, right) => {
-    const leftPlace = left.place ?? Number.MAX_SAFE_INTEGER
-    const rightPlace = right.place ?? Number.MAX_SAFE_INTEGER
+  return [...entries].sort((left, right) => (left.place ?? Number.MAX_SAFE_INTEGER) - (right.place ?? Number.MAX_SAFE_INTEGER))
+}
 
-    return leftPlace - rightPlace
-  })
+function errorText(status: number | undefined) {
+  if (status === 404) return 'Опубликованные результаты этого вида не найдены.'
+  if (status) return `Сервер ответил ошибкой (${status}). Не удалось загрузить результаты.`
+  return 'Нет связи. Не удалось загрузить результаты.'
 }
 
 export function PublicDisciplineResultsPage() {
-  const { publicSlug, disciplineId } = useParams<{
-    publicSlug: string
-    disciplineId: string
-  }>()
-
-  const [results, setResults] =
-    useState<PublicDisciplineResultsResponse | null>(null)
-
-  const [eventTitle, setEventTitle] = useState<string | null>(null)
-
-  const [disciplineName, setDisciplineName] =
-    useState<string | null>(null)
-
-  const [isLoading, setIsLoading] = useState(true)
-
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null)
-
-  const publishedEntriesCount = useMemo(
-    () =>
-      results?.units.reduce(
-        (total, unit) => total + unit.entries.length,
-        0,
-      ) ?? 0,
-    [results],
+  const event = usePublicEvent()
+  const { disciplineId = '' } = useParams()
+  const discipline = event.disciplines.find(item => item.id === disciplineId)
+  const base = `/e/${encodeURIComponent(event.publicSlug)}`
+  const load = useCallback(
+    () => getPublicDisciplineResults(event.id, disciplineId),
+    [event.id, disciplineId],
   )
-
-  async function loadResults() {
-    if (!publicSlug || !disciplineId) {
-      setErrorMessage(
-        'Не указана ссылка на соревнование или идентификатор дисциплины.',
-      )
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setErrorMessage(null)
-
-    try {
-      const event = await getPublicEventDetails(publicSlug)
-
-      const discipline = (event.disciplines ?? []).find(
-        (item) => item.id === disciplineId,
-      )
-
-      if (!discipline) {
-        setErrorMessage(
-          'Дисциплина не найдена или больше не опубликована.',
-        )
-        return
-      }
-
-      const data = await getPublicDisciplineResults(
-        event.id,
-        disciplineId,
-      )
-
-      setEventTitle(event.title)
-      setDisciplineName(discipline.name)
-      setResults(data)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const state = usePublicData(load)
+  const units = state.data?.units ?? []
+  const entriesCount = units.reduce((total, unit) => total + unit.entries.length, 0)
 
   useEffect(() => {
-    void loadResults()
-  }, [publicSlug, disciplineId])
+    document.title = discipline
+      ? `Результаты: ${discipline.name} · ${event.title} · SportGate`
+      : `Вид программы не найден · ${event.title} · SportGate`
+  }, [discipline, event.title])
+
+  const back = <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to={`${base}/results`}>← Все результаты</Button>
+  if (!discipline) return <div className={styles.page}>
+    {back}
+    <EmptyState headingLevel={1} title="Вид программы не найден"
+      action={<Button as={Link} to={`${base}/results`} variant="primary">Открыть результаты</Button>}>
+      <p>Вид не опубликован или ссылка устарела. Выберите вид в общих результатах соревнования.</p>
+    </EmptyState>
+  </div>
 
   return (
-    <section className={styles.page}>
-      <Button as={Link} variant="ghost" size="sm"
-        className="fl-back-link"
-        to={publicSlug ? `/events/${publicSlug}` : '/'}
-      >
-        ← К соревнованию
-      </Button>
+    <div className={styles.page}>
+      {back}
+      <p className="fl-eyebrow">Результаты вида</p>
+      <PageHeader title={`Вид № ${discipline.number}. ${discipline.name}`}
+        meta={state.data && units.length > 0 ? `${formatCount(units.length, heats)} · ${formatCount(entriesCount, participants)}` : undefined} />
 
-      <p className={`${styles.eyebrow} fl-eyebrow`}>Опубликованные результаты</p>
+      {state.loading && !state.data && <LoadingState message="Загружаем результаты…" />}
 
-      <h1 className={styles.title}>
-        {disciplineName
-          ? `Результаты: ${disciplineName}`
-          : 'Таблица результатов'}
-      </h1>
+      {state.error && !state.loading && <Notice tone="danger">
+        <p>{errorText(state.errorStatus)}</p>
+        <Button variant="secondary" onClick={state.retry}>Повторить</Button>
+      </Notice>}
 
-      {eventTitle ? (
-        <p className={styles.eventTitle}>{eventTitle}</p>
-      ) : null}
+      {state.data && units.length === 0 && <EmptyState title="Результаты ещё не опубликованы"
+        action={<Button as={Link} to={`${base}/live`} variant="primary">Открыть табло</Button>}>
+        <p>После публикации здесь появятся места и время участников по заплывам.</p>
+      </EmptyState>}
 
-      <p className={styles.description}>
-        Здесь показаны только опубликованные результаты дисциплины.
-      </p>
-
-      {!isLoading && !errorMessage && results ? (
-        <div className={styles.summaryRow}>
-          <span>
-            Соревновательных единиц: <strong>{results.units.length}</strong>
-          </span>
-
-          <span>
-            Участников в протоколах:{' '}
-            <strong>{publishedEntriesCount}</strong>
-          </span>
-        </div>
-      ) : null}
-
-      {isLoading ? (
-        <div className={styles.stateCard}>
-          <h2>Загрузка</h2>
-          <p>Получаем опубликованные результаты дисциплины.</p>
-        </div>
-      ) : null}
-
-      {errorMessage ? (
-        <p className={styles.errorMessage} role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-
-      {!isLoading && !errorMessage && results ? (
-        results.units.length === 0 ? (
-          <div className={styles.stateCard}>
-            <h2>Результаты ещё не опубликованы</h2>
-
-            <p>
-              Организатор опубликует итоговую таблицу после завершения
-              соревнования.
-            </p>
-          </div>
-        ) : (
-          <div className={styles.unitsList}>
-            {results.units.map((unit) => {
-              const entries = sortEntries(unit.entries)
-
-              return (
-                <article className={styles.unitCard} key={unit.id}>
-                  <div className={styles.unitHeader}>
-                    <div>
-                      <p className={styles.unitLabel}>
-                        Соревновательная единица
-                      </p>
-
-                      <h2 className={styles.unitTitle}>{unit.label}</h2>
-                    </div>
-
-                    <div className={styles.unitMeta}>
-                      {unit.sequenceNumber !== null ? (
-                        <span className={styles.sequenceBadge}>
-                          № {unit.sequenceNumber}
+      {units.length > 0 && <div className={styles.units}>
+        {units.map(unit => {
+          const entries = sortEntries(unit.entries)
+          const title = unit.label || `Заплыв ${unit.sequenceNumber ?? ''}`.trim()
+          return <section className={styles.unit} key={unit.id} aria-labelledby={`unit-${unit.id}`}>
+            <header className={styles.unitHeader}>
+              <h2 id={`unit-${unit.id}`}>{title}</h2>
+              <span className="fl-badge fl-badge-neutral">{formatCount(entries.length, participants)}</span>
+            </header>
+            {entries.length === 0 ? <p className={styles.muted}>В этом заплыве нет опубликованных результатов.</p> : <>
+              <div className={`${styles.tableWrap} fl-data-table-scroll fl-scroll-x`} tabIndex={0} role="region" aria-label={`${title}: таблица результатов, прокручивается по горизонтали`}>
+                <table className={`${styles.table} fl-table`}>
+                  <caption className="fl-sr-only">{`${discipline.name} · ${title}`}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" data-numeric>Место</th>
+                      <th scope="col">Участник</th>
+                      <th scope="col">Клуб</th>
+                      <th scope="col" data-numeric>Результат</th>
+                      <th scope="col">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entries.map((entry, index) => <tr key={`${unit.id}-${entry.participantName}-${index}`}>
+                      <td className={styles.place} data-numeric>
+                        <span className={entry.place !== null && entry.place >= 1 && entry.place <= 3 ? styles.medal : undefined}>{entry.place ?? '—'}</span>
+                      </td>
+                      <td className={styles.athlete}>
+                        <strong>{entry.participantName}</strong>
+                        {entry.laneOrPosition !== null && entry.laneOrPosition > 0 && <small>Дорожка {entry.laneOrPosition}</small>}
+                      </td>
+                      <td>{entry.clubName ?? '—'}</td>
+                      <td className={styles.result} data-numeric>{displayResult(entry.rawValue, entry.status)}</td>
+                      <td>
+                        <span className={`fl-badge fl-badge-${statusTone('result', entry.status)}`}>
+                          <ResultStatus status={entry.status}>{resultStatusCode(entry.status) ? undefined : resultStatusLabel(entry.status)}</ResultStatus>
                         </span>
-                      ) : null}
-
-                      <span className={styles.entriesBadge}>
-                        {entries.length}{' '}
-                        {entries.length === 1
-                          ? 'участник'
-                          : 'участников'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {entries.length === 0 ? (
-                    <p className={styles.hint}>
-                      В этой соревновательной единице нет опубликованных
-                      результатов.
-                    </p>
-                  ) : (
-                    <div className={`${styles.tableWrap} fl-table-scroll`}>
-                      <table className={`${styles.table} fl-table`}>
-                        <thead>
-                          <tr>
-                            <th scope="col">Место</th>
-                            <th scope="col">Участник</th>
-                            <th scope="col">Клуб</th>
-                            <th scope="col">Результат</th>
-                            <th scope="col">Статус</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {entries.map((entry, index) => (
-                            <tr
-                              key={`${unit.id}-${entry.participantName}-${index}`}
-                            >
-                              <td>
-                                <span className={placeClassName(entry.place)}>
-                                  {entry.place ?? '—'}
-                                </span>
-                              </td>
-
-                              <td>
-                                <strong className={styles.participantName}>
-                                  {entry.participantName}
-                                </strong>
-
-                                {entry.laneOrPosition !== null ? (
-                                  <span className={styles.positionLabel}>
-                                    Дорожка / позиция{' '}
-                                    {entry.laneOrPosition}
-                                  </span>
-                                ) : null}
-                              </td>
-
-                              <td className={styles.clubCell}>
-                                {entry.clubName ?? '—'}
-                              </td>
-
-                              <td className={styles.resultValue}>
-                                {displayResult(
-                                  entry.rawValue,
-                                  entry.status,
-                                )}
-                              </td>
-
-                              <td>
-                                <span
-                                  className={resultStatusClassName(
-                                    entry.status,
-                                  )}
-                                >
-                                  <ResultStatus status={entry.status}>{resultStatusCode(entry.status) ? undefined : resultStatusLabel(entry.status)}</ResultStatus>
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  <StatusLegend statuses={entries.map(entry => entry.status)} />
-                </article>
-              )
-            })}
-          </div>
-        )
-      ) : null}
-    </section>
+                      </td>
+                    </tr>)}
+                  </tbody>
+                </table>
+              </div>
+              <StatusLegend statuses={entries.map(entry => entry.status)} />
+            </>}
+          </section>
+        })}
+      </div>}
+    </div>
   )
 }

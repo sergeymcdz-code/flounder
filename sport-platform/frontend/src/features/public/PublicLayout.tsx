@@ -38,14 +38,19 @@ export function DataState({
   return <ErrorState message={`${error}${data !== undefined ? ' Показаны последние данные. Обновление продолжится при подключении.' : ''}`} onRetry={retry} />
 }
 
+const disciplineResultsPath = /^\/events\/[^/]+\/disciplines\/[^/]+\/results\/?$/
+
 export function PublicLayout() {
   const { pathname } = useLocation()
-  return pathname.startsWith('/e/') ? <EventPublicLayout /> : <DirectoryLayout />
+  return pathname.startsWith('/e/') || disciplineResultsPath.test(pathname) ? <EventPublicLayout /> : <DirectoryLayout />
 }
 
 function EventPublicLayout() {
-  const { slug = '' } = useParams()
+  const params = useParams()
+  const slug = params.slug ?? params.publicSlug ?? ''
   const { pathname } = useLocation()
+  // Pages with their own document.title set it after the layout (child effects run first).
+  const pageTitle = disciplineResultsPath.test(pathname)
   const load = useCallback(
     (signal: AbortSignal) => publicApi.event(slug, signal),
     [slug],
@@ -77,9 +82,9 @@ function EventPublicLayout() {
   useEffect(() => {
     if (eventState.errorStatus === 404)
       document.title = 'Соревнование не найдено · SportGate'
-    else if (eventState.data)
+    else if (eventState.data && !pageTitle)
       document.title = `${eventState.data?.title ?? 'Соревнование'} · SportGate`
-  }, [eventState.data, eventState.errorStatus])
+  }, [eventState.data, eventState.errorStatus, pageTitle])
   const base = `/e/${encodeURIComponent(slug)}`
   const links = [
     ['start-list', 'Протокол'],

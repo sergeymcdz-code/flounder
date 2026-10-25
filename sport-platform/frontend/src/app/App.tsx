@@ -144,15 +144,14 @@ export default function App() {
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route path="heats/:unitId" element={<HeatPage />} />
       </Route>
+      {/* UX-24: the legacy per-discipline results URL is kept and rendered inside the event shell. */}
+      <Route path="events/:publicSlug/disciplines/:disciplineId/results" element={<PublicLayout />}>
+        <Route index element={<PublicDisciplineResultsPage />} />
+      </Route>
       <Route element={<AppLayout />}>
         <Route
           path="events/:eventCode"
           element={<LegacyEventRedirect />}
-        />
-
-        <Route
-          path="events/:publicSlug/disciplines/:disciplineId/results"
-          element={<PublicDisciplineResultsPage />}
         />
 
         <Route path="invitations/:token" element={<InvitationPage />} />
