@@ -72,6 +72,7 @@ values(?,?,?,?,?,?,?,now(),now()+interval '1 day','DRAFT',?,now(),now())
                 UUID.randomUUID(),
                 "Scheduling test",
                 event.toString());
+        ownerMembership(jdbc.queryForObject("select organization_id from events where id=?", UUID.class, event), OWNER);
         jdbc.update(
                 """
 insert into discipline_templates(id,sport_id,code,name,competition_format,unit_type,result_type,ranking_strategy)
@@ -564,15 +565,10 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
                         "select organization_id from events where id=?", UUID.class, f.event());
         jdbc.update(
                 "insert into organizations(id,type,name,created_at,updated_at)"
-                        + " values(?,'ORGANIZER','Judge membership test',now(),now())",
+                        + " values(?,'ORGANIZER','Judge membership test',now(),now()) on conflict(id) do nothing",
                 organization);
-        jdbc.update(
-                "insert into"
-                        + " organization_members(id,organization_id,user_id,member_role,created_at)"
-                        + " values(?,?,?,'JUDGE',now())",
-                UUID.randomUUID(),
-                organization,
-                OWNER);
+        jdbc.update("update organization_members set member_role='JUDGE' where organization_id=? and user_id=?",
+                organization, OWNER);
         UUID discipline = f.disciplines().getFirst();
         ok(
                 post("/api/v1/event-disciplines/{id}/generate-competition-units", discipline)
@@ -1035,7 +1031,7 @@ join competition_unit_entries e on e.competition_unit_id=u.id where u.event_disc
         UUID member = UUID.randomUUID();
         jdbc.update(
                 "insert into organizations(id,type,name,created_at,updated_at)"
-                    + " values(?,'ORGANIZER','Member scheduling test',now(),now())",
+                    + " values(?,'ORGANIZER','Member scheduling test',now(),now()) on conflict(id) do nothing",
                 organization);
         jdbc.update(
                 "insert into users(id,email,password_hash,status)"

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
 import { ResultsPrintControls } from './PrintFormsControls'
 import { useAuth } from '../../app/providers/AuthProvider'
+import { DataTable } from '../../components/ui/DataTable'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -12,7 +13,7 @@ import { publicApi } from '../../api/public.api'
 import { changeCompetitionUnitPublication } from '../../api/results.api'
 import { publishDisciplineResults } from '../../api/scheduling.api'
 import { LIVE_POLL_MS, usePublicData } from '../public/usePublicData'
-import { formatDate, useOrganizerEvent } from './organizer-event-context'
+import { disabledReason, formatDate, useOrganizerEvent } from './organizer-event-context'
 import type { Heat, SwimDiscipline } from '../../api/organizer.types'
 import styles from './ResultsTab.module.css'
 
@@ -38,6 +39,7 @@ export function OrganizerResultsPage() {
     const units = heats.filter(h => h.eventDisciplineId === d.id)
     return units.length > 0 && units.every(complete) && !units.every(published)
   })?.id
+  const disciplineIndices = new Map(event.disciplines.map((discipline, index) => [discipline.id, index]))
   const groups = [
     ...sessions.map(session => ({ id: session.id, name: session.name, disciplines: event.disciplines.filter(d => d.sessionId === session.id) })),
     { id: 'unassigned', name: 'Без сессии', disciplines: event.disciplines.filter(d => !sessions.some(s => s.id === d.sessionId)) },
@@ -90,19 +92,13 @@ export function OrganizerResultsPage() {
             const units = heats.filter(h => h.eventDisciplineId === d.id)
             if (!units.length) return null
             return <section key={d.id} className={styles.discipline}>
-              <h3>Вид № {disciplineNumber(d, event.disciplines.indexOf(d))} · {d.name}</h3>
-              <div className={styles.tableScroll}>
-                <table className={`fl-table fl-table-compact ${styles.table}`}>
-                  <caption className="fl-sr-only">Заплывы · {d.name}</caption>
-                  <thead><tr><th scope="col">№</th><th scope="col" data-numeric>Время</th><th scope="col">Статус</th><th scope="col">Действие</th></tr></thead>
-                  <tbody>{units.map(heat => <tr key={heat.id}>
-                    <td data-label="Заплыв" className={styles.number}>{heat.sequenceNumber ?? heat.label}</td>
-                    <td data-label="Время" data-numeric>{formatDate(heat.scheduledAt, event.venue?.timezone)}</td>
-                    <td data-label="Статус"><span className={styles.statuses}><StatusBadge kind="heat" code={heat.status} />{heat.entries.some(entry => entry.resultStatus === 'CORRECTED') && <StatusBadge kind="result" code="CORRECTED" />}</span></td>
-                    <td><Button as={Link} variant="ghost" to={`/operator/competition-units/${heat.id}?eventId=${encodeURIComponent(event.id)}`}>Открыть →</Button></td>
-                  </tr>)}</tbody>
-                </table>
-              </div>
+              <h3>Вид № {disciplineNumber(d, disciplineIndices.get(d.id) ?? 0)} · {d.name}</h3>
+              <DataTable cards compact caption={`Заплывы · ${d.name}`} rows={units} rowKey={heat => heat.id} columns={[
+                { key: 'number', header: '№', label: 'Заплыв', rowHeader: true, render: heat => <span className={styles.number}>{heat.sequenceNumber ?? heat.label}</span> },
+                { key: 'time', header: 'Время', numeric: true, render: heat => formatDate(heat.scheduledAt, event.venue?.timezone) },
+                { key: 'status', header: 'Статус', render: heat => <span className={styles.statuses}><StatusBadge kind="heat" code={heat.status} />{heat.entries.some(entry => entry.resultStatus === 'CORRECTED') && <StatusBadge kind="result" code="CORRECTED" />}</span> },
+                { key: 'action', header: 'Действие', render: heat => <Button as={Link} variant="ghost" to={`/operator/competition-units/${heat.id}?eventId=${encodeURIComponent(event.id)}`}>Открыть →</Button> },
+              ]} />
             </section>
           })}
         </details>)}
@@ -112,7 +108,7 @@ export function OrganizerResultsPage() {
         {event.disciplines.map((d, index) => {
           const units = heats.filter(h => h.eventDisciplineId === d.id)
           const allPublished = units.length > 0 && units.every(published)
-          const reason = archived ? 'Соревнование в архиве: доступен только просмотр' : busy ? 'Дождитесь завершения текущего действия' : allPublished && units.some(h => h.status === 'COMPLETED') ? 'Результаты завершённого соревнования нельзя снять с публикации' : !units.length ? 'Сначала сформируйте заплывы' : !units.every(complete) ? 'Не все заплывы завершены' : undefined
+          const reason = disabledReason({ busy, archived, reason: allPublished && units.some(h => h.status === 'COMPLETED') ? 'Результаты завершённого соревнования нельзя снять с публикации' : !units.length ? 'Сначала сформируйте заплывы' : !units.every(complete) ? 'Не все заплывы завершены' : undefined }) || undefined
           return <article className={styles.publicationRow} key={d.id}>
             <h3>Вид № {disciplineNumber(d, index)} · {d.name}</h3>
             <p className={styles.muted}><span className={styles.numeric}>{units.filter(complete).length} из {units.length}</span> заплывов завершено</p>

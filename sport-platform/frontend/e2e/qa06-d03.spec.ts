@@ -74,7 +74,7 @@ test('D03 swimmer star persists on the live board and can be removed', async ({ 
  await page.getByRole('button', { name: `Мои пловцы: ${name}`, exact: true }).click()
  await expect(page.getByRole('region', { name: 'Мои пловцы', exact: true })).toHaveCount(0)
 })
-test('D03 public poster uses a named A4 page and results warning survives print media', async ({ page }) => {
+test('D03 public poster uses a named A4 page and results warning is visible in print', async ({ page }) => {
  await openAuditPage(page, '/e/demo/poster')
  await expect(page.locator('.fl-poster svg')).toBeVisible()
  await page.emulateMedia({ media: 'print' })
@@ -83,6 +83,9 @@ test('D03 public poster uses a named A4 page and results warning survives print 
  expect(pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)).toHaveLength(1)
  expect((await page.locator('.fl-poster svg').boundingBox())!.width).toBeCloseTo(60 * 96 / 25.4, 0)
  await navigate(page, '/e/demo/results')
+ await page.emulateMedia({ media: 'screen' })
+ await expect(page.getByText('Предварительно', { exact: true })).toBeVisible()
+ await page.emulateMedia({ media: 'print' })
  await expect(page.locator('.fl-unofficial')).toBeVisible()
  await expect(page.locator('.fl-unofficial')).toHaveText('Неофициальные результаты — публикуются сразу после заплыва и могут быть исправлены до утверждения судейской коллегией')
 })

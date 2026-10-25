@@ -6,11 +6,16 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.UserLookup;
@@ -34,6 +39,8 @@ import static java.util.stream.Collectors.toMap;
 
 @Service
 public class OrganizationService implements OrganizationLookup, OrganizationManagementAccess, UserMembershipLookup {
+
+    private static final Logger log = LoggerFactory.getLogger(OrganizationService.class);
 
     private final PublicOrganizationProfileService publicProfiles;
 
@@ -227,31 +234,35 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
     public OrganizationMemberResponse addMember(
             UUID organizationId, AddOrganizationMemberRequest request,
             UUID userId, boolean admin) {
+        lockMembershipChanges(organizationId);
         assertOwner(organizationId, userId, admin);
-        normalizeMemberRole(request.memberRole());
+        String role = normalizeMemberRole(request.memberRole());
         if ((request.userId() == null) == (request.email() == null || request.email().isBlank()))
             throw new BusinessException("organizations.invalid_member_user", "Укажите email или userId пользователя, только одно поле");
         UUID memberUserId = request.userId() != null ? request.userId() : userLookup.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException("organizations.user_not_found", "Пользователь с таким email не найден")).id();
-        if (!admin) {
-            organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, memberUserId)
-                    .ifPresent(m -> assertMutableMember(m, userId));
-        }
-        return memberResponse(putMember(organizationId, memberUserId, request.memberRole()));
+        var existing = organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, memberUserId).orElse(null);
+        assertRoleChange(organizationId, existing, role, userId, admin);
+        return memberResponse(putMember(organizationId, memberUserId, role, userId));
     }
 
+    // Trusted membership writer for organization bootstrap and accepted non-owner invitations.
     @Transactional
-    public OrganizationMemberEntity putMember(
-            UUID organizationId, UUID userId, String role) {
+    OrganizationMemberEntity putMember(UUID organizationId, UUID userId, String role, UUID actor) {
+        lockMembershipChanges(organizationId);
         userRoleLookup.requireUser(userId);
         String normalized = normalizeMemberRole(role);
         var member = organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, userId)
                 .orElseGet(OrganizationMemberEntity::new);
+        String previousRole = member.getMemberRole();
+        assertNotLastOwner(organizationId, previousRole, normalized);
         member.setOrganizationId(organizationId);
         member.setUserId(userId);
         member.setMemberRole(normalized);
         if (member.getCreatedAt() == null) member.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
-        return organizationMemberRepository.save(member);
+        var saved = organizationMemberRepository.save(member);
+        auditRoleChange(organizationId, actor, userId, previousRole, normalized);
+        return saved;
     }
 
     @Override
@@ -277,20 +288,23 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
 
     @Transactional
     public OrganizationMemberResponse updateMember(UUID organizationId, UUID targetUserId, String role, UUID actor, boolean admin) {
+        lockMembershipChanges(organizationId);
         assertOwner(organizationId, actor, admin);
+        String normalized = normalizeMemberRole(role);
         var member = requireMember(organizationId, targetUserId);
-        if (!admin) {
-            assertMutableMember(member, actor);
-        }
-        return memberResponse(putMember(organizationId, targetUserId, role));
+        assertRoleChange(organizationId, member, normalized, actor, admin);
+        return memberResponse(putMember(organizationId, targetUserId, normalized, actor));
     }
 
     @Transactional
     public void deleteMember(UUID organizationId, UUID targetUserId, UUID actor, boolean admin) {
+        lockMembershipChanges(organizationId);
         assertOwner(organizationId, actor, admin);
         var member = requireMember(organizationId, targetUserId);
-        if (!admin) assertMutableMember(member, actor);
+        assertRoleChange(organizationId, member, null, actor, admin);
+        assertNotLastOwner(organizationId, member.getMemberRole(), null);
         organizationMemberRepository.delete(member);
+        auditRoleChange(organizationId, actor, targetUserId, member.getMemberRole(), null);
     }
 
     private static String nullIfBlank(String value) {
@@ -304,11 +318,44 @@ public class OrganizationService implements OrganizationLookup, OrganizationMana
         return normalized;
     }
 
-    private void assertMutableMember(OrganizationMemberEntity member, UUID actor) {
-        if (member.getUserId().equals(actor) || "owner".equalsIgnoreCase(member.getMemberRole())) throw protectedMember();
+    private void lockMembershipChanges(UUID organizationId) {
+        // Serialize every membership writer, including POST upserts and invitation acceptance.
+        organizationRepository.lockById(organizationId).orElseThrow(this::organizationNotFound);
     }
-    private BusinessException protectedMember() {
-        return new BusinessException("organizations.protected_member", "Нельзя изменять собственное членство или членство владельца");
+
+    private void assertRoleChange(UUID organizationId, OrganizationMemberEntity member, String nextRole,
+                                  UUID actor, boolean admin) {
+        if ("owner".equalsIgnoreCase(nextRole) || (member != null && "owner".equalsIgnoreCase(member.getMemberRole()))) {
+            boolean owner = actor != null && organizationMemberRepository.findByOrganizationIdAndUserId(organizationId, actor)
+                    .map(m -> "owner".equalsIgnoreCase(m.getMemberRole())).orElse(false);
+            boolean firstOwner = admin && "owner".equalsIgnoreCase(nextRole)
+                    && organizationMemberRepository.countByOrganizationIdAndMemberRoleIgnoreCase(organizationId, "owner") == 0;
+            if (!owner && !firstOwner) throw new BusinessException("organizations.protected_member",
+                    "Только владелец организации может назначать или снимать роль владельца");
+        } else if (!admin && member != null && member.getUserId().equals(actor)) {
+            throw new BusinessException("organizations.protected_member", "Нельзя изменять собственное членство");
+        }
+    }
+
+    private void assertNotLastOwner(UUID organizationId, String previousRole, String nextRole) {
+        if ("owner".equalsIgnoreCase(previousRole) && !"owner".equalsIgnoreCase(nextRole)
+                && organizationMemberRepository.countByOrganizationIdAndMemberRoleIgnoreCase(organizationId, "owner") <= 1) {
+            throw new LastOrganizationOwnerException();
+        }
+    }
+
+    private void auditRoleChange(UUID organizationId, UUID actor, UUID target, String previousRole, String nextRole) {
+        if (Objects.equals(previousRole, nextRole)) return;
+        Runnable write = () -> log.info("organization_role_changed organizationId={} actorId={} targetUserId={} previousRole={} nextRole={}",
+                organizationId, actor, target, previousRole, nextRole);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override public void afterCommit() { write.run(); }
+                    });
+        } else {
+            write.run();
+        }
     }
 
     private OrganizationMemberEntity requireMember(UUID organizationId, UUID userId) {

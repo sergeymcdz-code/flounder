@@ -1,4 +1,7 @@
 # method	path	policy	scoped	allowed status	fixture state	JSON body
+# SEC-B1: members POST/PATCH/DELETE below exercise non-owner roles; owner transitions require local owner and preserve the last owner (SecB1OrganizationRolesIntegrationTest).
+# SEC-B1: registration approval bootstraps a new organization; assigning owner in an existing organization requires local owner.
+# SEC-B1: events and registrations, including organizer lists, require membership; created_by_user_id grants no access.
 GET	/api/v1/admin/ping	admin	false	200		
 POST	/api/v1/events/{eventId}/disciplines	manage	true	200	event-draft	{"disciplineTemplateId":"$template","code":"NEW","name":"50 м","distanceM":50,"stroke":"FREE","gender":"M","sessionId":"$session","orderInSession":3,"seedingMode":"BY_TIME_ALL","ageGroups":[]}
 GET	/api/v1/events/{eventId}/disciplines	manage-read	true	200		

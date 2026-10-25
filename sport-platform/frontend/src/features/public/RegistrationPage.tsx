@@ -66,7 +66,8 @@ function RegistrationEditor() {
   const [showAll, setShowAll] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [profileLoading, setProfileLoading] = useState(false)
+  const [ownProfile, setOwnProfile] = useState<Partial<RegistrationProfile> | null>(null)
+  const [profileInfo, setProfileInfo] = useState('')
   const [storageError, setStorageError] = useState(false)
   const [email, setEmail] = useState('')
   const [success, setSuccess] = useState<string[]>()
@@ -141,25 +142,32 @@ function RegistrationEditor() {
     if (Object.keys(nextErrors).length) showValidation(nextErrors)
     else { setErrors({}); goTo(step + 1) }
   }
-  async function fillOwnProfile() {
+  useEffect(() => {
     if (!auth.session) return
-    setProfileLoading(true)
-    try {
-      const cached = email && sessionStorage.getItem(`sportgate.profile.${email}`)
-      if (cached) {
-        const own = JSON.parse(cached) as Partial<RegistrationProfile>
-        setDraft(previous => ({ ...previous, profile: { ...previous.profile, ...own } }))
-      } else {
-        const rows = await getMyRegistrations(auth.session.accessToken)
+    let active = true
+    async function loadOwnProfile() {
+      try {
+        const cached = email && sessionStorage.getItem(`sportgate.profile.${email}`)
+        if (cached) {
+          if (active) { setOwnProfile(JSON.parse(cached) as Partial<RegistrationProfile>); setProfileInfo('') }
+          return
+        }
+        const rows = await getMyRegistrations(auth.session!.accessToken)
+        if (!active) return
         const own = rows[0]?.participantSnapshot
-        if (!own) { setErrors(previous => ({ ...previous, form: 'В профиле пока нет данных спортсмена. Заполните их ниже.' })); return }
-        setDraft(previous => ({ ...previous, profile: { firstName: own.firstName, lastName: own.lastName,
-          middleName: own.middleName ?? '', birthDate: own.birthDate ?? '',
-          gender: own.gender === 'F' ? 'F' : own.gender === 'M' ? 'M' : previous.profile.gender, club: own.clubName ?? '' } }))
-      }
-      setErrors({})
-    } catch { setErrors(previous => ({ ...previous, form: 'Не удалось загрузить профиль. Заполните данные ниже.' })) }
-    finally { setProfileLoading(false) }
+        if (!own) { setOwnProfile(null); setProfileInfo('В профиле пока нет данных спортсмена. Заполните их ниже.'); return }
+        setOwnProfile({ firstName: own.firstName, lastName: own.lastName, middleName: own.middleName ?? '',
+          birthDate: own.birthDate ?? '', gender: own.gender === 'F' ? 'F' : own.gender === 'M' ? 'M' : '', club: own.clubName ?? '' })
+        setProfileInfo('')
+      } catch { if (active) setProfileInfo('Не удалось загрузить профиль. Заполните данные ниже.') }
+    }
+    void loadOwnProfile()
+    return () => { active = false }
+  }, [auth.session, email])
+  function fillOwnProfile() {
+    if (!ownProfile) return
+    setDraft(previous => ({ ...previous, profile: { ...previous.profile, ...ownProfile } }))
+    setErrors({})
   }
   async function submit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
@@ -248,10 +256,11 @@ function RegistrationEditor() {
         <p className={styles.draft}>{storageError || !draftKey ? 'Черновик не сохраняется в этом браузере. Не закрывайте страницу до отправки.' : 'Черновик сохраняется автоматически до отправки заявки.'}</p>
         {errorSummary}
         {eventFull && <Notice tone="warning"><span role="status">Мест нет, запись в лист ожидания. Организатор сообщит, когда освободится место.</span></Notice>}
-        <fieldset hidden={step !== 0} disabled={submitting || profileLoading} className="fl-fieldset">
+        <fieldset hidden={step !== 0} disabled={submitting} className="fl-fieldset">
           <legend className="fl-sr-only">Участник</legend>
           <h2 id="registration-step-0" tabIndex={-1}>1. Спортсмен</h2>
-          <Button loading={profileLoading} title={profileLoading ? 'Загружаем данные спортсмена' : undefined} onClick={() => void fillOwnProfile()}>Это я</Button>
+          {ownProfile && <Button onClick={fillOwnProfile}>Это я</Button>}
+          {profileInfo && <Notice tone="info">{profileInfo}</Notice>}
           <div className={styles.pair}>
             {([['lastName', 'Фамилия', 'family-name'], ['firstName', 'Имя', 'given-name']] as const).map(([key, label, autoComplete]) => <div className="fl-field" key={key}>
               <label htmlFor={`registration-${key}`}>{label}</label>

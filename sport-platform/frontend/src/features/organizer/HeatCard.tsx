@@ -32,15 +32,15 @@ export function HeatCard({ heat, discipline, registrations, lanes, timeZone, dis
     <header className={styles.heatHeader}>
       <div><h3 className={styles.heatNumber}>{title}</h3><p className={styles.numeric}>{time(heat.scheduledAt, timeZone)}</p></div>
       <StatusBadge kind="heat" code={heat.status} />
-    </header>
-    <p className={styles.muted}>{discipline.name}{group && ` · группа ${group}`}</p>
-    {heat.entries.length === 0 ? <EmptyState title="В заплыве нет участников" action={null}>Пересоберите вид после проверки заявок.</EmptyState> : <details className={styles.lanes} open={expanded} onToggle={e => setExpanded(e.currentTarget.open)}>
-      <summary>Дорожки · {heat.entries.length}</summary>
       <div className={styles.editAction}>
         <Button variant="ghost" size="sm" disabled={!!disabledReason} title={disabledReason} aria-pressed={editing} onClick={() => setEditing(!editing)}>{editing ? 'Завершить редактирование' : 'Редактировать дорожки'}</Button>
         {disabledReason && <small>{disabledReason}</small>}
       </div>
-      <div className={`fl-table-scroll ${styles.tableScroll}`}>
+    </header>
+    {group && <p className={styles.muted}>Группа {group}</p>}
+    {heat.entries.length === 0 ? <EmptyState title="В заплыве нет участников" action={null}>Пересоберите вид после проверки заявок.</EmptyState> : <details className={styles.lanes} open={expanded} onToggle={e => setExpanded(e.currentTarget.open)}>
+      <summary>Дорожки · {heat.entries.length}</summary>
+      <div className="fl-table-scroll fl-data-table-scroll fl-scroll-x">
         <table className={`fl-table fl-table-compact ${styles.laneTable}`}>
           <caption className="fl-sr-only">{title} — дорожки и заявочное время</caption>
           <thead><tr><th scope="col">Дор.</th><th scope="col">Участник</th><th scope="col" className={styles.extra} data-numeric>Год</th><th scope="col" className={styles.extra}>Клуб</th><th scope="col" data-numeric>Заяв. время</th></tr></thead>

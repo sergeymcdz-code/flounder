@@ -11,6 +11,10 @@ import org.springframework.data.repository.query.Param;
 public interface OrganizationRepository
         extends JpaRepository<OrganizationEntity, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select organization from OrganizationEntity organization where organization.id = :organizationId")
+    Optional<OrganizationEntity> lockById(@Param("organizationId") UUID organizationId);
+
     List<OrganizationEntity> findAllByOrderByNameAsc();
 
     @Query("""

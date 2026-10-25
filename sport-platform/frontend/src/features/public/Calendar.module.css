@@ -1,8 +1,4 @@
 .root { min-height: 100vh; background: var(--color-page); color: var(--color-text); }
-.header { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; max-width: 1120px; margin: auto; padding: 20px 24px; border-bottom: 1px solid var(--color-border); }
-.header nav { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; flex: 1; }
-.header nav a { display: inline-flex; align-items: center; min-height: 44px; }
-.brand { font-size: 24px; font-weight: 800; text-decoration: none; }
 .main { max-width: 1120px; margin: auto; padding: 32px 24px; }
 .main h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.15; margin: 12px 0 28px; overflow-wrap: anywhere; }
 .main h2 { margin-top: 32px; }
@@ -42,11 +38,10 @@
 .settings fieldset { display: grid; gap: 16px; border: 0; padding: 0; min-width: 0; }
 .settings input, .settings textarea { max-width: 100%; }
 @media (max-width: 600px) {
-  .header { padding: 16px; gap: 16px; }.header nav { order: 3; flex-basis: 100%; }.brand { flex: 1; }
   .main { padding: 24px 16px; }.filters { padding: 16px; }.filters label { flex-basis: 100%; }.filters button { width: 100%; }
   .card { padding: 20px; }.orgHeader { align-items: flex-start; flex-wrap: wrap; }.logo, .initials { width: 72px; height: 72px; }
   .stats { gap: 20px; }.stats > div { flex-basis: 42%; }
 }
 
-@media screen { .main { width: min(calc(100% - var(--space-8)), calc(var(--space-16) * 15)); max-width: none; margin-inline: auto; padding-inline: 0; } }
-@media screen and (min-width: 768px) { .main { width: min(calc(100% - var(--space-12)), calc(var(--space-16) * 15)); } }
+@media screen { .main { width: min(calc(100% - var(--space-8)), 960px /* A1, public content */); max-width: none; margin-inline: auto; padding-inline: 0; } }
+@media screen and (min-width: 768px) { .main { width: min(calc(100% - var(--space-12)), 960px /* A1, public content */); } }

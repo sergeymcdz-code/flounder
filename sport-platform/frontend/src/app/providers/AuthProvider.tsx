@@ -14,6 +14,7 @@ import type {
 import { getAuthState, setAuthSession, subscribeAuth } from '../../api/auth-session'
 import { apiFetch, sanitizeStoredSession, settleRefresh, restoreCookieSession } from '../../api/http'
 import { LoadingState } from '../../components/LoadingState'
+import { clearRegistrationDrafts } from '../../features/public/registrationFields'
 
 export const ROLE_PLATFORM_ADMIN = 'platform_admin'
 export const ROLE_ORGANIZER = 'organizer'
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     setAuthSession(null)
+    clearRegistrationDrafts()
     await settleRefresh()
     await apiFetch('/api/v1/auth/logout', { method: 'POST', skipRefresh: true })
   }, [])

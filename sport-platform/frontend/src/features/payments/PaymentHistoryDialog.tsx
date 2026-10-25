@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PaymentDialog } from './PaymentMutationDialog'
+import { OrganizerDialog } from '../organizer/OrganizerDialog'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Notice } from '../../components/ui/Notice'
@@ -21,14 +21,14 @@ export function PaymentHistoryDialog({ id, token, onClose }: { id: string; token
     return () => { active = false }
   }, [id, token, reload])
   const labels: Record<string, string> = { MARK_PAID: 'Оплата', WAIVE: 'Освобождение', REFUND: 'Возврат', RESET: 'Сброс' }
-  return <PaymentDialog title="История оплаты" onClose={onClose}>
+  return <OrganizerDialog title="История оплаты" onClose={onClose}>
     {error && <Notice tone="danger">{error} <Button onClick={() => setReload(value => value + 1)}>Повторить</Button></Notice>}
-    {loading && <div role="status"><p>Загружаем историю оплаты…</p><div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div></div>}
+    {loading && <div role="status"><p>Загружаем историю оплаты…</p><div className="fl-skeleton" aria-hidden="true"><div /><div /><div /></div></div>}
     {!loading && !rows.length && !error && <EmptyState title="Операций пока нет" action={<Button onClick={onClose}>Закрыть</Button>}><p>Здесь появятся отметки оплаты, возвраты и освобождения от взноса.</p></EmptyState>}
     {!!rows.length && <ol className={styles.history}>{rows.map(row => <li key={row.id}>
       <strong>{labels[row.action] || 'Операция оплаты'}</strong> · <span className="fl-numeric">{money(row.amount, row.currency || 'RUB')}</span>
       <p><time dateTime={row.performedAt}>{new Date(row.performedAt).toLocaleString('ru-RU')}</time> · Исполнитель: {row.performedByName || 'Не указан'}</p>
       {row.reference && <p>Документ: {row.reference}</p>}{row.comment && <p>{row.comment}</p>}
     </li>)}</ol>}
-  </PaymentDialog>
+  </OrganizerDialog>
 }

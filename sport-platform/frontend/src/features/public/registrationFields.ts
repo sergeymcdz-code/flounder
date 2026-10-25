@@ -103,3 +103,12 @@ export function validateRegistration(
   if (!consent) errors.consent = 'Необходимо согласие на обработку персональных данных.'
   return errors
 }
+
+export function clearRegistrationDrafts() {
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index)
+      if (key?.startsWith('sportgate.registration.')) localStorage.removeItem(key)
+    }
+  } catch { /* Storage may be unavailable; signing out must still succeed. */ }
+}

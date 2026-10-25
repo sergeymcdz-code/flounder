@@ -1,3 +1,4 @@
+import { Button } from '../../components/ui/Button'
 import { ResultStatus } from './ResultStatus'
 import { StatusLegend } from './StatusLegend'
 import { resultStatusCode } from './results-ui'
@@ -173,14 +174,14 @@ export function PublicDisciplineResultsPage() {
 
   return (
     <section className={styles.page}>
-      <Link
-        className={styles.backLink}
+      <Button as={Link} variant="ghost" size="sm"
+        className="fl-back-link"
         to={publicSlug ? `/events/${publicSlug}` : '/'}
       >
         ← К соревнованию
-      </Link>
+      </Button>
 
-      <p className={styles.eyebrow}>Опубликованные результаты</p>
+      <p className={`${styles.eyebrow} fl-eyebrow`}>Опубликованные результаты</p>
 
       <h1 className={styles.title}>
         {disciplineName

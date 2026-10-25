@@ -131,7 +131,9 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void organizationListsAndMembershipsUseBatchQueries() throws Exception {
-        String firstUser = create(email(), "Первый", "Владелец");
+        String firstEmail = email();
+        String firstUser = create(firstEmail, "Первый", "Владелец");
+        String firstOwnerToken = login(firstEmail, "Test-only-password1!");
         String secondUser = create(email(), "Второй", "Владелец");
         var organizationIds = new java.util.ArrayList<String>();
         for (int i = 0; i < 3; i++) {
@@ -140,7 +142,7 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
             organizationIds.add(id);
             call(post("/api/v1/organizations/" + id + "/members"), admin, Map.of("userId", firstUser, "memberRole", "owner"))
                     .andExpect(status().isCreated());
-            call(post("/api/v1/organizations/" + id + "/members"), admin, Map.of("userId", secondUser, "memberRole", "owner"))
+            call(post("/api/v1/organizations/" + id + "/members"), firstOwnerToken, Map.of("userId", secondUser, "memberRole", "owner"))
                     .andExpect(status().isCreated());
         }
         assertSqlCount(4, () -> {
@@ -261,12 +263,46 @@ class AdminPanelIntegrationTest extends AbstractPostgresIntegrationTest {
         login(email, "NewPass2026!");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"userId", "email", "patch"})
+    @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
+    void platformAdminAssignsFirstOwnerThroughApiButCannotAssignAnother(String method,
+            org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+        String ownerEmail = email();
+        String owner = create(ownerEmail, "Первый", "Владелец");
+        String other = create(email(), "Второй", "Участник");
+        String org = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Bootstrap owner"))
+                .andExpect(status().isCreated())).get("id").asText();
+        String membersPath = "/api/v1/organizations/" + org + "/members";
+        if (method.equals("patch")) {
+            call(post(membersPath), admin, Map.of("userId", owner, "memberRole", "member"))
+                    .andExpect(status().isCreated());
+            call(patch(membersPath + "/" + owner), admin, Map.of("memberRole", "owner"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.memberRole").value("owner"));
+        } else {
+            call(post(membersPath), admin, Map.of(method, method.equals("email") ? ownerEmail : owner, "memberRole", "owner"))
+                    .andExpect(status().isCreated()).andExpect(jsonPath("$.memberRole").value("owner"));
+        }
+        assertThat(output.getOut()).contains("organization_role_changed organizationId=" + org
+                + " actorId=" + adminId + " targetUserId=" + owner
+                + " previousRole=" + (method.equals("patch") ? "member" : "null") + " nextRole=owner");
+        call(post(membersPath), admin, Map.of("userId", other, "memberRole", "owner"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("organizations.protected_member"));
+        call(post(membersPath), admin, Map.of("userId", other, "memberRole", "member"))
+                .andExpect(status().isCreated());
+        call(patch(membersPath + "/" + other), admin, Map.of("memberRole", "owner"))
+                .andExpect(status().isForbidden());
+        call(patch(membersPath + "/" + owner), admin, Map.of("memberRole", "member"))
+                .andExpect(status().isForbidden());
+        call(delete(membersPath + "/" + owner), admin, null).andExpect(status().isForbidden());
+    }
+
     @Test
     void membershipByEmailRoleChangeDeleteAndDetails() throws Exception {
         String email = email(); String user = create(email, "Член", "Организации");
         String org = body(call(post("/api/v1/organizations"), admin, Map.of("type", "club", "name", "Клуб M01", "city", "Самара"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.city").value("Самара"))).get("id").asText();
-        call(post("/api/v1/organizations/" + org + "/members"), admin, Map.of("email", email.toUpperCase(), "memberRole", "owner"))
+        call(post("/api/v1/organizations/" + org + "/members"), admin, Map.of("email", email.toUpperCase(), "memberRole", "organizer"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.email").value(email)).andExpect(jsonPath("$.firstName").value("Член"));
         call(get("/api/v1/users/" + user), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$.memberships[0].organizationId").value(org));
         call(get("/api/v1/organizations/" + org + "/members"), admin, null).andExpect(status().isOk()).andExpect(jsonPath("$[0].lastName").value("Организации"));

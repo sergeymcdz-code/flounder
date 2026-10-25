@@ -11,8 +11,8 @@ import com.acme.sportplatform.events.infrastructure.persistence.entity.EventEnti
 
 public interface EventRepository extends JpaRepository<EventEntity, UUID> {
 
-    List<EventEntity> findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
-            Collection<UUID> organizationIds, UUID userId);
+    List<EventEntity> findByOrganizationIdInOrderByEventStartAtDesc(
+            Collection<UUID> organizationIds);
 
     List<EventEntity> findAllByOrderByEventStartAtDesc();
 
@@ -38,5 +38,4 @@ public interface EventRepository extends JpaRepository<EventEntity, UUID> {
 
     Optional<EventEntity> findByPublicSlug(String publicSlug);
 
-    List<EventEntity> findByCreatedByUserIdOrderByEventStartAtDesc(UUID createdByUserId);
 }

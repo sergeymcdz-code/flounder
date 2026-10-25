@@ -265,6 +265,11 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
     @Test
     void rejectsInvalidFilesAndEnforcesAccessForAllEndpoints() throws Exception {
         UUID event = event();
+        ownerMembership(events.findById(event).orElseThrow().getOrganizationId(), ADMIN);
+        var organizer = new PlatformUserPrincipal(ADMIN, "test@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")), memberships(ADMIN));
+        var operator = new PlatformUserPrincipal(ADMIN, "test@example.com", "", "active",
+                List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")), memberships(ADMIN));
         byte[] valid = file(List.of(List.of("Доступ", "Тест", "10.05.2014", "М", "M-50-FREE", "")));
         var other = principal(UUID.randomUUID(), "ORGANIZER");
         for (String endpoint : List.of("/import-template", "/export")) {
@@ -273,9 +278,9 @@ class ExcelImportIntegrationTest extends AbstractPostgresIntegrationTest {
             mvc.perform(get(base(event) + endpoint).with(user(other))).andExpect(status().isForbidden());
             mvc.perform(get(base(event) + endpoint).with(user(principal(ADMIN, "PARTICIPANT"))))
                     .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value("Доступ запрещён"));
-            mvc.perform(get(base(event) + endpoint).with(user(principal(ADMIN, "ORGANIZER"))))
+            mvc.perform(get(base(event) + endpoint).with(user(organizer)))
                     .andExpect(status().isOk());
-            mvc.perform(get(base(event) + endpoint).with(user(principal(ADMIN, "OPERATOR"))))
+            mvc.perform(get(base(event) + endpoint).with(user(operator)))
                     .andExpect(status().isOk());
         }
         mvc.perform(multipart(base(event) + "/import").file(part("rows.xlsx", valid)).with(user(other)))

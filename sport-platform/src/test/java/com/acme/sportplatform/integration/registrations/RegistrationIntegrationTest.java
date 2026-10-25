@@ -132,7 +132,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
                 "organizer@example.com",
                 "",
                 "active",
-                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER"))
+                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")), memberships(user.getId())
         );
 
         String reviewRequestJson = """
@@ -232,7 +232,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
                         "organizer@example.com",
                         "",
                         "active",
-                        List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER"))
+                        List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")), memberships(user.getId())
                 );
 
         PlatformUserPrincipal operatorPrincipal =
@@ -241,7 +241,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
                         "operator@example.com",
                         "",
                         "active",
-                        List.of(new SimpleGrantedAuthority("ROLE_OPERATOR"))
+                        List.of(new SimpleGrantedAuthority("ROLE_OPERATOR")), memberships(user.getId())
                 );
 
         String reviewRequestJson = """
@@ -407,7 +407,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
                 "organizer@example.com",
                 "",
                 "active",
-                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER"))
+                List.of(new SimpleGrantedAuthority("ROLE_ORGANIZER")), memberships(organizerId)
         );
 
         mockMvc.perform(
@@ -508,6 +508,7 @@ class RegistrationIntegrationTest extends AbstractPostgresIntegrationTest {
         event.setId(UUID.randomUUID());
         event.setCreatedByUserId(createdByUserId);
         event.setOrganizationId(UUID.randomUUID());
+        ownerMembership(event.getOrganizationId(), createdByUserId);
         event.setVenueId(UUID.randomUUID());
         event.setSportId(SWIMMING_SPORT_ID);
         event.setRegulationVersionId(UUID.randomUUID());

@@ -39,7 +39,7 @@ export function EventChecklist({ context, onTransition, action, busy = false }: 
   const completed = steps.filter((step, index) => step.done && index !== action?.step)
   function row(step: typeof steps[number], index: number) {
     const active = index === current
-    const reason = [action?.reason, busy ? 'Дождитесь завершения текущего действия' : undefined].filter(Boolean).join(' ') || undefined
+    const reason = [action?.reason, busy ? 'Дождитесь завершения текущего действия' : undefined].filter(Boolean).join(' · ') || undefined
     return <li className={styles.row} key={step.title} aria-current={active ? 'step' : undefined}>
       <StepIcon state={step.done && !active ? 'done' : active ? 'current' : 'pending'} />
       <Link className={styles.stepLink} to={`${base}${step.path}`}>
@@ -51,7 +51,7 @@ export function EventChecklist({ context, onTransition, action, busy = false }: 
           aria-describedby={reason ? `checklist-reason-${index}` : undefined}
           onClick={() => onTransition(index)}>{action.label}</Button>
         {reason && <small id={`checklist-reason-${index}`}>{reason}</small>}
-      </div> : <Button as={Link} variant="ghost" size="sm" className={styles.open} to={`${base}${step.path}`}>
+      </div> : <Button as={Link} variant="ghost" size="sm" className={`${styles.open} fl-back-link`} to={`${base}${step.path}`}>
         {active && !action ? step.action : 'Открыть →'}
       </Button>}
     </li>

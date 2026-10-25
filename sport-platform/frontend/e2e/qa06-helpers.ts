@@ -216,7 +216,7 @@ export async function navigate(page: Page, path: string) {
   if (pathname.includes('/organizer/events/11111111-1111-4111-8111-111111111111')) {
     if (pathname.endsWith('/entries') || pathname.endsWith('/registrations')) await expect(page.getByRole('button', { name: 'Импорт из Excel', exact: true })).toBeVisible()
     else if (pathname.endsWith('/program')) await expect(page.getByRole('button', { name: 'Добавить сессию', exact: true })).toBeVisible()
-    else if (pathname.endsWith('/heats')) await expect(page.getByText('Сформировать заплывы ▾', { exact: true })).toBeVisible()
+    else if (pathname.endsWith('/heats')) await expect(page.getByText('По виду ▾', { exact: true })).toBeVisible()
     else if (pathname.endsWith('/results')) await expect(page.getByRole('heading', { name: 'Результаты соревнования', exact: true })).toBeVisible()
     else if (await page.getByRole('alert').count() === 0) await expect(page.getByRole('heading', { name: 'Регистрация', exact: true })).toBeVisible()
   }

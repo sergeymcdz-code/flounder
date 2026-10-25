@@ -1,3 +1,4 @@
+import { Button } from '../../components/ui/Button'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router'
 import { apiFetch, ApiError } from '../../api/http'
@@ -49,7 +50,7 @@ export function PasswordPage({ mode }: { mode: 'forgot' | 'reset' | 'change' }) 
   }
 
   return <section className={styles.page}>
-    <Link className={styles.backLink} to="/login">← Войти</Link>
+    <Button as={Link} variant="ghost" size="sm" className="fl-back-link" to="/login">← Войти</Button>
     <div className={styles.card}>
       <h1 className={styles.title}>{title}</h1>
       {success ? <p role="status">{mode === 'forgot'

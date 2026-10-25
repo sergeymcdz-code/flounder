@@ -102,12 +102,12 @@ export function LiveBoard({
           {live.currentUnit ? (
             <>
               <div className={styles.boardTop}>
-                <p className={styles.eyebrow}>
+                <p className={`${styles.eyebrow} fl-eyebrow`}>
                   {finished
                     ? 'Заплыв завершён'
                     : status === 'CANCELLED'
                       ? 'Заплыв отменён'
-                      : '● Сейчас в бассейне'}
+                      : running ? '● Сейчас в бассейне' : 'Текущий заплыв'}
                 </p>
                 <span className={styles.startTime}>
                   Старт{' '}
@@ -413,7 +413,7 @@ export function LivePage() {
       aria-label="Мои пловцы"
     >
       <div className={styles.sectionHeading}>
-        <h2>★ Мои пловцы</h2>
+        <h2><span aria-hidden="true">★</span> Мои пловцы</h2>
         <Button
           as="a"
           variant="ghost"

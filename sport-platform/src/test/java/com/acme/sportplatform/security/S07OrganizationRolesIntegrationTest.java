@@ -76,7 +76,7 @@ class S07OrganizationRolesIntegrationTest extends Qa04SecurityFixture {
                 .andExpect(jsonPath("$").isEmpty());
         jdbc.update("update events set created_by_user_id=? where id=?", id("operator"), id("event"));
         mvc.perform(get("/api/v1/registrations").header("Authorization", bearer)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(ids.get("registration")));
+                .andExpect(jsonPath("$").isEmpty());
     }
 
     @Test

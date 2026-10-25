@@ -1,7 +1,7 @@
-import { Component, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { Component, useEffect, useState, type ReactNode } from 'react'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { Link } from 'react-router'
-import { useOrganizerEvent, type EventContext } from '../organizer/organizer-event-context'
+import { disabledReason as getDisabledReason, useOrganizerEvent, type EventContext } from '../organizer/organizer-event-context'
 import { PaymentMutationDialog } from './PaymentMutationDialog'
 import { PaymentHistoryDialog } from './PaymentHistoryDialog'
 import { ActionBar } from '../../components/ui/ActionBar'
@@ -22,38 +22,6 @@ function paymentError(error: unknown) {
   if (error instanceof TypeError) return 'Нет связи. Проверьте интернет и повторите.'
   if (error instanceof ApiError) return error.status === 404 ? 'Данные не найдены. Повторите загрузку.' : `Сервер ответил ошибкой (${error.status}). ${error.message}`
   return error instanceof Error ? error.message : 'Не удалось загрузить данные. Повторите попытку.'
-}
-
-// Local fallback until the shared OverflowMenu from D04-2a is available.
-function PaymentMenu({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const id = useId()
-  const trigger = useRef<HTMLButtonElement>(null)
-  const panel = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    panel.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
-    const close = (event: KeyboardEvent | PointerEvent) => {
-      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
-      if (event instanceof PointerEvent && (panel.current?.contains(event.target as Node) || trigger.current?.contains(event.target as Node))) return
-      setOpen(false)
-      if (event instanceof KeyboardEvent) trigger.current?.focus()
-    }
-    document.addEventListener('keydown', close)
-    document.addEventListener('pointerdown', close)
-    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
-  }, [open])
-  return <><button ref={trigger} type="button" className="fl-btn fl-btn-ghost" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>⋯</button>
-    {open && createPortal(<div ref={panel} id={id} className={styles.menu} role="menu" aria-label={label} onKeyDown={event => {
-      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-      event.preventDefault()
-      const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
-      const current = items.indexOf(document.activeElement as HTMLButtonElement)
-      const index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
-      items[index]?.focus()
-    }} onClick={event => {
-      if ((event.target as HTMLElement).closest('button:not(:disabled)')) { setOpen(false); trigger.current?.focus() }
-    }}>{children}</div>, document.body)}</>
 }
 
 class PaymentBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -82,7 +50,7 @@ function PaymentsContent({ context }: { context: EventContext }) {
   const [recalculated, setRecalculated] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
   const disabled = busy || event.status === 'ARCHIVED'
-  const disabledReason = busy ? 'Дождитесь завершения текущего действия' : event.status === 'ARCHIVED' ? 'Соревнование в архиве: доступен только просмотр' : undefined
+  const disabledReason = getDisabledReason({ busy, archived: event.status === 'ARCHIVED' }) || undefined
   useEffect(() => {
     let active = true
     setLoading(true); setError('')
@@ -111,10 +79,10 @@ function PaymentsContent({ context }: { context: EventContext }) {
     { key: 'payment', header: 'Оплата', render: r => <StatusBadge kind="payment" code={r.paymentStatus || 'NOT_REQUIRED'} /> },
     { key: 'actions', header: 'Действия', render: r => <div className={styles.actions}>
       <Button disabled={disabled} title={disabledReason} onClick={() => setMutation({ ids: [r.id], amount: r.feeAmount })}>Отметить оплату</Button>
-      <PaymentMenu label={`Действия оплаты: ${name(r)}`}>
-        {([['waive-payment', 'Освободить от взноса'], ['refund-payment', 'Вернуть оплату'], ['reset-payment', 'Сбросить отметку']] as const).map(([action, label]) => <Button key={action} role="menuitem" variant="ghost" disabled={disabled} title={disabledReason} onClick={() => setMutation({ ids: [r.id], action, amount: action === 'refund-payment' ? r.paidAmount : undefined })}>{label}</Button>)}
-        <Button role="menuitem" variant="ghost" onClick={() => setHistory(r.id)}>Журнал оплаты</Button>
-      </PaymentMenu>
+      <OverflowMenu label={`Действия оплаты: ${name(r)}`} items={[
+        ...([['waive-payment', 'Освободить от взноса'], ['refund-payment', 'Вернуть оплату'], ['reset-payment', 'Сбросить отметку']] as const).map(([action, label]) => ({ label, disabled, disabledReason, onSelect: () => setMutation({ ids: [r.id], action, amount: action === 'refund-payment' ? r.paidAmount : undefined }) })),
+        { label: 'Журнал оплаты', onSelect: () => setHistory(r.id) },
+      ]} />
     </div> },
   ]
   return <section className={styles.page} aria-label="Оплата">
@@ -128,12 +96,12 @@ function PaymentsContent({ context }: { context: EventContext }) {
           </header>
           {!summary && <small className="fl-meta">Для экспорта дождитесь загрузки сводки.</small>}
           {error && <Notice tone="danger">{error} <Button onClick={retry}>Повторить</Button></Notice>}
-          {loading && <div role="status"><p>Загружаем сводку оплаты…</p><div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div></div>}
-          {summary && (summary.byClub.length ? <div className={`${styles.rowcards} ${styles.clubCards}`}><DataTable caption="Взносы и долги по клубам" columns={clubColumns} rows={summary.byClub} rowKey={c => c.club} minWidth={760} /></div> : <EmptyState title="Платежей пока нет" action={<Button as={Link} to={`/organizer/events/${event.id}/entries`}>Открыть заявки</Button>}><p>Подтверждённые заявки с взносами появятся здесь.</p></EmptyState>)}
+          {loading && <div role="status"><p>Загружаем сводку оплаты…</p><div className="fl-skeleton" aria-hidden="true"><div /><div /><div /></div></div>}
+          {summary && (summary.byClub.length ? <div className={styles.clubCards}><DataTable cards caption="Взносы и долги по клубам" columns={clubColumns} rows={summary.byClub} rowKey={c => c.club} minWidth={760} /></div> : <EmptyState title="Платежей пока нет" action={<Button as={Link} to={`/organizer/events/${event.id}/entries`}>Открыть заявки</Button>}><p>Подтверждённые заявки с взносами появятся здесь.</p></EmptyState>)}
           {!summary && !loading && !error && <EmptyState title="Сводка пока недоступна" action={<Button onClick={retry}>Повторить</Button>} />}
         </article>
         <article className={styles.card}><h2>Заявки и оплата</h2>
-          {registrations.length ? <div className={`${styles.rowcards} ${styles.entryCards}`}><DataTable caption="Оплата заявок" columns={entryColumns} rows={registrations} rowKey={r => r.id} minWidth={900} /></div> : <EmptyState title="Заявок пока нет" action={<Button as={Link} to={`/organizer/events/${event.id}/entries`}>Открыть заявки</Button>}><p>Здесь можно будет отметить оплату и открыть журнал операций.</p></EmptyState>}
+          {registrations.length ? <div className={styles.entryCards}><DataTable cards caption="Оплата заявок" columns={entryColumns} rows={registrations} rowKey={r => r.id} minWidth={900} /></div> : <EmptyState title="Заявок пока нет" action={<Button as={Link} to={`/organizer/events/${event.id}/entries`}>Открыть заявки</Button>}><p>Здесь можно будет отметить оплату и открыть журнал операций.</p></EmptyState>}
         </article>
       </div>
       <details className={`${styles.card} ${styles.settings}`} open={undefined} ref={element => { if (element && !element.dataset.initialized) { element.open = (window.matchMedia?.('(min-width: 1366px)').matches ?? false); element.dataset.initialized = 'true' } }}>

@@ -143,11 +143,11 @@ test('QA06-13 valid WITHDRAWN registration shows its status to the participant',
 
 test('QA06-10 withdraw confirmation returns keyboard focus to its trigger', async ({ page }) => {
   await openAuditPage(page, `${base}/entries`, 'organizer')
-  const trigger = page.getByRole('button', { name: 'Ещё ▾', exact: true }).first()
+  const trigger = page.getByRole('button', { name: 'Действия', exact: true }).first()
   // Finish scrolling before opening a menu that closes on scroll events.
   await trigger.scrollIntoViewIfNeeded()
   await trigger.click()
-  await page.getByRole('region', { name: 'Действия заявки' }).getByRole('button', { name: 'Снять', exact: true }).click()
+  await page.getByRole('menu', { name: 'Действия', exact: true }).getByRole('menuitem', { name: 'Снять', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Снять заявку?' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -228,7 +228,7 @@ for (const target of ['organizer', 'participant']) {
       const card = (await row.boundingBox())!
       expect(card.x).toBeGreaterThanOrEqual(0)
       expect(card.x + card.width).toBeLessThanOrEqual(375)
-      const actions = row.getByRole('button', { name: 'Ещё ▾', exact: true })
+      const actions = row.getByRole('button', { name: 'Действия', exact: true })
       await actions.scrollIntoViewIfNeeded()
       await expect(actions).toBeInViewport()
       const actionTarget = await actions.evaluate(node => {
@@ -274,8 +274,8 @@ test('QA06-20 Samara starts keep venue time in a Moscow browser', async ({ page 
     sequenceInSession: 1, scheduledAt: '2026-10-17T10:00:00+04:00', status: 'PUBLISHED',
   }])
   await navigate(page, '/e/demo/schedule')
-  await expect(page.locator('li').filter({ hasText: 'Заплыв 1' }).last()).toContainText('Заплыв 1')
-  await expect(page.locator('li').filter({ hasText: 'Заплыв 1' }).last()).toContainText('10:00')
+  await expect(page.getByRole('listitem').filter({ hasText: 'Заплыв 1' }).filter({ hasNot: page.getByRole('list') })).toContainText('Заплыв 1')
+  await expect(page.getByRole('listitem').filter({ hasText: 'Заплыв 1' }).filter({ hasNot: page.getByRole('list') })).toContainText('10:00')
 })
 
 test('QA06-22 judge can discover the results panel from primary navigation', async ({ page }) => {
@@ -462,7 +462,7 @@ for (const width of [375, 768, 1366]) {
       await page.keyboard.press('Escape')
       await expect(profile).toBeFocused()
     }
-    if (width < 1366) {
+    if (width < 1440) {
       const more = page.getByRole('button', { name: 'Другие разделы соревнования' })
       await more.click()
       await expect(page.getByRole('menuitem', { name: 'Аналитика' })).toBeVisible()

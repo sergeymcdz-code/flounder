@@ -71,3 +71,16 @@ it.each([false, true])('keeps context values stable on parent rerenders (authent
   expect(current.hasRole).toBe(previous.hasRole)
   expect(current).toBe(previous)
 })
+
+it('clears all registration drafts on logout while preserving unrelated storage', async () => {
+  localStorage.setItem('sportgate.registration.demo', 'first draft')
+  localStorage.setItem('sportgate.registration.other', 'second draft')
+  localStorage.setItem('sportgate.theme', 'dark')
+  localStorage.setItem('other.preference', 'keep')
+  render(<AuthProvider><Controls /></AuthProvider>)
+  await userEvent.click(screen.getByRole('button', { name: 'Выход' }))
+  expect(localStorage.getItem('sportgate.registration.demo')).toBeNull()
+  expect(localStorage.getItem('sportgate.registration.other')).toBeNull()
+  expect(localStorage.getItem('sportgate.theme')).toBe('dark')
+  expect(localStorage.getItem('other.preference')).toBe('keep')
+})

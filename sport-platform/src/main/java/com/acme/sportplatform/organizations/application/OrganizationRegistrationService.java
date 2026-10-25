@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.acme.sportplatform.common.exception.BusinessException;
 import com.acme.sportplatform.identity.UserRoleLookup;
+import com.acme.sportplatform.organizations.api.AddOrganizationMemberRequest;
 import com.acme.sportplatform.organizations.api.CreateOrganizationRegistrationRequest;
 import com.acme.sportplatform.organizations.api.CreateOrganizationRequest;
 import com.acme.sportplatform.organizations.api.OrganizationRegistrationResponse;
@@ -107,11 +108,13 @@ public class OrganizationRegistrationService {
             organizationId = organizationService.createOrganization(new CreateOrganizationRequest(
                     entity.getOrganizationType(), entity.getOrganizationName(), entity.getLegalName(), entity.getInn(),
                     entity.getContactEmail(), entity.getContactPhone())).id();
-        } else if (!organizationService.existsById(organizationId)) {
-            throw new BusinessException("organizations.organization_not_found", "Организация не найдена");
+            organizationService.putMember(organizationId, entity.getApplicantUserId(), "owner", reviewer);
+        } else {
+            organizationService.addMember(organizationId,
+                    new AddOrganizationMemberRequest(entity.getApplicantUserId(), "owner"),
+                    reviewer, true);
         }
         userRoleLookup.ensureOrganizer(entity.getApplicantUserId());
-        organizationService.putMember(organizationId, entity.getApplicantUserId(), "owner");
         reviewed(entity, reviewer, "APPROVED");
         return mapToResponse(entity);
     }
