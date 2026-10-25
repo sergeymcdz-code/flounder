@@ -60,9 +60,9 @@ public class EventAccessService {
         var event = events.findById(eventId)
                 .orElseThrow(() -> new BusinessException("events.event_not_found", "Событие не найдено"));
         if (principal != null && principal.isPlatformAdmin()) return;
-        if (principal != null && (principal.getUserId().equals(event.getCreatedByUserId())
-                || principal.getMemberships().stream().anyMatch(m -> event.getOrganizationId().equals(m.organizationId())
-                    && roles.contains(m.memberRole().toLowerCase(java.util.Locale.ROOT))))) return;
+        if (principal != null && principal.getMemberships().stream().anyMatch(m ->
+                event.getOrganizationId().equals(m.organizationId())
+                    && roles.contains(m.memberRole().toLowerCase(java.util.Locale.ROOT)))) return;
         throw new BusinessException("events.access_denied", "Нет доступа к этому событию");
     }
 }

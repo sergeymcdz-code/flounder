@@ -134,8 +134,8 @@ public class EventController {
 
         var managedEvents = principal.isPlatformAdmin()
                 ? eventRepository.findAllByOrderByEventStartAtDesc()
-                : eventRepository.findByOrganizationIdInOrCreatedByUserIdOrderByEventStartAtDesc(
-                        organizationManagementAccess.organizationIdsOf(currentUserId), currentUserId);
+                : eventRepository.findByOrganizationIdInOrderByEventStartAtDesc(
+                        organizationManagementAccess.organizationIdsOf(currentUserId));
         List<EventResponse> events = managedEvents.stream().filter(e -> organizationId == null || organizationId.equals(e.getOrganizationId())).map(eventMapper::toResponse).toList();
 
         return ResponseEntity.ok(events);
