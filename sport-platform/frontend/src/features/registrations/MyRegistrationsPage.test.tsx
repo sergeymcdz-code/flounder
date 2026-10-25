@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { http, HttpResponse } from 'msw'
@@ -30,5 +31,26 @@ it('treats a waived confirmed entry as paid and waits for the start list', async
   expect(await screen.findByText('Оплачено', { selector: '.fl-status' })).toBeInTheDocument()
   expect(screen.getByText(/Ждите стартовый протокол/)).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /Оплатить/ })).not.toBeInTheDocument()
+  setAuthSession(null)
+})
+
+it('confirms withdrawal, returns focus on cancel, and preserves context on success', async () => {
+  const row = { ...createFixtures().registrations[0], eventTitle: 'Кубок Самары', status: 'SUBMITTED', paymentStatus: 'NOT_REQUIRED' }
+  let mutations = 0
+  server.use(http.get('*/api/v1/registrations/me', () => HttpResponse.json([row])), http.get('*/api/v1/auth/me', () => HttpResponse.json({ email: 'parent@example.test' })), http.post('*/api/v1/registrations/:id/withdraw', () => { mutations++; return HttpResponse.json({ ...row, status: 'WITHDRAWN' }) }))
+  setAuthSession({ accessToken: 'test', expiresAt: Date.now() + 60000, tokenType: 'Bearer' })
+  render(<MemoryRouter><AuthProvider><MyRegistrationsPage /></AuthProvider></MemoryRouter>)
+  await userEvent.click(await screen.findByText('Подробнее'))
+  const trigger = screen.getByRole('button', { name: 'Отозвать заявку' })
+  await userEvent.click(trigger)
+  expect(screen.getByRole('dialog', { name: 'Отозвать заявку?' })).toBeInTheDocument()
+  expect(mutations).toBe(0)
+  await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+  expect(trigger).toHaveFocus()
+  await userEvent.click(trigger)
+  await userEvent.click(screen.getByRole('dialog').querySelector('button[type="submit"]')!)
+  expect(await screen.findByText('Снята')).toBeInTheDocument()
+  expect(screen.getByText('Кубок Самары')).toBeInTheDocument()
+  expect(mutations).toBe(1)
   setAuthSession(null)
 })

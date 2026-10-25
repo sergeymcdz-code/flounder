@@ -3,7 +3,7 @@ import { paymentInstructions, type PaymentSettings } from '../../api/registratio
 import { apiFetch } from '../../api/http'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { StatusBadge } from '../../components/ui/StatusBadge'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { ApiError } from '../../api/http'
@@ -15,6 +15,14 @@ import type {
   Registration,
 } from './registration.types'
 import styles from './MyRegistrationsPage.module.css'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { DataTable } from '../../components/ui/DataTable'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { Notice } from '../../components/ui/Notice'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { registrationAction } from '../../api/organizer.api'
+import { money } from '../../api/registration-payments.api'
 
 function getParticipantName(registration: Registration) {
   const { firstName, lastName, middleName } = registration.participantSnapshot
@@ -39,6 +47,25 @@ export function MyRegistrationsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [withdrawing, setWithdrawing] = useState<Registration | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [withdrawError, setWithdrawError] = useState<string>()
+  const withdrawSummary = useRef<HTMLElement | null>(null)
+  useEffect(() => { document.title = 'Мои заявки · SportGate' }, [])
+
+  async function withdraw() {
+    if (!withdrawing || !accessToken || busy) return
+    setBusy(true)
+    setWithdrawError(undefined)
+    try {
+      await registrationAction(withdrawing.id, 'withdraw', accessToken)
+      setRegistrations(rows => rows.map(row => row.id === withdrawing.id ? { ...row, status: 'WITHDRAWN' } : row))
+      setWithdrawing(null)
+      requestAnimationFrame(() => withdrawSummary.current?.focus())
+    } catch (error) {
+      setWithdrawError(error instanceof ApiError ? error.message : 'Нет связи. Не удалось отозвать заявку. Повторите попытку.')
+    } finally { setBusy(false) }
+  }
 
   async function loadRegistrations() {
     if (!accessToken) {
@@ -61,7 +88,7 @@ export function MyRegistrationsPage() {
           ? 'Сессия истекла. Войдите снова.'
           : error instanceof ApiError
             ? error.message
-            : 'Не удалось загрузить ваши заявки.'
+            : error instanceof TypeError ? 'Нет связи. Проверьте подключение и повторите попытку.' : 'Не удалось загрузить ваши заявки.'
 
       setErrorMessage(message)
     } finally {
@@ -75,126 +102,46 @@ export function MyRegistrationsPage() {
 
   const createdRegistrationId = searchParams.get('created')
 
-  return (
-    <section className={styles.page}>
-      <p className={styles.eyebrow}>Личный кабинет</p>
-
-      <h1 className={styles.title}>Мои заявки</h1><div className={styles.headerActions}><Link className="fl-btn fl-btn-secondary" to="/">Подать ещё заявку</Link></div>
-
-      <p className={styles.description}>
-        Здесь отображается актуальный статус ваших заявок на соревнования.
-      </p>
-
-      {createdRegistrationId ? (
-        <div className={styles.successBanner} role="status">
-          Заявка успешно отправлена и добавлена в список.
-        </div>
-      ) : null}
-
-      {isLoading ? (
-        <LoadingState message="Загружаем ваши заявки…" />
-      ) : null}
-
-      {!isLoading && errorMessage ? (
-        <ErrorState
-          message={errorMessage}
-          onRetry={() => void loadRegistrations()}
-        />
-      ) : null}
-
-      {!isLoading && !errorMessage && registrations.length === 0 ? (
-        <div className={styles.emptyState}>
-          <h2>Заявок пока нет</h2>
-
-          <p>Выберите соревнование и подайте первую заявку.</p>
-
-          <Link className="fl-btn fl-btn-primary" to="/">
-            Найти соревнование
-          </Link>
-        </div>
-      ) : null}
-
-      {!isLoading && !errorMessage && registrations.length > 0 ? (
-        <div className={styles.list}>
-          {registrations.map((registration) => {
-            const statusHint = getStatusHint(registration, email)
-
-            return (
-              <article className={styles.card} key={registration.id}>
-                <div className={styles.cardHeader}>
-                  <div>
-                    <h2>{registration.eventTitle || 'Соревнование'}</h2><p>{registration.disciplineName || 'Вид программы'} · {formatDateTime(registration.eventStartAt, registration.venueTimezone)}</p>
-
-                    <h3 className={styles.participantName}>
-                      {getParticipantName(registration)}
-                    </h3>
-                  </div>
-
-                  <StatusBadge kind="registration" code={registration.status} /><StatusBadge kind="payment" code={registration.paymentStatus === 'WAIVED' ? 'PAID' : registration.paymentStatus ?? (registration.status === 'PAID' ? 'PAID' : 'PENDING')} />
-                </div>
-
-                <dl className={styles.facts}>
-                  <div>
-                    <dt>Отправлена</dt>
-                    <dd>{formatDateTime(registration.submittedAt, registration.venueTimezone)}</dd>
-                  </div>
-
-                  {registration.participantSnapshot.clubName ? (
-                    <div>
-                      <dt>Клуб</dt>
-                      <dd>{registration.participantSnapshot.clubName}</dd>
-                    </div>
-                  ) : null}
-
-                  {registration.participantSnapshot.city ? (
-                    <div>
-                      <dt>Город</dt>
-                      <dd>{registration.participantSnapshot.city}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-
-                <RegistrationPaymentBlock registration={registration} settings={instructions[registration.eventId]} />
-                {statusHint ? (
-                  <p
-                    className={styles.statusHint}
-                  >
-                    Что дальше: {statusHint}
-                  </p>
-                ) : null}
-
-                {registration.reviewNote ? (
-                  <div className={styles.reviewNote}>
-                    <strong>Комментарий организатора</strong>
-                    <p>{registration.reviewNote}</p>
-                  </div>
-                ) : null}
-
-                {['CONFIRMED', 'ADMITTED'].includes(registration.status) && instructions[registration.eventId]?.enabled !== false && (!registration.paymentStatus || registration.paymentStatus === 'PENDING') ? (
-                  <div className={styles.actions}>
-                    <Link
-                      className="fl-btn fl-btn-primary"
-                      to={`/my/registrations/${registration.id}/payment`}
-                    >
-                      К оплате
-                    </Link>
-                  </div>
-                ) : null}
-
-
-              </article>
-            )
-          })}
-          <details><summary>Документы спортсмена</summary>
-          {accessToken && [...new Map(registrations.map((r) => [r.participantProfileId, r])).values()].map((r) => (
-            <div key={r.participantProfileId}>
-              <h2>{getParticipantName(r)}</h2>
-              <DocumentsPanel profileId={r.participantProfileId} accessToken={accessToken} />
+  return <section className={styles.page}>
+    <p className="fl-eyebrow">Личный кабинет</p>
+    <PageHeader title="Мои заявки" meta="Актуальные статусы участия и оплаты соревнований."
+      actions={<Button as={Link} to="/">Подать ещё заявку</Button>} />
+    {createdRegistrationId && <Notice tone="info"><span role="status">Заявка успешно отправлена и добавлена в список.</span></Notice>}
+    {isLoading && <LoadingState message="Загружаем ваши заявки…" />}
+    {errorMessage && <ErrorState message={errorMessage} onRetry={() => void loadRegistrations()} />}
+    {!isLoading && !errorMessage && !registrations.length && <EmptyState title="Заявок пока нет"
+      action={<Button as={Link} to="/" variant="primary">Найти соревнование</Button>}>
+      <p>Выберите соревнование и подайте первую заявку.</p>
+    </EmptyState>}
+    {registrations.length > 0 && <>
+      <div className={styles.cards}>
+        <DataTable cards minWidth="calc(var(--space-16) * 12)" caption="Ваши заявки на соревнования" rows={registrations} rowKey={row => row.id} columns={[
+          { key: 'participant', header: 'Участник', rowHeader: true, render: row => <div><strong>{getParticipantName(row)}</strong><span className={styles.meta}>{[row.participantSnapshot.clubName, row.participantSnapshot.city].filter(Boolean).join(' · ')}</span></div> },
+          { key: 'status', header: 'Статус', render: row => <StatusBadge kind="registration" code={row.status} /> },
+          { key: 'event', header: 'Соревнование', render: row => <div><strong>{row.eventTitle || 'Соревнование'}</strong><span className={styles.meta}>{row.disciplineName || 'Вид программы'} · {formatDateTime(row.eventStartAt, row.venueTimezone)}</span></div> },
+          { key: 'payment', header: 'Оплата', render: row => <StatusBadge kind="payment" code={row.paymentStatus === 'WAIVED' ? 'PAID' : row.paymentStatus ?? (row.status === 'PAID' ? 'PAID' : 'NOT_REQUIRED')} /> },
+          { key: 'fee', header: 'Взнос', numeric: true, render: row => money(row.feeAmount, row.feeCurrency ?? 'RUB') },
+          { key: 'actions', header: 'Что дальше', render: row => <div className={styles.next}>
+            <p>Что дальше: {getStatusHint(row, email)}</p>
+            <div className={styles.actions}>
+              {['CONFIRMED', 'ADMITTED'].includes(row.status) && instructions[row.eventId]?.enabled !== false && (!row.paymentStatus || row.paymentStatus === 'PENDING') && <Button as={Link} variant="primary" to={`/my/registrations/${row.id}/payment`}>К оплате</Button>}
+              <details className={styles.details}><summary className="fl-btn fl-btn-ghost">Подробнее</summary>
+                <p>Отправлена: {formatDateTime(row.submittedAt, row.venueTimezone)}</p>
+                <RegistrationPaymentBlock registration={row} settings={instructions[row.eventId]} />
+                {row.reviewNote && <Notice><strong>Комментарий организатора</strong><p>{row.reviewNote}</p></Notice>}
+                {!['WITHDRAWN', 'CANCELLED', 'REJECTED'].includes(row.status) && <Button variant="danger" onClick={event => { withdrawSummary.current = event.currentTarget.closest('details')?.querySelector('summary') ?? null; setWithdrawing(row); setWithdrawError(undefined) }}>Отозвать заявку</Button>}
+              </details>
             </div>
-          ))}
-          </details>
-        </div>
-      ) : null}
-    </section>
-  )
+          </div> },
+        ]} />
+      </div>
+      <details className={styles.documents}><summary className="fl-btn fl-btn-ghost">Документы спортсмена</summary>
+        {accessToken && [...new Map(registrations.map(row => [row.participantProfileId, row])).values()].map(row => <div key={row.participantProfileId}>
+          <h2>{getParticipantName(row)}</h2><DocumentsPanel profileId={row.participantProfileId} accessToken={accessToken} />
+        </div>)}
+      </details>
+    </>}
+    {withdrawing && <ConfirmDialog title="Отозвать заявку?" description={`${getParticipantName(withdrawing)} · ${withdrawing.eventTitle || 'Соревнование'}. Участие будет отменено. Возврат оплаты согласуйте с организатором.`}
+      confirmLabel="Отозвать заявку" tone="danger" busy={busy} busyLabel="Отзываем…" error={withdrawError} onClose={() => setWithdrawing(null)} onConfirm={() => void withdraw()} />}
+  </section>
 }

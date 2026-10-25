@@ -13,14 +13,15 @@ const rows = [
   { ...base, participantFullName: 'Иванова Анна Сергеевна', participantBirthYear: 2012, participantClubName: 'Волна', eventTitle: 'Кубок Москвы', eventStartAt: '2026-10-24T10:00:00Z', feeAmount: 1500, paymentStatus: 'PENDING' },
   { ...base, id: '22222222-2222-4222-8222-222222222222', eventId: '33333333-3333-4333-8333-333333333333', participantFullName: 'Петров Иван', eventTitle: 'Первенство области', eventStartAt: '2026-11-01T10:00:00Z' },
 ]
-beforeEach(() => vi.mocked(getRegistrations).mockResolvedValue(rows))
+vi.mock('../../api/registration-payments.api', async importOriginal => ({ ...await importOriginal<typeof import('../../api/registration-payments.api')>(), bulkPayment: vi.fn() }))
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(getRegistrations).mockResolvedValue(rows) })
 it('renders participant and event context, amounts and statuses without UUID text', async () => {
   const { container } = render(<MemoryRouter><OperatorPaymentsPage /></MemoryRouter>)
   expect(await screen.findByText('Иванова Анна Сергеевна')).toBeInTheDocument()
   expect(screen.getByText('2012 г. р. · Волна')).toBeInTheDocument()
   expect(screen.getAllByText('Кубок Москвы · 24.10.2026')).toHaveLength(2)
   expect(screen.getByText(/1\s500,00/)).toBeInTheDocument()
-  expect(screen.getByText('Ожидает')).toBeInTheDocument()
+  expect(screen.getByText('Ожидает оплаты', { selector: '.fl-status' })).toBeInTheDocument()
   expect(container.textContent).not.toMatch(/[a-f0-9]{8}-[a-f0-9-]{27}/i)
   expect(screen.getByRole('link', { name: /Открыть заявку: Иванова/ })).toHaveAttribute('href', `/operator/registrations/${base.id}`)
 })
@@ -56,4 +57,29 @@ it('uses the venue timezone for a start near the UTC date boundary', async () =>
   await screen.findByText('Иванова Анна Сергеевна')
   expect(screen.getAllByText('Кубок Москвы · 24.10.2026')).toHaveLength(2)
   expect(screen.queryByText(/23.10.2026/)).not.toBeInTheDocument()
+})
+
+it('requires an event, confirms bulk payment, and reports skipped entries by name', async () => {
+  const { bulkPayment } = await import('../../api/registration-payments.api')
+  vi.mocked(bulkPayment).mockResolvedValue({ updated: 0, skipped: [{ id: rows[0].id, reason: 'Заявка уже обработана' }] })
+  render(<MemoryRouter><OperatorPaymentsPage /></MemoryRouter>)
+  await screen.findByText('Иванова Анна Сергеевна')
+  expect(screen.queryByRole('button', { name: 'Отметить оплаченными' })).not.toBeInTheDocument()
+  await userEvent.selectOptions(screen.getByLabelText('Соревнование'), rows[0].eventId)
+  expect(screen.getByRole('button', { name: 'Отметить оплаченными' })).toBeDisabled()
+  await userEvent.click(screen.getByRole('checkbox', { name: /Выбрать оплату:/ }))
+  await userEvent.click(screen.getByRole('button', { name: 'Отметить оплаченными' }))
+  expect(bulkPayment).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
+  expect(await screen.findByText(/Обновлено заявок: 0. Пропущено: 1/)).toBeInTheDocument()
+  expect(screen.getByText('Иванова Анна Сергеевна: Заявка уже обработана')).toBeInTheDocument()
+  expect(bulkPayment).toHaveBeenCalledWith(rows[0].eventId, [rows[0].id], { method: 'CLUB_INVOICE' }, 'test')
+})
+
+it('retries loading after a network error', async () => {
+  vi.mocked(getRegistrations).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  render(<MemoryRouter><OperatorPaymentsPage /></MemoryRouter>)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Нет связи')
+  await userEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+  expect(await screen.findByText('Иванова Анна Сергеевна')).toBeInTheDocument()
 })
