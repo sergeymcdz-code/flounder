@@ -49,7 +49,7 @@ public final class StandingsCalculator {
                 if (place == 3) club.bronze++;
                 int points = place <= config.pointsByPlace().size() ? config.pointsByPlace().get(place - 1) : 0;
                 club.results.add(new Breakdown(heat.disciplineId(), grouped ? group(entry, heat, discipline) : null,
-                        place, points, Objects.toString(entry.lastName(), "") + " " + Objects.toString(entry.firstName(), ""), true));
+                        place, points, Objects.toString(entry.lastName(), "") + " " + Objects.toString(entry.firstName(), ""), true, entry.profileId()));
             }
         }
         var medals = clubs.values().stream().map(c -> new ClubMedals(c.name(), c.gold, c.silver, c.bronze))
@@ -67,7 +67,7 @@ public final class StandingsCalculator {
                 int count = counts.merge(List.of(b.disciplineId().toString(), Objects.toString(b.ageGroupCode(), "")), 1, Integer::sum);
                 boolean counted = config.maxScoredPerClubPerDiscipline() == null
                         || count <= config.maxScoredPerClubPerDiscipline();
-                return counted ? b : new Breakdown(b.disciplineId(), b.ageGroupCode(), b.place(), 0, b.athlete(), false);
+                return counted ? b : new Breakdown(b.disciplineId(), b.ageGroupCode(), b.place(), 0, b.athlete(), false, b.profileId());
             }).toList();
             var scored = breakdown.stream().filter(Breakdown::counted).toList();
             team.add(new ClubPoints(club.name(), scored.stream().mapToLong(Breakdown::points).sum(),

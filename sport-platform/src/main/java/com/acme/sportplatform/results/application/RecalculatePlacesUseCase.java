@@ -116,6 +116,7 @@ public class RecalculatePlacesUseCase {
             result.setUpdatedAt(now);
         }
 
+        unit.setOfficial(false);
         resultRepository.saveAll(allResults);
     }
 

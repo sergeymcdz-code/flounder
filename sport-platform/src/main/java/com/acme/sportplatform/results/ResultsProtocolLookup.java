@@ -8,8 +8,18 @@ import java.util.UUID;
 public interface ResultsProtocolLookup {
     List<Heat> heats(List<UUID> disciplineIds);
 
+    default List<Heat> heats(List<UUID> disciplineIds, boolean publishedOnly) {
+        return heats(disciplineIds).stream().filter(h -> !publishedOnly
+                || java.util.Set.of("FINISHED", "COMPLETED").contains(h.status())).toList();
+    }
+
     record Heat(UUID disciplineId, int number, String ageGroupCode, String status,
-            OffsetDateTime scheduledAt, List<Entry> entries) {}
+            OffsetDateTime scheduledAt, List<Entry> entries, boolean official) {
+        public Heat(UUID disciplineId, int number, String ageGroupCode, String status,
+                OffsetDateTime scheduledAt, List<Entry> entries) {
+            this(disciplineId, number, ageGroupCode, status, scheduledAt, entries, false);
+        }
+    }
     record Entry(Integer lane, String lastName, String firstName, Integer birthYear, String gender,
             String club, Long seedTimeMs, boolean withdrawn, Outcome outcome, UUID profileId) {
         public Entry(Integer lane, String lastName, String firstName, Integer birthYear, String gender,

@@ -334,16 +334,16 @@ public class ResultsController {
     ) {
         resultsAccessService.assertUnitModification(unitId, principal);
 
-        if (!request.published() && principal.getAuthorities().stream().noneMatch(a ->
+        if ((!request.published() || request.official() != null) && principal.getAuthorities().stream().noneMatch(a ->
                 java.util.Set.of("ROLE_ORGANIZER", "ROLE_OPERATOR", "ROLE_PLATFORM_ADMIN")
                         .contains(a.getAuthority()))) {
             throw new org.springframework.security.access.AccessDeniedException(
-                    "Снятие опубликованных результатов недоступно судье");
+                    "Снятие публикации и утверждение официального протокола недоступны судье");
         }
 
         publishCompetitionUnitUseCase.execute(
                 unitId,
-                request.published()
+                request.published(), request.official()
         );
 
         return ResponseEntity.noContent().build();

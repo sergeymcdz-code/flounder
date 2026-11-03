@@ -32,6 +32,12 @@ public class CompetitionUnitEntity {
     @Column(name = "status", nullable = false, length = 32)
     private String status;
 
+    @Column(nullable = false)
+    private boolean official;
+
+    public boolean isOfficial() { return official; }
+    public void setOfficial(boolean official) { this.official = official; }
+
     @Column(name = "scheduled_at")
     private OffsetDateTime scheduledAt;
 

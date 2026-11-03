@@ -42,6 +42,15 @@ public class PublishCompetitionUnitUseCase {
 
     @Transactional
     public void execute(UUID unitId, boolean published) {
+        execute(unitId, published, null);
+    }
+
+    @Transactional
+    public void execute(UUID unitId, boolean published, Boolean official) {
+        if (!published && Boolean.TRUE.equals(official)) {
+            throw new BusinessException("results.official_requires_publication",
+                    "Официальный протокол должен быть опубликован");
+        }
         CompetitionUnitEntity unit =
                 competitionUnitRepository
                         .lockById(unitId)
@@ -61,14 +70,18 @@ public class PublishCompetitionUnitUseCase {
                         "results.unit_not_published", "Результаты заплыва не опубликованы");
             }
 
+            unit.setOfficial(false);
             unit.setStatus(CompetitionUnitStatus.PUBLISHED.name());
             unit.setUpdatedAt(OffsetDateTime.now());
             return;
         }
 
+        boolean alreadyPublished = List.of("FINISHED", "COMPLETED").contains(unit.getStatus());
         switch (CompetitionUnitStatus.valueOf(unit.getStatus())) {
-            case FINISHED, COMPLETED -> throw new BusinessException(
-                    "results.unit_already_published", "Результаты заплыва уже опубликованы");
+            case FINISHED, COMPLETED -> {
+                if (official == null) throw new BusinessException(
+                        "results.unit_already_published", "Результаты заплыва уже опубликованы");
+            }
             case DRAFT, SCHEDULED -> throw new BusinessException(
                     "results.start_list_not_published", "Сначала опубликуйте стартовый протокол");
             case PUBLISHED, IN_PROGRESS -> { }
@@ -105,6 +118,11 @@ public class PublishCompetitionUnitUseCase {
             validateResultForPublication(result);
         }
 
+        unit.setOfficial(Boolean.TRUE.equals(official));
+        if (alreadyPublished) {
+            unit.setUpdatedAt(OffsetDateTime.now());
+            return;
+        }
         unit.setStatus(CompetitionUnitStatus.FINISHED.name());
         var now = OffsetDateTime.now();
         if (unit.getActualFinishedAt() == null) unit.setActualFinishedAt(now);
@@ -129,6 +147,12 @@ public class PublishCompetitionUnitUseCase {
                     "results.unit_has_unvalidated_results",
                     "Нельзя опубликовать: сначала пересчитайте результаты."
             );
+        }
+
+        if (ResultStatus.CORRECTED.name().equals(status) && result.getTimeMs() == null
+                && java.util.Set.of("DID_NOT_START", "DID_NOT_FINISH", "DISQUALIFIED")
+                        .contains(result.getRawValue() == null ? "" : result.getRawValue())) {
+            return;
         }
 
         if (ResultStatus.VALID.name().equals(status)
